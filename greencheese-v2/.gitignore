@@ -1,0 +1,12 @@
+node_modules
+.vite
+*.log
+lab/
+revisao/
+# servidor: dados do desenvolvimento e o que o PHP grava (banco, log, envios) nunca vão pro repositório
+.dados-dev/
+public/api/privado/*
+!public/api/privado/.htaccess
+!public/api/privado/index.html
+public/uploads/*
+!public/uploads/.htaccess

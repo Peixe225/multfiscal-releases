@@ -1,0 +1,284 @@
+/* A rua viva do Início. A faixa tem a altura reservada (RuaInicio); o canvas vem na resolução da arte e o CSS amplia
+   em px inteiros do aparelho. Movimento só no canvas (quadros) e em transform/opacity no DOM. */
+
+.rua {
+  position: relative;
+  height: 100%;
+  overflow: hidden;
+  background: var(--preto);
+  -webkit-user-select: none;
+  user-select: none;
+  /* rolar a página por cima da rua continua valendo */
+  touch-action: pan-y;
+}
+
+.rua-tela {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  max-width: none;
+  image-rendering: crisp-edges;
+  image-rendering: pixelated;
+  opacity: 0;
+}
+.rua.pronta .rua-tela {
+  opacity: 1;
+  transition: opacity 0.4s var(--ease-app);
+}
+
+/* ---------- balões de fala: o adesivo de texto do story, com canto em degrau e a cauda em pixel ---------- */
+
+.rua-baloes {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+.rua-balao {
+  position: absolute;
+  left: 0;
+  top: 0;
+  margin: 0;
+  max-width: min(72%, 230px);
+  width: max-content;
+}
+.rua-balao-corpo {
+  --c: var(--cauda, 50%);
+  display: block;
+  padding: 5px 9px 12px;
+  background: var(--branco);
+  color: var(--preto);
+  font: 400 16px/1.1 var(--pixel);
+  letter-spacing: 0.01em;
+  /* caixa com canto em degrau (3 px) e a cauda em escada embaixo, no x de quem fala */
+  clip-path: polygon(
+    0 6px, 3px 6px, 3px 3px, 6px 3px, 6px 0,
+    calc(100% - 6px) 0, calc(100% - 6px) 3px, calc(100% - 3px) 3px, calc(100% - 3px) 6px, 100% 6px,
+    100% calc(100% - 13px), calc(100% - 3px) calc(100% - 13px), calc(100% - 3px) calc(100% - 10px), calc(100% - 6px) calc(100% - 10px), calc(100% - 6px) calc(100% - 7px),
+    calc(var(--c) + 6px) calc(100% - 7px), calc(var(--c) + 6px) calc(100% - 5px), calc(var(--c) + 4px) calc(100% - 5px), calc(var(--c) + 4px) calc(100% - 3px), calc(var(--c) + 2px) calc(100% - 3px), calc(var(--c) + 2px) 100%,
+    calc(var(--c) - 1px) 100%, calc(var(--c) - 1px) calc(100% - 3px), calc(var(--c) - 3px) calc(100% - 3px), calc(var(--c) - 3px) calc(100% - 5px), calc(var(--c) - 5px) calc(100% - 5px), calc(var(--c) - 5px) calc(100% - 7px),
+    6px calc(100% - 7px), 6px calc(100% - 10px), 3px calc(100% - 10px), 3px calc(100% - 13px), 0 calc(100% - 13px)
+  );
+  transform-origin: var(--c) 100%;
+  /* voz pixel: entra em dois degraus, sem deslizar */
+  animation: rua-balao-entra 0.14s steps(2, jump-none) both;
+}
+@keyframes rua-balao-entra {
+  from {
+    transform: scale(0.55);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+/* ---------- o mercador (botão por cima dele: toque e teclado) ---------- */
+
+.rua-mercador {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 1;
+  min-width: 44px;
+  min-height: 44px;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.rua-mercador:focus-visible {
+  outline: 2px solid var(--branco);
+  outline-offset: 3px;
+}
+
+/* adesivo de link "Ver o Mercado", colado na calçada embaixo dele (o transform leva até ele, com o giro de adesivo) */
+.rua-cta {
+  position: absolute;
+  left: 0;
+  bottom: 6px;
+  z-index: 3;
+  /* como o VER PRODUTO do story (o leitor de tela lê "Ver o Mercado") */
+  text-transform: uppercase;
+  animation: rua-cta-entra 0.16s steps(2, jump-none) both;
+}
+@keyframes rua-cta-entra {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* ---------- a vitrine: a plaquinha do produto que o mercador ergue (nome e preço), um link de verdade ----------
+   Branca com canto em degrau, como o balão das falas; a cauda em escada aponta para o produto (embaixo, com a placa em
+   cima dele, ou de lado). Some (sem fade: troca seca) quando ele guarda o produto; com o foco do teclado, aparece. O
+   transform do link (Rua.tsx) leva até o lugar; a entrada em dois degraus fica na placa de dentro. */
+.rua-vitrine {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 3;
+  display: block;
+  max-width: min(64%, 172px);
+  width: max-content;
+  color: var(--preto);
+  text-decoration: none;
+  opacity: 0;
+  pointer-events: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.rua-vitrine.mostra,
+.rua-vitrine:focus-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+.rua-vitrine:focus-visible {
+  outline: none;
+}
+.rua-vitrine:focus-visible .rua-vitrine-corpo {
+  outline: 2px solid var(--branco);
+  outline-offset: 3px;
+}
+.rua-vitrine-placa {
+  position: relative;
+  display: block;
+}
+.rua-vitrine.mostra .rua-vitrine-placa {
+  transform-origin: var(--cauda, 50%) 100%;
+  animation: rua-balao-entra 0.14s steps(2, jump-none) both;
+}
+.rua-vitrine[data-cauda='esq'] .rua-vitrine-placa {
+  transform-origin: 0 var(--cauda, 50%);
+}
+.rua-vitrine[data-cauda='dir'] .rua-vitrine-placa {
+  transform-origin: 100% var(--cauda, 50%);
+}
+.rua-vitrine-corpo {
+  display: block;
+  min-height: 44px;
+  padding: 5px 9px 6px;
+  background: var(--branco);
+  font: 400 14px/1.1 var(--pixel);
+  letter-spacing: 0.01em;
+  clip-path: polygon(
+    0 6px, 3px 6px, 3px 3px, 6px 3px, 6px 0,
+    calc(100% - 6px) 0, calc(100% - 6px) 3px, calc(100% - 3px) 3px, calc(100% - 3px) 6px, 100% 6px,
+    100% calc(100% - 6px), calc(100% - 3px) calc(100% - 6px), calc(100% - 3px) calc(100% - 3px), calc(100% - 6px) calc(100% - 3px), calc(100% - 6px) 100%,
+    6px 100%, 6px calc(100% - 3px), 3px calc(100% - 3px), 3px calc(100% - 6px), 0 calc(100% - 6px)
+  );
+}
+.rua-vitrine:focus-visible .rua-vitrine-corpo {
+  clip-path: none;
+}
+/* sem lugar do lado do produto (a faixa do celular de 320 px): a placa estreita, com a fonte um pouco menor */
+.rua-vitrine[data-estreita] {
+  max-width: 116px;
+}
+.rua-vitrine[data-estreita] .rua-vitrine-corpo {
+  padding: 4px 7px 5px;
+  font-size: 12px;
+}
+.rua-vitrine[data-estreita] .rua-vitrine-preco {
+  font-size: 15px;
+}
+.rua-vitrine[data-estreita] .rua-vitrine-nome {
+  font-size: 12px;
+}
+/* o nome em até duas linhas; o preço embaixo, maior, com o ícone de link (como o VER PRODUTO do story). O nome vai na
+   letra do sistema: a Pixelify só lê bem do 16 px pra cima, e nos 12–14 px da placa "OCB" virava "0C8" */
+.rua-vitrine-nome {
+  font: 600 13px/1.15 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  letter-spacing: 0;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+.rua-vitrine-preco {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 3px;
+  font-size: 18px;
+  line-height: 1;
+}
+.rua-vitrine-preco svg {
+  flex: none;
+}
+.rua-vitrine-cauda {
+  position: absolute;
+  background: var(--branco);
+}
+.rua-vitrine[data-cauda='baixo'] .rua-vitrine-cauda,
+.rua-vitrine:not([data-cauda]) .rua-vitrine-cauda {
+  top: calc(100% - 1px);
+  left: calc(var(--cauda, 50%) - 6px);
+  width: 12px;
+  height: 8px;
+  clip-path: polygon(0 0, 100% 0, 100% 3px, 10px 3px, 10px 5px, 8px 5px, 8px 7px, 7px 7px, 7px 8px, 5px 8px, 5px 7px, 4px 7px, 4px 5px, 2px 5px, 2px 3px, 0 3px);
+}
+.rua-vitrine[data-cauda='esq'] .rua-vitrine-cauda {
+  right: calc(100% - 1px);
+  top: calc(var(--cauda, 50%) - 6px);
+  width: 8px;
+  height: 12px;
+  clip-path: polygon(100% 0, 100% 100%, 5px 100%, 5px 10px, 3px 10px, 3px 8px, 1px 8px, 1px 7px, 0 7px, 0 5px, 1px 5px, 1px 4px, 3px 4px, 3px 2px, 5px 2px, 5px 0);
+}
+.rua-vitrine[data-cauda='dir'] .rua-vitrine-cauda {
+  left: calc(100% - 1px);
+  top: calc(var(--cauda, 50%) - 6px);
+  width: 8px;
+  height: 12px;
+  clip-path: polygon(0 0, 3px 0, 3px 2px, 5px 2px, 5px 4px, 7px 4px, 7px 5px, 100% 5px, 100% 7px, 7px 7px, 7px 8px, 5px 8px, 5px 10px, 3px 10px, 3px 100%, 0 100%);
+}
+
+/* ---------- pausar a rua (WCAG 2.2.2): discreto, alvo de 44 px ---------- */
+
+.rua-pausa {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 3;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  color: var(--legenda);
+  cursor: pointer;
+}
+.rua-pausa-disco {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.72);
+}
+.rua-pausa:hover,
+.rua-pausa:focus-visible {
+  color: var(--branco);
+}
+.rua-pausa:focus-visible {
+  outline: none;
+}
+.rua-pausa:focus-visible .rua-pausa-disco {
+  outline: 2px solid var(--branco);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rua.pronta .rua-tela {
+    transition: none;
+  }
+  .rua-balao-corpo,
+  .rua-cta,
+  .rua-vitrine.mostra .rua-vitrine-placa {
+    animation: none;
+  }
+}

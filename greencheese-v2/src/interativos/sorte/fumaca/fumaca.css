@@ -1,0 +1,260 @@
+/* A revelação da fumaça (RevelacaoFumaca). Entra como <style> junto com o componente (o jogo e o painel usam o mesmo):
+   não depende do CSS do site (o painel tem o dele). Só transform e opacity no que mexe; o canvas sobe com
+   image-rendering: pixelated (a célula de 4 px do site). As medidas do cartão seguem o palco (cq). */
+
+.fm {
+  --fm-px: var(--pixel, 'GC Digitos', 'Pixelify Sans', ui-monospace, monospace);
+  --fm-ui: var(--ui, system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif);
+  --fm-placa: #07050c;
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  container-type: size;
+  contain: strict;
+  color: #fff;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: manipulation;
+  cursor: pointer;
+}
+.fm[data-modo='previa'] {
+  background: #000;
+}
+.fm[data-fase='espera'],
+.fm[data-fase='pronto'],
+.fm[data-fase='dissipando'],
+.fm[data-fase='resto'],
+.fm[data-fase='fim'] {
+  cursor: default;
+}
+.fm-palco {
+  position: absolute;
+  inset: 0;
+  transform-origin: 50% 50%;
+}
+.fm-fumaca {
+  position: absolute;
+  left: 0;
+  top: 0;
+  image-rendering: pixelated;
+  pointer-events: none;
+}
+
+/* o prêmio no meio da fumaça: o carimbo da raridade em cima (sem encostar em nada), o produto grande numa placa
+   escura com cantos em degrau e a borda pontilhada na cor da raridade, e o destaque e o nome numa placa escura (lê em
+   cima de qualquer fumaça). Deitado (tela larga e baixa): o produto à esquerda, o carimbo e o texto à direita. */
+.fm {
+  /* quanto o cartão cresce no auge (roteiro.ts: escala): as larguras máximas já descontam, nada encosta na borda */
+  --fm-esc: 1;
+}
+.fm-raro {
+  --fm-esc: 1.04;
+}
+.fm-epico {
+  --fm-esc: 1.08;
+}
+.fm-lendario {
+  --fm-esc: 1.12;
+}
+.fm-cartao {
+  /* o produto encolhe primeiro quando a pilha não cabe (o cartão do lendário ainda cresce 12% no auge) */
+  --fm-v: clamp(110px, min(54cqw, 36cqh, calc((74cqh - 230px) * 0.5625)), 280px);
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: grid;
+  grid-template-areas: 'carimbo' 'visual' 'texto';
+  justify-items: center;
+  width: max-content;
+  max-width: calc(92cqw / var(--fm-esc));
+  text-align: center;
+  transform-origin: 50% 50%;
+  will-change: transform, opacity;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+.fm-visual {
+  grid-area: visual;
+  position: relative;
+  width: var(--fm-v);
+  aspect-ratio: 9 / 16;
+}
+/* a placa do produto: a borda pontilhada (2 células, xadrez de 4 px) e o miolo chapado, cantos em degrau de 8 px */
+.fm-visual::before,
+.fm-visual::after {
+  content: '';
+  position: absolute;
+  clip-path: polygon(8px 0, calc(100% - 8px) 0, calc(100% - 8px) 4px, calc(100% - 4px) 4px, calc(100% - 4px) 8px, 100% 8px, 100% calc(100% - 8px), calc(100% - 4px) calc(100% - 8px), calc(100% - 4px) calc(100% - 4px), calc(100% - 8px) calc(100% - 4px), calc(100% - 8px) 100%, 8px 100%, 8px calc(100% - 4px), 4px calc(100% - 4px), 4px calc(100% - 8px), 0 calc(100% - 8px), 0 8px, 4px 8px, 4px 4px, 8px 4px);
+}
+.fm-visual::before {
+  inset: -12px;
+  background: conic-gradient(var(--fm-cor) 25%, var(--fm-placa) 0 50%, var(--fm-cor) 0 75%, var(--fm-placa) 0) 0 0 / 8px 8px;
+}
+.fm-visual::after {
+  inset: -4px;
+  background: var(--fm-placa);
+}
+.fm-visual > * {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+.fm-px {
+  font-family: var(--fm-px);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1;
+  font-synthesis: none;
+}
+.fm-carimbo {
+  grid-area: carimbo;
+  position: relative;
+  z-index: 2;
+  isolation: isolate;
+  overflow: hidden;
+  margin: 0 0 18px;
+  padding: 7px 14px 6px;
+  font-size: clamp(20px, 7cqmin, 32px);
+  letter-spacing: 0.05em;
+  color: var(--fm-tinta, var(--fm-escura));
+  background: var(--fm-cor);
+  border: 2px solid #000;
+  box-shadow: 4px 4px 0 #000;
+  transform: rotate(-6deg);
+  opacity: 0;
+  visibility: hidden;
+}
+.fm-lendario .fm-carimbo {
+  font-size: clamp(22px, 7.8cqmin, 36px);
+  color: #1a0b02;
+  background: #ffc53d;
+}
+/* o brilho holográfico do lendário passa por transform (uma camada por baixo do texto, 3× mais larga) */
+.fm-holo {
+  position: absolute;
+  z-index: -1;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 300%;
+  background: linear-gradient(105deg, #ffc53d 0%, #fff1b8 14%, #ff5fb0 30%, #35d4ff 48%, #9466ff 64%, #ffc53d 80%, #fff1b8 92%, #ffc53d 100%);
+  will-change: transform;
+}
+.fm-carimbo-txt {
+  position: relative;
+}
+.fm-texto {
+  grid-area: texto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 16px;
+  padding: 10px 16px;
+  max-width: calc(92cqw / var(--fm-esc));
+  background: var(--fm-placa);
+  clip-path: polygon(8px 0, calc(100% - 8px) 0, calc(100% - 8px) 4px, calc(100% - 4px) 4px, calc(100% - 4px) 8px, 100% 8px, 100% calc(100% - 8px), calc(100% - 4px) calc(100% - 8px), calc(100% - 4px) calc(100% - 4px), calc(100% - 8px) calc(100% - 4px), calc(100% - 8px) 100%, 8px 100%, 8px calc(100% - 4px), 4px calc(100% - 4px), 4px calc(100% - 8px), 0 calc(100% - 8px), 0 8px, 4px 8px, 4px 4px, 8px 4px);
+}
+.fm-destaque {
+  max-width: calc(86cqw / var(--fm-esc));
+  font-size: clamp(30px, min(calc(13cqw / var(--fm-esc)), 7.6cqh), 64px);
+  line-height: 1.02;
+  text-wrap: balance;
+  text-shadow: 0.06em 0.06em 0 var(--fm-escura);
+}
+.fm-produto {
+  margin-top: 6px;
+  max-width: min(80cqw, 340px);
+  font: 700 clamp(15px, min(4.6cqw, 3.2cqh), 21px) / 1.2 var(--fm-ui);
+  text-wrap: balance;
+}
+
+/* deitado: o produto à esquerda (alto), o carimbo e o texto à direita */
+@container (min-aspect-ratio: 23 / 20) {
+  .fm-cartao {
+    --fm-v: clamp(84px, min(26cqw, calc(64cqh * 0.5625)), 240px);
+    grid-template-areas: 'visual carimbo' 'visual texto';
+    grid-template-rows: auto auto;
+    align-content: center;
+    align-items: center;
+    column-gap: 28px;
+    text-align: left;
+  }
+  .fm-carimbo {
+    align-self: end;
+    justify-self: start;
+    margin: 0 0 4px;
+  }
+  .fm-texto {
+    align-self: start;
+    align-items: flex-start;
+    justify-self: start;
+    margin-top: 14px;
+    max-width: 52cqw;
+  }
+  .fm-destaque {
+    max-width: 48cqw;
+    font-size: clamp(28px, min(7cqw, 11cqh), 60px);
+  }
+  .fm-produto {
+    max-width: 48cqw;
+  }
+}
+
+/* do raro pra cima: "toque pra pular" no pé, 0,9 s depois de o beck pousar, até o prêmio aparecer */
+.fm-dica {
+  position: absolute;
+  z-index: 5;
+  left: 50%;
+  bottom: max(14px, env(safe-area-inset-bottom));
+  padding: 5px 9px 4px;
+  font-size: 14px;
+  color: #fff;
+  background: #07050c;
+  border: 2px solid #000;
+  transform: translateX(-50%);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+.fm:not(.fm-comum):is([data-fase='acende'], [data-fase='puxada'], [data-fase='sopro'], [data-fase='viagem']) .fm-dica {
+  animation: fm-dica 0.25s steps(3) 0.9s both;
+}
+@keyframes fm-dica {
+  from {
+    opacity: 0;
+    visibility: visible;
+  }
+  to {
+    opacity: 0.85;
+    visibility: visible;
+  }
+}
+
+/* teste do painel: o selo PRÉVIA sempre à vista (nunca vale cupom) */
+.fm-selo {
+  position: absolute;
+  z-index: 5;
+  top: 10px;
+  left: 10px;
+  padding: 5px 8px 4px;
+  font-size: 14px;
+  color: #000;
+  background: #fff;
+  border: 2px solid #000;
+  box-shadow: 2px 2px 0 #000;
+  pointer-events: none;
+}
+.fm-sr {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}

@@ -1,0 +1,46 @@
+{
+  "erros": [],
+  "relatorio": [
+    "cel-01-abertura-logo",
+    "cel-02-abertura-18",
+    "cel-03-abertura-adesivo",
+    "cel-04-hero-palpite-ip",
+    "cel-05-hero-confirmado",
+    "cel-06-perfil",
+    "cel-07-catalogo",
+    "cel-08-catalogo-indisponivel",
+    "cel-09-story-indisponivel",
+    "cel-10-story-produto",
+    "cel-11-mg-sacola",
+    "cel-11-mg-chat-resumo",
+    {
+      "mg": {
+        "uf": "mg",
+        "href": "https://wa.me/?text=PEDIDO%20GREEN%20CHEESE%20%E2%80%94%20MG%20%2F%20Te%C3%B3filo%20Otoni%0A1x%20Jack%20Daniel's%20Old%20No.%207%201%20L%20%E2%80%94%20R%24%20149%2C90%0A3x%20Seda%20OCB%20Premium%20Slim%20%E2%80%94%20R%24%2019%2C99%0ASubtotal%3A%20R%24%20169%2C89%0AEntrega%3A%20Rua%20Doutor%20Manoel%20Esteves%2C%20120%2C%20apto%20201%2C%20Centro%20(taxa%20a%20confirmar)%0APagamento%3A%20Pix%0ANome%3A%20Ian%20Teste%0AObs.%3A%20Port%C3%A3o%20azul",
+        "texto": "PEDIDO GREEN CHEESE — MG / Teófilo Otoni\n1x Jack Daniel's Old No. 7 1 L — R$ 149,90\n3x Seda OCB Premium Slim — R$ 19,99\nSubtotal: R$ 169,89\nEntrega: Rua Doutor Manoel Esteves, 120, apto 201, Centro (taxa a confirmar)\nPagamento: Pix\nNome: Ian Teste\nObs.: Portão azul"
+      }
+    },
+    "cel-12-por-estado",
+    "cel-13-rj-hero",
+    "cel-14-rj-sacola",
+    "cel-14-rj-chat-resumo",
+    {
+      "rj": {
+        "uf": "rj",
+        "href": "https://wa.me/?text=PEDIDO%20GREEN%20CHEESE%20%E2%80%94%20RJ%20%2F%20Rio%20de%20Janeiro%0A1x%20Jack%20Daniel's%20Old%20No.%207%201%20L%20%E2%80%94%20R%24%20149%2C90%0A3x%20Seda%20OCB%20Premium%20Slim%20%E2%80%94%20R%24%2019%2C99%0ASubtotal%3A%20R%24%20169%2C89%0AEntrega%3A%20Rua%20Barata%20Ribeiro%2C%20120%2C%20apto%20201%2C%20Copacabana%20(taxa%20a%20confirmar)%0APagamento%3A%20Pix%0ANome%3A%20Ian%20Teste%0AObs.%3A%20Port%C3%A3o%20azul",
+        "texto": "PEDIDO GREEN CHEESE — RJ / Rio de Janeiro\n1x Jack Daniel's Old No. 7 1 L — R$ 149,90\n3x Seda OCB Premium Slim — R$ 19,99\nSubtotal: R$ 169,89\nEntrega: Rua Barata Ribeiro, 120, apto 201, Copacabana (taxa a confirmar)\nPagamento: Pix\nNome: Ian Teste\nObs.: Portão azul"
+      }
+    },
+    "cel-15-sem-atendimento",
+    "ig-01-hero",
+    "ig-02-story-combo",
+    "desk-01-abertura",
+    "desk-02-hero-palpite",
+    "desk-03-catalogo",
+    "desk-04-story",
+    "desk-05-sacola",
+    "desk-06-chat",
+    "desk-07-por-estado",
+    "desk-08-sem-atendimento"
+  ]
+}

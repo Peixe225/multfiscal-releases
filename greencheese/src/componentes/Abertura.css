@@ -1,0 +1,227 @@
+.abertura,
+.saida {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  color: var(--branco);
+}
+.abertura-fundo {
+  position: absolute;
+  inset: 0;
+  background: var(--preto);
+}
+.abertura-barras {
+  position: absolute;
+  z-index: 2;
+  top: calc(var(--seg-topo) + 8px);
+  left: 8px;
+  right: 8px;
+  display: flex;
+  gap: 3px;
+}
+.abertura-barras i {
+  display: block;
+  height: 100%;
+  background: var(--branco);
+  transform-origin: left center;
+  transform: scaleX(0);
+}
+.abertura-pular {
+  position: absolute;
+  z-index: 3;
+  top: calc(var(--seg-topo) + 14px);
+  right: 4px;
+}
+.abertura-pular:disabled {
+  opacity: 0;
+}
+
+.abertura-logo {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
+.abertura-logo > * {
+  grid-area: 1 / 1;
+  width: min(64vw, 280px);
+  aspect-ratio: 1;
+}
+.abertura-pixels {
+  width: min(64vw, 280px);
+  height: min(64vw, 280px);
+}
+
+.abertura-idade,
+.abertura-local {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  padding: calc(var(--seg-topo) + 72px) 24px calc(var(--seg-baixo) + 32px);
+}
+.abertura-marca {
+  margin-bottom: 8vh;
+}
+.abertura-pergunta {
+  font-size: 40px;
+  line-height: 1.02;
+  max-width: 9ch;
+}
+.abertura-corte {
+  position: relative;
+  margin-top: 36px;
+  align-self: flex-start;
+  width: min(300px, 100%);
+}
+.abertura-recorte {
+  position: absolute;
+  inset: -8px;
+  border: 2px dashed var(--legenda);
+  border-radius: 16px;
+  opacity: 0;
+}
+.abertura-tesoura {
+  position: absolute;
+  top: -20px;
+  left: 0;
+  z-index: 2;
+}
+.abertura-enquete {
+  transform: rotate(-3deg);
+}
+.abertura-nota {
+  margin-top: auto;
+  font-size: 13px;
+}
+.abertura-local {
+  align-items: flex-start;
+}
+.abertura-adesivo {
+  margin-top: 10vh;
+  margin-left: 4px;
+  max-width: 100%;
+}
+.abertura-adesivo .adesivo-local {
+  transform-origin: 0 0;
+}
+/* a pergunta do palpite de IP, colada embaixo do adesivo (é aqui que ela mora, não na home). Só no quadro do local:
+   a enquete do +18 usa a mesma classe e, com a margem, saía pela base da tela com o celular deitado */
+.abertura-local .abertura-enquete {
+  margin-top: 22px;
+  width: min(320px, 100%);
+}
+
+@media (min-width: 900px) {
+  .abertura-idade,
+  .abertura-local {
+    left: 50%;
+    width: 440px;
+    margin-left: -220px;
+    padding-top: 120px;
+  }
+  .abertura-barras {
+    left: calc(50% - 214px);
+    right: auto;
+    width: 428px;
+  }
+  .abertura-pular {
+    right: calc(50% - 224px);
+  }
+  .abertura-pergunta {
+    font-size: 48px;
+  }
+}
+
+/* celular deitado (altura baixa): a pergunta à esquerda e o adesivo de enquete à direita, tudo dentro de 100dvh
+   (em pé, empilhados, o Tenho / Não tenho e o Sim / Trocar saíam pela base da tela). Se ainda faltar altura, rola */
+@media (orientation: landscape) and (max-height: 500px) {
+  .abertura-idade,
+  .abertura-local {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 300px);
+    grid-template-rows: auto auto 1fr;
+    align-content: center;
+    column-gap: 32px;
+    /* celular grande deitado (900 px ou mais) pega a coluna centrada do computador: aqui volta à tela toda */
+    left: 0;
+    width: auto;
+    max-width: 760px;
+    margin: 0 auto;
+    padding: calc(var(--seg-topo) + 52px) max(24px, var(--seg-esq), var(--seg-dir)) calc(var(--seg-baixo) + 12px);
+    overflow-y: auto;
+  }
+  .abertura-barras {
+    left: 8px;
+    right: 8px;
+    width: auto;
+  }
+  .abertura-pular {
+    right: 4px;
+  }
+  .abertura-marca {
+    grid-column: 1;
+    margin-bottom: 14px;
+  }
+  .abertura-pergunta {
+    grid-column: 1;
+    font-size: 32px;
+  }
+  .abertura-pergunta,
+  .abertura-marca {
+    justify-self: start;
+  }
+  .abertura-corte {
+    grid-column: 2;
+    grid-row: 1 / 3;
+    align-self: center;
+    margin-top: 0;
+  }
+  .abertura-nota {
+    grid-column: 1 / -1;
+    margin-top: 12px;
+    align-self: end;
+  }
+  .abertura-adesivo {
+    grid-column: 1;
+    margin-top: 0;
+  }
+  .abertura-local .abertura-enquete {
+    grid-column: 2;
+    grid-row: 1 / 3;
+    align-self: center;
+    margin-top: 0;
+  }
+}
+
+/* ---------- saída (menor de 18) ---------- */
+.saida {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 32px 28px;
+  text-align: center;
+  background-color: var(--preto);
+  /* dither no lugar do desfoque */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4' shape-rendering='crispEdges'%3E%3Crect width='1' height='1' fill='%23262626'/%3E%3Crect x='2' y='2' width='1' height='1' fill='%23262626'/%3E%3C/svg%3E");
+  background-size: 8px 8px;
+  image-rendering: pixelated;
+}
+.saida-titulo {
+  font: 800 20px/1.25 var(--ui);
+}
+.saida-txt {
+  max-width: 320px;
+  font-size: 14px;
+}
+.saida-voltar {
+  margin-top: 18px;
+  min-height: 44px;
+  padding: 0 16px;
+  font: 600 14px/1 var(--ui);
+  color: var(--branco);
+  border-top: 1px solid var(--bolha);
+  width: min(320px, 100%);
+}

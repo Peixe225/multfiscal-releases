@@ -1,0 +1,407 @@
+/* ---------- Adesivo de localização ---------- */
+
+.adesivo-local {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 100%;
+  background: var(--branco);
+  color: var(--preto);
+  border-radius: 7px;
+  font: 800 15px/1 var(--ui);
+  text-transform: uppercase;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  transform-origin: left center;
+}
+.adesivo-local-m {
+  min-height: 36px;
+  padding: 0 11px 0 9px;
+}
+.adesivo-local-p {
+  min-height: 22px;
+  padding: 0 7px 0 5px;
+  gap: 3px;
+  font-size: 10px;
+  border-radius: 4px;
+}
+.adesivo-local-g {
+  min-height: 44px;
+  padding: 0 14px 0 11px;
+  font-size: 18px;
+  border-radius: 9px;
+}
+button.adesivo-local-m,
+button.adesivo-local-g {
+  min-height: 44px;
+}
+.adesivo-local-txt {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.3; /* o acento do Ó não pode ser cortado */
+  padding-top: 1px;
+}
+.adesivo-local-pin {
+  flex: none;
+}
+.adesivo-local-cursor {
+  width: 0.55em;
+  height: 0.9em;
+  background: var(--preto);
+  animation: cursor-bloco 1s steps(1) infinite;
+}
+@keyframes cursor-bloco {
+  50% {
+    opacity: 0;
+  }
+}
+
+/* ---------- Topo fixo (celular): só depois do story, pequeno e reto ---------- */
+
+.topo-local {
+  position: fixed;
+  z-index: 40;
+  left: var(--gutter);
+  top: calc(var(--seg-topo) + 8px);
+  max-width: calc(100vw - 2 * var(--gutter) - 56px);
+  transform-origin: left center;
+  transform: translateY(-12px) scale(0.88);
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity 0.2s var(--ease-app),
+    transform 0.24s var(--ease-app);
+}
+.topo-local.visivel {
+  opacity: 1;
+  transform: translateY(0) scale(0.88);
+  pointer-events: auto;
+}
+.topo-faixa {
+  position: fixed;
+  z-index: 39;
+  inset: 0 0 auto;
+  height: calc(var(--seg-topo) + 60px);
+  background: var(--preto);
+  border-bottom: 1px solid var(--bolha);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s var(--ease-app);
+}
+.topo-faixa.visivel {
+  opacity: 1;
+}
+@media (min-width: 900px) {
+  .topo-local,
+  .topo-faixa,
+  .aviso-local {
+    display: none;
+  }
+}
+
+/* ---------- Linha de local do cabeçalho do story (celular) ---------- */
+
+/* como o local embaixo do @ num post do Instagram: pequeno, branco, com a seta de trocar */
+/* alvo de 44 px de verdade sem crescer a linha: o botão tem 44 de altura e as margens negativas devolvem o espaço */
+.linha-local {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  min-height: 44px;
+  margin: -12px 0 -12px -1px;
+  color: var(--branco);
+  font: 500 13px/1.2 var(--ui);
+  text-align: left;
+}
+.linha-local-txt {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.linha-local.vazia .linha-local-txt {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.linha-local-pin {
+  flex: none;
+}
+.linha-local-seta {
+  flex: none;
+  opacity: 0.7;
+  transform: rotate(90deg);
+}
+.linha-local .adesivo-local-cursor {
+  background: var(--branco);
+}
+
+/* ---------- Aviso de uma linha (celular): palpite de IP fora do story ---------- */
+
+.aviso-local {
+  position: fixed;
+  z-index: 45;
+  left: var(--gutter);
+  right: var(--gutter);
+  bottom: calc(var(--barra-baixo) + var(--seg-baixo) + 8px);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 52px;
+  padding: 4px 4px 4px 14px;
+  background: var(--branco);
+  color: var(--preto);
+  border-radius: 14px;
+  animation: aviso-local-entra 0.26s var(--ease-app) both;
+}
+@keyframes aviso-local-entra {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+.aviso-local-txt {
+  flex: 1;
+  min-width: 0;
+  font: 700 14px/1.2 var(--ui);
+  /* em duas linhas, quebra equilibrada ("Você está em / Minas Gerais?", sem "aí." sozinho embaixo) */
+  text-wrap: balance;
+}
+.aviso-local-opcoes {
+  flex: none;
+  display: flex;
+  border: 1px solid #dbdbdb;
+  border-radius: 10px;
+  overflow: hidden;
+}
+.aviso-local-op {
+  min-height: 44px;
+  padding: 0 12px;
+  font: 700 14px/1 var(--ui);
+  color: var(--preto);
+}
+.aviso-local-op + .aviso-local-op {
+  border-left: 1px solid #dbdbdb;
+}
+/* no Início: no pé do story, no lugar da linha "Enviar mensagem…" (o .hero-resposta em volta dá o respiro); a
+   linha de resposta volta quando a pessoa responde */
+.aviso-local-story {
+  position: relative;
+  z-index: auto;
+  left: auto;
+  right: auto;
+  bottom: auto;
+  flex: 1;
+  min-width: 0;
+}
+/* estado sem entrega com pouca largura (celular de 320 px; deitado, com o VER PRODUTO largo ao lado):
+   as opções descem para baixo da frase em vez de espremê-la em 5 linhas. No story, quem mede é o pé do story
+   (container); o fixo das outras abas tem a largura da tela */
+.hero-aviso-local {
+  container-type: inline-size;
+}
+@container (max-width: 320px) {
+  .aviso-local-fora {
+    flex-wrap: wrap;
+    row-gap: 2px;
+    padding-top: 7px;
+  }
+  .aviso-local-fora .aviso-local-txt {
+    flex-basis: 100%;
+  }
+  .aviso-local-fora .aviso-local-opcoes {
+    margin-left: auto;
+  }
+}
+@media (max-width: 359px) {
+  .aviso-local-fixo.aviso-local-fora {
+    flex-wrap: wrap;
+    row-gap: 2px;
+    padding-top: 7px;
+  }
+  .aviso-local-fixo.aviso-local-fora .aviso-local-txt {
+    flex-basis: 100%;
+  }
+  .aviso-local-fixo.aviso-local-fora .aviso-local-opcoes {
+    margin-left: auto;
+  }
+}
+/* com o aviso fixo à vista (fora do Início), o fim da página reserva o espaço dele: o último link do rodapé não
+   fica escondido atrás */
+@media (max-width: 899px) {
+  .app:has(.aviso-local-fixo) .rodape {
+    padding-bottom: calc(var(--barra-baixo) + var(--seg-baixo) + 28px + 64px);
+  }
+}
+/* celular deitado, fora do Início: o fixo fica compacto no canto da direita (a largura toda tomava a tela baixa) */
+@media (max-width: 899px) and (max-height: 480px) and (orientation: landscape) {
+  .aviso-local-fixo {
+    left: auto;
+    width: min(440px, 60vw);
+  }
+}
+
+/* ---------- Enquete do story ---------- */
+
+.enquete {
+  width: min(300px, 100%);
+  background: var(--branco);
+  color: var(--preto);
+  border-radius: 14px;
+  padding: 14px 12px 12px;
+  transform: rotate(-3deg);
+}
+.enquete-pergunta {
+  font: 700 16px/1.25 var(--ui);
+  text-align: center;
+  margin-bottom: 10px;
+  text-wrap: balance;
+}
+.enquete-sub {
+  display: block;
+  margin-top: 3px;
+  font: 500 13px/1.2 var(--ui);
+  color: #555;
+}
+.enquete-opcoes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border: 1px solid #dbdbdb;
+  border-radius: 10px;
+  overflow: hidden;
+}
+.enquete-opcao {
+  position: relative;
+  min-height: 46px;
+  font: 700 15px/1 var(--ui);
+  color: var(--preto);
+  overflow: hidden;
+}
+.enquete-opcao + .enquete-opcao {
+  border-left: 1px solid #dbdbdb;
+}
+/* a moldura das opções corta o que passa da borda (overflow): anel preto por dentro, visível no branco e no cheio.
+   Só com mouse/teclado: no toque o foco que a abertura põe no "Tenho" e no "Sim" não vira um quadro preto na tela */
+@media (hover: hover) and (pointer: fine) {
+  .enquete-opcao:focus-visible {
+    outline: 2px solid var(--preto);
+    outline-offset: -4px;
+  }
+  .enquete-opcao.escolhida:focus-visible {
+    outline-color: var(--branco);
+  }
+}
+.enquete-opcao .enquete-cheio {
+  position: absolute;
+  inset: 0;
+  background: var(--preto);
+  transform: scaleX(0);
+  transform-origin: left center;
+}
+.enquete-opcao span {
+  position: relative;
+  z-index: 1;
+}
+.enquete-opcao.escolhida {
+  color: var(--branco);
+}
+
+/* ---------- Seletor ---------- */
+
+.seletor-cab {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.seletor-cab-titulo {
+  font: 700 17px/1.2 var(--ui);
+}
+.seletor-cab-sub {
+  font: 400 13px/1.3 var(--ui);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.seletor {
+  padding: 0 0 16px;
+}
+.seletor-mapa {
+  display: grid;
+  place-items: center;
+  padding: 20px 0 8px;
+  border-bottom: 1px solid var(--bolha);
+}
+.seletor-titulo {
+  font: 700 15px/1 var(--ui);
+  padding: 20px var(--gutter) 8px;
+}
+.seletor-linha {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 68px;
+  padding: 8px var(--gutter);
+  text-align: left;
+}
+.seletor-linha-txt {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  font-size: 14px;
+}
+.seletor-linha-txt strong {
+  font-weight: 600;
+  font-size: 15px;
+}
+.seletor-linha-txt .legenda {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.seletor-cidade {
+  font-size: 13px;
+}
+.seletor-linha[aria-current='true'] .seletor-uf {
+  background: var(--branco);
+  color: var(--preto);
+}
+.seletor-uf {
+  padding: 4px 5px 3px;
+  border: 1px solid var(--branco);
+}
+.seletor-cidades {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0 var(--gutter) 12px 72px;
+}
+.seletor-outros {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+.seletor-outro {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 1px;
+  width: 100%;
+  min-height: 52px;
+  padding: 6px var(--gutter);
+  text-align: left;
+  font-size: 14px;
+}
+.seletor-outro .legenda {
+  font-size: 12px;
+}
+.seletor-outro[aria-current='true'] {
+  background: var(--bolha);
+}
+.seletor-privacidade {
+  font-size: 12px;
+  padding: 16px var(--gutter) 0;
+}

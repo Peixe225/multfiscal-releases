@@ -1,0 +1,32 @@
+# API da Green Cheese: a web só chega no index.php (a rota vai em ?r=). Sem RewriteEngine aqui de propósito:
+# ligar a reescrita nesta pasta anularia as regras da raiz do domínio (HTTPS etc.).
+# Módulos (nucleo/), dados (privado/) e o instalacao.php ficam fechados; cada um ainda tem guarda no PHP.
+DirectoryIndex index.php
+Options -Indexes -MultiViews
+
+<IfModule mod_authz_core.c>
+  Require all denied
+  <Files "index.php">
+    Require all granted
+  </Files>
+</IfModule>
+<IfModule !mod_authz_core.c>
+  Order allow,deny
+  Deny from all
+  <Files "index.php">
+    Order deny,allow
+    Allow from all
+  </Files>
+</IfModule>
+
+<IfModule mod_headers.c>
+  # Os cabeçalhos das respostas da API saem do próprio PHP (JSON, no-store, nosniff, same-origin). A CSP do site,
+  # que vem da pasta de cima com "always", sai aqui (senão iria em dobro); e o "set" sem "always" repete os do
+  # PHP na mesma tabela, sem duplicar. O Cache-Control fica só com o PHP: no-store em tudo, menos no GET da loja,
+  # que vai com no-cache e ETag (o navegador guarda e pergunta de novo; nada mudou = 304 sem corpo).
+  Header always unset Content-Security-Policy
+  Header set Content-Security-Policy "default-src 'none'; frame-ancestors 'none'"
+  Header set X-Content-Type-Options "nosniff"
+  Header set Referrer-Policy "same-origin"
+  Header set X-Frame-Options "DENY"
+</IfModule>

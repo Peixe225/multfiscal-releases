@@ -1,0 +1,591 @@
+.reposts {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 48px var(--gutter) 24px;
+}
+.repost {
+  position: relative;
+  width: min(260px, 72vw);
+  aspect-ratio: 9 / 16;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  border-radius: 10px;
+  outline: 1px solid var(--bolha);
+  overflow: hidden;
+}
+.repost-cab {
+  position: absolute;
+  top: 12px;
+  left: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font: 600 13px/1 var(--ui);
+}
+.repost-dentro {
+  --fundo-dentro: #0b0b0b;
+  position: relative;
+  width: 78%;
+  aspect-ratio: 9 / 13;
+  display: grid;
+  place-items: end center;
+  background: var(--fundo-dentro);
+  border-radius: 8px;
+  outline: 1px solid var(--bolha);
+  transform: rotate(-2deg);
+}
+/* O mercador fica de pé no fundo do quadro; o adesivo de menção cobre só a sola das botas, como num repost de verdade.
+   Desgira os 2° do quadro: pixel art com crispEdges girada abre furos de 1 px entre os <rect> e desfaz o
+   encaixe no pixel da tela. Reta, cada pixel da grade sai com o mesmo tamanho em DPR 1, 2, 2,625 e 3. */
+.repost-figura {
+  position: relative;
+  margin-bottom: 28px;
+  transform: rotate(2deg);
+}
+.repost-arte {
+  image-rendering: pixelated;
+}
+/* Voz pixel, em troca seca de quadro: pálpebras e camadas da apresentação aparecem e somem por visibility em degrau
+   (steps(1)), não por opacity. Animação de opacity promove a camada para o compositor, que a reamostra uns 0,3–0,6 px de
+   tela fora do lugar sob o par rotate(-2deg)/rotate(2deg) e borra as bordas dos <rect> (o mercador parado, pintado junto
+   com a página, continua nítido). visibility não interpola nem cria camada: cada troca custa um repaint de 176×256 px,
+   uns 2 por segundo e só com o repost na tela. É a exceção consciente à regra de animar só transform/opacity. */
+/* As pálpebras (na cor do fundo) aparecem por um instante e o olhar some e volta. */
+.repost-piscar {
+  position: absolute;
+  inset: 0;
+  color: var(--fundo-dentro);
+  visibility: hidden;
+  animation: mercador-piscar 5.6s steps(1, end) infinite;
+}
+@keyframes mercador-piscar {
+  0%,
+  100% {
+    visibility: hidden;
+  }
+  93% {
+    visibility: visible;
+  }
+  95% {
+    visibility: hidden;
+  }
+}
+/* Apresentação (camadas do mercador.ts): cada camada fica escondida e aparece no seu tique, como troca de quadro de
+   sprite. Um tique = 125 ms.
+   Com trago: ciclo de 100 tiques (12,5 s), então 1 tique = 1%.
+     0–20 parado (só pisca) · 20 pega a beirada · 21 meio aberto · 22–42 aberto, tabacaria à mostra · 42 meio
+     43 pega com o cigarro (tirou do forro ao fechar) · 44–49 cigarro apagado no peito
+     49–55 na boca: apagado, a brasa acende em 51 e vai ao máximo em 53 · 55–63 mão baixa, a fumaça sobe (5 quadros
+     de 2 tiques) · 63–69 na boca de novo · 69–79 mão baixa, fumaça · 79–81 a mão desce à beirada e guarda o cigarro
+     81 pega, a mão vazia · 82–100 parado
+   Sem trago (config.mercadorTraga = false): ciclo de 50 tiques (6,25 s), 1 tique = 2%, só o casaco abrindo e fechando.
+   O piscar segue no ritmo dele (5,6 s), por baixo das camadas. */
+.repost-quadro {
+  position: absolute;
+  inset: 0;
+  /* o 'x' das camadas apaga: pinta na cor do fundo do quadro */
+  color: var(--fundo-dentro);
+  visibility: hidden;
+  /* propriedades separadas, nunca o atalho "animation" sem nome: o minificador do build reescreve
+     "animation: 12.5s steps(1, end) infinite" como "animation: none" (duração 0) e só o piscar sobrava no ar */
+  animation-duration: 12.5s;
+  animation-timing-function: steps(1, end);
+  animation-iteration-count: infinite;
+}
+.q-pega {
+  animation-name: mercador-pega;
+}
+.q-rolo {
+  animation-name: mercador-rolo;
+}
+.q-meio {
+  animation-name: mercador-meio;
+}
+.q-aberto {
+  animation-name: mercador-aberto;
+}
+.q-baixo {
+  animation-name: mercador-baixo;
+}
+.q-apagadoBaixo {
+  animation-name: mercador-apagado-baixo;
+}
+.q-boca {
+  animation-name: mercador-boca;
+}
+.q-apagadoBoca {
+  animation-name: mercador-apagado-boca;
+}
+.q-brasa1 {
+  animation-name: mercador-brasa1;
+}
+.q-brasa2 {
+  animation-name: mercador-brasa2;
+}
+.q-fumaca1 {
+  animation-name: mercador-fumaca1;
+}
+.q-fumaca2 {
+  animation-name: mercador-fumaca2;
+}
+.q-fumaca3 {
+  animation-name: mercador-fumaca3;
+}
+.q-fumaca4 {
+  animation-name: mercador-fumaca4;
+}
+.q-fumaca5 {
+  animation-name: mercador-fumaca5;
+}
+.repost-figura:not(.com-trago) .repost-quadro {
+  animation-duration: 6.25s;
+}
+.repost-figura:not(.com-trago) .q-pega {
+  animation-name: mercador-pega-curto;
+}
+.repost-figura:not(.com-trago) .q-meio {
+  animation-name: mercador-meio-curto;
+}
+.repost-figura:not(.com-trago) .q-aberto {
+  animation-name: mercador-aberto-curto;
+}
+/* Fora da tela, coberto por uma camada (chat, story, sacola, página do produto) ou com a aba escondida: tudo para
+   onde está e volta dali (Rodape.tsx). */
+.repost-figura.parado > * {
+  animation-play-state: paused;
+}
+@keyframes mercador-pega {
+  0%,
+  100% {
+    visibility: hidden;
+  }
+  20% {
+    visibility: visible;
+  }
+  21% {
+    visibility: hidden;
+  }
+  43% {
+    visibility: visible;
+  }
+  44% {
+    visibility: hidden;
+  }
+  79% {
+    visibility: visible;
+  }
+  82% {
+    visibility: hidden;
+  }
+}
+@keyframes mercador-rolo {
+  0%,
+  100% {
+    visibility: hidden;
+  }
+  43% {
+    visibility: visible;
+  }
+  44% {
+    visibility: hidden;
+  }
+  79% {
+    visibility: visible;
+  }
+  81% {
+    visibility: hidden;
+  }
+}
+@keyframes mercador-meio {
+  0%,
+  100% {
+    visibility: hidden;
+  }
+  21% {
+    visibility: visible;
+  }
+  22% {
+    visibility: hidden;
+  }
+  42% {
+    visibility: visible;
+  }
+  43% {
+    visibility: hidden;
+  }
+}
+@keyframes mercador-aberto {
+  0%,
+  100% {
+    visibility: hidden;
+  }
+  22% {
+    visibility: visible;
+  }
+  42% {
+    visibility: hidden;
+  }
+}
+@keyframes mercador-baixo {
+  0%,
+  100% {
+    visibility: hidden;
+  }
+  44% {
+    visibility: visible;
+  }
+  49% {
+    visibility: hidden;
+  }
+  55% {
+    visibility: visible;
+  }
+  63% {
+    visibility: hidden;
+  }
+  69% {
+    visibility: visible;
+  }
+  79% {
+    visibility: hidden;
+  }
+}
+@keyframes mercador-apagado-baixo {
+  0%,
+  100% {
+    visibility: hidden;
+  }
+  44% {
+    visibility: visible;
+  }
+  49% {
+    visibility: hidden;
+  }
+}
+@keyframes mercador-boca {
+  0%,
+  100% {
+    visibility: hidden;
+  }
+  49% {
+    visibility: visible;
+  }
+  55% {
+    visibility: hidden;
+  }
+  63% {
+    visibility: visible;
+  }
+  69% {
+    visibility: hidden;
+  }
+}
+@keyframes mercador-apagado-boca {
+  0%,
+  100% {
+    visibility: hidden;
+  }
+  49% {
+    visibility: visible;
+  }
+  51% {
+    visibility: hidden;
+  }
+}
+@keyframes mercador-brasa1 {
+  0%,
+  100% {
+    visibility: hidden;
+  }
+  51% {
+    visibility: visible;
+  }
+  53% {
+    visibility: hidden;
+  }
+  65% {
+    visibility: visible;
+  }
+  67% {
+    visibility: hidden;
+  }
+}
+@keyframes mercador-brasa2 {
+  0%,
+  100% {
+    visibility: hidden;
+  }
+  53% {
+    visibility: visible;
+  }
+  55% {
+    visibility: hidden;
+  }
+  67% {
+    visibility: visible;
+  }
+  69% {
+    visibility: hidden;
+  }
+}
+@keyframes mercador-fumaca1 {
+  0%,
+  100% {
+    visibility: hidden;
+  }
+  55% {
+    visibility: visible;
+  }
+  57% {
+    visibility: hidden;
+  }
+  69% {
+    visibility: visible;
+  }
+  71% {
+    visibility: hidden;
+  }
+}
+@keyframes mercador-fumaca2 {
+  0%,
+  100% {
+    visibility: hidden;
+  }
+  57% {
+    visibility: visible;
+  }
+  59% {
+    visibility: hidden;
+  }
+  71% {
+    visibility: visible;
+  }
+  73% {
+    visibility: hidden;
+  }
+}
+@keyframes mercador-fumaca3 {
+  0%,
+  100% {
+    visibility: hidden;
+  }
+  59% {
+    visibility: visible;
+  }
+  61% {
+    visibility: hidden;
+  }
+  73% {
+    visibility: visible;
+  }
+  75% {
+    visibility: hidden;
+  }
+}
+@keyframes mercador-fumaca4 {
+  0%,
+  100% {
+    visibility: hidden;
+  }
+  61% {
+    visibility: visible;
+  }
+  63% {
+    visibility: hidden;
+  }
+  75% {
+    visibility: visible;
+  }
+  77% {
+    visibility: hidden;
+  }
+}
+@keyframes mercador-fumaca5 {
+  0%,
+  100% {
+    visibility: hidden;
+  }
+  63% {
+    visibility: visible;
+  }
+  65% {
+    visibility: hidden;
+  }
+  77% {
+    visibility: visible;
+  }
+  79% {
+    visibility: hidden;
+  }
+}
+/* ciclo curto, sem trago: os mesmos tiques valendo 2% cada */
+@keyframes mercador-pega-curto {
+  0%,
+  100% {
+    visibility: hidden;
+  }
+  40% {
+    visibility: visible;
+  }
+  42% {
+    visibility: hidden;
+  }
+  86% {
+    visibility: visible;
+  }
+  88% {
+    visibility: hidden;
+  }
+}
+@keyframes mercador-meio-curto {
+  0%,
+  100% {
+    visibility: hidden;
+  }
+  42% {
+    visibility: visible;
+  }
+  44% {
+    visibility: hidden;
+  }
+  84% {
+    visibility: visible;
+  }
+  86% {
+    visibility: hidden;
+  }
+}
+@keyframes mercador-aberto-curto {
+  0%,
+  100% {
+    visibility: hidden;
+  }
+  44% {
+    visibility: visible;
+  }
+  84% {
+    visibility: hidden;
+  }
+}
+/* Movimento reduzido: o mercador parado, sem piscar e sem apresentação. */
+@media (prefers-reduced-motion: reduce) {
+  .repost-piscar {
+    animation: none;
+  }
+  .repost-quadro {
+    display: none;
+  }
+}
+.repost-mencao {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%) rotate(-3deg);
+  font-size: 11px;
+  min-height: 26px;
+  white-space: nowrap;
+}
+.repost-legenda {
+  font-size: 16px;
+  text-align: center;
+  padding: 0 10px;
+}
+.reposts-txt {
+  font-size: 14px;
+  color: var(--legenda);
+  text-align: center;
+}
+.reposts-txt strong {
+  color: var(--branco);
+  font-weight: 600;
+}
+
+.rodape {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 40px var(--gutter) calc(var(--barra-baixo) + var(--seg-baixo) + 28px);
+  text-align: center;
+  font-size: 12px;
+  color: var(--legenda);
+  border-top: 1px solid var(--bolha);
+  container: rodape / inline-size;
+}
+.rodape-perfis {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  /* só espaço entre os @, como no instagram.com: se a linha quebrar (1024 px), nenhum "·" sobra no fim dela */
+  gap: 2px 12px;
+  max-width: 960px;
+}
+.rodape-perfis a {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 44px;
+  padding: 0 6px;
+  color: var(--legenda);
+}
+/* os 5 @ só cabem numa linha com uns 860 px: abaixo disso, 3 + 2 em vez de 4 + 1 */
+@container rodape (max-width: 899px) {
+  .rodape-perfis {
+    max-width: 560px;
+  }
+}
+/* celular: um @ por linha, centrado */
+@media (max-width: 899px) {
+  .rodape-perfis {
+    flex-direction: column;
+    align-items: center;
+  }
+}
+.rodape-aviso {
+  font-size: 13px;
+  color: var(--branco);
+}
+.rodape-txt {
+  max-width: 560px;
+  line-height: 1.5;
+}
+/* como falar com a loja, logo antes dos @: sem palavra sozinha na 2ª linha */
+.rodape-como {
+  text-wrap: balance;
+}
+/* uma frase por linha: "Outra dúvida?" não fica partida no fim da primeira */
+.rodape-como > span {
+  display: block;
+}
+/* a DM do estado no meio da frase: alvo de 44 px pelo padding, sem abrir a linha (a margem negativa devolve o espaço) */
+.rodape-dm {
+  display: inline-block;
+  padding: 13px 0;
+  margin: -13px 0;
+  color: var(--branco);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.rodape-credito a {
+  display: inline-block;
+  /* alvo de 44 px como os outros @ do rodapé */
+  min-height: 44px;
+  padding: 12px 2px;
+  color: var(--branco);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.rodape-assinatura {
+  margin-top: 8px;
+}
+@media (min-width: 900px) {
+  .rodape {
+    padding-bottom: 40px;
+  }
+}

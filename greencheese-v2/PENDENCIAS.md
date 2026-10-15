@@ -1,0 +1,410 @@
+# PENDÊNCIAS — o que está PENDENTE ou como demonstração
+
+Tudo funciona até a mensagem pronta no WhatsApp. O que está abaixo depende de dado do dono da Green Cheese. Onde trocar: veja o LEIA-ME.md.
+
+## Atendimento por estado (`src/dados/canais.ts`)
+
+| Item | RJ | MG | SP | ES | SC |
+|---|---|---|---|---|---|
+| WhatsApp | (33) 99113-9036 (o da loja) | o da loja | o da loja | o da loja | o da loja |
+| Cidades atendidas | Rio de Janeiro | Teófilo Otoni | PENDENTE | PENDENTE | PENDENTE |
+| Horário | demo | demo | demo | demo | demo |
+| Taxa de entrega | demo (R$ 10) | demo (R$ 8) | demo (R$ 12) | demo (R$ 10) | demo (R$ 12) |
+| Formas de pagamento | demo (Pix, dinheiro, cartão na entrega) | demo | demo | demo | demo |
+| Pedido mínimo pra entrega | PENDENTE (sem mínimo) | PENDENTE (sem mínimo) | PENDENTE | PENDENTE | PENDENTE |
+
+- **WhatsApp**: o dono passou "33 9113-9036" para todos os estados; entrou como (33) 99113-9036 (`config.whatsappPedidos`), porque celular tem 9 dígitos desde 2016. **Confirmar com o dono que é esse o número** (com o 9). Ele só aparece no fim do pedido guiado.
+- **Pix direto no site**: "Em breve" (o botão responde no chat e devolve pro WhatsApp). Para ligar de verdade precisa de um provedor de Pix com QR dinâmico e confirmação do pagamento (servidor) — entra junto com o backend.
+- **Cidades de SP, ES e SC**: enquanto não vierem, o pedido pergunta a cidade do cliente (ou pega pelo CEP) e põe na mensagem.
+- **Valores demo** aparecem com a marca "demo" só na prévia; a mensagem do pedido sempre diz "taxa a confirmar".
+- **"Sextou com entrega grátis!" (MG)**: dado real dos stories. Confirmar se vale **toda** sexta — o site mostra a frase só às sextas, só em MG.
+- **Nome do perfil**: "GREEN CHEESE LTDA" aparece só em RJ e MG (visto nos prints). SP, ES e SC mostram só o @.
+- **Destaque "DELIVERY SP/ES/SC"**: nome de demonstração (só RJ e MG têm destaque visto nos prints).
+- **@greencheese_importsvv**: aparece em marcações de clientes do Rio. Listado com a marca "confirmar" na faixa dos @ e no "Por estado"; fora do rodapé até confirmar. Pode ser Vila Velha (ES) ou outro perfil — confirmar se é oficial e de qual cidade.
+
+## Catálogo (`src/dados/catalogo.json`)
+
+**Preços PENDENTES (aparecem como "Consultar")** — produtos reais:
+- Fanta Ghost Face Punch 350 ml
+- Coca-Cola Vanilla (lata)
+- Hennessy Very Special
+- Cuia de silicone RAW
+- Jack Daniel's Tennessee Apple (novo, 11/10: visto no story do RJ)
+- Fanta Maçã da China (novo, 11/10: visto no story do RJ)
+
+**Produtos do material de 11/10** (prints dos stories e o reel do Hennessy que a loja mandou): o Jack Daniel's Tennessee
+Apple (Destilados, marcado como bebida alcoólica: fora da rua e dos prêmios) e a Fanta Maçã da China (Bebidas
+importadas; sem parênteses no nome: na fonte pixel dos títulos o "(" sai igual ao "{") entraram **à venda só no RJ** (`disponivelConfirmado: ["rj"]`, vieram do @greencheese_importsrj), sem preço
+e **sem tamanho** (não dá pra ler na foto: confirmar com a loja e pôr em Produtos → Tamanho). Ligar nos outros estados
+é com o dono. Em 13/10 os 4 do material (a Fanta Ghost Face Punch, o Hennessy e os 2 novos) ganharam foto tirada dos
+prints, e o Hennessy a thumb animada (o reel); em 15/10, a pedido do Ian ("coloque os no mesmo padrão" do resto do
+catálogo), voltaram pro desenho do site: a Fanta Ghost Face e o Hennessy na ilustração de antes, e os 2 novos ganharam
+ilustração no mesmo jeito das outras. As fotos e a thumb de fábrica ficam em `public/produtos/`, sem produto ligado. No banco que
+já está no ar, a migração 104 só põe os 2
+novos se a loja ainda não tem o produto (pelo id, pelo id que o painel daria ou pelo nome escrito de outro jeito): se o
+dono já cadastrou depois do story, fica o dele, com o preço e os estados dele. Nome muito diferente ("JD Maçã") não dá
+pra reconhecer: aí aparecem os dois, e o dono apaga o que sobrar em Produtos.
+
+**Preços reais** (vistos nos stories): Jack Daniel's Old No. 7 1 L R$ 149,90 (MG) · Gin Tanqueray London Dry 750 ml R$ 99,99 (RJ e MG) · Seda OCB Premium Slim R$ 9,99 / 2 por R$ 14,99 / 3 por R$ 19,99 (RJ) · Piteira de vidro RAW R$ 29,99 (RJ). Confirmar se o preço é o mesmo nos outros estados.
+
+**Disponibilidade**: confirmada só onde o produto apareceu num story (campo `disponivelConfirmado`). O resto da tabela por estado é demonstração, montada para mostrar disponível e indisponível (3 ou 4 indisponíveis por estado).
+
+**9 produtos de exemplo** (`demo: true`, marcados "exemplo" na prévia; somem com `modoPrevia: false`): Arizona Green Tea, Dr Pepper, Jägermeister, Seda RAW Classic King Size, Seda Smoking Brown, Piteira de papel RAW, Dichavador de metal 4 partes, Isqueiro Clipper, Bandeja RAW pequena. Preços de exemplo.
+
+**Fotos de verdade**: hoje **nenhum produto tem foto**. As 4 do material de 11/10 (Fanta Ghost Face Punch, Hennessy Very Special, Jack Daniel's Tennessee Apple e Fanta Maçã da China) saíram do catálogo em 15/10, a pedido do Ian, pra ficarem no mesmo padrão do resto (os arquivos continuam em `public/produtos/`, sem uso; a migração 106 tirou do banco no ar só a mídia de fábrica, nunca a do dono). A pasta `referencias/` (os 16 prints) **não veio** com o projeto. Os 19 produtos estão como **ilustrações realistas desenhadas em código**, a partir da embalagem pública de cada um (rótulos simplificados: o texto miúdo é aproximado); produto que o dono cadastrar fica na arte em pixel do `arte` dele. Se o dono quiser foto ou thumb animada num produto, ele põe pelo Estúdio do painel (Produtos → o produto → Enviar foto / Escolher vídeo) e a dele passa na frente do desenho: é escolha dele, produto a produto. As ilustrações do Jack Apple e da Fanta da China foram feitas em 15/10 a partir das fotos do material (o rótulo verde com a maçã; a lata verde com o 芬达 e a fatia de maçã): conferir com o Ian se ficaram reconhecíveis. Na arte em pixel (a do chiado da revelação e a da vitrine da rua), a Fanta da China tem estampa própria desde a revisão de 15/10 (o logo como faixa clara contornada de azul, sem letra, e a maçã cortada): conferir com ele também.
+
+**Logo**: redesenhado em SVG a partir da descrição do briefing (círculo preto, cuia em linha, GREEN CHEESE inclinado, tesoura). Comparar com a foto de perfil real quando os prints chegarem.
+
+## Fora do site, de propósito
+
+- **Derivados do tabaco** (Backwoods, charutos, cigarros, fumo): não entram. A Anvisa veda oferta e venda pela internet (RDC 840/2023, art. 6º). Sedas, piteiras, cuias e acessórios entram normalmente. O Backwoods Rum Cake do material de 11/10 (dois stories do RJ, "última unidade" e "disponível para reserva") é charuto: ficou de fora, e a lista do tabaco do servidor e do painel recusa o nome.
+- **Depoimentos de clientes**: a seção de repost usa só a ilustração da marca. Reposts reais entram com print e permissão do cliente.
+- Perfil pessoal citado na bio: não usado.
+
+## Repost: o mercador
+
+- A seção de repost usa o **mercador do Resident Evil 4** em pixel art (pedido do cliente), com produtos da loja no casaco no lugar das armas. É personagem da **Capcom**: serve para a prévia; para a versão oficial, a loja precisa decidir se assume o uso como mascote ou troca por uma figura própria.
+- Ele também aparece na **sacola vazia**, de casaco fechado erguendo a garrafa (`src/arte/pixel/mercador-garrafa.ts`, no lugar do bonequinho de boné, a pedido do cliente). Se o mercador for trocado, as duas grades vão juntas.
+- Com ele, a **sacola vazia ficou 13,5 px mais alta**: a grade do mercador dá 192 px de altura nos mesmos 132 de largura (o bonequinho dava 181,5) e 3 px embaixo mantêm a sombra à mesma distância do adesivo. Onde a folha cabe na tela, só o topo dela sobe; os pés do mercador, o adesivo, o cupom e os stories ficam no mesmo lugar. Em tela baixa, onde a folha já rolava, ela rola 13,5 px a mais (320×568: 67 → 81 px; celular deitado: 219 → 232 px). Para voltar à altura de antes, dá para tirar o respiro de cima (`.sacola-vazia`, `padding-top` 28 → 14,5 px), mas aí o mercador sobe e quase encosta no título da folha (em tela de 125%, a garrafa fica a 1,7 px da linha embaixo do título).
+
+## Mercador e elenco
+
+- O **mercador é personagem da Capcom** (Resident Evil 4). Agora ele aparece em quatro lugares: vivendo na **rua do Início** (anda, bebe, vende), no **topo da aba Mercado** (a animação do repost, que saiu do fim da aba), na **sacola vazia** e, no código, nas grades da rua. A decisão de assumir o uso ou trocar por uma figura própria vale para todos, e as grades vão juntas (`src/arte/pixel/mercador.ts`, `mercador-garrafa.ts` e `src/arte/pixel/rua/mercador.ts`). As falas dele são da loja, nenhuma frase do jogo.
+- O **elenco novo é original**, desenhado para a Green Cheese: skatista, motoboy, MC, turista e o gato, além do cenário (muro, poste, porta com o letreiro GC). Pode ser usado sem pedir licença a ninguém.
+- **Na rua, sem álcool e sem tabaco** (Lei 9.294/1996 e as regras da Meta): o mercador bebe a Fanta Ghost Face Punch, o forro do casaco mostra só refrigerante e acessório (o uísque, o gin e o isqueiro do repost não entram), nada aparece aceso, e as falas passam pela lista `PALAVRAS_PROIBIDAS` (o `scripts/revisao.mjs` confere). O skatista leva um livreto de seda e o turista uma piteira de vidro, acessórios que a loja vende; se a loja preferir, o item da mão troca por uma lata numa linha do `roteiro.ts`.
+- **No topo do Mercado** o mercador é o do repost, com a animação de sempre: o forro mostra os produtos do catálogo (inclusive os destilados) e os tragos seguem `config.mercadorTraga` (ver "Repost: tragos do mercador": para a versão oficial, a recomendação é `false`).
+- A **camisa do turista é de bolinhas** coloridas, não a estampa havaiana de sempre: os desenhos dela caem na lista de imagens que o site não usa.
+- A lata da Fanta Ghost Face Punch traz a máscara do Ghostface da embalagem do produto (marca de terceiros): aparece só como a lata que a loja vende.
+- O **gato** entrou: fica nos engradados debaixo da luz do poste, ganha carinho do mercador de vez em quando e empina a cabeça quando tocam nele.
+- **A vitrine da rua** (o mercador erguendo produtos de verdade da loja, com a plaquinha do nome e do preço; LEIA-ME, "Início vivo e Mercado"): vale a mesma regra da rua. Fica fora da rua: **bebida alcoólica** (a categoria marcada **"Bebida alcoólica"** no painel, a garantia; de reforço, a categoria com nome de álcool, como "Destilados", "Cervejas" ou "Drinks"; desenho de garrafa; nome, tamanho, linha de baixo ou descrição com nome de bebida alcoólica, pela mesma lista de `src/lib/alcool.ts`; e, numa categoria marcada como bebida, a categoria inteira se um produto dela tiver cara de álcool), **tabaco** (a lista do servidor e do painel, conferida de novo; nunca entra no catálogo), o **isqueiro** (como no forro do casaco da rua) e nome com palavra da lista `PALAVRAS_PROIBIDAS` (a plaquinha passa pela mesma lista das falas). As regras ficam em `src/componentes/rua/vitrine-regras.ts` e `src/lib/alcool.ts`, e o `scripts/revisao-vitrine.mjs` confere com uma lata de nome neutro numa categoria marcada, uma caneca nos Destilados sem a marca (pelo nome), um destilado e um gin no topo do story. **Feito** (era a pendência da marca): a categoria tem "Bebida alcoólica" (`alcool`, migração 301; painel → Categorias; API.md, "Loja (painel)"), separada do `bebida` (que vale com ou sem álcool, por causa dos prêmios); alcoólica é sempre bebida, nunca entra em prêmio e a categoria inteira fica fora da rua, mesmo com produto de nome desconhecido. Os Destilados já vêm marcados (a semente e, num banco instalado, a migração). O que fica com o dono: marcar as categorias de álcool que ele criar ("Cervejas", "Vinhos"); sem a marca, a rua ainda deduz pelo nome, como antes. A chave do painel (Loja → "O mercador mostra produtos na rua", a `vitrineNaRua`) desliga a vitrine nos três lugares.
+- **Itens dos clientes**: o skatista continua levando o livreto de seda desenhado, o MC a Arizona e o turista a piteira de vidro (as falas pedem esses itens: "Tem seda?", "Me vê uma Arizona!"); os produtos de verdade aparecem na mão do mercador, na vitrine. Trocar o item do cliente pelo produto real (a seda da loja, quando o estado tem) fica para quando a loja quiser: os itens da mão são desenhados na medida dela (5 × 5 o livreto) e as falas teriam de acompanhar o produto.
+- **Falas e ritmo** ficam em `src/componentes/rua/falas.ts` e `roteiro.ts`; quando o painel do dono existir (F10), as falas podem ir para lá (sempre passando pela mesma lista de palavras).
+- O texto "saiu do catálogo" (cupom de um produto que não existe mais, no chat e na sacola) continua com "catálogo": fala da lista de produtos, não da aba. A sacola (`CupomSacola.tsx`) é da frente do Teste minha sorte.
+
+## Página do produto
+
+- **Descrições** (`descricao` no `catalogo.json`): escritas só com fatos públicos e certos de cada produto, em tom neutro. **Confirmar com a loja** antes da versão oficial, principalmente as dos 9 produtos de exemplo.
+- "Combina com" usa o campo `combinaCom` e, depois, outros da mesma categoria disponíveis no estado.
+
+## Teste minha sorte (interativo + conta do cliente)
+
+O que está na prévia: o dichavador que gira, abre, o beck que sobe dele e a fumaça da raridade (comum, raro, épico, lendário) que mostra o prêmio e vira um story dos Melhores amigos (com o código trancado até guardar); conta só com nome e WhatsApp; cupons em "Minha conta"; 1 giro por dia com conta (de fábrica; com o painel, o dono muda a frequência, as raridades e as chances); cupom aplicado na sacola e no pedido. **Na prévia, tudo fica só no aparelho** (sem servidor) e a tela diz isso.
+
+1. **Promoções de verdade**: os 7 prêmios de `src/dados/sorte.ts` são de **exemplo** (`demo: true`, carimbo "exemplo"; somem com `modoPrevia: false` e, sem prêmio válido, o interativo some do site), inclusive o Épico (25% na bandeja) e o Lendário (40% no dichavador), que só existem pra mostrar as 4 raridades. Promoções, raridades, chances, pesos, validade e estoque são decisão da loja (no painel).
+2. **Lei 5.768/1971 e Decreto 70.951/1972**: promoção comercial com elemento de sorte pode exigir **autorização prévia do Ministério da Fazenda** (hoje pela Secretaria de Prêmios e Apostas). Confirmar com contador ou advogado antes da versão oficial. O caminho mais seguro é ficar só com descontos condicionados à compra; o tipo `brinde` só entra depois de confirmado.
+3. **CDC, arts. 30 e 31**: oferta precisa obriga a loja. Por isso o "exemplo" na prévia (também na linha do WhatsApp: "· exemplo ·") e a regra completa na versão oficial. "A loja confirma" quer dizer conferir código e estoque, não recusar cupom válido.
+4. **LGPD**: falta definir o controlador (CNPJ), finalidade, base legal, prazo de retenção, canal de exclusão e publicar a política de privacidade (a prévia fica **sem link de propósito**). O opt-in de promoções é separado, desligado por padrão e gravado com data e hora (`aceitaPromoEm`); "Apagar minha conta deste aparelho" apaga conta e cupons.
+5. **Versão oficial validada no servidor** (PHP + MySQL na mesma hospedagem da Hostinger): `POST` conta; entrar com código pelo WhatsApp; girar (o **servidor sorteia** e gera o código único); guardar cupom; limite por WhatsApp + aparelho; relógio de America/Sao_Paulo; baixa de "usado" dada pela **loja** num painel simples (não pelo "Mandei"). As telas já falam com uma interface (`AdaptadorConta` em `src/lib/conta.ts`; o adaptador em uso fica em `src/lib/conta-adaptador.ts`), e o contrato já tem o que o servidor precisa:
+   - **Entrar em dois passos**: `pedirCodigo(whatsapp)` manda o código pelo WhatsApp e `confirmarCodigo(whatsapp, codigo)` abre a conta. O formulário já mostra o campo do código quando `pedirCodigo` devolve `enviado: true`. O adaptador local devolve `enviado: false` (a conta só existe no aparelho) e a tela pula o 2º passo. Sem o código, qualquer um veria o nome e os cupons de outra pessoa só com o número.
+   - **Leitura pelo cache**: as telas leem pelos hooks de `src/lib/conta.ts`, que leem o store `gc-conta`. Esse store é o cache da conta no aparelho; o adaptador do servidor grava nele o que a API devolve a cada chamada (conta, cupons, dias de giro e prêmio reservado). A regra de "1 giro por dia" roda sobre esse cache só pra desenhar a tela; quem recusa o giro é o servidor.
+   - `criar`, `confirmarCodigo` e `salvarCupom` devolvem o cupom que acabou de ser guardado (`cupomGuardado`); a tela de "guardado" só mostra esse.
+   **Feito** (ver "Contas (equipe e clientes)"): o adaptador do servidor existe e o site escolhe sozinho pelo `GET recursos` (`src/lib/conta-modo.ts`).
+6. **Nome e imagem** (mudou em 11/10, a pedido explícito do Ian): a revelação do prêmio voltou a ter um beck bolado (desenhado em pixel pela própria fumaça desde 13/10) que sobe da câmara do dichavador, é aceso e puxado, e a fumaça desenhada enche a tela até mostrar o prêmio; a **imagem** agora pode mostrar a fumaça, a ponta acesa, a brasa e a cinza. Os **textos** continuam sem as palavras de `PALAVRAS_PROIBIDAS` (a copy do jogo, o anúncio pro leitor de tela, os carimbos e os nomes das raridades não usam nenhuma), e continua sem folha nem broto desenhados e sem paleta rasta (vermelho + amarelo + verde juntos; a fumaça e as raridades não usam verde). Se a plataforma reclamar da imagem, o caminho mais curto é o "Modo leve"/movimento reduzido como padrão (o quadro final parado, sem a puxada) ou trocar o beck e o isqueiro por objetos neutros (`beck()` e `isqueiro()` em `src/interativos/sorte/fumaca/pixel.ts`): o roteiro e a fumaça não dependem do desenho deles. O anel e o selo verdes imitam o recurso Melhores amigos do Instagram (desenhados no estilo do site, sem copiar a imagem deles); se a Meta reclamar, trocar `VERDE_AMIGOS` e o texto do selo resolve.
+7. **OCB 4 por 3 junto com o combo "3 por R$ 19,99"**: confirmar com a loja como os dois convivem (o site não recalcula; a mensagem leva o cupom e a loja confirma).
+8. **Álcool e tabaco fora dos prêmios** (Lei 9.294/1996, Anvisa RDC 840/2023): a validação de `src/lib/cupom.ts` recusa prêmio em bebidas e destilados.
+9. **Furos conhecidos da prévia** (aceitos; na versão oficial, validado no servidor): mexer no relógio do aparelho, usar aba anônima ou outro navegador burla o limite de giros; apagar a conta não devolve o giro do dia; o navegador do Instagram, o Safari e o Chrome guardam contas separadas.
+10. **Modo da conta**: automático (`src/lib/conta-modo.ts`): conta no servidor quando o servidor diz que manda o código pelo WhatsApp (`GET recursos`); senão, só no aparelho, como na prévia.
+11. **Frequência, raridade e chances (decidir com o Ian)**:
+   - As chances de fábrica (Comum 60%, Raro 25%, Épico 12%, Lendário 3%) e os exemplos Épico e Lendário são um ponto de partida: a loja escolhe as dela no painel antes de ligar de verdade.
+   - As chances **não aparecem no site** (só a cor e o nome da raridade, em "O que pode sair"); elas vão no `GET loja` só pro sorteio da conta do aparelho. Se a loja (ou o advogado, item 2) quiser mostrar "1 em 33" pro cliente, é uma linha nas Regras.
+   - A chance real que o painel mostra soma todos os estados; num estado sem algum prêmio, a dos outros sobe (o Simular por estado mostra a de lá).
+   - O gerente pode simular pela API (permissão `produtos`, nos estados dele), mas a tela do Teste minha sorte no painel continua só do dono. O atendente não simula nem muda nada.
+   - O guia "Como usar o painel" não ganhou uma tarefa do Teste minha sorte (o teste do painel espera de 10 a 12 tarefas e já são 12).
+   - **Apertar a frequência pesa pra quem girou muito**: o giro libera no dia do N-ésimo giro mais novo + X, então quem girou nos dias 0, 1 e 2 com 1 por dia e viu o dono passar pra 1 por semana só gira de novo no dia 9 (2 + 7), não no 7 (a janela ainda teria 2 giros). É a regra "em quaisquer X dias, no máximo N" levada ao pé da letra; se o Ian preferir contar só os giros depois da mudança, é uma decisão a tomar (e uma mudança no servidor e no site).
+   - O texto do jogo bloqueado ("Cria tua conta e gira de novo agora." só quando a conta criada ali gira na hora; senão, o dia) ficou certo em `src/interativos/sorte/textos.ts`, sem mexer no `JogoSorte.tsx` (é da frente da revelação); o comentário de lá ("com mais, gira agora") ficou velho e sai quando aquela frente mexer no arquivo.
+12. **A fumaça num Android médio de verdade**: medida no Chromium com a CPU 4× mais lenta (390×844, DPR 3, máquina de 4 núcleos compartilhada; 4ª rodada, 14/10): no laboratório (desenvolvimento) 55,6 (comum), 56,6 (raro), 55,3 · 55,4 · 56,0 · 56,4 (épico) e 56,8 (lendário) quadros/s; no jogo, no build de produção (com o `?raridade=` liberado só pra medir), do 8º quarto ao story pronto, medidas seguidas: comum 55,4 · 55,9 · 56,0; raro 54,6 · 54,9 · 52,8; épico 51,9 · 53,0 · 51,4 · 52,8 · 50,7 · 53,4; lendário 56,6 · 55,5 · 54,4. O trecho mais pesado é a cabeça do épico: 37–55 quadros/s em cada segundo dela no jogo (no laboratório, o desenho completo dela custa ~17 ms com a CPU 4×, e o quadro de reaproveitar, bem menos). No laboratório (que não aquece antes), sobram um quadro de ~60–110 ms quando a cabeça aparece e outro quando o prêmio entra; no jogo o aquecimento durante o giro tira quase tudo isso (sobram 2–4 quadros de 50–67 ms por revelação). Pra chegar aí: quando o desenho completo passa de ~11,5 ms, a fumaça é refeita um quadro sim, um não, e o que vai por cima (o prêmio, os brilhos, as faíscas, o confete) continua em todo quadro (volta a refazer tudo abaixo de ~8,5 ms; num aparelho rápido isso nunca liga); a cabeça do épico anda a 30 quadros/s e guarda o cálculo entre um passo e outro; a fumaça escondida embaixo dela nem é calculada nem pintada. Sobra, de vez em quando, um quadro de 50–83 ms logo depois do estalo ou no começo da saída pro story (sem script longo nele). O estalo e a saída continuam como na 3ª rodada (commit do estalo 9–20 ms sem layout forçado, saída do story 12–17 ms). Conferir num aparelho de verdade (Moto G/Galaxy A), principalmente o épico; se cair de 50 quadros, o "Modo leve" já usa células de 5 px (36% menos conta), e dá pra ligar isso pra todos mudando o `pix` em `src/interativos/sorte/fumaca/motor.ts`.
+
+## Repost: tragos do mercador
+
+- `mercadorTraga` em `src/dados/config.ts` liga os tragos do mercador (ligado na prévia, a pedido). A Lei 9.294/1996, art. 3º, veda propaganda de produtos fumígenos: **para a versão oficial, a recomendação é `false`** (o mercador continua abrindo o manto com os acessórios).
+
+## Rateio
+
+O site já tem a aba, a página, a reserva com código, o fechamento no WhatsApp da loja e as "Minhas vagas" (ver LEIA-ME, "Rateio (site)"). Falta a loja decidir:
+
+1. **Se não lotar**: hoje o site só diz "a loja te chama no WhatsApp pra combinar" (no "Como funciona"). Definir a regra (prazo máximo pra lotar? a loja completa as vagas? devolve o valor? em quanto tempo?) antes de escrever qualquer promessa na tela.
+2. **Devolução e desistência**: quem pagou e desiste, ou o produto chega com defeito — nada disso aparece no site. Definir com a loja (e conferir com o CDC: compra pela internet tem direito de arrependimento de 7 dias, art. 49).
+3. **Prazo da reserva e previsão**: o padrão é 24 h de reserva (`reservaHoras`) e 6 a 10 dias depois de fechar (`previsaoMin`/`previsaoMax`), por rateio. Confirmar com o dono se é a média real de entrega.
+4. **LGPD**: quem entra num rateio manda nome, WhatsApp, estado, cidade e quantidade pro servidor da loja — o rodapé já diz isso (com a cidade, e que uma cópia das vagas fica no aparelho: `gc-rateio`, até 20 vagas e 5 entradas pendentes por 8 dias), e o formulário diz "Teu nome e WhatsApp servem só pra loja confirmar tua vaga". Falta definir o controlador (CNPJ), o prazo de retenção (ex.: apagar os dados X dias depois do rateio encerrado), o canal pra pedir exclusão e publicar a política de privacidade.
+5. **Pix direto no site**: "Em breve". Precisa de um provedor de Pix com QR dinâmico e webhook (escolha e credenciais da loja). O servidor já tem a rota `pix-webhook` (responde 501 até lá) e a confirmação passa pela mesma função do painel: quando o Pix existir, o contador sobe sozinho e o botão do site deixa de ser "Em breve".
+6. **Rateios de exemplo**: Arizona Green Tea (R$ 14,90 no rateio, R$ 19,90 quando chegar, 24 vagas) e Dichavador de metal 4 partes (R$ 44,90 / R$ 59,90, 10 vagas) são **exemplo** (`demo: true`, preços e vagas inventados para a prévia; o "quando chegar" é o preço de exemplo do catálogo). Somem com `dadosDeExemplo: false`; os de verdade nascem no painel.
+7. **Vaga em outro aparelho**: "Minhas vagas" vive no aparelho onde a pessoa entrou (o token fica no localStorage). Quem troca de celular ou limpa o navegador continua com a vaga no servidor e com o código na mensagem do WhatsApp, mas não vê o status no site. Se fizer falta: recuperar as vagas pelo WhatsApp com código (como a conta do Teste minha sorte).
+8. **Conta da mensagem**: no exemplo da conversa veio "2 vagas × R$ 14,90 = R$ 29,90"; o site soma certo (R$ 29,80) e, quando o servidor devolve o total (somado em centavos), usa o dele.
+9. **Contrato com o servidor**: feito — o `minhas-vagas` devolve o token que recebeu e o `GET rateios` traz `agora` (o "guardada até" usa a hora do servidor quando o relógio do aparelho está errado).
+10. **`token` do aparelho no `rateio-entrar`**: feito nos dois lados (API.md). O site manda o mesmo token em cada nova tentativa da mesma entrada e o servidor devolve a MESMA participação (200), sem criar outra: resposta perdida no 3G não vira vaga órfã.
+11. **Destaque do Rateio no Início do celular**: entra logo depois de Buscar também no celular (o Ian pediu as abas primeiro e os filtros à direita). As bolinhas ficaram no tamanho de antes (56 px até 396 px de largura, 60 até 479), com um degrau a mais ou a menos nas faixas em que nada espiaria (52 de 329 a 352, 64 de 441 a 470): com 5 abas o "Tudo" deixa de caber inteiro na primeira tela (em 360 px aparecem 15 px dele; em 320 quem espia é o "Por estado", com 44 de 56 px), e o primeiro destaque que não cabe espia na borda, mostrando que a linha continua (o `celulares.mjs` confere em cada celular). Confirmar com o Ian.
+12. **Backwoods no rateio**: o exemplo da conversa (Backwoods R$ 90 no rateio → R$ 110 depois que chega) é derivado do tabaco; o servidor recusa título ou descrição com `backwoods`, `charuto`, `cigarrilha`… (API.md, Anvisa RDC 840/2023 e RDC 855/2024). Os exemplos do site viraram Arizona e dichavador. Confirmar com o Ian e com a loja: tabaco e cigarro eletrônico ficam fora do rateio.
+13. **Mensagem conferida com o print da conversa**: o print da conversa do WhatsApp com o cliente não está no repositório; a mensagem do rateio foi conferida com o `conferir-mensagem.mjs` e o LEIA-ME. Conferir com o print original antes de publicar.
+14. **Desenvolvimento com o PHP**: `npm run api` liga o servidor de desenvolvimento e o Vite repassa `/api` e `/uploads` pra ele (LEIA-ME, "Servidor (API)").
+15. **Se o site for ao ar sem a pasta `api/`** (só o site, sem o servidor da F8, ou com o PHP sem rodar): o `./api/index.php` dá 404 ou HTML e, pra quem nunca falou com o servidor, o rateio age como no arquivo único: mostra os 2 rateios de **exemplo** (Arizona a R$ 14,90 e dichavador a R$ 44,90, preços inventados, sem carimbo porque `carimboDeExemplo` está desligado como o pedido manda), com o contador em 0 e "Entrar pelo WhatsApp", que manda "Quero entrar no rateio." pro WhatsApp de verdade da loja, num rateio que o dono nunca abriu. Quem já falou com o servidor (`servidorVisto` no aparelho) vê "Sem conexão com a loja agora" com o WhatsApp. Com a `api/` no ar, servidor que responde em JSON (até erro, 429 ou resposta torta) nunca troca os de verdade pelos de exemplo; o pior caso é "Sem conexão" com "Entrar pelo WhatsApp" (a rodada do rateio do `revisao.mjs` confere). Pra não cair nisso: publicar junto com a F8. O `scripts/publicar.mjs` se recusa a publicar sem `dist/api/index.php` (ou sem a api respondendo no destino) enquanto `dadosDeExemplo` estiver ligado; `RATEIO_SEM_API=1` publica assim mesmo, de propósito. Outra saída: `dadosDeExemplo: false` (sem servidor, a aba diz "Nenhum rateio aberto agora").
+16. **"N participando" no adesivo**: o pedido fala em "Entrar no rateio · N participando" e o Ian em "contador de quantas pessoas já entraram". A API conta vagas (`confirmadas`, `reservadas`, `disponiveis`), não pessoas. Com 1 vaga por pessoa daria pra deduzir, mas o dono pode baixar o limite por pessoa depois que alguém pegou mais de uma, e aí o número sairia inventado. O adesivo segue com "sobram N vagas", e o contador "8/10 vagas" mostra as pagas. Pra ter pessoas: um campo `participantes` no `GET rateios` (acréscimo compatível, pedir à F8) e confirmar com o Ian.
+17. **Limite do `minhas-vagas` por IP** (F8: 120 por hora): o site pergunta no máximo 1 vez por minuto por aparelho, a cada 3 min com a aba aberta e só com vaga que ainda pode mudar, e recua o tempo que o servidor mandar quando vem `muitas-tentativas`. Se ainda assim a loja tiver muita gente atrás do mesmo IP (Wi-Fi de evento), subir o limite dessa rota na F8.
+
+## Servidor
+
+O servidor (PHP + SQLite, `api/`) está pronto e testado (ver LEIA-ME.md, "Servidor (API)"). Falta da loja:
+
+- **LGPD dos dados do rateio**: o servidor guarda nome, WhatsApp, estado e cidade de quem entra num rateio (e as anotações do dono). Falta definir: o **controlador** (razão social e CNPJ da loja), a finalidade e a base legal (fechar e entregar o pedido do rateio), **por quanto tempo** os dados ficam depois do rateio encerrado (sugestão: 6 meses e depois apagar), o **canal de exclusão** (o painel já apaga os dados de uma pessoa sem mexer nas contas do rateio: `admin-participante-apagar`) e publicar a política de privacidade (com link no formulário do rateio). O IP de quem tenta entrar não é guardado puro (só um hash com sal, para o limite de tentativas, e some em 1 dia).
+- **Rateio que não lota e devolução**: a loja não definiu. O site não promete nada: diz que a loja chama no WhatsApp pra combinar. Confirmar com o dono: prazo máximo pra lotar, o que acontece com quem já pagou (devolve o Pix? vira crédito?) e se dá pra sair depois de pagar.
+- **Rotina de backup**: quem baixa a cópia do banco (painel → "Baixar cópia do banco"), de quanto em quanto tempo (sugestão: toda segunda) e onde guarda (fora do celular, ex.: Drive da loja; o arquivo tem dados de clientes). O backup da Hostinger existe, mas restaurar a hospedagem inteira desfaz o resto do site junto.
+- **Pix direto no site**: escolher o provedor (ex.: Mercado Pago, Efí, Asaas, PagSeguro ou o banco da loja) e gerar as credenciais (geralmente com conta PJ). A rota do webhook (`pix-webhook`, hoje responde "não configurado") e a confirmação automática (a mesma função do painel) já estão prontas; falta ligar o provedor.
+- **Código de instalação**: gerar o de verdade antes de publicar o servidor (`php scripts/codigo-instalacao.php`) e entregar ao dono por canal seguro.
+- **Conferir no ar** depois da 1ª publicação com a API: painel → Diagnóstico (banco, log e módulos fechados pela web, nenhum `.php` rodando em `uploads/`, PHP 8.1+, GD com WebP, pasta gravável). Os `.htaccess` passaram num Apache local (os dois ramos, `Require` e `Order/Deny`); a Hostinger usa LiteSpeed, que lê o mesmo `.htaccess`, mas só o Diagnóstico no ar prova.
+- **Versão do PHP** no hPanel: 8.1 ou mais nova (8.3 recomendada).
+- **IP do cliente (a CDN já está na frente)**: o `oprojeto.online` responde pela CDN da Hostinger (cabeçalhos `server: hcdn` e `x-hcdn-request-id`). O limite de tentativas conta por IP (12 entradas em rateio por hora; no painel, 5 senhas erradas por login e 20 por IP em 15 min; IPv6 conta por /64). Se o PHP enxergar o IP da CDN no lugar do de cada cliente, esses limites viram de todo mundo junto: 12 entradas por hora pra todo mundo e 20 senhas erradas de qualquer um travando o login do dono. Daqui não deu pra provar o que o PHP enxerga lá (precisa de PHP no ar). O servidor só confia no `X-Forwarded-For` quando o pedido vem de uma faixa da lista `GC_PROXIES` (`public/api/nucleo/base.php`, vazia de propósito: confiar no cabeçalho sem saber de onde veio deixaria qualquer um inventar IP e furar o limite). **Depois de publicar a API, conferir:**
+  1. No celular, no 4G e depois no Wi-Fi: painel → Servidor, item "O servidor vê o IP…". Ele mostra o IP que conta nos limites (mascarado, ex.: `177.38.12.x`), o IP da CDN quando ela está no caminho (inteiro) e os cabeçalhos de encaminhamento que chegaram (`X-Forwarded-For`, `X-Real-IP`…). Comparar com o IP da internet do aparelho (qualquer site de "qual é meu IP").
+  2. "O servidor vê o IP de quem acessa", com o IP do aparelho: a hospedagem já entrega o IP certo; nada a fazer.
+  3. "O servidor vê o IP da CDN" (com aviso no topo): anotar o IP da CDN que aparece nas duas redes e pedir à Hostinger as faixas da CDN (hCDN) que falam com o servidor. Pôr só essas faixas em `GC_PROXIES` (ex.: `const GC_PROXIES = ['203.0.113.0/24'];`), gerar o build, publicar e conferir de novo (tem que virar "vê o IP de quem acessa", com o IP do aparelho). **Nunca** a faixa inteira da Hostinger (`2a02:4780::/32`, por exemplo, tem servidor de cliente, que poderia inventar IP).
+  4. Se a CDN mandar o IP em outro cabeçalho (não no `X-Forwarded-For`), o servidor ainda não lê: ajustar `gc_ip_cliente` em `base.php`.
+  5. Sem abrir o Servidor: com rateio aberto, o aviso "os pedidos do site nas últimas 24 h vieram todos do mesmo IP" quer dizer a mesma coisa.
+
+  Operadora de celular que põe muita gente atrás de um IPv4 só (CGNAT) pode fazer clientes diferentes dividirem o limite num rateio muito disputado: se aparecer "Muita tentativa seguida" pra quem não errou, subir o 12 em `publico.php`.
+- **Mesma origem do outro site do domínio — RESOLVIDO em 11/10**: a loja passou pra `https://greencheese.oprojeto.online/` (subdomínio com raiz em `public_html/greencheese/`, `urlPublica` trocado) e o endereço antigo só redireciona (GET/HEAD com 301; o resto com 410), então nenhuma sessão nasce mais na origem do outro projeto. Efeito colateral aceito antes do lançamento: o que ficou guardado no aparelho no endereço antigo (sacola, conta do aparelho, giro sem conta) não passa pro novo (o navegador separa por endereço). O texto de antes, pra registro: o painel e a API moravam em `oprojeto.online/greencheese/`, na mesma origem do site que ocupa a raiz do domínio (outro projeto). A conferência de Origin compara só o endereço e o `Path=/greencheese/` do cookie não separa páginas da mesma origem: um script rodando em qualquer página do `oprojeto.online` (um XSS no outro projeto, por exemplo) leria o csrf no `admin-sessao` e mexeria no painel com a sessão do dono (nomes, WhatsApps, confirmar, apagar). Quando a loja tiver domínio ou subdomínio próprio (ex.: `greencheese.oprojeto.online`), mover site, painel e API pra lá (o build já usa caminho relativo; troca o `urlPublica`). Até lá, a segurança do painel depende também do outro projeto.
+
+## Painel do dono
+
+O painel (`/painel/`, ver LEIA-ME.md, "Painel do dono") está pronto e testado contra o servidor de verdade. Falta da loja:
+
+- **Mensagens prontas do WhatsApp** (`src/painel/mensagens.ts`): confirmar o tom com o dono. A de cobrar a reserva diz "Me chama aqui que te passo o Pix" porque a chave Pix não está no painel; se a loja quiser, a chave entra na mensagem.
+- **Rateio que não lota, devolução e sair depois de pagar**: o painel não promete nada (a mensagem do cancelamento diz que a loja chama pra combinar). Ver "Servidor".
+- **Celular de verdade**: abrir o painel no celular do dono, entrar e "Adicionar à tela de início" (Android/Chrome e iPhone/Safari). Os testes daqui simulam toque e tamanho de tela, não o aparelho.
+- **"Avisados"** (quem já recebeu o aviso de cada passo) fica guardado no aparelho: em outro celular a marcação recomeça (as mensagens continuam todas lá).
+- **Próximas seções**: entram na lista de `src/painel/secoes.ts` (com o grupo do Mais) e, se forem do dia a dia, no `ITENS_BARRA` do papel.
+
+### Polimento do painel (auditoria de QA/UX, 1ª rodada)
+
+Feito (LEIA-ME.md, "Painel do dono"): barra nova com o nome em cada ícone (dono: Início · Pedidos · + · Produtos · Mais; gerente: Início · Pedidos · + · Estoque · Mais; atendente: Início · Pedidos · Rateios · Mais), o + com "Novo produto · Novo rateio", o Mais em grupos, lateral a partir de 720 px; atalhos no topo do Início; Estado reordenado com o "Tirar do site" no fim e confirmado (e Desfazer); cidade digitada que entra ao salvar; taxa R$ 0 que sugere a entrega grátis; rascunho no Estado e nos Ajustes da loja; "Tem mudança não salva" no Estado, Ajustes da loja, Prêmio e Categoria; troca do WhatsApp da loja confirmada; cópia de segurança em Conta com a data da última e o lembrete de 7 dias no Início (e no Diagnóstico mesmo com erro); recado de sempre embaixo, com Desfazer; Estoque do gerente; estado ativado no painel (BA) pra dar acesso; "Voltar pra Recebido" com botões diferentes; o porquê do aviso que falhou em português, com o técnico em "Ver detalhes"; "Mostrar a senha" na Conta; texto de 12 px no mínimo; título em 2 linhas no 320; "Prêmio" escrito no +; "Como usar o painel"; a lista "Pra deixar a loja pronta"; a senha esquecida sem depender de nós (2º dono, código no WhatsApp da loja, código de instalação por último).
+
+### Polimento do painel (2ª rodada: o produto e a lista)
+
+Feito (LEIA-ME.md, "Loja no painel"): o produto com o básico em cima (foto e thumb animada, nome com o tamanho do lado, categoria, preço, onde tem; o resto em "Mais detalhes") e o produto novo que já nasce à venda no estado da lista, com o botão dizendo onde (UX-06); o erro que some quando o campo fica certo (PNL-04); sair sem salvar pergunta e a lista marca o que ficou só no aparelho (PNL-08); o card do lado da foto no estado do filtro, dizendo qual (PNL-09); a dica da foto em desenho e o aviso de foto pequena (UX-13, PNL-12); Tamanho com o exemplo dito como exemplo (PNL-20); "À venda em:", o chip que diz o que é e o recado com Desfazer, iguais em Produtos e no Estoque do gerente (UX-04, um componente só: `src/painel/loja/troca-ui.tsx`); "Organizar" vira "Ordem" no 320 sem quebrar o título; o recado acima do Salvar fixo e o de Desfazer que não segue pra outra tela. A marca "Bebida alcoólica" nas categorias (ver "Mercador e elenco").
+
+Pra decidir com o dono:
+- **Tamanho do lado do nome**, não em "Mais detalhes" como a auditoria propôs (UX-06): vai junto do nome na mensagem do pedido e ali não custa altura; escondido, cadastrar com tamanho custava 1 toque e 2 rolagens a mais. Se o dono quase nunca usa, dá pra levar pra "Mais detalhes" (uma linha em `Produto.tsx`).
+- **"Usar assim" do Estúdio** soma 1 toque em trocar a foto e no produto novo (8 e 12 toques, contra 7 e 11 da 1ª rodada, que ainda não tinha o Estúdio). É o preço de a foto já sair no estilo do site; "Usar a foto original" continua lá pra quem não quer o tratamento.
+- **"Mais detalhes" lembra se ficou aberto** neste aparelho (quem usa combo e variação toda hora não precisa abrir sempre).
+
+Pra confirmar com o dono:
+- **Senha pelo WhatsApp da loja**: quem está com o celular do WhatsApp da loja consegue trocar a senha do dono (o código vai pro número da loja, nunca pra um número digitado). Segura: 10 minutos, uma vez só, 5 tentativas, 1 por minuto e 3 por hora por login, 10 por hora pra loja; a resposta não diz se o login existe; o grupo recebe "SENHA DO PAINEL TROCADA". O dono desliga em Conta. A saída sem risco nenhum é um **2º dono** (Conta sugere): combinar com o dono quem é.
+- **Lembrete da cópia** a cada 7 dias: confirmar se a loja quer outro intervalo (`LembreteCopia` em `src/painel/telas/Resumo.tsx`).
+- **O + da barra** custa 1 toque a mais pra criar rateio (agora "Novo produto · Novo rateio"): se o dono criar muito mais rateio que produto, dá pra pôr "Novo rateio" em cima.
+
+## Loja no servidor (cadeia A)
+
+O servidor, o painel e o site já cuidam da loja inteira: o site lê o `GET api/index.php?r=loja` (ver LEIA-ME.md, "Loja
+no painel" e "O site lendo a loja"; contrato em API.md, "Loja"). Sem servidor, ou com ele fora do ar, segue com a loja
+guardada no aparelho ou a embutida (`src/dados`). O que ainda depende do dono ou fica pra depois:
+
+- **Valores de exemplo dos estados** (horário, taxa e pagamento de RJ, MG, SP, ES e SC): o dono salva os de verdade em
+  Loja → Estados; até lá o site mostra "a confirmar".
+- **Estoque é contado à mão**: nada baixa sozinho quando um pedido sai (os pedidos ainda não chegam no servidor nesta
+  branch). Quando a cadeia B (pedido salvo no servidor) juntar, decidir com o dono se o pedido confirmado baixa o
+  estoque: hoje o "restam X" depende de ele contar em Loja → Produtos.
+- **Textos de cada passo do pedido guiado editáveis (F10)**: não estão nesta branch; a tela é da cadeia B (B1, "Textos
+  do pedido"). Quando as duas juntarem, a tela entra no menu Loja do painel.
+- **Taxa na mensagem do pedido**: com a taxa de verdade salva no estado, a mensagem diz `(taxa R$ 15,50)`; no dia de
+  entrega grátis, `(entrega grátis hoje)`; com a de exemplo (ou "a confirmar"), segue `(taxa a confirmar)` como sempre.
+  A sacola mostra o mesmo. Confirmar com o dono que a taxa fixa pode ir assim (é uma linha em `src/lib/mensagem.ts`,
+  `entregaDoCanal`). Taxa R$ 0,00 de verdade sai como `(entrega grátis)` (na sacola, "Entrega grátis."): confirmar com o
+  dono que 0 no painel quer dizer isso (`textoEntrega`, no mesmo arquivo).
+- **Bebida no Teste minha sorte**: além da categoria de bebida, o desenho de bebida (lata alta e garrafas) e o nome de
+  bebida alcoólica (os tipos e ~100 marcas comuns, `src/lib/alcool.ts`) tiram o produto do prêmio. Marca nova que não
+  está na lista e produto com desenho de lata comum numa categoria sem bebida ainda passam: o certo é pôr a bebida na
+  categoria de bebida.
+- **Tabaco e vape**: a lista ganhou os nomes do dia a dia (pod, essência, narguilé, IQOS, Heets, nicotina, Lost Mary,
+  Geek Bar, Oxbar…) e a grafia com número (V4PE). Nome novo que aparecer vai em `GC_TERMOS_PROIBIDOS`
+  (`nucleo/validar.php`) e em `src/painel/proibidos.ts` (o `testar-api` confere que batem).
+- **"Restam X"**: começa em 5 unidades (padrão escolhido aqui, não veio do dono) e só aparece em produto com o estoque
+  contado. Confirmar com o dono, mudar ou desligar em Loja → "Restam X".
+- **Apagar dados de exemplo**: os rateios de exemplo saem junto (com quem entrou neles e ainda não pagou). Apaga só o
+  que a folha mostrou: se alguém entrar num rateio de exemplo com a folha aberta, o painel mostra a lista nova antes.
+  Rateio de exemplo em que alguém já pagou fica, como rateio de verdade (o dono cancela pelo rateio, se for o caso).
+  Conferir com o dono antes de tocar no botão, no ar.
+- **Foto do produto**: o site junta a foto ao preto da página (o preto da foto some no preto). O Estúdio do produto
+  (painel) já tira fundo liso (branco, cinza, bege, com sombra leve) e enquadra no estilo das ilustrações; fundo
+  bagunçado fica com o fundo (moldura escura). Os limites do recorte (`src/painel/estudio/recorte.ts`) foram afinados
+  com fotos geradas aqui: conferir com fotos reais do dono (celular dele, luz da loja) e ajustar se precisar.
+  Combinar com o dono: fundo liso e claro atrás do produto, sem outro objeto encostado.
+- **Thumb animada**: o vídeo de exemplo veio (11/10, o reel do Hennessy girando no preto, gravado da tela do
+  Instagram): o Estúdio agora acha a janela do vídeo na gravação da tela (corta a moldura e o texto da interface
+  sozinho, com "Usar o vídeo inteiro" pra desfazer), reconhece o fundo já preto (não recorta, só deixa o preto liso),
+  marca o vídeo curto inteiro e acelera até 1,5× pro giro caber nos 6 s; a thumb do Hennessy foi de fábrica de 13/10 a
+  15/10 (`public/produtos/hennessy-very-special.mp4`, H.264, feita do reel como veio, sem recorte antes; o arquivo
+  continua no build, sem produto ligado: desde 15/10 o Hennessy fica no desenho, e a thumb animada é só a que o dono
+  gravar no Estúdio). A janela foi afinada com o `item1.mp4` e com gravações
+  sintéticas: conferir com outras gravações do dono (outros jeitos de story e reel). Moldura clara em volta (não a
+  interface escura do story) não é reconhecida: aí o painel trata como vídeo comum, e o dono pode cortar o vídeo antes
+  no próprio celular. Texto da interface em cima do produto (a legenda por cima da garrafa) não sai. O reel termina uns 15°
+  antes de completar a volta: no loop, o rótulo pula um tantinho. Falta conferir num celular
+  de verdade: gravação no Chrome do Android (MP4/H.264 ou WebM), no Safari do iPhone (sem gravação em alguns iOS:
+  aí vai o MP4 original, até 6 MB e 6 s) e o vídeo tocando na grade do site no iPhone (WebM gravado no Chrome não
+  toca em iPhone antigo: a capa fica e o site não quebra; gravar no iPhone ou no Chrome que grava MP4 resolve).
+  No vídeo de teste (lata girando com sombra), a sombra escura encostada na base deixa um risco cinza fino em alguns
+  quadros (a borda do vídeo sai de uma cópia de 128 px): afinar `LADO_MASCARA` e a conta da borda no shader
+  (`src/painel/estudio/video.ts`) com o vídeo de verdade do dono.
+- **Estado ativado no painel**: entra com o emblema de pino (genérico) no story de atendimento; um desenho próprio
+  (como o Pão de Açúcar do RJ) é arte nova em `src/arte/pixel/emblemas.ts`. Fora da lupa do Sudeste + SC, ele acende
+  no mapa inteiro e fica na lista do "Por estado" (sem botão na lupa); pra quem é desse estado, o "Por estado" mostra
+  o mapa inteiro maior, sem a lupa, com o estado dela em destaque. O destaque padrão (`DELIVERY BA`) cabe inteiro na
+  bolinha; nome maior que uns 11 letras vira "…" no celular (o painel avisa).
+- **A rua do mercador**: as falas dos personagens são do roteiro (`src/componentes/rua/falas.ts`), não do painel; as
+  "falas do mercador" do painel são as do topo do Mercado.
+- **A chave da rua no painel (10/10)**: a home do celular voltou a ter a rua no 1º story e a Home 2 (`/home2/`) tem
+  ela no fim do Início (depois da grade, antes do rodapé), a pedido do Ian. A chave continua com o nome `ruaNoStory` no
+  JSON da loja e no banco (nenhuma migração) e liga e desliga a rua do celular nas duas homes ("Rua do mercador no
+  celular" no painel); o computador não muda. A Atividade monta o texto na hora de listar (o banco guarda só a ação e o
+  detalhe), então todas as linhas da chave, também as gravadas antes, dizem "no celular".
+- **A Home 2 é escolhida pela URL** (`?home=2`, que o `home2/` põe): ela fica a visita inteira, mas quem apaga a chave
+  na mão, ou abre um link compartilhado (que vai sem a chave, de propósito), cai na home de sempre. Não tem jeito de
+  trocar de home dentro do site, e o servidor não sabe qual delas a pessoa viu (o pedido no WhatsApp é igual nas duas).
+- **Mudança com a página aberta**: o site pergunta a loja ao abrir e quando a pessoa volta pra aba depois de 10 min fora
+  (com o pedido guiado aberto, não pergunta: o pedido não muda debaixo da pessoa). Quem fica horas com a aba à vista
+  só vê a mudança na próxima abertura.
+- **Desempenho medido** (celular 390×844, CPU 4× mais lenta, 4G lenta de 150 ms e 1,6 Mbps, mediana de 11, até o
+  story do Início à vista; entre colchetes, do 1º ao 3º quartil; build final): primeira visita, a principal antes da A2
+  2523 ms [2475–2680], a A2 sem PHP 2568 [2466–2650] e com PHP 2558 [2543–2604]; de volta (com a loja guardada), 1001
+  [928–1033] contra 959 [926–992] e 978 [950–1058]. A diferença fica dentro da variação da própria principal. O que a primeira
+  tela baixa cresceu 4,0 KB comprimidos (226,7 → 230,7 KB): a conferência do servidor foi pra um pedaço à parte e os
+  emblemas dos estados saíram da primeira tela (só o story do estado usa).
+- **Desempenho com a rua no fim do Início (09/10; desde 10/10, a Home 2)** (mesmo celular e rede, mediana de 11 rodadas, entre colchetes do 1º
+  ao 3º quartil; "antes" é a 7744b7f, com a rua como 1º story e o pôster, e "ontem" é a a9f2083, o topo que voltou):
+  o story pintado na tela (a hora da pintura que o próprio navegador dá, Element Timing no nome do produto ou no
+  pôster; igual à FCP e à LCP) em 2576 ms [2564–2636], contra 2704 [2668–2740] antes e 2840 [2812–2904] ontem; a
+  arte do produto começa a se revelar em 2813 [2753–2845] (ontem 2896). A régua antiga (o 2º `requestAnimationFrame`
+  depois de o story ficar pronto) dá 2751 [2688–2774] contra 2696 [2682–2746]: ela soma o quadro seguinte à pintura,
+  que agora gera a arte do produto (antes era o pôster pronto), e fica dentro da variação. Até a pintura a primeira tela
+  baixa 235,4 KB (antes 253,3, ontem 242,2): o pôster e o código do story da rua saíram e a rua só baixa no fim. O
+  ganho veio de tirar da montagem as leituras que forçavam o navegador a calcular a página inteira mais de uma vez: as
+  medidas do story no `ResizeObserver`, a entrada do produto e o GSAP do palco no quadro seguinte, a faixa, a paralaxe
+  do próximo produto e o adesivo do topo ligando a rolagem quando a página respira (`quandoRespirar`), a lateral e as
+  setas dos destaques sem medir no celular, o teclado virtual conferido no quadro seguinte e a arte com prioridade
+  entrando na fila no quadro seguinte. Essas correções valem nas duas homes; a home de sempre (a rua no 1º story, com o
+  pôster) não foi medida de novo nesta rodada (a medida de referência é a "antes" acima, 2704 ms), e a primeira tela
+  dela ficou igual à de 7744b7f nos prints (390×844 e 360×740).
+- **Desempenho com a vitrine da rua (10/10)** (celular 390×844, CPU 4× mais lenta, 4G lenta de 150 ms e 1,6 Mbps, a
+  home de sempre com a rua no 1º story, mediana de 9 rodadas alternadas, entre colchetes do 1º ao 3º quartil, os dois
+  builds com o PHP ligado e a loja do servidor chegando): o story pintado na tela (Element Timing no pôster) em 2660 ms
+  [2560–2740] com a vitrine, contra 2692 [2688–2776] antes, dentro da variação; até a pintura a primeira tela baixa
+  255,2 KB contra 254,6 (o CSS da plaquinha, +0,5 KB comprimido, e +0,1 KB no pedaço principal). O pôster do build é o
+  mesmo, byte a byte (o mesmo md5 nos dois PNG, em pé e deitado). A vitrine fica no pedaço da rua (`Rua-*.js`, de 12,3
+  para 16,2 KB comprimidos), e as artes dos produtos só são geradas depois que a rua pintou o primeiro quadro, uma por
+  respiro do navegador.
+- **Desempenho medido depois da auditoria de navegação (11/10)** (celular 390×844, CPU 4× mais lenta, 4G lenta de
+  150 ms e 1,6 Mbps, 9 rodadas alternadas entre o build de antes e o de depois na mesma máquina, mediana e, entre
+  colchetes, do 1º ao 3º quartil; loja semeada como na auditoria: RESTAM 3 na OCB, o Jack Daniel's esgotado em MG):
+  **Home 2** — LCP 5904 ms [5288–6116] → **2528 [2524–2548]**: antes a maior pintura era o halo de um
+  produto que entrava depois da primeira tela (a troca do 1º story quando a loja do servidor chegava, ou o 2º story);
+  agora é o halo do 1º produto, na primeira pintura, nas 9 rodadas (LCP = FCP). FCP 2488 [2448–2520] → 2528
+  [2524–2548] (igual, dentro da variação). CLS da carga 0,047 (máx. 0,124) → **0,006**. DOM 14.812 → **8.011**
+  elementos. Tarefas longas nos primeiros 11 s 3,1 s → 2,8 s. **Home de sempre** (a rua no 1º story) — FCP = LCP (o
+  pôster da rua) 2464 [2452–2476] → **2480 [2468–2524]** (igual), CLS 0 → 0, DOM 13.823 → **7.022**, tarefas longas
+  2,5 s → 2,2 s. **Primeira tela igual**: prints de 390×844 e 360×740 de antes e de depois (story parado, sem o
+  flutuar) diferem em 0,43% e 0,01% dos pixels na Home 2 (só o pontilhado do halo, um pixel ao lado: a caixa dele agora
+  é a do desenho) e em 0,00% na home de sempre com a rua parada no mesmo quadro (`?ruaquadros=7`). Medido com
+  `lcp.mjs` e `prints-primeira.mjs` (scratchpad da auditoria, `navfix/`); as medidas no build de 525da85, os prints no
+  de e51a932 (os commits entre eles não mexem na primeira tela). DES-01 resolvido.
+
+## Pedidos e avisos no WhatsApp
+
+O pedido com código, a cópia no servidor, o painel dos pedidos, os avisos no grupo e os textos do pedido estão prontos e testados (ver LEIA-ME.md, "Pedidos, avisos no WhatsApp e textos do pedido"). Falta da loja:
+
+1. **Número que manda e o serviço de envio**: escolher Z-API ou Evolution API (contratar ou subir o servidor) e um chip só pra mandar os avisos. Esses serviços usam o WhatsApp Web do número conectado, não a API oficial da Meta: por isso um número à parte, nunca o que atende os clientes. Conectar (QR Code), criar o grupo privado com o celular da loja, preencher em Avisos no WhatsApp e tocar em "Enviar teste". Até lá os avisos ficam desligados: os pedidos chegam no WhatsApp da loja e no painel do mesmo jeito.
+2. **A mensagem do grupo**: conferir com o dono o modelo (LEIA-ME tem o exemplo): o que falta, o que sobra, a ordem. Os textos moram em `public/api/nucleo/avisos.php` (`gc_aviso_texto_pedido`, `gc_aviso_rateio_reserva`, `gc_aviso_rateio_pago`).
+3. **Mensagens prontas pro cliente** em cada passo do pedido (`src/painel/pedidos/mensagens.ts`): confirmar o tom. A do confirmado diz o valor dos itens e que "a taxa de entrega e o total a gente fecha por aqui" (a taxa não está no painel).
+4. **WhatsApp de quem pediu**: vai junto quando a pessoa está com a conta aberta (a conta com código pelo WhatsApp liga com os avisos). A conta só do aparelho não manda mais o número dela (decisão da auditoria da compra, CMP-02: o número não foi conferido e a loja recebe o pedido no WhatsApp de quem pede). Nos outros pedidos o dono guarda o número no pedido, tirando da conversa.
+5. **Pedido mudado**: até 2 h depois de mandar, o pedido mudado entra no lugar do de antes (que sai da lista se ainda estava novo); depois disso são dois pedidos, ligados, e o aviso pede pra conferir. Confirmar com o dono se 2 h é o tempo certo.
+6. **LGPD dos pedidos**: o servidor guarda nome, endereço, observação e (quando tem) o WhatsApp de quem pediu, e o texto dos avisos. Valem as mesmas definições pendentes do rateio (controlador, prazo de retenção, canal de exclusão, política de privacidade). O painel já apaga os dados de um pedido entregue ou cancelado ("Apagar os dados (LGPD)").
+7. **Pedidos no celular**: no painel do celular, Pedidos, Avisos e Textos ficam no Resumo (os novos no topo) e em Conta → "Mais do painel", fora da barra de baixo (que segue com 5: Resumo, Rateios, Criar, Atividade e Conta). Se o dono usar mais os pedidos que os rateios, trocar em `src/painel/secoes.ts` (confirmar com o Ian).
+8. **Textos do pedido**: o dono troca as falas do chat; o formato da mensagem do WhatsApp e o botão "Fechar pedido no WhatsApp" continuam fixos (combinados com a loja). Promessa de prazo ou frete e tabaco são recusados.
+9. **Limite de pedidos por IP e a CDN**: o servidor aceita 20 pedidos novos por hora de cada IP (contra robô). Se ele estiver vendo o IP da CDN no lugar do de cada cliente (ver "Servidor", IP do cliente), o limite vira da loja inteira: depois do 20º pedido na hora, a cópia dos próximos fica guardada no aparelho e só chega no painel e no grupo quando a pessoa volta ao site (o pedido em si chega no WhatsApp da loja na hora, como sempre). Conferir o Diagnóstico depois de publicar.
+10. **Pedido rápido pela sacola** (pedido do Ian em 14/10): o "Fechar pedido no WhatsApp" da sacola abre o WhatsApp do estado num toque, sem perguntar nome, endereço nem pagamento, e a mensagem termina em "Endereço: mando aqui na conversa". Conferir com a loja esse modelo (LEIA-ME, "Fechar pela sacola") e se a frase do fim tá boa. O pedido guiado continua (discreto na sacola e nos outros caminhos).
+11. **Pedido mínimo de cada estado**: nenhum estado vem com mínimo (o "ex.: R$ 20" do cliente não foi posto em lugar nenhum: o dono põe o valor de cada estado no painel → Estados → "Pedido mínimo pra entrega"). Confirmar com a loja: o mínimo vale pro estado inteiro (todas as cidades dele); a conta é dos produtos com os combos, antes da taxa e sem o desconto do cupom (com um cupom que pode baixar o pedido abaixo do mínimo, o site não trava e avisa que a loja confere na conversa; DECISOES, item 18); item "Consultar" também não trava. Encomenda e rateio não têm mínimo.
+12. **O mínimo e o preço no servidor** (revisão de 14/10): quem trava o mínimo é o site. O servidor agora **confere e marca** (nunca recusa: a mensagem já foi do cliente pra loja) o preço de cada item contra o catálogo de agora (a unidade e o total com o melhor combo, a mesma conta do site), o item com preço que não tá no catálogo e o subtotal abaixo do mínimo do estado: o que não bate vira a anotação do pedido ("Confere o valor na conversa: …") e uma linha no aviso do grupo. **Decidir com o Ian** se a marca basta ou se o servidor deve recusar (o risco de recusar: o pedido de quem viu o preço de antes, minutos depois de o dono mudar, sumiria do painel e do grupo). A marca também aparece quando o dono mudou o preço com a página do cliente aberta (o cliente viu o de antes).
+13. **Painel ao vivo**: a lista e o Início perguntam a cada 15 s (a lista e a bolinha juntas, também com a lista filtrada por um estado; 60 s nas outras telas), só com a aba à vista, com o ETag (304 sem corpo quando nada mudou); a data e a hora das linhas são relidas de minuto em minuto (o "hoje" vira "ontem" na meia-noite sem recarregar). Sem som e sem notificação no painel: quem notifica é o aviso no grupo do WhatsApp (item 1). Se o dono quiser som ou notificação do navegador, é outra conversa (pede permissão no aparelho).
+14. **A sacola depois do toque** (revisão de 14/10): o código do pedido vale 2 h depois de ir pro WhatsApp. Até lá, a volta do WhatsApp (o navegador do Instagram recarrega a página) reabre a sacola com "Já mandou o pedido GC-… no WhatsApp?" e o "Já mandei: limpar a sacola"; o pedido guiado que já foi com os mesmos itens a sacola reconhece (o botão abre a mesma mensagem, sem outra cópia); com o guiado aberto embaixo ("Mexer na sacola"), o botão grande da sacola volta pro guiado. Depois das 2 h, a mesma sacola mandada de novo é outro pedido, com código novo (entra no painel e avisa o grupo). Com a loja fechada pelo horário do painel, a sacola diz quando abre (sem travar) e, no dia da entrega grátis com a loja fechada até amanhã, a mensagem sai com a taxa, não com "grátis hoje". Conferir com a loja se as 2 h servem (quem pede de novo no mesmo dia, dentro delas, com a mesma sacola, cai no mesmo pedido).
+
+## Contas (equipe e clientes)
+
+A equipe com papéis e estados, as contas dos clientes com código pelo WhatsApp, a Minha conta com pedidos, vagas e endereços e o Teste minha sorte sorteado no servidor estão prontos e testados (LEIA-ME.md, "Contas: equipe e clientes"). Auditada de ponta a ponta em 11/10 (navegador de verdade, 390, 360 e 1280, com o PHP e um Z-API falso; e sem gateway): 14 correções, cada uma com teste (`testar-api-contas`, `testar-painel-contas`, rodada "conta-passos" da `revisao`). Revisão independente em 13/10: mais 9 correções, também com teste (recarregar no passo do nome; a conta do aparelho que sumia quando o código pausava; duas abas derrubando a sessão; nome de um emoji só; o prêmio reservado contado como cupom; o foco depois da pausa; sair sem internet e girar na mesma visita; a busca do painel pelo WhatsApp com máscara; o API.md da armadilha de robô). Falta:
+
+0. **Ligar no ar (o que decide se a conta é da loja ou do aparelho)**: em 11/10, `GET api/index.php?r=recursos` no ar (`oprojeto.online/greencheese/` e `greencheese.oprojeto.online/`, que respondem da mesma pasta) devolve `{"contas":{"codigo":false,"sessao":false}}`: **hoje a conta é só do aparelho**, porque o WhatsApp que manda os códigos não está ligado (painel → Avisos no WhatsApp sem Z-API/Evolution, ou o código desligado em Clientes). Pra virar conta da loja: contratar o serviço (Z-API ou Evolution) com um chip à parte, conectar o número, preencher em Avisos no WhatsApp, "Enviar teste", e conferir em Clientes que "Clientes entram com o código pelo WhatsApp" está ligado. A partir daí o `recursos` diz `codigo: true` e o site passa sozinho pro entrar com código. (O que está no ar é a versão de antes da v2: publicar a v2 traz as correções desta auditoria.)
+
+1. **Número que manda o código**: é o mesmo dos Avisos no WhatsApp (Z-API ou Evolution, WhatsApp Web de um chip à parte). Mandar mensagem pra número que não salvou o contato aumenta o risco de bloqueio do WhatsApp — e um bloqueio derruba os avisos do grupo junto. O que segura hoje: 1 por minuto, 3 em 15 min e 8 por dia por número; 10 por hora por IP e 20 por hora por rede (IPv4 /24, IPv6 /48); e o **teto da loja inteira** (30 por hora e 200 por dia; o dono muda em Clientes): batido, o entrar com código pausa sozinho (o site volta pra conta do aparelho e o topo de Clientes diz até quando) e volta sozinho quando a janela passa. Quem pede código pro número dos outros não trava a dona: valem os 2 últimos códigos (o que chegou pra ela continua valendo e a tela vai direto pro passo do código) e, do aparelho em que a conta já entrou, o limite do número é só dela. Fica de fora: exigir conta existente antes de mandar (impediria criar conta) ou um passo a mais (captcha: não tem provedor). Acompanhar o volume no começo; a saída oficial continua sendo a API do WhatsApp Business da Meta com um modelo de mensagem de autenticação aprovado: contratar quando o volume pedir (aí o número dos avisos fica separado do número dos códigos).
+2. **A mensagem do código**: "*482913* é teu código pra entrar na Green Cheese. Vale por 10 minutos. Não passa ele pra ninguém: a loja nunca pede esse código." (em `public/api/nucleo/clientes.php`). Confirmar o tom com o dono.
+3. **LGPD das contas**: valem as definições pendentes do rateio e dos pedidos (controlador com CNPJ, finalidade, base legal, prazo de retenção, canal de exclusão e a política de privacidade publicada, com link na Minha conta). Já funcionam: opt-in de promoções separado, desligado por padrão e com data; "Baixar meus dados"; "Apagar minha conta" no site e "Apagar a conta" no painel (os pedidos ficam com a loja, sem a conta: confirmar se a loja precisa guardar esses pedidos e por quanto tempo).
+4. **Lista de promoções (Excel)**: só quem aceitou, com a data. Usar fora da loja (disparo em massa) tem as mesmas regras do WhatsApp e da LGPD: confirmar com o contador ou advogado como a loja vai mandar promoções.
+5. **Loja (integrada)**: as rotas da loja estão no mapa `GC_PERMISSAO_ROTA`: `admin-loja` e `admin-produto-estado` com `produtos` (o gerente lê a loja e muda o disponível e o estoque só dos estados dele, `gc_exigir_uf`), o resto com `loja` (só o dono). No painel, Produtos e Loja seguem só pro dono; o gerente tem a tela **Estoque** (o disponível e o estoque dos estados dele, sem mexer em nome, preço e foto). Os prêmios e as regras do Teste minha sorte do painel já valem no giro do servidor (`gc_premios_ativos` em `loja.php`, `gc_sorte_regras` em `sorte.php`); a semente só vale antes da loja ser montada.
+6. **Papéis**: os do pedido (dono, gerente, atendente). Se a loja quiser outro (ex.: só entregas), é uma linha em `GC_PERMISSOES_PAPEL` e no `PAPEIS` do painel (`src/painel/contas/comum.tsx`): confirmar com o Ian antes.
+7. **Baixa do cupom**: a loja dá baixa em Clientes (o "Mandei" do pedido guiado também marca, e a loja desfaz se não usou). Confirmar com o dono se a baixa é na entrega ou na confirmação do pedido.
+8. **Giro do Teste minha sorte**: 1 por aparelho sem conta e, com conta, N giros a cada X dias (de fábrica 1 por dia; o dono muda no painel), por conta, WhatsApp e aparelho. Aba anônima ou outro navegador ainda dão o giro sem conta de novo (o aparelho é um segredo guardado no navegador), mas ele só vira cupom numa conta que ainda cabe aquele giro: guardar o giro sem conta (entrar, criar a conta ou o "guardar") conta como giro do dia em que foi feito, e se alguma janela de X dias passar de N a conta recusa ("ja-girou-hoje"; a tela diz que o prêmio desse giro não entra). Então, com conta, a frequência do dono vale mesmo. As pendências legais do sorteio continuam valendo ("Teste minha sorte", itens 1 a 3).
+10. **A conta do aparelho no primeiro login**: os cupons que estavam só no aparelho entram uma vez por conta, no máximo 2, e só os ganhos antes de a conta do servidor existir (o primeiro dia em que o entrar com código esteve ligado: depois disso todo cupom nasce no servidor), com a validade contada do dia em que foram ganhos. Quem usou a conta do aparelho num período em que o código esteve desligado depois do primeiro dia perde esses cupons ao entrar (a loja confirma no WhatsApp como sempre). Vale também pro tempo em que o código fica **pausado pelo teto** ou desligado pelo dono: nesse tempo a conta do aparelho volta a valer (antes ela sumia das telas com os cupons dentro), e o cupom ganho nela durante a pausa fica só no aparelho. O prêmio reservado no aparelho conta numa das 2 vagas (vem primeiro), e a tela diz antes e depois quantos cupons vieram. Confirmar com o dono.
+11. **Pedidos e vagas na conta**: aparecem na conta os feitos com ela logada e os do WhatsApp dela quando o número foi conferido (veio da conta logada, ou a loja salvou o número no pedido ou na vaga pelo painel). O número que a pessoa digita no aparelho não liga nada a conta nenhuma. No "Baixar meus dados", o pedido ou a vaga achado só pelo número vai sem nome, endereço, observação e mensagem.
+12. **Mudança pro subdomínio** (`greencheese.oprojeto.online`): a conta do aparelho mora no navegador (localStorage) e o cookie da conta da loja vale só pro endereço em que foi criado. Quem usava `oprojeto.online/greencheese/` chega no subdomínio sem a conta do aparelho e sem a sessão (com a conta da loja, é só entrar de novo com o código; a conta só do aparelho não passa de um endereço pro outro). O cookie sai certo nos dois jeitos (`Path=/greencheese/` e `Path=/`, `Secure`, `HttpOnly`, `SameSite=Lax`: conferido no ar só com GET). Se a loja quiser levar as contas do aparelho, o caminho é ligar o código pelo WhatsApp antes da mudança (a conta vai pro servidor no primeiro login).
+13. **WhatsApp da loja lento**: o código espera o Z-API/Evolution por até 4 s; passou disso, a tela diz "Não deu pra mandar o código agora" e o código não vale — se a mensagem chegar atrasada, ela traz um código que já não entra (a pessoa pede outro na hora). Se acontecer com frequência no ar, subir o tempo do envio do código (`gc_whatsapp_enviar(..., true)` em `avisos.php`).
+9. **Painel no celular**: a barra de baixo muda por papel (dono: Início, Pedidos, +, Produtos e Mais; gerente: Início, Pedidos, + (Novo rateio), Estoque e Mais; atendente: Início, Pedidos, Rateios e Mais). Equipe, Clientes e o resto ficam em Mais, em grupos.
+
+## Publicação
+
+- **No ar em `https://greencheese.oprojeto.online/`** (o endereço antigo `oprojeto.online/greencheese/` redireciona) (com `noindex` enquanto `modoPrevia: true`). Atualizar: `npm run build` + `node scripts/publicar.mjs` (ver LEIA-ME.md). Só a pasta `greencheese/` é escrita.
+- **Publicar à mão** (hPanel): o pacote sai de `npm run empacotar`, com as mesmas regras do `publicar.mjs` (recusa o código de dev, deixa banco, log e fotos de fora). O `entrega/greencheese-dist.zip` que está no repositório é de antes do servidor (só o site, sem `api/`): gerar de novo antes de usar.
+- Se o endereço final for outro, trocar `urlPublica` em `src/dados/config.ts` e gerar o build de novo.
+- Testar no navegador do Instagram, no Android e no iPhone de verdade (os testes daqui simulam toque e tamanho de tela, não o aparelho).
+
+## Da auditoria da compra (CMP-01 a CMP-15, corrigidos)
+
+O que a correção deixou pra loja, pra outra frente ou pra conferir no ar (o comportamento novo está no LEIA-ME, "Regras
+da compra"):
+
+1. **Painel: combo + variação com preço próprio (outra frente, `src/painel/**` e `loja-validar.php`)**: o site já não
+   aplica o combo do produto numa variação de outro preço (ela sai pelo preço dela). O painel e o servidor ainda aceitam
+   os dois juntos sem dizer nada: falta o painel avisar no cadastro ("Premium tem preço próprio: ela sai sem o combo") ou,
+   se a loja quiser combo na variação, um combo por variação (contrato novo).
+2. **Troco**: o chat confere o troco contra o subtotal (a taxa de entrega a loja confirma na conversa). Com item "a
+   consultar" não dá pra conferir e qualquer valor passa.
+3. **Endereço sem CEP**: até 200 letras (o mesmo do endereço guardado na conta). Ponto de referência longo vai na
+   observação; o chat avisa e não corta.
+4. **Duas abas**: o código preso à aba usa Web Locks (Safari 15.4+, Chrome, Firefox, os navegadores do Instagram de hoje).
+   Navegador mais velho segue como antes: as duas abas podem sair com o mesmo código, e o servidor ainda trata o mesmo
+   código + token como repetido (a 2ª mensagem não entra no painel; a loja recebe as duas no WhatsApp). A conversa é de
+   cada aba, mas o aparelho guarda a última gravada: quem recarrega uma aba depois de mexer na outra volta com a conversa
+   da outra (com um código novo, se a outra ainda estiver aberta).
+5. **Hora da loja no ar**: o site usa o cabeçalho `Date` do `GET loja` (mais o `Age`, se a CDN da Hostinger guardar a
+   resposta). Conferir no ar, com o relógio do celular adiantado um dia, que o "Aberto agora" e a entrega grátis seguem
+   o dia de verdade.
+6. **Privacidade**: o rodapé e o formulário da conta do aparelho agora dizem o que vai pro servidor da loja (a cópia do
+   pedido com nome, endereço, observação, itens e pagamento; o WhatsApp só com a conta da loja; conta, cupons e
+   endereços quando a conta é da loja; o CEP na BrasilAPI ou no ViaCEP; as vagas do rateio). Sem prazo de guarda e sem
+   controlador, de propósito: continuam pendentes as definições de LGPD de "Servidor" e "Contas" (controlador, prazo,
+   canal de exclusão, política publicada com link no rodapé).
+7. **Sugestões do QA que ficam com a loja**: o CEP na mensagem do WhatsApp (hoje só a cópia do servidor tem; o formato é
+   combinado com a loja), retirada no balcão (o pedido guiado só tem entrega) e o aviso do limite de 1 código por minuto
+   no 2º aparelho ("Muitas tentativas…" na primeira vez).
+
+## Da auditoria de navegação (11/10)
+
+As correções estão no LEIA-ME ("Correções da auditoria de navegação"). Fica:
+
+- **Fonte em px (POL-09), de propósito**: o "Tamanho da fonte" do navegador (Chrome/Firefox no computador) continua sem
+  mudar o texto; o zoom (Ctrl +) e o escalonamento de texto do Android funcionam (o harness confere texto 2× e zoom de
+  200%: nada corta nem encavala). Passar os tamanhos pra `rem` não muda nada no tamanho padrão, mas são 372 tamanhos em
+  px em 35 arquivos de CSS (mais 24 no TSX e o texto desenhado em canvas, que não acompanha), e a voz do site é a fonte
+  em pixel (Pixelify, GC Digitos), que só fica nítida em px inteiros: com outro tamanho de fonte no navegador ela sairia
+  borrada, e os adesivos e o quadro do story, que têm medida fixa, cortariam. Uma migração pela metade (só o texto em
+  system-ui) deixaria parte do site crescendo e parte não. Fica pra quando a loja pedir, de uma vez, com a fonte em
+  pixel em degraus inteiros.
+- **DOM da primeira tela (POL-12)**: caiu de ~14 mil pra ~7 mil elementos (o Mercado monta na 1ª visita), ainda acima
+  dos 3 mil que o harness pede. O resto são as ilustrações em SVG da grade do Início (cada uma com centenas de
+  `<path>`, `<rect>` e `<stop>`). Pintar cada ilustração uma vez num bitmap e usar a imagem nos cards (a sugestão da
+  auditoria) mexe na arte do produto e na revelação dela (`ProdutoVisual.tsx`, da frente da arte): fica pra ela.
+- **Checagens do harness que continuam falhando** (rodada final: 3.546 checagens, 22 falhas; antes, 3.369 e 134): as
+  12 de "Texto a 200%: o texto segue o tamanho de fonte do navegador" (POL-09, acima), as 4 de "DOM com menos de 3.000
+  elementos" (acima), as 5 do rodapé (NAV-01, o texto de privacidade, corrigido pela frente da compra e juntado depois) e 1 de "a rua anda à
+  vista" que oscilou com a máquina carregada (o módulo da rua rodando sozinho: 138 checagens, 0 falha). Rodada e
+  resumo em `auditoria/site-nav/` e `navfix/harness-depois/` (scratchpad).
+
+## Da auditoria (para depois da integração do pedido guiado)
+
+- **Foco no pedido guiado** (D1): a cada passo novo o foco precisa ir pro chip ou campo do passo; hoje cai no `<body>` e o Tab sai do chat.
+- **"prévia" que sobrou** (D2): "Na prévia, a conta só existe…" e "Exemplo da prévia, encerrado" em `src/interativos/sorte/textos.ts` (aparecem no Entrar e na Minha conta).
+- **Voz e termos no chat** (C8, D9, D16, D17): "De qual estado você pede?", "Qual produto você quer?", "Quem aperta enviar é você.", "saiu do catálogo" e "Toca numa opção…"/"Tocar para mudar" no computador. Fora do chat a voz já está em "tu".
+- **Tragos do mercador no topo do Mercado** (D5): decisão do dono; para a versão oficial a recomendação continua `mercadorTraga: false` (ver "Repost: tragos do mercador").
