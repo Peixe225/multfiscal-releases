@@ -6,7 +6,10 @@
 // por isso aqui pode (e deve) ter degradê.
 // Letreiro: só texto de verdade e legível, em fonte bitmap presa à grade da arte. A marca entra
 // onde a marca é a embalagem (RAW, OCB, Smoking, Clipper) e o rótulo só diz o que diz de fato
-// ("Nº7" no Old No. 7, "APPLE" no Tennessee Apple, "V.S"). Nada de letra falsa: o resto é filete, faixa e selo geométrico.
+// ("Nº7" no Old No. 7, "APPLE" no Tennessee Apple, "V.S"), só quando a fonte inteira cabe na grade de saída (no card,
+// o APPLE não cabe e fica o filete). Nada de letra falsa: o resto é filete, faixa e selo geométrico. A estampa também
+// só diz o que o produto é: a lata alta escolhe pelo nome (o Arizona com as flores de cerejeira, a Fanta da China com o
+// logo em faixa e a maçã, outra só com os filetes).
 
 import type { Arte, TipoArte } from '../../lib/tipos'
 
@@ -345,7 +348,21 @@ function estampaDaLata(p: Paleta): EstampaLata {
   return luma(p.detalhe) > 0.6 ? 'onda' : 'diagonal'
 }
 
-function lata(ctx: Ctx, p: Paleta, alta: boolean) {
+/** A estampa da lata alta sai do nome (as cores sozinhas não dizem qual é): a do Arizona (galhos e flores de cerejeira,
+ *  o painel creme no meio), a da Fanta (o logo como uma faixa clara contornada, sem letra, e a fatia de maçã só na de
+ *  maçã); outra lata alta, só os filetes (flor de cerejeira numa lata que não é o Arizona seria estampa falsa). */
+type EstampaAlta = 'arizona' | 'fanta' | 'filetes'
+
+function estampaDaLataAlta(nome: string): EstampaAlta {
+  if (/\barizona\b/i.test(nome)) return 'arizona'
+  if (/\bfanta\b/i.test(nome)) return 'fanta'
+  return 'filetes'
+}
+
+/** Sabor maçã no nome ("Maçã", "maca", "Apple"), palavra inteira (a "maçaneta" não conta). */
+const MACA = /(?<!\p{L})(?:ma[çc][ãa]|apple)(?!\p{L})/iu
+
+function lata(ctx: Ctx, p: Paleta, alta: boolean, e?: Extra) {
   const r = alta ? 20 : 22.5
   const rt = r * 0.8 // raio da tampa
   const ry = alta ? 3.8 : 4.4 // elipse achatada: vista um pouco de cima
@@ -383,8 +400,13 @@ function lata(ctx: Ctx, p: Paleta, alta: boolean) {
   ctx.fillStyle = css(p.corpo)
   ctx.fillRect(0, yC0 - ry, U, yC1 - yC0 + ry * 2)
   const ym = (yC0 + yC1) / 2
-  if (alta) estampaAlta(ctx, p, r, yC0, yC1)
-  else {
+  if (alta) {
+    const nome = e?.nome ?? ''
+    const qual = estampaDaLataAlta(nome)
+    if (qual === 'arizona') estampaArizona(ctx, p, r, yC0, yC1)
+    else if (qual === 'fanta') estampaFantaAlta(ctx, p, r, yC0, yC1, MACA.test(nome))
+    else filetesAlta(ctx, p, r, yC0, yC1)
+  } else {
     const e = estampaDaLata(p)
     if (e === 'onda') estampaOnda(ctx, p, r, ym)
     else if (e === 'diagonal') estampaDiagonal(ctx, p, r, ym)
@@ -485,13 +507,101 @@ function estampaSelo(ctx: Ctx, p: Paleta, r: number, ym: number, yC0: number, yC
   pintar(ctx, elipse(CX, ym + 7.4, 1.3, 2.7), p.corpo)
 }
 
-function estampaAlta(ctx: Ctx, p: Paleta, r: number, yC0: number, yC1: number) {
-  const ym = (yC0 + yC1) / 2
-  const galho = escuro(p.corpo, 0.6)
-  // faixas finas creme em cima e embaixo
+/** Lata alta sem estampa conhecida: só as faixas finas do detalhe em cima e embaixo. */
+function filetesAlta(ctx: Ctx, p: Paleta, r: number, yC0: number, yC1: number) {
   ctx.fillStyle = css(p.detalhe)
   ctx.fillRect(CX - r - 2, yC0 + 3, (r + 2) * 2, 1.4)
   ctx.fillRect(CX - r - 2, yC1 - 4.4, (r + 2) * 2, 1.4)
+}
+
+/**
+ * A Fanta na lata alta e fina (a da China): o respingo claro atrás do logo e o logo como uma faixa clara alta,
+ * contornada na cor da faixa (com a sombra dela), atravessando a lata no lugar do 芬达: duas massas fundidas, a
+ * silhueta dos dois caracteres, sem traço nenhum dentro (no pixel, ideograma vira borrão, e letra falsa não entra).
+ * Na de maçã, embaixo, a maçã cortada ao meio (casca clara, polpa clara, o miolo, o cabo e a folha) e umas gotas, como
+ * na ilustração (src/arte/realista/latas.tsx). Nada no meio da lata: o verde do corpo aparece entre o logo e a maçã.
+ */
+function estampaFantaAlta(ctx: Ctx, p: Paleta, r: number, yC0: number, yC1: number, maca: boolean) {
+  const luz = claro(p.corpo, 0.4)
+  const funda = escuro(p.corpo, 0.7)
+  // o respingo claro atrás do logo, sumindo pra baixo
+  const onda = new Path2D()
+  onda.moveTo(CX - r - 2, yC0 + 22)
+  onda.bezierCurveTo(CX - 10, yC0 + 12, CX + 6, yC0 + 15, CX + r + 2, yC0 + 7)
+  onda.lineTo(CX + r + 2, yC0 + 47)
+  onda.bezierCurveTo(CX + 8, yC0 + 52, CX - 8, yC0 + 50, CX - r - 2, yC0 + 56)
+  onda.closePath()
+  const go = ctx.createLinearGradient(0, yC0 + 8, 0, yC0 + 56)
+  go.addColorStop(0, css(luz, 0.9))
+  go.addColorStop(1, css(luz, 0))
+  pintar(ctx, onda, go)
+  // o logo: duas massas levemente desencontradas (a da esquerda mais alta), giradas como o logo; a sombra e o
+  // contorno dos dois por baixo e o claro por cima, então fica uma silhueta só, com o dente entre as duas
+  ctx.save()
+  ctx.translate(CX, yC0 + 29)
+  ctx.rotate(-0.09)
+  const massas = [ret(-18, -10.5, 19, 19, 6), ret(-1.5, -8.5, 19.5, 18.5, 6)]
+  ctx.save()
+  ctx.translate(0.7, 1.4)
+  ctx.strokeStyle = css(escuro(p.faixa, 0.45))
+  ctx.lineWidth = 3.2
+  for (const m of massas) ctx.stroke(m)
+  ctx.restore()
+  ctx.strokeStyle = css(p.faixa)
+  ctx.lineWidth = 2.6
+  for (const m of massas) ctx.stroke(m)
+  for (const m of massas) pintar(ctx, m, p.detalhe)
+  ctx.restore()
+  if (!maca) return
+  // a maçã cortada ao meio: casca clara contornada, polpa clara com o miolo, o cabo no dente de cima e a folha
+  const yM = yC1 - 24
+  ctx.save()
+  ctx.translate(CX + 2, yM)
+  ctx.rotate(-0.16)
+  const casca = new Path2D()
+  casca.moveTo(0, -6.5)
+  casca.bezierCurveTo(3, -9.5, 10, -9, 10, -2)
+  casca.bezierCurveTo(10, 5, 5, 9.5, 0, 8.5)
+  casca.bezierCurveTo(-5, 9.5, -10, 5, -10, -2)
+  casca.bezierCurveTo(-10, -9, -3, -9.5, 0, -6.5)
+  casca.closePath()
+  pintar(ctx, casca, luz)
+  contorno(ctx, casca, 0.6, 0.9)
+  const polpa = new Path2D()
+  polpa.moveTo(0, -4.8)
+  polpa.bezierCurveTo(2.6, -7.4, 8.2, -6.8, 8.2, -1.6)
+  polpa.bezierCurveTo(8.2, 4, 4.2, 7.6, 0, 6.8)
+  polpa.bezierCurveTo(-4.2, 7.6, -8.2, 4, -8.2, -1.6)
+  polpa.bezierCurveTo(-8.2, -6.8, -2.6, -7.4, 0, -4.8)
+  polpa.closePath()
+  pintar(ctx, polpa, p.detalhe)
+  // o miolo: um fio claro em gota, no meio da polpa
+  ctx.strokeStyle = css(luz)
+  ctx.lineWidth = 0.9
+  ctx.stroke(elipse(0, 0.8, 2.6, 4.2))
+  // o cabo e a folha
+  ctx.strokeStyle = css(funda)
+  ctx.lineWidth = 1.2
+  ctx.beginPath()
+  ctx.moveTo(0, -6)
+  ctx.quadraticCurveTo(0.6, -9.5, 2, -12)
+  ctx.stroke()
+  pintar(ctx, elipse(5.2, -11, 3.6, 1.6, -0.45), escuro(p.corpo, 0.35))
+  ctx.restore()
+  for (const [x, y, rr] of [
+    [CX - 14, yM + 8, 1.3],
+    [CX + 15, yM - 12, 1.1],
+    [CX + 16, yM + 6, 1.2],
+  ] as const)
+    pintar(ctx, elipse(x, y, rr, rr * 1.4), p.detalhe)
+}
+
+/** O Arizona (chá verde): galhos e flores de cerejeira e o painel creme no meio, com uma flor e dois fios. */
+function estampaArizona(ctx: Ctx, p: Paleta, r: number, yC0: number, yC1: number) {
+  const ym = (yC0 + yC1) / 2
+  const galho = escuro(p.corpo, 0.6)
+  // faixas finas creme em cima e embaixo
+  filetesAlta(ctx, p, r, yC0, yC1)
   // galhos
   ctx.strokeStyle = css(galho)
   ctx.lineWidth = 1.3
@@ -1523,7 +1633,7 @@ function bandeja(ctx: Ctx, p: Paleta, e: Extra) {
 
 const DESENHOS: Record<TipoArte, (ctx: Ctx, p: Paleta, e: Extra) => void> = {
   lata: (ctx, p) => lata(ctx, p, false),
-  'lata-alta': (ctx, p) => lata(ctx, p, true),
+  'lata-alta': (ctx, p, e) => lata(ctx, p, true, e),
   'garrafa-quadrada': garrafaQuadrada,
   'garrafa-gin': garrafaGin,
   'garrafa-conhaque': garrafaConhaque,

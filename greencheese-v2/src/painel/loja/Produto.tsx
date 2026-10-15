@@ -188,7 +188,13 @@ function validar(f: Form, p: ProdutoAdmin | null, l: LojaAdmin): Erros {
   return e
 }
 
-function corpo(f: Form, p: ProdutoAdmin | null): ProdutoCorpo {
+/**
+ * O que vai pro admin-produto-salvar. abriu: o formulário como ele abriu (o produto que o painel tinha naquela hora). A
+ * foto e a thumb animada só vão quando mudaram no formulário (como o desenho): o que ele abriu pode ser de antes de
+ * outra mudança no servidor (outro aparelho, ou a migração 106 tirando a mídia de fábrica), e mandar de volta religaria
+ * a mídia que saiu ou trocaria a que o dono pôs noutro lugar. Na edição, campo que não vai fica como está (API.md).
+ */
+function corpo(f: Form, p: ProdutoAdmin | null, abriu: Form | null): ProdutoCorpo {
   const c: ProdutoCorpo = {
     nome: f.nome.trim(),
     tamanho: f.tamanho.trim(),
@@ -199,9 +205,6 @@ function corpo(f: Form, p: ProdutoAdmin | null): ProdutoCorpo {
     combos: f.combos.map((x) => ({ qtd: inteiro(x.qtd) ?? 0, total: lerReais(x.total) ?? 0 })),
     variacoes: f.variacoes.map((v) => ({ ...(v.id ? { id: v.id } : {}), nome: v.nome.trim(), preco: v.preco.trim() ? (lerPreco(v.preco) ?? null) : null })),
     combinaCom: f.combinaCom,
-    foto: f.foto,
-    video: f.video,
-    capa: f.video ? f.capa : null,
     obs: f.obs.trim(),
     ativo: f.ativo,
     demo: f.demo,
@@ -213,9 +216,16 @@ function corpo(f: Form, p: ProdutoAdmin | null): ProdutoCorpo {
     c.arte = arte
     c.cor = corDoBrilho(f.cor1, f.cor2)
   }
+  // a mídia: no produto novo, sempre; na edição, só a que mudou desde que o formulário abriu
+  const base0 = p ? abriu : null
+  if (!base0 || f.foto !== base0.foto) c.foto = f.foto
+  if (!base0 || f.video !== base0.video || f.capa !== base0.capa) {
+    c.video = f.video
+    c.capa = f.video ? f.capa : null
+  }
   // a cor que a foto do Estúdio sugeriu vai pro brilho (o halo do site); tirou a foto, o brilho volta pro desenho
   if (f.corFoto && f.foto) c.cor = f.corFoto
-  else if (p && p.foto && !f.foto) c.cor = corDoBrilho(f.cor1, f.cor2)
+  else if (p && (base0 ? base0.foto : p.foto) && !f.foto) c.cor = corDoBrilho(f.cor1, f.cor2)
   // estados: só os que mudaram
   const estados: Record<string, NoEstado> = {}
   for (const [uf, x] of Object.entries(f.estados)) {
@@ -463,7 +473,7 @@ export function Produto({ id, ufNovo = null }: { id: string | null; ufNovo?: str
     trava.current = true
     setSalvando(true)
     try {
-      const r = await api.salvarProduto(corpo(f, p))
+      const r = await api.salvarProduto(corpo(f, p, inicial.current ? (JSON.parse(inicial.current) as Form) : null))
       lembrarJson(chaveRascunho, null)
       inicial.current = JSON.stringify(f)
       guardarLoja((x) => comProduto(x, r.produto, r))

@@ -233,6 +233,8 @@ function gc_loja_id_livre(string $base, string $tabela): string
  * aceita (src/store/loja-ler.ts).
  */
 const GC_LOJA_FABRICA_IMAGEM = '#^produtos/([a-z0-9][a-z0-9-]{0,80}\.(?:webp|jpe?g|png))$#';
+/** Vídeo de fábrica (a thumb animada que vem no build): `produtos/<nome>.mp4|webm`, com o mesmo nome simples. */
+const GC_LOJA_FABRICA_VIDEO = '#^produtos/([a-z0-9][a-z0-9-]{0,80}\.(?:mp4|webm))$#';
 
 /** A pasta da mídia de fábrica (produtos/, ao lado da api/ no build; o servidor só confere se o arquivo existe). */
 function gc_pasta_produtos(): string
@@ -475,7 +477,7 @@ function gc_loja_ler_produto(array $c, ?array $atual): array
         if ($video !== ($atual['video'] ?? null) && !is_file(gc_pasta_uploads() . '/' . $m[1])) {
             throw gc_invalido('video', 'Vídeo não encontrado. Envia de novo.');
         }
-    } elseif (preg_match('#^produtos/([a-z0-9][a-z0-9-]{0,80}\.(?:mp4|webm))$#', $video, $m) === 1) {
+    } elseif (preg_match(GC_LOJA_FABRICA_VIDEO, $video, $m) === 1) {
         if ($video !== ($atual['video'] ?? null) && !is_file(gc_pasta_produtos() . '/' . $m[1])) {
             throw gc_invalido('video', 'Vídeo não encontrado. Envia de novo.');
         }

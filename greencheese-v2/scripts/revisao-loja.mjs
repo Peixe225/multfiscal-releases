@@ -5,8 +5,10 @@
 // "RESTAM 2" no card, no story e na página do produto, a quantidade que não passa do que resta e o aviso; o estado
 // ativado no painel (BA) no site inteiro, sem a tela de sem atendimento piscar; o WhatsApp próprio do estado e o "o
 // mesmo pra todos"; a entrega grátis em mais de um dia; a frase do story; o material da loja de 11/10 (os 2 novos só no
-// RJ, com "Consultar"; os 4 do material no desenho do site, sem a foto nem a thumb de fábrica; um produto com vídeo no
-// GET loja com a capa no card, sem o halo); o Teste minha sorte desligado; a loja guardada
+// RJ, com "Consultar"; os 4 do material no desenho do site, sem a foto nem a thumb de fábrica; um produto com a thumb
+// do dono, uploads/, e outro com a de fábrica, produtos/, no GET loja, cada um com a capa no card, sem o halo); a arte em
+// pixel que sai do nome (a lata alta da Fanta da China com a estampa dela, não a do Arizona, no desenho e na grade do RJ
+// com as ilustrações seguradas; o APPLE do Tennessee Apple só onde a fonte cabe); o Teste minha sorte desligado; a loja guardada
 // no aparelho com o servidor fora do ar; o 404 sem-loja (volta pra embutida); a resposta torta (ignorada); e o estado
 // que sai do site (quem estava nele vê a tela de sem atendimento).
 import { readFileSync } from 'node:fs'
@@ -26,6 +28,108 @@ export function lojaDaSemente() {
     stories: {},
     sorte: s.sorte,
   }
+}
+
+// ── a arte em pixel (src/arte/produtos/desenhar.ts): a grade de desenho é 90×160 e a lata alta cresce 1,03 no meio ──
+/** Da unidade do desenho da lata alta pro pixel de uma imagem w×h. */
+const naLataAlta = (u, v, w, h) => [Math.round(((45 + (u - 45) * 1.03) * w) / 90), Math.round(((80 + (v - 80) * 1.03) * h) / 160)]
+/** Pixel claro e sem cor (o creme do painel do Arizona, o branco do logo da Fanta). */
+const creme = (d, i) => d[i + 3] > 200 && Math.max(d[i], d[i + 1], d[i + 2]) > 200 && Math.max(d[i], d[i + 1], d[i + 2]) - Math.min(d[i], d[i + 1], d[i + 2]) < 40
+/** Quanto do meio da lata alta (embaixo da flor do painel do Arizona, entre os fios e a borda dele) é creme. */
+function cremeNaCaixa({ w, h, d }) {
+  const [x0, y0] = naLataAlta(36, 84, w, h)
+  const [x1, y1] = naLataAlta(54, 94, w, h)
+  let n = 0
+  let t = 0
+  for (let y = y0; y < y1; y++)
+    for (let x = x0; x < x1; x++) {
+      t++
+      if (creme(d, (y * w + x) * 4)) n++
+    }
+  return n / Math.max(1, t)
+}
+/** Sobreposição (interseção ÷ união) do creme de duas latas altas do mesmo tamanho, na parte impressa. */
+function iouDoCreme(a, b) {
+  if (a.w !== b.w || a.h !== b.h) return null
+  const [, y0] = naLataAlta(0, 33, a.w, a.h)
+  const [, y1] = naLataAlta(0, 130, a.w, a.h)
+  let i = 0
+  let u = 0
+  for (let y = y0; y < y1; y++)
+    for (let x = 0; x < a.w; x++) {
+      const k = (y * a.w + x) * 4
+      const ca = creme(a.d, k)
+      const cb = creme(b.d, k)
+      if (ca && cb) i++
+      if (ca || cb) u++
+    }
+  return u ? i / u : 0
+}
+
+/**
+ * O desenho em pixel sai do nome também (desenharArte, empacotado com o rolldown e rodado no navegador): a lata alta da
+ * Fanta da China com a estampa dela (diferente da mesma lata com o nome do Arizona, sem o painel creme), o Arizona com
+ * o painel, outra lata alta só com os filetes; e o letreiro do rótulo só quando a fonte cabe inteira na saída (o APPLE
+ * do Tennessee Apple sai na página, 120 px, e no card, 72 px, fica o filete, como numa garrafa quadrada sem nada escrito).
+ */
+export async function desenhoDoNome({ browser, conferir }) {
+  const { rolldown } = await import('rolldown')
+  const { mkdtempSync, rmSync } = await import('node:fs')
+  const { tmpdir } = await import('node:os')
+  const { join } = await import('node:path')
+  const tmp = mkdtempSync(join(tmpdir(), 'gc-desenho-'))
+  const pacote = await rolldown({ input: new URL('../src/arte/produtos/desenhar.ts', import.meta.url).pathname, logLevel: 'silent' })
+  await pacote.write({ file: join(tmp, 'd.js'), format: 'iife', name: 'GCDesenho' })
+  await pacote.close()
+  const codigo = readFileSync(join(tmp, 'd.js'), 'utf8')
+  rmSync(tmp, { recursive: true, force: true })
+  const cat = JSON.parse(readFileSync(new URL('../src/dados/catalogo.json', import.meta.url), 'utf8')).produtos
+  const P = (id) => cat.find((p) => p.id === id)
+  const ctx = await browser.newContext()
+  const pg = await ctx.newPage()
+  await pg.setContent('<!doctype html><title>desenho</title>')
+  await pg.addScriptTag({ content: codigo })
+  const r = await pg.evaluate(
+    ({ china, arizona, apple, old }) => {
+      const des = (arte, nome, w) => {
+        const h = Math.round((w * 16) / 9)
+        const c = document.createElement('canvas')
+        c.width = w
+        c.height = h
+        const g = c.getContext('2d')
+        window.GCDesenho.desenharArte(g, arte, w, h, { nome })
+        return { w, h, d: Array.from(g.getImageData(0, 0, w, h).data) }
+      }
+      const dif = (a, b) => {
+        let n = 0
+        for (let i = 0; i < a.d.length; i += 4) if (Math.abs(a.d[i] - b.d[i]) + Math.abs(a.d[i + 1] - b.d[i + 1]) + Math.abs(a.d[i + 2] - b.d[i + 2]) + Math.abs(a.d[i + 3] - b.d[i + 3]) > 8) n++
+        return n
+      }
+      const neutro = 'Garrafa da casa'
+      const fc = des(china.arte, china.nome, 90)
+      const fa = des(china.arte, arizona.nome, 90)
+      const outra = des(china.arte, 'Lata alta da casa', 90)
+      return {
+        china: fc,
+        chinaComNomeDoArizona: fa,
+        arizona: des(arizona.arte, arizona.nome, 90),
+        outraAlta: outra,
+        difChina: dif(fc, fa),
+        difOutra: dif(outra, fa),
+        apple72: dif(des(apple.arte, apple.nome, 72), des(apple.arte, neutro, 72)),
+        apple120: dif(des(apple.arte, apple.nome, 120), des(apple.arte, neutro, 120)),
+        old72: dif(des(old.arte, old.nome, 72), des(old.arte, neutro, 72)),
+      }
+    },
+    { china: P('fanta-maca-china'), arizona: P('arizona-green-tea'), apple: P('jack-daniels-tennessee-apple'), old: P('jack-daniels-old-no7-1l') },
+  )
+  await ctx.close()
+  const cr = (x) => cremeNaCaixa(x).toFixed(2)
+  conferir(r.difChina > 400, `desenho: a lata alta da Fanta da China (com o nome dela) não é a do Arizona recolorida (${r.difChina} pixels diferentes da mesma arte com o nome do Arizona)`)
+  conferir(cremeNaCaixa(r.china) < 0.1 && cremeNaCaixa(r.arizona) > 0.35 && cremeNaCaixa(r.chinaComNomeDoArizona) > 0.35, `desenho: o painel creme no meio da lata só no Arizona (creme no meio: Fanta da China ${cr(r.china)}, Arizona ${cr(r.arizona)}, a estampa do Arizona nas cores da Fanta ${cr(r.chinaComNomeDoArizona)})`)
+  conferir(r.difOutra > 400 && cremeNaCaixa(r.outraAlta) < 0.1, `desenho: outra lata alta (nem Arizona nem Fanta) sem as flores nem o painel, só os filetes (${r.difOutra} pixels diferentes da estampa do Arizona, creme no meio ${cr(r.outraAlta)})`)
+  conferir(r.apple72 === 0 && r.apple120 > 50, `desenho: o APPLE do Tennessee Apple só onde a fonte cabe inteira (página, 120 px: ${r.apple120} pixels de letreiro; card, 72 px: ${r.apple72}, o filete de sempre)`)
+  conferir(r.old72 > 30, `desenho: o Nº 7 do Old No. 7 cabe no card e sai (${r.old72} pixels)`)
 }
 
 const ZAP_LOJA = 'https://wa.me/5533991139036?text='
@@ -225,11 +329,16 @@ export async function rodadaLoja({ browser, base, contexto, conferir, foto, vigi
   // ── RJ: o material da loja de 11/10 (na semente): os 2 novos à venda só no RJ, com "Consultar" (MG: indisponíveis); os
   // 4 do material (a Fanta Ghost Face, o Hennessy, o Jack Apple e a Fanta da China) no desenho do site, como o resto do
   // catálogo (pedido do Ian em 15/10: nada da foto nem da thumb animada de fábrica); e a thumb animada continua: um
-  // produto com vídeo no GET loja (a Piteira de vidro, só nesta parte) mostra a capa no card, sem o halo pontilhado ──
+  // produto com vídeo no GET loja mostra a capa no card, sem o halo pontilhado, com a thumb que o dono subiu (uploads/:
+  // a Piteira de vidro) e com a de fábrica, que continua no build e o dono pode ligar pela API (produtos/: o Dr Pepper;
+  // e é o que a loja guardada nos aparelhos ainda traz até pegar a nova), só nesta parte ──
   {
     const vidro = prod('piteira-de-vidro-raw')
     vidro.video = 'uploads/thumbdaloja01.webm'
     vidro.capa = 'uploads/capadaloja01.png'
+    const drPepper = prod('dr-pepper')
+    drPepper.video = 'produtos/hennessy-very-special.mp4'
+    drPepper.capa = 'produtos/hennessy-very-special-capa.webp'
     const ctxRj = await contexto(browser, { width: 390, height: 844 })
     await ctxRj.route(/\/api\/index\.php\?r=loja(&|$)/, responder)
     // a capa é uma imagem pequena; o vídeo fica baixando (não chega): a capa não sai do card enquanto a rodada olha
@@ -288,10 +397,12 @@ export async function rodadaLoja({ browser, base, contexto, conferir, foto, vigi
     conferir(Object.values(noRj).every((c) => c.desenho !== 'pixel'), `loja: RJ, nenhum card da grade na arte em pixel (${Object.entries(noRj).filter(([, c]) => c.desenho === 'pixel').map(([id]) => id).join(', ')})`)
     // a mesma cara do resto da grade: o desenho com o halo pontilhado (e nenhum card da grade com foto de fábrica)
     conferir(['hennessy-very-special', 'jack-daniels-old-no7-1l', 'coca-cola-vanilla'].every((id) => noRj[id]?.desenho === 'ilustracao' && noRj[id]?.halo), `loja: RJ, o Hennessy no desenho com o halo, igual ao Jack Old No. 7 e à Coca (${JSON.stringify([noRj['hennessy-very-special'], noRj['jack-daniels-old-no7-1l']])})`)
-    conferir(Object.values(noRj).every((c) => !/produtos\//.test(c.img)), 'loja: RJ, nenhum card com mídia de fábrica (produtos/)')
+    conferir(quatro.every((id) => !/produtos\//.test(noRj[id]?.img ?? '')), 'loja: RJ, nenhum dos 4 com mídia de fábrica (produtos/)')
     // a thumb animada (quadro sobre preto, sem transparência) sem o halo, que vazava pelo escuro do produto; o desenho, com
     const pv = noRj['piteira-de-vidro-raw']
-    conferir(!!pv && pv.img.endsWith('uploads/capadaloja01.png') && pv.halo === false, `loja: o produto com thumb animada no GET loja mostra a capa no card, sem o halo pontilhado (${JSON.stringify(pv)})`)
+    conferir(!!pv && pv.img.endsWith('uploads/capadaloja01.png') && pv.halo === false, `loja: o produto com a thumb animada do dono (uploads/) no GET loja mostra a capa no card, sem o halo pontilhado (${JSON.stringify(pv)})`)
+    const dp = noRj['dr-pepper']
+    conferir(!!dp && dp.img.endsWith('produtos/hennessy-very-special-capa.webp') && dp.halo === false && !dp.desenho, `loja: o produto com a thumb animada de fábrica (produtos/, o vídeo e a capa que estão no build) mostra a capa de fábrica no card, sem o halo pontilhado (${JSON.stringify(dp)})`)
     await foto(rj, 'loja-04b-rj-novos')
     const noMg = await cards('mg')
     conferir(noMg['jack-daniels-tennessee-apple']?.off === true && noMg['fanta-maca-china']?.off === true, 'loja: MG, os 2 novos indisponíveis (só RJ)')
@@ -299,6 +410,59 @@ export async function rodadaLoja({ browser, base, contexto, conferir, foto, vigi
     await ctxRj.close()
     delete vidro.video
     delete vidro.capa
+    delete drPepper.video
+    delete drPepper.capa
+  }
+
+  // ── a arte em pixel da lata alta (a do chiado da revelação, a da espera da ilustração e a da vitrine da rua): a Fanta
+  // da China tem a estampa dela, não a do Arizona recolorida (achado da revisão de 15/10) ──
+  await desenhoDoNome({ browser, conferir })
+  {
+    // as ilustrações seguradas (4G lento ou o pedaço que falhou): a grade fica na arte em pixel, que é a que aparece
+    const ctxPx = await contexto(browser, { width: 390, height: 844 })
+    await ctxPx.route(/\/api\/index\.php\?r=loja(&|$)/, responder)
+    await ctxPx.route(/\/assets\/realista-[\w-]+\.js$/, () => {})
+    await ctxPx.addInitScript(() => {
+      try {
+        localStorage.setItem('gc-idade', JSON.stringify(Date.now() + 864e5))
+        sessionStorage.setItem('gc-abertura', '1')
+        sessionStorage.setItem('gc-dica-hero', '1')
+      } catch {
+        /* ignora */
+      }
+    })
+    const px = await ctxPx.newPage()
+    vigiarSemRede(px, 'loja-rj-pixel')
+    await px.goto(`${base}?uf=rj`)
+    await esperar(px, () => JSON.parse(localStorage.getItem('gc-loja') || 'null')?.versao === 7)
+    const sel = (id) => `.vista-inicio .catalogo-inicio .grade > .card[data-flip-id="${id}"] .arte-produto .arte-quadro > canvas`
+    for (const id of ['fanta-maca-china', 'arizona-green-tea']) {
+      await px.locator(sel(id)).scrollIntoViewIfNeeded().catch(() => {})
+      await esperar(px, (s) => (document.querySelector(s)?.width ?? 1) > 1, sel(id), 10000)
+    }
+    // a revelação (chiado → pixel) termina antes de olhar
+    await px.waitForTimeout(1600)
+    const cards = await px.evaluate(
+      ({ ids, sel }) =>
+        Object.fromEntries(
+          ids.map((id) => {
+            const c = document.querySelector(sel.replace('§', id))
+            if (!c || c.width < 8) return [id, null]
+            const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data
+            return [id, { w: c.width, h: c.height, d: Array.from(d) }]
+          }),
+        ),
+      { ids: ['fanta-maca-china', 'arizona-green-tea'], sel: sel('§') },
+    )
+    const china = cards['fanta-maca-china']
+    const arizona = cards['arizona-green-tea']
+    const fc = china && cremeNaCaixa(china)
+    const fa = arizona && cremeNaCaixa(arizona)
+    conferir(!!china && !!arizona && fa > 0.3 && fc < 0.1, `loja: RJ com as ilustrações seguradas, a Fanta da China em pixel sem o painel creme do Arizona no meio da lata (creme no meio: Fanta ${fc?.toFixed(2)}, Arizona ${fa?.toFixed(2)})`)
+    const iou = china && arizona && iouDoCreme(china, arizona)
+    conferir(iou != null && iou < 0.4, `loja: RJ, o claro da Fanta da China em pixel (o logo e a maçã) não cai onde fica o do Arizona (o painel e os filetes): sobreposição ${iou?.toFixed(2)}`)
+    await foto(px, 'loja-04c-rj-pixel')
+    await ctxPx.close()
   }
 
   // ── a loja muda de novo: o Teste minha sorte desligado, "o mesmo WhatsApp pra todos", a rua desligada ──

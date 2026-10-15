@@ -7,7 +7,8 @@
 // categorias, editar o preço, mandar a foto pelo Estúdio da foto (recorte,
 // antes/depois, varinha, o arquivo 9:16 com transparência, a cor do halo, "Ajustar a foto") e ver ela no card do site,
 // criar produto, a thumb animada (o Estúdio do vídeo grava no navegador; sem MediaRecorder, vai o MP4 original; a
-// lista mostra a thumb pequena), ativar a Bahia, a hora com máscara, escolher e ordenar o story, criar prêmio com a conferência ao vivo (e
+// lista mostra a thumb pequena; a thumb já salva, vinda do servidor, aparece no produto e salvar o preço não perde ela;
+// o formulário aberto antes de a mídia sair no servidor não manda ela de volta), ativar a Bahia, a hora com máscara, escolher e ordenar o story, criar prêmio com a conferência ao vivo (e
 // bebida fora da lista) e mudar um texto da loja. Cada passo é conferido no GET loja (o que o site lê). axe e prints
 // em cada tela. No fim, o site de verdade (siteVeLoja): o que o painel mudou aparece no site (preço, foto, "RESTA 1",
 // produto novo, a thumb animada tocando no card, story na ordem do dono, Bahia), o WhatsApp próprio do estado e o "o mesmo pra todos", a rua do
@@ -542,6 +543,63 @@ export async function fluxoLoja({ p, BASE, ok, print, axe, foto, fotoClara, vide
       const h = prod(await loja(), 'hennessy-very-special')
       ok(h.foto === null && !h.video && !h.capa && h.preco === (v ? 199.9 : null), `salvar o Hennessy (preço ${v || 'vazio = Consultar'}) continua no desenho, sem foto e sem vídeo`)
     }
+  }
+
+  // a thumb animada já salva, vinda do servidor: a de fábrica (está no build; o dono pode pôr pela API, testar-api-video)
+  // num produto que não é dos 4, o Dr Pepper. O painel abre o produto com ela (o MP4 de fábrica é H.264: no Chromium
+  // daqui, sem H.264, o vídeo dá erro e a miniatura cai na capa parada), "Trocar vídeo", sem o halo, e salvar outro campo
+  // (o preço) não perde a thumb. Fora do `if (videos)`: roda também sem ffmpeg. No fim, sai (video: null)
+  {
+    const apiPainel = (rota, corpo) =>
+      p.evaluate(
+        async ([rota, corpo]) => {
+          const csrf = (await (await fetch('../api/index.php?r=admin-sessao', { credentials: 'same-origin' })).json()).csrf
+          const r = await fetch(`../api/index.php?r=${rota}`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF': csrf }, body: JSON.stringify(corpo), credentials: 'same-origin' })
+          return r.status
+        },
+        [rota, corpo],
+      )
+    const VIDEO = 'produtos/hennessy-very-special.mp4'
+    const CAPA = 'produtos/hennessy-very-special-capa.webp'
+    const antes = prod(await loja(), 'dr-pepper')
+    ok((await apiPainel('admin-produto-salvar', { id: 'dr-pepper', video: VIDEO, capa: CAPA })) === 200, 'a thumb de fábrica no Dr Pepper, pela API (o vídeo e a capa que estão no build)')
+    await p.goto(`${BASE}/painel/#/produto/dr-pepper`)
+    await p.reload()
+    await p.getByRole('heading', { name: 'Editar produto' }).waitFor()
+    const h264 = await p.evaluate(() => document.createElement('video').canPlayType('video/mp4; codecs="avc1.42E01E"') !== '')
+    const card = p.locator('.pn-video-produto .pn-foto-card')
+    const esperado = h264 ? card.locator(`video.pn-arte-video[src="../${VIDEO}"][poster="../${CAPA}"]`) : card.locator(`img.pn-arte-foto[src="../${CAPA}"]`)
+    ok(await esperado.waitFor({ timeout: 15000 }).then(() => true, () => false), h264 ? 'a thumb salva no produto, com a capa de pôster' : 'a thumb salva no produto (sem H.264 aqui, a miniatura fica na capa parada, sem cair num desenho qualquer)')
+    ok(await p.getByText('Trocar vídeo').isVisible(), 'a linha da thumb animada sabe que tem vídeo ("Trocar vídeo")')
+    const halo = await card.locator('.pn-arte').first().evaluate((el) => ({ classe: el.classList.contains('pn-arte-halo-site'), antes: getComputedStyle(el, '::before').backgroundImage }))
+    ok(!halo.classe && !/url\(/.test(halo.antes), `a thumb salva fica sem o halo pontilhado (${JSON.stringify(halo).slice(0, 80)})`)
+    await print(p, 'loja-produto-thumb-salva')
+    for (const v of ['199,90', '']) {
+      await p.goto(`${BASE}/painel/#/produto/dr-pepper`)
+      await p.getByRole('heading', { name: 'Editar produto' }).waitFor()
+      await p.getByLabel('Preço da unidade').fill(v)
+      await p.getByRole('button', { name: 'Salvar', exact: true }).tap()
+      await p.getByText(/Dr Pepper: salvo/).waitFor()
+      await p.getByRole('heading', { name: 'Editar produto' }).waitFor({ state: 'detached' })
+      const d = prod(await loja(), 'dr-pepper')
+      ok(d.video === VIDEO && d.capa === CAPA && d.preco === (v ? 199.9 : null), `salvar o produto (preço ${v || 'vazio = Consultar'}) mantém a thumb salva (${d.video}, ${d.capa})`)
+    }
+    // o formulário aberto antes de outra mudança no servidor (outro aparelho, ou a migração 106 tirando a mídia de
+    // fábrica): salvar o preço nele não manda de volta a foto nem a thumb que saíram (o painel só manda a mídia que mudou
+    // no formulário; antes mandava sempre, e a mídia de fábrica voltava)
+    ok((await apiPainel('admin-produto-salvar', { id: 'dr-pepper', foto: 'produtos/fanta-ghost-face-punch.webp' })) === 200, 'uma foto de fábrica no Dr Pepper também, pela API')
+    await p.goto(`${BASE}/painel/#/produto/dr-pepper`)
+    await p.reload()
+    await p.getByRole('heading', { name: 'Editar produto' }).waitFor()
+    await p.getByLabel('Preço da unidade').waitFor()
+    ok((await apiPainel('admin-produto-salvar', { id: 'dr-pepper', foto: null, video: null })) === 200, 'com o formulário aberto, a foto e a thumb saem no servidor (como a 106 faz)')
+    await p.getByLabel('Preço da unidade').fill('9,90')
+    await p.getByRole('button', { name: 'Salvar', exact: true }).tap()
+    await p.getByText(/Dr Pepper: salvo/).waitFor()
+    await p.getByRole('heading', { name: 'Editar produto' }).waitFor({ state: 'detached' })
+    const velho = prod(await loja(), 'dr-pepper')
+    ok(velho.foto === null && !velho.video && !velho.capa && velho.preco === 9.9, `salvar o preço no formulário aberto antes não religa a foto nem a thumb que saíram (${JSON.stringify([velho.foto, velho.video ?? null, velho.capa ?? null, velho.preco])})`)
+    ok((await apiPainel('admin-produto-salvar', { id: 'dr-pepper', foto: null, video: null, preco: antes.preco })) === 200, 'o Dr Pepper volta como estava (sem foto, sem thumb, o preço de antes)')
   }
 
   // ativar a Bahia

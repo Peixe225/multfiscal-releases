@@ -84,6 +84,23 @@ export async function lojaSemServidor(t) {
     igual(nomes.map((n) => fotoSite.test(`produtos/${n}`)), apache, 'foto de fábrica: o site aceita o mesmo nome que o .htaccess de produtos/ serve')
     igual(servidor, apache, 'foto de fábrica: o servidor aceita o mesmo nome que o .htaccess de produtos/ serve')
     igual(apache.filter(Boolean).length, 5, 'só os 5 nomes simples passam (sem _, ponto no meio, maiúscula, traço no começo, outra extensão ou nome longo)')
+    // a thumb animada de fábrica (o vídeo e a capa, em produtos/): o VIDEO e a CAPA de loja-ler.ts, o que o servidor
+    // aceita (GC_LOJA_FABRICA_VIDEO e GC_LOJA_FABRICA_IMAGEM) e o que o .htaccess serve, iguais também: nenhum produto da
+    // semente usa (desde 15/10), mas o dono pode ligar pela API e a loja guardada nos aparelhos ainda traz até pegar a nova
+    const reTs = (nome) => new RegExp(new RegExp(`const ${nome} = \\/(.+)\\/\\n`).exec(readFileSync(lojaTs, 'utf8'))?.[1] ?? '^$')
+    const videoSite = reTs('VIDEO')
+    const capaSite = reTs('CAPA')
+    const videos = ['hennessy-very-special.mp4', 'a.webm', 'x1.mp4', 'video_dono.mp4', 'a.b.mp4', 'Hennessy.mp4', '-a.mp4', 'a.mov', 'a.mp4.php', 'a.webp', `${'a'.repeat(81)}.mp4`, `${'a'.repeat(82)}.mp4`]
+    const servidorVideo = JSON.parse(
+      execFileSync(PHP, ['-r', 'define("GC_API", 1); require $argv[1] . "/validar.php"; require $argv[1] . "/loja.php"; require $argv[1] . "/loja-validar.php"; echo json_encode([defined("GC_LOJA_FABRICA_VIDEO") ? array_map(fn ($n) => preg_match(GC_LOJA_FABRICA_VIDEO, "produtos/" . $n) === 1, json_decode($argv[2])) : null, array_map(fn ($n) => preg_match(GC_LOJA_FABRICA_IMAGEM, "produtos/" . $n) === 1, json_decode($argv[3]))]);', join(raiz, 'public', 'api', 'nucleo'), JSON.stringify(videos), JSON.stringify(nomes)], { encoding: 'utf8' }),
+    )
+    const apacheVideo = videos.map((n) => new RegExp(ht).test(n) && /\.(mp4|webm)$/.test(n))
+    igual(videos.map((n) => videoSite.test(`produtos/${n}`)), apacheVideo, 'vídeo de fábrica: o site (VIDEO de loja-ler.ts) aceita o mesmo nome que o .htaccess de produtos/ serve')
+    igual(servidorVideo[0], apacheVideo, 'vídeo de fábrica: o servidor (GC_LOJA_FABRICA_VIDEO) aceita o mesmo nome que o .htaccess de produtos/ serve')
+    igual(apacheVideo.filter(Boolean).length, 4, 'vídeo de fábrica: só os 4 nomes simples passam')
+    igual(nomes.map((n) => capaSite.test(`produtos/${n}`)), apache, 'capa de fábrica: o site (CAPA de loja-ler.ts) aceita o mesmo nome que o .htaccess de produtos/ serve')
+    igual(servidorVideo[1], apache, 'capa de fábrica: o servidor aceita o mesmo nome (GC_LOJA_FABRICA_IMAGEM, a mesma da foto)')
+    ok(videoSite.test('uploads/abcdef1234567890abcdef12.webm') && capaSite.test('uploads/abcdef1234567890abcdef12.webp') && !videoSite.test('../produtos/a.mp4') && !videoSite.test('produtos/sub/a.mp4'), 'vídeo e capa: os do dono (uploads/) também, e nada fora das duas pastas')
   }
   return { nomesUf }
 }
@@ -194,18 +211,23 @@ export async function loja(t, { nomesUf }) {
     // a migração 104 carrega os próprios dados dos 2 novos: têm de bater com o catálogo (a semente), menos a foto: a 104
     // (que já rodou no ar e não muda) entra com a foto de fábrica, e a 106 tira, a mesma que ela conhece
     const daMigracao = JSON.parse(
-      execFileSync(t.PHP, ['-r', `define('GC_API', 1); require $argv[1] . '/nucleo/loja-migracoes.php'; echo json_encode([GC_LOJA_NOVOS_1110, defined('GC_LOJA_FOTOS_FABRICA_106') ? GC_LOJA_FOTOS_FABRICA_106 : null, defined('GC_LOJA_VIDEO_FABRICA_106') ? GC_LOJA_VIDEO_FABRICA_106 : null], JSON_UNESCAPED_UNICODE);`, join(t.raiz, 'public', 'api')], { encoding: 'utf8' }),
+      execFileSync(t.PHP, ['-r', `define('GC_API', 1); require $argv[1] . '/nucleo/loja-migracoes.php'; echo json_encode([GC_LOJA_NOVOS_1110, defined('GC_LOJA_FOTOS_FABRICA_106') ? GC_LOJA_FOTOS_FABRICA_106 : null, defined('GC_LOJA_VIDEO_FABRICA_106') ? GC_LOJA_VIDEO_FABRICA_106 : null, defined('GC_LOJA_COR_FABRICA_106') ? GC_LOJA_COR_FABRICA_106 : null], JSON_UNESCAPED_UNICODE);`, join(t.raiz, 'public', 'api')], { encoding: 'utf8' }),
     )
-    const [novos1110, fotos106 = null, video106 = null] = daMigracao
+    const [novos1110, fotos106 = null, video106 = null, cor106 = null] = daMigracao
     ok(fotos106 !== null && video106 !== null, 'migração 106: a mídia de fábrica que ela tira mora nela (GC_LOJA_FOTOS_FABRICA_106 e GC_LOJA_VIDEO_FABRICA_106)')
     for (const m of novos1110) {
       const sp = s.produtos.find((p) => p.id === m.id)
-      mesmo(canon({ nome: m.nome, tamanho: m.tamanho, detalhe: m.detalhe, descricao: m.descricao, categoria: m.categoria, cor: m.cor, arte: m.arte, obs: m.obs }), canon({ nome: sp.nome, tamanho: sp.tamanho, detalhe: sp.detalhe, descricao: sp.descricao, categoria: sp.categoria, cor: sp.cor, arte: sp.arte, obs: sp.obs }), `migração 104: ${m.id} igual ao catálogo (menos a foto)`)
+      mesmo(canon({ nome: m.nome, tamanho: m.tamanho, detalhe: m.detalhe, descricao: m.descricao, categoria: m.categoria, arte: m.arte, obs: m.obs }), canon({ nome: sp.nome, tamanho: sp.tamanho, detalhe: sp.detalhe, descricao: sp.descricao, categoria: sp.categoria, arte: sp.arte, obs: sp.obs }), `migração 104: ${m.id} igual ao catálogo (menos a foto e a cor do halo)`)
       igual([m.foto, fotos106?.[m.id], sp.foto], [`produtos/${m.id}.webp`, `produtos/${m.id}.webp`, null], `migração 104: ${m.id} entra com a foto de fábrica, a mesma que a 106 tira (no catálogo, sem foto)`)
+      // a cor do halo: a 104 trouxe a medida da foto de fábrica; o catálogo, sem foto, fica com a do desenho (a do corpo
+      // da arte, a que o painel põe quando o dono tira a foto), e a 106 troca uma pela outra
+      igual([m.cor, sp.cor], cor106?.[m.id] ?? [null, null], `${m.id}: a cor do halo da 104 (a da foto de fábrica) e a do catálogo (a do desenho) são as que a 106 conhece`)
+      igual(sp.cor, sp.arte.corpo, `${m.id}: no catálogo, sem foto, o halo na cor do desenho (o corpo da arte), não na da foto que saiu`)
       igual([sp.preco, Object.entries(sp.disponivel).filter(([, v]) => v).map(([uf]) => uf)], [null, ['rj']], `migração 104 e catálogo: ${m.id} sem preço, só no RJ`)
     }
     // a 106 conhece exatamente a mídia de fábrica dos 4 (o caminho que a 104 pôs) e nada mais
     igual(Object.keys(fotos106 ?? {}).sort(), [...QUATRO_1110].sort(), 'migração 106: a foto de fábrica dos 4 produtos do material de 11/10, e só deles')
+    igual(Object.keys(cor106 ?? {}).sort(), ['fanta-maca-china', 'jack-daniels-tennessee-apple'], 'migração 106: a cor do halo só dos 2 que tinham a cor medida da foto (a Fanta Ghost Face e o Hennessy têm cor posta à mão)')
     ok(fotos106 !== null && Object.entries(fotos106).every(([id, f]) => f === `produtos/${id}.webp` && existsSync(join(t.raiz, 'public', f))), 'migração 106: cada foto é produtos/<id>.webp, e o arquivo continua no build')
     igual(video106, ['hennessy-very-special', 'produtos/hennessy-very-special.mp4'], 'migração 106: o vídeo de fábrica do Hennessy (a capa sai junto)')
     ok(!!video106 && existsSync(join(t.raiz, 'public', video106[1])) && existsSync(join(t.raiz, 'public/produtos/hennessy-very-special-capa.webp')), 'o vídeo e a capa de fábrica continuam no build (só deixam de estar ligados ao produto)')
@@ -1049,6 +1071,8 @@ export async function lojaMigracao(t) {
     // 106, na mesma subida, tira: o banco instalado antes da loja termina com os 4 no desenho, como o resto
     const doA = Object.fromEntries(QUATRO_1110.map((id) => j.loja.produtos.find((p) => p.id === id)).map((p) => [p.id, [p.foto, p.video ?? null, p.capa ?? null]]))
     igual(doA, Object.fromEntries(QUATRO_1110.map((id) => [id, [null, null, null]])), 'banco instalado antes da loja: a 104 põe a mídia de fábrica e a 106 tira na mesma subida (os 4 no desenho do site)')
+    const corDe = (jj, id) => jj.loja.produtos.find((p) => p.id === id)?.cor
+    igual([corDe(j, 'jack-daniels-tennessee-apple'), corDe(j, 'fanta-maca-china')], ['#a8641f', '#7dbb3c'], 'banco instalado antes da loja: o halo do Jack Apple e da Fanta da China na cor do desenho (a da semente)')
     igual(marcaDe(j), 'destilados', 'banco já instalado: a 101 semeia sem a coluna e a 301 marca os Destilados como bebida alcoólica')
     igual(banco(join(dirA, 'loja.sqlite')), [todas, 1, 1], 'registro com 1 (a de antes), 100, 101 e as das outras frentes; user_version segue 1 (a base); semeou uma vez')
     await fetch(`${bA}/api/index.php?r=loja`).then((x) => x.text())
@@ -1069,6 +1093,7 @@ export async function lojaMigracao(t) {
     igual([s1.status, j1.loja?.produtos?.length], [200, 19], 'a instalação semeia a loja')
     igual(j1.versao, 1, 'banco novo: a 104 e a 106 não mexem (a loja nem existia); a instalação já semeia com o material novo, sem a mídia de fábrica')
     ok(j1.loja.produtos.filter((p) => QUATRO_1110.includes(p.id)).every((p) => p.foto === null && !('video' in p)), 'banco novo: os 4 do material de 11/10 no desenho do site (sem foto e sem vídeo)')
+    igual([corDe(j1, 'jack-daniels-tennessee-apple'), corDe(j1, 'fanta-maca-china')], ['#a8641f', '#7dbb3c'], 'banco novo: o halo do Jack Apple e da Fanta da China na cor do desenho')
     igual(marcaDe(j1), 'destilados', 'banco novo: a semente já entra com os Destilados marcados como bebida alcoólica')
     igual(banco(join(dirB, 'loja.sqlite'))[2], 1, 'uma vez')
     ok(readFileSync(join(raiz, 'public/api/nucleo/loja-migracoes.php'), 'utf8').includes('100 =>'), 'as migrações da loja ficam na faixa 100–199')
@@ -1182,13 +1207,21 @@ export async function lojaMigracao(t) {
         ";;UPDATE loja_produtos SET video = 'produtos/hennessy-very-special.mp4', capa = 'produtos/hennessy-very-special-capa.webp' WHERE id = 'hennessy-very-special'" +
         ";;UPDATE loja_produtos SET foto = 'produtos/fanta-ghost-face-punch.webp' WHERE id = 'dr-pepper'" +
         ";;UPDATE loja_produtos SET video = 'produtos/hennessy-very-special.mp4', capa = 'produtos/hennessy-very-special-capa.webp' WHERE id = 'coca-cola-vanilla'" +
+        // a cor do halo que a 104 trouxe medida da foto de fábrica (o Jack Apple e a Fanta da China)
+        ";;UPDATE loja_produtos SET cor = '#6c5f37' WHERE id = 'jack-daniels-tennessee-apple';;UPDATE loja_produtos SET cor = '#316f7f' WHERE id = 'fanta-maca-china'" +
         ";;UPDATE ajustes SET valor = '20' WHERE chave = 'loja.versao';;UPDATE ajustes SET valor = '1000' WHERE chave = 'loja.atualizado_em'",
     )
     const antes106 = await fetch(`${bB}/api/index.php?r=loja`)
     const jAntes106 = await antes106.json()
     igual(QUATRO_1110.map((id) => midia(jAntes106, id)[0]), QUATRO_1110.map(fabrica), '106 (antes): o banco do ar, com a foto de fábrica nos 4')
+    const cores = (jj) => Object.fromEntries(QUATRO_1110.map((id) => [id, jj.loja.produtos.find((p) => p.id === id).cor]))
     const { r: r106, j: j106 } = await rodar106()
     igual(Object.fromEntries(QUATRO_1110.map((id) => [id, midia(j106, id)])), Object.fromEntries(QUATRO_1110.map((id) => [id, [null, null, null]])), '106 no banco do ar: os 4 sem foto, e o Hennessy sem o vídeo e a capa de fábrica (o desenho do site)')
+    igual(
+      cores(j106),
+      { ...cores(jAntes106), 'jack-daniels-tennessee-apple': '#a8641f', 'fanta-maca-china': '#7dbb3c' },
+      `106 no banco do ar: o halo do Jack Apple e da Fanta da China sai da cor da foto (${cores(jAntes106)['jack-daniels-tennessee-apple']}, ${cores(jAntes106)['fanta-maca-china']}) pra do desenho; a da Fanta Ghost Face e a do Hennessy (postas à mão) ficam`,
+    )
     igual([midia(j106, 'dr-pepper'), midia(j106, 'coca-cola-vanilla')], [['produtos/fanta-ghost-face-punch.webp', null, null], [null, 'produtos/hennessy-very-special.mp4', 'produtos/hennessy-very-special-capa.webp']], '106: o arquivo de fábrica ligado a outro produto (pelo dono) fica')
     igual(j106.versao, 21, '106: mudou a loja, a versão sobe (20 → 21)')
     ok(r106.headers.get('etag') !== antes106.headers.get('etag'), '106: o ETag muda junto (o site com a loja guardada no aparelho recebe a nova, não um 304)')
@@ -1227,6 +1260,24 @@ export async function lojaMigracao(t) {
     sql("UPDATE loja_produtos SET foto = 'uploads/fotododono1234.webp', video = 'produtos/hennessy-very-special.mp4', capa = 'produtos/hennessy-very-special-capa.webp' WHERE id = 'hennessy-very-special'")
     const { j: jVideo } = await rodar106()
     igual(midia(jVideo, 'hennessy-very-special'), ['uploads/fotododono1234.webp', null, null], '106: a foto que o dono pôs no Hennessy fica; a thumb de fábrica (vídeo e capa) sai')
+    // a cor do halo: a que o dono mudou fica (mesmo saindo a foto de fábrica); a de fábrica com a foto do dono no lugar
+    // fica (a cor é dela agora); a de fábrica sem foto nenhuma volta pra do desenho
+    sql(
+      "UPDATE loja_produtos SET foto = 'produtos/fanta-maca-china.webp', cor = '#123456' WHERE id = 'fanta-maca-china';;" +
+        "UPDATE loja_produtos SET foto = 'uploads/fotodojack12345.webp', cor = '#6c5f37' WHERE id = 'jack-daniels-tennessee-apple'",
+    )
+    const { j: jCor } = await rodar106()
+    igual(
+      [midia(jCor, 'fanta-maca-china')[0], cores(jCor)['fanta-maca-china'], midia(jCor, 'jack-daniels-tennessee-apple')[0], cores(jCor)['jack-daniels-tennessee-apple']],
+      [null, '#123456', 'uploads/fotodojack12345.webp', '#6c5f37'],
+      '106: a cor que o dono mudou fica (a foto de fábrica sai); com a foto do dono no lugar, a cor fica com ela',
+    )
+    sql("UPDATE loja_produtos SET foto = NULL WHERE id = 'jack-daniels-tennessee-apple'")
+    const vCor = (await (await fetch(`${bB}/api/index.php?r=loja`)).json()).versao
+    const { j: jCor2 } = await rodar106()
+    igual([cores(jCor2)['jack-daniels-tennessee-apple'], jCor2.versao], ['#a8641f', vCor + 1], '106: sem foto nenhuma e com a cor ainda a da foto de fábrica, o halo volta pra cor do desenho (e a versão sobe)')
+    const { j: jCor3 } = await rodar106()
+    igual(jCor3.versao, jCor2.versao, '106 de novo, com a cor já no lugar: a versão não sobe')
     // e a loja ainda não semeada (banco novo antes de instalar): a 106 roda e não faz nada (coberto acima: a versão 1)
   } finally {
     filhos.forEach(t.derrubar)

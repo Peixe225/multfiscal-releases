@@ -1,5 +1,5 @@
 {
-  "_leia": "Catálogo da Green Cheese. preco: número em reais (149.9) ou null = 'Consultar'. tamanho: vai junto do nome na mensagem do pedido (ex.: \"1 L\"). disponivel: true/false por estado. demo: true = produto de EXEMPLO (não é da loja). disponivelConfirmado: estados em que o produto foi visto disponível nos stories. arte: o desenho em pixel do produto (o formato e as cores), que o site mostra quando o produto não tem ilustração (src/arte/realista) nem foto. foto: caminho em public/ (ex.: 'produtos/jack.webp') ou null; hoje nenhum produto tem: o catálogo inteiro fica no desenho do site (pedido do Ian em 15/10), e a foto que o dono quiser ele põe pelo Estúdio do painel. video e capa: uma thumb animada que viesse com o site, os dois juntos (vídeo e capa em produtos/; sem eles, o produto não tem vídeo; hoje nenhum tem); nome de arquivo em produtos/ só com letra minúscula, número e traço. categorias: bebida: true = bebida (com ou sem álcool), que nunca entra em prêmio do Teste minha sorte; alcool: true = bebida alcoólica (fica fora da rua do mercador e de prêmio; sempre junto com bebida: true).",
+  "_leia": "Catálogo da Green Cheese. preco: número em reais (149.9) ou null = 'Consultar'. tamanho: vai junto do nome na mensagem do pedido (ex.: \"1 L\"). disponivel: true/false por estado. demo: true = produto de EXEMPLO (não é da loja). disponivelConfirmado: estados em que o produto foi visto disponível nos stories. arte: o desenho em pixel do produto (o formato e as cores), que o site mostra quando o produto não tem ilustração (src/arte/realista) nem foto. cor: a cor do halo; sem foto, a do desenho (a do corpo, como o painel faz quando o dono tira a foto), nunca a medida de uma foto que o produto não mostra. foto: caminho em public/ (ex.: 'produtos/jack.webp') ou null; hoje nenhum produto tem: o catálogo inteiro fica no desenho do site (pedido do Ian em 15/10), e a foto que o dono quiser ele põe pelo Estúdio do painel. video e capa: uma thumb animada que viesse com o site, os dois juntos (vídeo e capa em produtos/; sem eles, o produto não tem vídeo; hoje nenhum tem); nome de arquivo em produtos/ só com letra minúscula, número e traço. categorias: bebida: true = bebida (com ou sem álcool), que nunca entra em prêmio do Teste minha sorte; alcool: true = bebida alcoólica (fica fora da rua do mercador e de prêmio; sempre junto com bebida: true).",
   "categorias": [
     {
       "id": "bebidas",
@@ -87,7 +87,7 @@
       ],
       "demo": false,
       "foto": null,
-      "cor": "#316f7f",
+      "cor": "#7dbb3c",
       "arte": {
         "tipo": "lata-alta",
         "corpo": "#7dbb3c",
@@ -227,7 +227,7 @@
       ],
       "demo": false,
       "foto": null,
-      "cor": "#6c5f37",
+      "cor": "#a8641f",
       "arte": {
         "tipo": "garrafa-quadrada",
         "corpo": "#a8641f",

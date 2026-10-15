@@ -114,12 +114,17 @@ O primeiro acesso roda sozinho as migrações novas do banco (103 raridade dos p
 vierem depois, como a 105 do pedido mínimo e a 106, que devolve pro desenho do site os 4 produtos do material de 11/10).
 Confira no `GET loja`: os prêmios do Teste minha sorte têm `raridade` e o Jack Daniel's Tennessee Apple e a Fanta Maçã
 da China aparecem (só no RJ, sem preço). Depois da 106, nenhum produto aponta pra mídia de fábrica (`produtos/`), a não
-ser que o dono tenha escolhido; foto e vídeo do dono (`uploads/`) continuam:
+ser que o dono tenha escolhido; foto e vídeo do dono (`uploads/`) continuam; e o halo do Jack Apple e da Fanta da China
+fica na cor do desenho (`#a8641f` e `#7dbb3c`), a não ser que o dono tenha mudado a cor:
 
 ```bash
-curl -s $B/api/index.php?r=loja | node -e 'let t="";process.stdin.on("data",d=>t+=d).on("end",()=>{const l=JSON.parse(t).loja;for(const id of ["fanta-ghost-face-punch","hennessy-very-special","jack-daniels-tennessee-apple","fanta-maca-china"]){const p=l.produtos.find(x=>x.id===id);console.log(id,p?.foto,p?.video??"-")}})'
-# o certo: null - nos 4 (ou o caminho uploads/… que o dono pôs)
+curl -s $B/api/index.php?r=loja | node -e 'let t="";process.stdin.on("data",d=>t+=d).on("end",()=>{const l=JSON.parse(t).loja;for(const id of ["fanta-ghost-face-punch","hennessy-very-special","jack-daniels-tennessee-apple","fanta-maca-china"]){const p=l.produtos.find(x=>x.id===id);console.log(id,p?.foto,p?.video??"-",p?.cor)}})'
+# o certo: null - nos 4 (ou o caminho uploads/… que o dono pôs); a cor, se o dono não mudou: #d8325f, #b8662a, #a8641f, #7dbb3c
 ```
+
+Se o Ian estava com o painel aberto desde antes da publicação, peça pra ele recarregar (ou fechar e abrir de novo)
+antes de salvar um produto: o painel de antes, numa aba que não recarregou, manda de volta ao salvar a foto e a thumb que
+o formulário tinha na tela (nos 4, a de fábrica que a 106 tirou). O painel novo só manda a mídia que mudou no formulário.
 
 Peça ao Ian para abrir o painel → **Diagnóstico** (tudo tem de dar "fechado" e a lista de avisos vazia) e fazer um
 pedido de teste pelo celular, pelo link da bio.
@@ -129,8 +134,10 @@ pedido de teste pelo celular, pelo link da bio.
 - **O site não abre ou o painel quebrou:** publique de novo a versão de antes (passo 4), com o mesmo cuidado (sem o
   `api/instalacao.php`). O banco continua bom: as migrações só acrescentam coluna e linha, e o código de antes ignora o
   que é novo. A 106 não volta com o código de antes: ela fica anotada e os 4 do material de 11/10 continuam no desenho
-  (o site de antes mostra o que o banco diz). Pra pôr a foto de fábrica de novo num deles, é pelo painel (ou uma
-  migração nova).
+  (o site de antes mostra o que o banco diz). Pra ligar de novo a foto de fábrica num deles: pela API
+  (`admin-produto-salvar` com `foto: 'produtos/<id>.webp'`; o arquivo continua no build) ou por uma migração nova. Pelo
+  painel não tem como escolher um arquivo de `produtos/`: só mandando a foto de novo pelo Estúdio, e aí ela vira uma
+  foto do dono, em `uploads/`.
 - **O banco estragou** (raro): no hPanel, apague `api/privado/loja.sqlite-wal` e `loja.sqlite-shm` e suba a cópia de
   segurança do Ian como `api/privado/loja.sqlite`.
 - **O endereço antigo não redireciona:** confira se o `.htaccess` da pasta subiu (é o primeiro da lista).

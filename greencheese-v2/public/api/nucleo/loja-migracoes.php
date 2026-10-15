@@ -140,7 +140,9 @@ function gc_migracoes_loja(): array
         // mídia de fábrica que a 104 pôs: a foto, só onde ela ainda é exatamente a de fábrica (produtos/<id>.webp), e a
         // thumb animada do Hennessy (o vídeo e a capa), só onde o vídeo ainda é o de fábrica. A foto ou o vídeo que o
         // dono pôs pelo painel (uploads/…) nunca sai, nem nos 4. Os arquivos continuam no build (produtos/): só deixam
-        // de estar ligados aos produtos. Loja ainda não semeada: nada (a semente já vem sem a mídia de fábrica).
+        // de estar ligados aos produtos. E o halo do Jack Apple e da Fanta da China, que a 104 trouxe medido da foto,
+        // volta pra cor do desenho onde a foto saiu e a cor é ainda a de fábrica. Loja ainda não semeada: nada (a
+        // semente já vem sem a mídia de fábrica e com a cor do desenho).
         106 => static function (PDO $db): void {
             gc_loja_quatro_no_desenho($db);
         },
@@ -309,11 +311,21 @@ const GC_LOJA_FOTOS_FABRICA_106 = [
     'fanta-maca-china' => 'produtos/fanta-maca-china.webp',
 ];
 const GC_LOJA_VIDEO_FABRICA_106 = ['hennessy-very-special', 'produtos/hennessy-very-special.mp4'];
+/**
+ * A cor do halo que a 104 trouxe medida da foto de fábrica (o corDominante do site) nos 2 que nunca tiveram
+ * ilustração, e a do desenho que fica no lugar (a do corpo da arte, a mesma que o painel põe quando o dono tira a foto).
+ * A Fanta Ghost Face e o Hennessy têm cor posta à mão, que não sai da foto: ficam.
+ */
+const GC_LOJA_COR_FABRICA_106 = [
+    'jack-daniels-tennessee-apple' => ['#6c5f37', '#a8641f'],
+    'fanta-maca-china' => ['#316f7f', '#7dbb3c'],
+];
 
 /**
  * A migração 106: os 4 produtos voltam pro desenho do site. A foto sai só onde ainda é a de fábrica do próprio produto;
  * o vídeo e a capa do Hennessy saem só onde o vídeo ainda é o de fábrica (a foto ou o vídeo que o dono trocou ficam,
- * um sem o outro: o dono que gravou a thumb e deixou a foto de fábrica fica com a thumb dele). Loja ainda não semeada:
+ * um sem o outro: o dono que gravou a thumb e deixou a foto de fábrica fica com a thumb dele). No Jack Apple e na
+ * Fanta da China, sem foto, o halo sai da cor medida da foto de fábrica e volta pra do desenho. Loja ainda não semeada:
  * nada. Mudou alguma coisa: a versão da loja sobe e a hora da mudança anda, como na 104 (o ETag muda e o site pega na
  * próxima abertura, em vez de um 304 com a loja guardada no aparelho). Rodar de novo, com tudo no lugar, não mexe em
  * nada (nem na versão).
@@ -336,6 +348,13 @@ function gc_loja_quatro_no_desenho(PDO $db): void
     $video = $db->prepare('UPDATE loja_produtos SET video = NULL, capa = NULL, atualizado_em = ? WHERE id = ? AND video = ?');
     $video->execute([$agora, $id, $caminho]);
     $mudou += $video->rowCount();
+    // sem a foto, o halo volta pra cor do desenho: só onde a foto não está mais e a cor ainda é exatamente a medida da
+    // foto de fábrica (a cor que o dono mudou, ou a de uma foto dele, fica)
+    $cor = $db->prepare('UPDATE loja_produtos SET cor = ?, atualizado_em = ? WHERE id = ? AND foto IS NULL AND cor = ?');
+    foreach (GC_LOJA_COR_FABRICA_106 as $id => [$daFoto, $doDesenho]) {
+        $cor->execute([$doDesenho, $agora, $id, $daFoto]);
+        $mudou += $cor->rowCount();
+    }
     if ($mudou > 0) {
         $versao = $db->prepare('SELECT valor FROM ajustes WHERE chave = ?');
         $versao->execute(['loja.versao']);

@@ -835,15 +835,19 @@ um produto cujo nome com o tamanho tem todas as palavras do nome do novo (sem ac
 "da/de/do" e o "s" do fim: "FANTA MAÇÃ CHINA LATA", "Fanta Maçã (China)" e "Jack Daniels Tennessee Apple 1L" contam
 como o mesmo; "Fanta Maçã" e "Jack Daniel's Tennessee Fire" não), no fim da grade, sem preço, à venda só no RJ; loja
 ainda não semeada: nada; mudou algo, `loja.versao` sobe e o ETag muda. Os dados moram na migração,
-`GC_LOJA_NOVOS_1110`, e o `testar-api` confere que batem com o catálogo, menos a foto, que a 106 tira), `105` (o pedido
+`GC_LOJA_NOVOS_1110`, e o `testar-api` confere que batem com o catálogo, menos a foto e a cor do halo, que a 106 troca), `105` (o pedido
 mínimo pra entrega de cada estado: `loja_estados.pedido_minimo`, em centavos, `NULL` = sem mínimo; só acrescenta a
 coluna), `106` (os 4 do material de 11/10 de volta pro desenho do site, pedido do Ian em 15/10: no banco que já está no
 ar, a foto sai só onde ainda é exatamente a de fábrica do próprio produto, `produtos/<id>.webp`, na Fanta Ghost Face
 Punch, no Hennessy Very Special, no Jack Daniel's Tennessee Apple e na Fanta Maçã da China, e o vídeo e a capa do
 Hennessy só onde o vídeo ainda é `produtos/hennessy-very-special.mp4`; a foto e o vídeo que o dono pôs pelo painel
-ficam, um sem o outro; loja ainda não semeada: nada; mudou algo, `loja.versao` sobe, `loja.atualizado_em` anda e o ETag
+ficam, um sem o outro; no Jack Daniel's Tennessee Apple e na Fanta Maçã da China, sem foto, a `cor` (o halo), que a 104
+trouxe medida da foto de fábrica, volta pra do desenho (a do corpo da arte, a que o painel põe quando o dono tira a
+foto: `#6c5f37` → `#a8641f` e `#316f7f` → `#7dbb3c`), só onde a foto não está mais e a cor ainda é exatamente a medida;
+loja ainda não semeada: nada; mudou algo, `loja.versao` sobe, `loja.atualizado_em` anda e o ETag
 muda; de novo, com tudo no lugar, não mexe nem na versão; os arquivos de `produtos/` continuam no build, sem produto
-ligado; os caminhos moram na migração, `GC_LOJA_FOTOS_FABRICA_106` e `GC_LOJA_VIDEO_FABRICA_106`) e, dos pedidos e das
+ligado; os caminhos e as cores moram na migração, `GC_LOJA_FOTOS_FABRICA_106`, `GC_LOJA_VIDEO_FABRICA_106` e
+`GC_LOJA_COR_FABRICA_106`) e, dos pedidos e das
 contas, `200`–`202` (pedidos, avisos, falas), `203` (equipe), `204` (clientes), `205` (cupons e giros), `206` (pedido
 ligado à conta), `207` (WhatsApp conferido, aparelhos conhecidos, migração da conta do aparelho), `208` (o pedido
 mudado guarda qual ele substitui), `209` (a origem do pedido, `pedidos.origem`), `300` (painel do dono: `painel_codigos`, os códigos da senha pelo WhatsApp) e `301`
