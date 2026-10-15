@@ -4,10 +4,12 @@
 // acessorios.tsx, destilados.tsx, latas.tsx e papel.tsx (carregar.ts confere em desenvolvimento).
 export const IDS_REALISTAS: ReadonlySet<string> = new Set([
   'jack-daniels-old-no7-1l',
+  'jack-daniels-tennessee-apple',
   'gin-tanqueray-london-dry',
   'hennessy-very-special',
   'jagermeister-700ml',
   'fanta-ghost-face-punch',
+  'fanta-maca-china',
   'coca-cola-vanilla',
   'dr-pepper',
   'arizona-green-tea',

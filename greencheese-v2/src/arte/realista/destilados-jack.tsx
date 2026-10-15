@@ -1,9 +1,11 @@
 // Jack Daniel's Old No. 7 — 1 L. Garrafa quadrada de vidro transparente com whiskey âmbar,
 // faces chanfradas (só a luz denuncia), rótulo preto com filete branco, colarinho e tampa pretos.
+// A garrafa (GarrafaJack) é a mesma do Tennessee Apple (destilados-jack-apple.tsx): muda o rótulo, o colarinho e a tampa.
+import type { ReactNode } from 'react'
 import { FONTE, type PropsArte } from './comum'
-import { contorno, Estrias, LG, RG, type Perfil } from './destilados-base'
+import { contorno, Estrias, LG, RG, type Parada, type Perfil } from './destilados-base'
 
-const CX = 180
+export const CX = 180
 /** Meia largura do corpo e onde começa o chanfro. */
 const MEIA = 82.5
 const CHANFRO = 72
@@ -23,20 +25,35 @@ const PERFIL: Perfil = {
 }
 
 // Rótulo: retângulo com cantos chanfrados para dentro (rótulo antigo).
-const R = { x1: 112, x2: 248, y1: 262, y2: 503, k: 6 }
-function rotulo(i = 0) {
+export const R = { x1: 112, x2: 248, y1: 262, y2: 503, k: 6 }
+export function rotulo(i = 0) {
   const x1 = R.x1 + i, x2 = R.x2 - i, y1 = R.y1 + i, y2 = R.y2 - i, k = R.k
   return `M${x1 + k} ${y1}H${x2 - k}A${k} ${k} 0 0 0 ${x2} ${y1 + k}V${y2 - k}A${k} ${k} 0 0 0 ${x2 - k} ${y2}H${x1 + k}A${k} ${k} 0 0 0 ${x1} ${y2 - k}V${y1 + k}A${k} ${k} 0 0 0 ${x1 + k} ${y1}Z`
 }
 
-const BRANCO = '#f3efe6'
+export const BRANCO = '#f3efe6'
 
-export function JackDaniels({ id }: PropsArte) {
+/**
+ * O que muda de um Jack Daniel's pro outro (o Old No. 7, o Tennessee Apple): o papel do rótulo, o impresso nele, o
+ * colarinho e a tampa. O vidro, o uísque, os chanfros, o relevo do ombro e os reflexos são os mesmos.
+ */
+export interface VarianteJack {
+  /** Paradas do papel do rótulo (na diagonal). */
+  papel: readonly Parada[]
+  /** Gradientes a mais da variante (ids com o prefixo `id`). */
+  defs?: ReactNode
+  /** O impresso no rótulo: por cima do papel e embaixo do brilho fosco (moldura, ornamentos, letreiro). */
+  rotulo: ReactNode
+  colarinho: ReactNode
+  tampa: ReactNode
+}
+
+/** A garrafa quadrada do Jack Daniel's, com o rótulo, o colarinho e a tampa da variante. */
+export function GarrafaJack({ id, v }: { id: string; v: VarianteJack }) {
   const u = (s: string) => `${id}-${s}`
   const url = (s: string) => `url(#${u(s)})`
   const garrafa = contorno(CX, PERFIL)
   const dentro = contorno(CX, PERFIL, 4.5)
-
   return (
     <g>
       <defs>
@@ -82,8 +99,9 @@ export function JackDaniels({ id }: PropsArte) {
         <LG id={u('aro')} p={[[0, '#fff', 0.75], [0.08, '#fff', 0.25], [0.3, '#fff', 0], [0.8, '#ffd9a8', 0], [0.95, '#ffd9a8', 0.5], [1, '#fff', 0.9]]} />
         {/* plástico preto da tampa e do colarinho */}
         <LG id={u('preto')} p={[[0, '#000'], [0.08, '#101010'], [0.18, '#2c2c2c'], [0.25, '#5c5c5c'], [0.32, '#262626'], [0.5, '#0e0e0e'], [0.76, '#040404'], [0.9, '#1d1d1d'], [0.96, '#3a3a3a'], [1, '#000']]} />
-        <LG id={u('papel')} x1={0} y1={0} x2={1} y2={1} p={[[0, '#232323'], [0.35, '#0e0e0e'], [1, '#050505']]} />
+        <LG id={u('papel')} x1={0} y1={0} x2={1} y2={1} p={v.papel} />
         <LG id={u('rotH')} p={[[0, '#000', 0.5], [0.05, '#000', 0], [0.12, '#fff', 0.05], [0.22, '#fff', 0.09], [0.32, '#fff', 0.02], [0.9, '#000', 0.1], [1, '#000', 0.45]]} />
+        {v.defs}
       </defs>
 
       {/* ---------- vidro e líquido ---------- */}
@@ -131,51 +149,7 @@ export function JackDaniels({ id }: PropsArte) {
       {/* ---------- rótulo ---------- */}
       <path d={rotulo(-0.8)} fill="#000" fillOpacity={0.6} />
       <path d={rotulo()} fill={url('papel')} />
-      <path d={rotulo(3.5)} fill="none" stroke={BRANCO} strokeWidth={0.8} />
-      <path d={rotulo(6.5)} fill="none" stroke={BRANCO} strokeWidth={1.5} />
-      {/* ornamentos dos cantos */}
-      {[
-        [R.x1 + 13, R.y1 + 13],
-        [R.x2 - 13, R.y1 + 13],
-        [R.x1 + 13, R.y2 - 13],
-        [R.x2 - 13, R.y2 - 13],
-      ].map(([x, y], i) => (
-        <path key={i} d={`M${x} ${y - 3.2}L${x + 3.2} ${y}L${x} ${y + 3.2}L${x - 3.2} ${y}Z`} fill={BRANCO} />
-      ))}
-      <g fill={BRANCO} textAnchor="middle">
-        <text x={CX} y={303} fontFamily={FONTE.serifa} fontWeight={700} fontSize={27} textLength={116} lengthAdjust="spacingAndGlyphs">
-          Jack Daniel’s
-        </text>
-        <path d={`M126 310 C142 315 156 306 170 309.5 C176 311 184 311 190 309.5 C204 306 218 315 234 310`} fill="none" stroke={BRANCO} strokeWidth={1} />
-        <circle cx={CX} cy={310.2} r={1.6} />
-        {/* Old No. 7 em caixa */}
-        <rect x={129} y={318} width={102} height={42} fill="none" stroke={BRANCO} strokeWidth={1.3} />
-        <rect x={132} y={321} width={96} height={36} fill="none" stroke={BRANCO} strokeWidth={0.5} />
-        <text x={CX} y={349} fontFamily={FONTE.serifa} fontWeight={700} fontSize={27} textLength={84} lengthAdjust="spacingAndGlyphs">
-          Old No. 7
-        </text>
-        <text x={CX} y={375} fontFamily={FONTE.serifa} fontWeight={700} fontSize={10} textLength={44} lengthAdjust="spacing">
-          BRAND
-        </text>
-        <rect x={134} y={371} width={16} height={0.8} />
-        <rect x={210} y={371} width={16} height={0.8} />
-        <text x={CX} y={404} fontFamily={FONTE.serifa} fontWeight={700} fontSize={18} textLength={110} lengthAdjust="spacingAndGlyphs">
-          TENNESSEE
-        </text>
-        <text x={CX} y={420} fontFamily={FONTE.sans} fontWeight={700} fontSize={8.5} textLength={64} lengthAdjust="spacing">
-          SOUR MASH
-        </text>
-        <text x={CX} y={446} fontFamily={FONTE.serifa} fontWeight={700} fontSize={20} textLength={98} lengthAdjust="spacingAndGlyphs">
-          WHISKEY
-        </text>
-        <rect x={128} y={455} width={104} height={0.7} />
-        <g fontFamily={FONTE.condensada} fontWeight={700}>
-          <text x={CX} y={467} fontSize={5.6} textLength={86} lengthAdjust="spacing">DISTILLED AND BOTTLED BY</text>
-          <text x={CX} y={476} fontSize={6.4} textLength={98} lengthAdjust="spacing">JACK DANIEL DISTILLERY</text>
-          <text x={CX} y={484} fontSize={5} textLength={92} lengthAdjust="spacing">LYNCHBURG, TENNESSEE, U.S.A.</text>
-          <text x={CX} y={494} fontSize={6.4} textLength={70} lengthAdjust="spacing">40% ALC./VOL. · 1 L</text>
-        </g>
-      </g>
+      {v.rotulo}
       {/* papel: um brilho fosco por cima */}
       <path d={rotulo()} fill={url('rotH')} />
 
@@ -191,26 +165,92 @@ export function JackDaniels({ id }: PropsArte) {
       {/* contorno do vidro */}
       <path d={garrafa} fill="none" stroke={url('aro')} strokeWidth={1.3} />
 
-      {/* ---------- colarinho preto "Old No 7" ---------- */}
-      <g>
-        <path d={`M${CX - 27.6} 104 Q${CX} 101.6 ${CX + 27.6} 104 V136 Q${CX} 133.6 ${CX - 27.6} 136Z`} fill={url('preto')} />
-        <path d={`M${CX - 27.6} 107 Q${CX} 104.6 ${CX + 27.6} 107`} fill="none" stroke={BRANCO} strokeOpacity={0.85} strokeWidth={0.6} />
-        <path d={`M${CX - 27.6} 132.6 Q${CX} 130.2 ${CX + 27.6} 132.6`} fill="none" stroke={BRANCO} strokeOpacity={0.85} strokeWidth={0.6} />
-        <text x={CX} y={123.5} fill={BRANCO} fontFamily={FONTE.serifa} fontWeight={700} fontSize={11} textAnchor="middle" textLength={40} lengthAdjust="spacingAndGlyphs">
-          Old No 7
-        </text>
-        <rect x={CX - 18} y={104} width={5} height={30} fill={url('hl')} opacity={0.22} />
-      </g>
-
-      {/* ---------- tampa preta ---------- */}
-      <g>
-        <path d={`M${CX - 31} 98 V62 Q${CX - 31} 55.5 ${CX - 24} 55 H${CX + 24} Q${CX + 31} 55.5 ${CX + 31} 62 V98Z`} fill={url('preto')} />
-        <Estrias cx={CX} raio={31} y1={63} y2={95} qtd={30} clara={0.16} escura={0.55} />
-        <path d={`M${CX - 32} 96 H${CX + 32} V102 Q${CX} 104.4 ${CX - 32} 102Z`} fill={url('preto')} />
-        <path d={`M${CX - 32} 96.4 H${CX + 32}`} stroke="#fff" strokeOpacity={0.18} strokeWidth={0.8} />
-        <path d={`M${CX - 27} 56.6 Q${CX} 54.4 ${CX + 27} 56.6`} fill="none" stroke="#fff" strokeOpacity={0.35} strokeWidth={1} />
-        <rect x={CX - 21} y={58} width={7} height={38} fill={url('hlD')} opacity={0.28} />
-      </g>
+      {v.colarinho}
+      {v.tampa}
     </g>
+  )
+}
+
+/** Jack Daniel's Old No. 7 — 1 L: rótulo preto com filete branco, colarinho "Old No 7" e tampa pretos. */
+export function JackDaniels({ id }: PropsArte) {
+  const u = (s: string) => `${id}-${s}`
+  const url = (s: string) => `url(#${u(s)})`
+  return (
+    <GarrafaJack
+      id={id}
+      v={{
+        papel: [[0, '#232323'], [0.35, '#0e0e0e'], [1, '#050505']],
+        rotulo: (
+          <>
+            <path d={rotulo(3.5)} fill="none" stroke={BRANCO} strokeWidth={0.8} />
+            <path d={rotulo(6.5)} fill="none" stroke={BRANCO} strokeWidth={1.5} />
+            {/* ornamentos dos cantos */}
+            {[
+              [R.x1 + 13, R.y1 + 13],
+              [R.x2 - 13, R.y1 + 13],
+              [R.x1 + 13, R.y2 - 13],
+              [R.x2 - 13, R.y2 - 13],
+            ].map(([x, y], i) => (
+              <path key={i} d={`M${x} ${y - 3.2}L${x + 3.2} ${y}L${x} ${y + 3.2}L${x - 3.2} ${y}Z`} fill={BRANCO} />
+            ))}
+            <g fill={BRANCO} textAnchor="middle">
+              <text x={CX} y={303} fontFamily={FONTE.serifa} fontWeight={700} fontSize={27} textLength={116} lengthAdjust="spacingAndGlyphs">
+                Jack Daniel’s
+              </text>
+              <path d={`M126 310 C142 315 156 306 170 309.5 C176 311 184 311 190 309.5 C204 306 218 315 234 310`} fill="none" stroke={BRANCO} strokeWidth={1} />
+              <circle cx={CX} cy={310.2} r={1.6} />
+              {/* Old No. 7 em caixa */}
+              <rect x={129} y={318} width={102} height={42} fill="none" stroke={BRANCO} strokeWidth={1.3} />
+              <rect x={132} y={321} width={96} height={36} fill="none" stroke={BRANCO} strokeWidth={0.5} />
+              <text x={CX} y={349} fontFamily={FONTE.serifa} fontWeight={700} fontSize={27} textLength={84} lengthAdjust="spacingAndGlyphs">
+                Old No. 7
+              </text>
+              <text x={CX} y={375} fontFamily={FONTE.serifa} fontWeight={700} fontSize={10} textLength={44} lengthAdjust="spacing">
+                BRAND
+              </text>
+              <rect x={134} y={371} width={16} height={0.8} />
+              <rect x={210} y={371} width={16} height={0.8} />
+              <text x={CX} y={404} fontFamily={FONTE.serifa} fontWeight={700} fontSize={18} textLength={110} lengthAdjust="spacingAndGlyphs">
+                TENNESSEE
+              </text>
+              <text x={CX} y={420} fontFamily={FONTE.sans} fontWeight={700} fontSize={8.5} textLength={64} lengthAdjust="spacing">
+                SOUR MASH
+              </text>
+              <text x={CX} y={446} fontFamily={FONTE.serifa} fontWeight={700} fontSize={20} textLength={98} lengthAdjust="spacingAndGlyphs">
+                WHISKEY
+              </text>
+              <rect x={128} y={455} width={104} height={0.7} />
+              <g fontFamily={FONTE.condensada} fontWeight={700}>
+                <text x={CX} y={467} fontSize={5.6} textLength={86} lengthAdjust="spacing">DISTILLED AND BOTTLED BY</text>
+                <text x={CX} y={476} fontSize={6.4} textLength={98} lengthAdjust="spacing">JACK DANIEL DISTILLERY</text>
+                <text x={CX} y={484} fontSize={5} textLength={92} lengthAdjust="spacing">LYNCHBURG, TENNESSEE, U.S.A.</text>
+                <text x={CX} y={494} fontSize={6.4} textLength={70} lengthAdjust="spacing">40% ALC./VOL. · 1 L</text>
+              </g>
+            </g>
+          </>
+        ),
+        colarinho: (
+          <g>
+            <path d={`M${CX - 27.6} 104 Q${CX} 101.6 ${CX + 27.6} 104 V136 Q${CX} 133.6 ${CX - 27.6} 136Z`} fill={url('preto')} />
+            <path d={`M${CX - 27.6} 107 Q${CX} 104.6 ${CX + 27.6} 107`} fill="none" stroke={BRANCO} strokeOpacity={0.85} strokeWidth={0.6} />
+            <path d={`M${CX - 27.6} 132.6 Q${CX} 130.2 ${CX + 27.6} 132.6`} fill="none" stroke={BRANCO} strokeOpacity={0.85} strokeWidth={0.6} />
+            <text x={CX} y={123.5} fill={BRANCO} fontFamily={FONTE.serifa} fontWeight={700} fontSize={11} textAnchor="middle" textLength={40} lengthAdjust="spacingAndGlyphs">
+              Old No 7
+            </text>
+            <rect x={CX - 18} y={104} width={5} height={30} fill={url('hl')} opacity={0.22} />
+          </g>
+        ),
+        tampa: (
+          <g>
+            <path d={`M${CX - 31} 98 V62 Q${CX - 31} 55.5 ${CX - 24} 55 H${CX + 24} Q${CX + 31} 55.5 ${CX + 31} 62 V98Z`} fill={url('preto')} />
+            <Estrias cx={CX} raio={31} y1={63} y2={95} qtd={30} clara={0.16} escura={0.55} />
+            <path d={`M${CX - 32} 96 H${CX + 32} V102 Q${CX} 104.4 ${CX - 32} 102Z`} fill={url('preto')} />
+            <path d={`M${CX - 32} 96.4 H${CX + 32}`} stroke="#fff" strokeOpacity={0.18} strokeWidth={0.8} />
+            <path d={`M${CX - 27} 56.6 Q${CX} 54.4 ${CX + 27} 56.6`} fill="none" stroke="#fff" strokeOpacity={0.35} strokeWidth={1} />
+            <rect x={CX - 21} y={58} width={7} height={38} fill={url('hlD')} opacity={0.28} />
+          </g>
+        ),
+      }}
+    />
   )
 }

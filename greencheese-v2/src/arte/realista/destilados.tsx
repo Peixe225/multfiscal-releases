@@ -3,11 +3,13 @@
 import type { Arte } from './comum'
 import { Hennessy } from './destilados-hennessy'
 import { JackDaniels } from './destilados-jack'
+import { JackDanielsApple } from './destilados-jack-apple'
 import { Jagermeister } from './destilados-jager'
 import { Tanqueray } from './destilados-tanqueray'
 
 export const artes: Record<string, Arte> = {
   'jack-daniels-old-no7-1l': JackDaniels,
+  'jack-daniels-tennessee-apple': JackDanielsApple,
   'gin-tanqueray-london-dry': Tanqueray,
   'hennessy-very-special': Hennessy,
   'jagermeister-700ml': Jagermeister,

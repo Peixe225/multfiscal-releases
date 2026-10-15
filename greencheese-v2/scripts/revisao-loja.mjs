@@ -281,6 +281,11 @@ export async function rodadaLoja({ browser, base, contexto, conferir, foto, vigi
       const c = noRj[id]
       conferir(!!c && c.img === '' && !c.video && !!c.desenho, `loja: RJ, ${id} no desenho do site, sem foto e sem thumb de fábrica (${JSON.stringify(c)})`)
     }
+    // e na ilustração, como as outras 17: o Jack Apple e a Fanta da China ganharam a deles (na arte em pixel ficavam
+    // fora do padrão de novo)
+    const quatro = ['fanta-ghost-face-punch', 'hennessy-very-special', 'jack-daniels-tennessee-apple', 'fanta-maca-china']
+    conferir(quatro.every((id) => noRj[id]?.desenho === 'ilustracao'), `loja: RJ, os 4 na ilustração do site, como o resto do catálogo (${quatro.map((id) => `${id}: ${noRj[id]?.desenho}`).join(', ')})`)
+    conferir(Object.values(noRj).every((c) => c.desenho !== 'pixel'), `loja: RJ, nenhum card da grade na arte em pixel (${Object.entries(noRj).filter(([, c]) => c.desenho === 'pixel').map(([id]) => id).join(', ')})`)
     // a mesma cara do resto da grade: o desenho com o halo pontilhado (e nenhum card da grade com foto de fábrica)
     conferir(['hennessy-very-special', 'jack-daniels-old-no7-1l', 'coca-cola-vanilla'].every((id) => noRj[id]?.desenho === 'ilustracao' && noRj[id]?.halo), `loja: RJ, o Hennessy no desenho com o halo, igual ao Jack Old No. 7 e à Coca (${JSON.stringify([noRj['hennessy-very-special'], noRj['jack-daniels-old-no7-1l']])})`)
     conferir(Object.values(noRj).every((c) => !/produtos\//.test(c.img)), 'loja: RJ, nenhum card com mídia de fábrica (produtos/)')

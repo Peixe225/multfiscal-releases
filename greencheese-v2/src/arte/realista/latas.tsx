@@ -381,9 +381,98 @@ function ArizonaGreenTea({ id }: PropsArte) {
   )
 }
 
+// ———————————————————————— Fanta Maçã da China ————————————————————————
+// A lata alta e fina (a "sleek" de 330 ml) da Fanta chinesa sabor maçã: verde, o 芬达 (Fanta em chinês) grande, branco
+// de contorno azul, atravessando a lata, e a fatia de maçã verde com gotas embaixo. Os dois caracteres são traços
+// desenhados aqui (nada de fonte chinesa: o celular nem sempre tem), no jeito do logo: grossos e de ponta redonda.
+
+/** Lata alta e fina (330 ml "sleek", ≈ 1 : 2,6). */
+const GEO_SLEEK: GeoLata = { cx: 180, R: 86, topo: 96, base: 558, eTopo: 0.22, eBase: 0.3, rAro: 0.86, hAro: 6, pescoco: 28, rPe: 0.8, hPe: 22 }
+const C_SLEEK = cilindro(GEO_SLEEK)
+
+/** 芬 e 达 em traços, cada um numa caixa de 100 × 100 (y pra baixo). */
+const TRACOS_FEN = [
+  'M8 22L92 22', 'M32 6L32 38', 'M68 6L68 38', // 艹
+  'M43 44C37 55 27 63 12 69', 'M57 44C63 55 74 63 90 69', // 八
+  'M30 72L72 72C72 84 70 93 63 97L55 92', 'M50 74C48 85 39 93 22 98', // 刀
+]
+const TRACOS_DA = [
+  'M12 10L21 21', 'M5 40L22 40L22 70', 'M22 72C31 84 44 88 60 88L97 89', // 辶
+  'M36 38L92 38', 'M64 8L64 40C60 57 51 68 36 77', 'M66 46C72 59 82 69 94 75', // 大
+]
+
+const maca = uma(() => {
+  const c = C_SLEEK
+  // os dois caracteres: 芬 à esquerda e 达 à direita, levemente girados como o logo
+  const fen = TRACOS_FEN.map((d) => c.enrolar(d, mat(-95, 202, 0.88, -5))).join('')
+  const da = TRACOS_DA.map((d) => c.enrolar(d, mat(5, 206, 0.88, -5))).join('')
+  // a onda clara atrás do logo (o "respingo" da Fanta) e a sombra azul por baixo dele
+  const onda = c.enrolar('M-140 214C-80 186-20 196 40 176C80 163 116 168 140 160L140 330C100 340 60 330 20 344C-40 364-90 346-140 360Z')
+  // a fatia de maçã verde (casca, polpa e sementes) e duas gotas
+  const F = mat(18, 438, 1, -12)
+  const casca = c.enrolar('M-78 0C-70-34-34-56 0-56C34-56 70-34 78 0C70 16 36 22 0 22C-36 22-70 16-78 0Z', F)
+  const polpa = c.enrolar('M-70 1C-60-26-30-46 0-46C30-46 60-26 70 1C60 11 32 15 0 15C-32 15-60 11-70 1Z', F)
+  const miolo = c.enrolar('M-26-6C-18-20-8-26 0-26C8-26 18-20 26-6C16 0 8 2 0 2C-8 2-16 0-26-6Z', F)
+  const sementes = c.enrolar('M-9-14C-6-20-2-20-2-14C-2-9-6-8-9-14Z', F) + c.enrolar('M9-14C6-20 2-20 2-14C2-9 6-8 9-14Z', F)
+  const folha = c.enrolar('M0 0C10-18 34-26 56-20C46-2 22 6 0 0Z', mat(-92, 404, 1, -30))
+  const nervura = c.enrolar('M4-1C18-8 34-14 52-18', mat(-92, 404, 1, -30))
+  const gotas = [[-60, 470, 7], [74, 390, 5], [96, 452, 6], [-104, 300, 4], [110, 262, 4], [-30, 508, 5]]
+    .map(([u, v, r]) => c.enrolar(`M${u} ${v - r * 1.5}C${u + r * 0.8} ${v - r * 0.4} ${u + r} ${v + r * 0.4} ${u} ${v + r}C${u - r} ${v + r * 0.4} ${u - r * 0.8} ${v - r * 0.4} ${u} ${v - r * 1.5}Z`))
+    .join('')
+  const bolhas = [[-120, 160], [-70, 150], [60, 152], [120, 182], [-128, 400], [128, 330], [-90, 520], [90, 520], [0, 536]]
+    .map(([u, v], i) => c.enrolar(circuloD(u, v, 2.2 + (i % 3))))
+    .join('')
+  return { fen, da, onda, casca, polpa, miolo, sementes, folha, nervura, gotas, bolhas }
+})
+
+function FantaMacaChina({ id }: PropsArte) {
+  const d = maca()
+  const c = C_SLEEK
+  const I = (s: string) => `${id}-${s}`
+  const logo = d.fen + d.da
+  return (
+    <Lata id={id} c={c} cfg={{ fundo: '#4fae3b', pescoco: '#7cc443', recorte: '#effff0' }}>
+      <defs>
+        <linearGradient id={I('fundo')} gradientUnits="userSpaceOnUse" x1="0" y1={c.y0} x2="0" y2={c.vBase}>
+          <stop offset="0" stopColor="#a6dc58" />
+          <stop offset="0.45" stopColor="#58b23a" />
+          <stop offset="1" stopColor="#2b8635" />
+        </linearGradient>
+        <linearGradient id={I('onda')} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#d9f39a" stopOpacity={0.9} />
+          <stop offset="1" stopColor="#9fd655" stopOpacity={0.35} />
+        </linearGradient>
+        <linearGradient id={I('polpa')} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#fffbe0" />
+          <stop offset="1" stopColor="#f3e48a" />
+        </linearGradient>
+        <linearGradient id={I('casca')} x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stopColor="#c8ea4f" />
+          <stop offset="1" stopColor="#5fa82c" />
+        </linearGradient>
+      </defs>
+      <rect x={70} y={90} width={220} height={490} fill={`url(#${I('fundo')})`} />
+      <path d={d.onda} fill={`url(#${I('onda')})`} />
+      <path d={d.bolhas} fill="#f4fff0" opacity={0.55} />
+      {/* o 芬达: sombra azul-escura, contorno azul e o branco por cima */}
+      <path d={logo} fill="none" stroke="#0e2a6e" strokeWidth={27} strokeLinecap="round" strokeLinejoin="round" transform="translate(2 4)" opacity={0.55} />
+      <path d={logo} fill="none" stroke="#1d4fb8" strokeWidth={24} strokeLinecap="round" strokeLinejoin="round" />
+      <path d={logo} fill="none" stroke="#ffffff" strokeWidth={12} strokeLinecap="round" strokeLinejoin="round" />
+      <path d={d.folha} fill="#3f9a2e" stroke="#1f5e1c" strokeWidth={1.2} />
+      <path d={d.nervura} fill="none" stroke="#1f5e1c" strokeWidth={1} />
+      <path d={d.casca} fill={`url(#${I('casca')})`} stroke="#2f6e1e" strokeWidth={1.4} />
+      <path d={d.polpa} fill={`url(#${I('polpa')})`} />
+      <path d={d.miolo} fill="#efe08a" opacity={0.8} />
+      <path d={d.sementes} fill="#5a3416" />
+      <path d={d.gotas} fill="#ffffff" opacity={0.6} />
+    </Lata>
+  )
+}
+
 export const artes: Record<string, Arte> = {
   'fanta-ghost-face-punch': FantaGhostFacePunch,
   'coca-cola-vanilla': CocaColaVanilla,
   'dr-pepper': DrPepper,
   'arizona-green-tea': ArizonaGreenTea,
+  'fanta-maca-china': FantaMacaChina,
 }
