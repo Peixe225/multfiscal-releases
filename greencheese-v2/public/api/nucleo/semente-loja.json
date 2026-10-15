@@ -80,7 +80,7 @@
         "es": true,
         "sc": true
       },
-      "foto": "produtos/fanta-ghost-face-punch.webp",
+      "foto": null,
       "cor": "#d8325f",
       "arte": {
         "tipo": "lata",
@@ -109,7 +109,7 @@
         "es": false,
         "sc": false
       },
-      "foto": "produtos/fanta-maca-china.webp",
+      "foto": null,
       "cor": "#316f7f",
       "arte": {
         "tipo": "lata-alta",
@@ -257,7 +257,7 @@
         "es": false,
         "sc": false
       },
-      "foto": "produtos/jack-daniels-tennessee-apple.webp",
+      "foto": null,
       "cor": "#6c5f37",
       "arte": {
         "tipo": "garrafa-quadrada",
@@ -317,9 +317,7 @@
         "es": true,
         "sc": false
       },
-      "foto": "produtos/hennessy-very-special.webp",
-      "video": "produtos/hennessy-very-special.mp4",
-      "capa": "produtos/hennessy-very-special-capa.webp",
+      "foto": null,
       "cor": "#b8662a",
       "arte": {
         "tipo": "garrafa-conhaque",

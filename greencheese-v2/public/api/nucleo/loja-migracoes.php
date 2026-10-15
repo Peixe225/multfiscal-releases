@@ -4,9 +4,10 @@ defined('GC_API') || exit;
 
 // Migrações da loja, na faixa 100–199 do registro de banco.php: as tabelas (100), a semente nos bancos que já
 // estavam instalados antes da loja ir pro servidor (101), o vídeo do produto com a capa (102), a raridade dos prêmios do Teste
-// minha sorte (103), o material que a loja mandou em 11/10 (104: fotos, a thumb animada de fábrica e 2 produtos novos) e o
-// pedido mínimo pra entrega de cada estado (105). Banco novo é semeado na instalação do painel (já com tudo isso, pela
-// semente).
+// minha sorte (103), o material que a loja mandou em 11/10 (104: fotos, a thumb animada de fábrica e 2 produtos novos), o
+// pedido mínimo pra entrega de cada estado (105) e os 4 produtos do material de 11/10 de volta pro desenho do site (106:
+// sai a mídia de fábrica que a 104 pôs, só onde ela ainda é a de fábrica). Banco novo é semeado na instalação do painel
+// (já com tudo isso, pela semente).
 // Dinheiro em centavos; listas e objetos pequenos (combos, cidades, horário…) em JSON; hora em unix UTC.
 
 /** @return array<int, string|callable(PDO): void> */
@@ -133,6 +134,16 @@ function gc_migracoes_loja(): array
         105 => <<<'SQL'
         ALTER TABLE loja_estados ADD COLUMN pedido_minimo INTEGER CHECK (pedido_minimo IS NULL OR pedido_minimo > 0);
         SQL,
+        // os 4 produtos do material de 11/10 de volta pro desenho do site, no mesmo padrão do resto do catálogo (pedido
+        // do Ian em 15/10: "A fanta de animação de antes estava melhor, e porque esses outros 4 itens estão fora do
+        // padrão do restante do catálogo? Por favor, coloque os no mesmo padrão."). No banco que já está no ar, sai a
+        // mídia de fábrica que a 104 pôs: a foto, só onde ela ainda é exatamente a de fábrica (produtos/<id>.webp), e a
+        // thumb animada do Hennessy (o vídeo e a capa), só onde o vídeo ainda é o de fábrica. A foto ou o vídeo que o
+        // dono pôs pelo painel (uploads/…) nunca sai, nem nos 4. Os arquivos continuam no build (produtos/): só deixam
+        // de estar ligados aos produtos. Loja ainda não semeada: nada (a semente já vem sem a mídia de fábrica).
+        106 => static function (PDO $db): void {
+            gc_loja_quatro_no_desenho($db);
+        },
     ];
 }
 
@@ -274,6 +285,57 @@ function gc_loja_material_1110(PDO $db): void
         $produtos[] = ['id' => $p['id'], 'nome' => $p['nome'], 'tamanho' => $p['tamanho']];
         $mudou++;
     }
+    if ($mudou > 0) {
+        $versao = $db->prepare('SELECT valor FROM ajustes WHERE chave = ?');
+        $versao->execute(['loja.versao']);
+        $atual = (int) ($versao->fetchColumn() ?: 0);
+        $ajuste = $db->prepare(
+            'INSERT INTO ajustes (chave, valor, atualizado_em) VALUES (?, ?, ?)
+             ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor, atualizado_em = excluded.atualizado_em',
+        );
+        $ajuste->execute(['loja.versao', (string) ($atual + 1), $agora]);
+        $ajuste->execute(['loja.atualizado_em', (string) $agora, $agora]);
+    }
+}
+
+/**
+ * A foto de fábrica que a 104 ligou a cada um dos 4 produtos do material de 11/10 (o caminho exato: é o que a 106
+ * desliga) e a thumb animada de fábrica do Hennessy (o vídeo; a capa sai junto com ele).
+ */
+const GC_LOJA_FOTOS_FABRICA_106 = [
+    'fanta-ghost-face-punch' => 'produtos/fanta-ghost-face-punch.webp',
+    'hennessy-very-special' => 'produtos/hennessy-very-special.webp',
+    'jack-daniels-tennessee-apple' => 'produtos/jack-daniels-tennessee-apple.webp',
+    'fanta-maca-china' => 'produtos/fanta-maca-china.webp',
+];
+const GC_LOJA_VIDEO_FABRICA_106 = ['hennessy-very-special', 'produtos/hennessy-very-special.mp4'];
+
+/**
+ * A migração 106: os 4 produtos voltam pro desenho do site. A foto sai só onde ainda é a de fábrica do próprio produto;
+ * o vídeo e a capa do Hennessy saem só onde o vídeo ainda é o de fábrica (a foto ou o vídeo que o dono trocou ficam,
+ * um sem o outro: o dono que gravou a thumb e deixou a foto de fábrica fica com a thumb dele). Loja ainda não semeada:
+ * nada. Mudou alguma coisa: a versão da loja sobe e a hora da mudança anda, como na 104 (o ETag muda e o site pega na
+ * próxima abertura, em vez de um 304 com a loja guardada no aparelho). Rodar de novo, com tudo no lugar, não mexe em
+ * nada (nem na versão).
+ */
+function gc_loja_quatro_no_desenho(PDO $db): void
+{
+    $semeada = $db->prepare('SELECT 1 FROM ajustes WHERE chave = ?');
+    $semeada->execute(['loja.semeada_em']);
+    if ($semeada->fetchColumn() === false) {
+        return;
+    }
+    $agora = gc_agora();
+    $mudou = 0;
+    $foto = $db->prepare('UPDATE loja_produtos SET foto = NULL, atualizado_em = ? WHERE id = ? AND foto = ?');
+    foreach (GC_LOJA_FOTOS_FABRICA_106 as $id => $caminho) {
+        $foto->execute([$agora, $id, $caminho]);
+        $mudou += $foto->rowCount();
+    }
+    [$id, $caminho] = GC_LOJA_VIDEO_FABRICA_106;
+    $video = $db->prepare('UPDATE loja_produtos SET video = NULL, capa = NULL, atualizado_em = ? WHERE id = ? AND video = ?');
+    $video->execute([$agora, $id, $caminho]);
+    $mudou += $video->rowCount();
     if ($mudou > 0) {
         $versao = $db->prepare('SELECT valor FROM ajustes WHERE chave = ?');
         $versao->execute(['loja.versao']);

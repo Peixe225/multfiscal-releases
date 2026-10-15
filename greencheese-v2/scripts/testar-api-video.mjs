@@ -242,13 +242,21 @@ export async function testarVideo(t) {
 
   parte('vídeo: a thumb animada de fábrica (produtos/, no build do site)')
   {
-    // o Hennessy vem da semente com a thumb de fábrica: salvar de novo (o painel manda o que tem) passa e não muda nada
+    // desde 15/10 o Hennessy vem da semente no desenho do site, sem a thumb de fábrica (pedido do Ian: os 4 do material
+    // de 11/10 no mesmo padrão do resto); salvar de novo (o painel manda o que tem) passa e não muda nada
     const h = (await dono.get('admin-loja')).json.loja.produtos.find((p) => p.id === 'hennessy-very-special')
-    igual([h.video, h.capa], ['produtos/hennessy-very-special.mp4', 'produtos/hennessy-very-special-capa.webp'], 'o Hennessy tem a thumb de fábrica')
+    igual([h.foto, h.video, h.capa], [null, null, null], 'o Hennessy vem sem foto, sem vídeo e sem capa (o desenho do site)')
+    ok(!('video' in ((await lojaPub()).json.loja.produtos.find((p) => p.id === 'hennessy-very-special') ?? {})), 'o GET loja não leva thumb animada no Hennessy')
     const v0 = (await lojaPub()).json.versao
     const sh = await dono.post('admin-produto-salvar', { id: 'hennessy-very-special', video: h.video, capa: h.capa, foto: h.foto })
-    igual([sh.status, sh.json.versao], [200, v0], 'salvar de novo com o vídeo de fábrica passa e não muda nada')
-    ok(readFileSync(join(raiz, 'public', h.video)).length > 1000 && readFileSync(join(raiz, 'public', h.capa)).length > 1000, 'os arquivos de fábrica estão no build (public/produtos/)')
+    igual([sh.status, sh.json.versao], [200, v0], 'salvar de novo sem vídeo passa e não muda nada')
+    const fabrica = { video: 'produtos/hennessy-very-special.mp4', capa: 'produtos/hennessy-very-special-capa.webp' }
+    ok(readFileSync(join(raiz, 'public', fabrica.video)).length > 1000 && readFileSync(join(raiz, 'public', fabrica.capa)).length > 1000, 'os arquivos de fábrica continuam no build (public/produtos/), sem produto ligado')
+    // se o dono quiser a thumb de fábrica de volta no Hennessy, é dele: o caminho de fábrica vale, e sobe a versão
+    const volta = await dono.post('admin-produto-salvar', { id: 'hennessy-very-special', ...fabrica })
+    igual([volta.status, volta.json.produto?.video, volta.json.produto?.capa, volta.json.versao], [200, fabrica.video, fabrica.capa, v0 + 1], 'o dono pode pôr a thumb de fábrica de volta no Hennessy (a versão sobe)')
+    igual((await dono.post('admin-produto-salvar', { id: 'hennessy-very-special', ...fabrica })).json.versao, v0 + 1, 'salvar de novo com o vídeo de fábrica passa e não muda nada')
+    igual((await dono.post('admin-produto-salvar', { id: 'hennessy-very-special', video: null })).json.produto.video, null, 'e tirar de novo (o Hennessy volta pro desenho)')
     // outro produto pode usar uma de fábrica; caminho torto não passa
     const so = (video, capa) => dono.post('admin-produto-salvar', { id: 'cuia-de-silicone-raw', video, capa })
     igual((await so('produtos/hennessy-very-special.mp4', 'produtos/hennessy-very-special-capa.webp')).status, 200, 'vídeo e capa de fábrica num produto')
@@ -273,7 +281,7 @@ export async function testarVideo(t) {
       if (campo) igual(r.json?.campo, campo, `${nome}: o erro é do campo ${campo}`)
     }
     igual((await so(null, null)).json.produto.video, null, 'tirar o vídeo de fábrica do produto')
-    ok(readFileSync(join(raiz, 'public', h.video)).length > 1000, 'tirar a de fábrica não apaga nada do build (o servidor só limpa uploads/)')
+    ok(readFileSync(join(raiz, 'public', fabrica.video)).length > 1000, 'tirar a de fábrica não apaga nada do build (o servidor só limpa uploads/)')
   }
 
   parte('vídeo: produto apagado leva o vídeo, a capa e a foto')

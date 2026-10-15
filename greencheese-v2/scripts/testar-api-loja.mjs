@@ -9,6 +9,9 @@ import { join } from 'node:path'
 import { conferirSemente, montarSemente } from './gerar-semente-loja.mjs'
 import { mp4Montado } from './testar-api-video.mjs'
 
+/** Os 4 produtos do material de 11/10 que a 104 ligou à mídia de fábrica e a 106 devolve pro desenho do site. */
+const QUATRO_1110 = ['fanta-ghost-face-punch', 'hennessy-very-special', 'jack-daniels-tennessee-apple', 'fanta-maca-china']
+
 /** JSON com as chaves em ordem (compara objeto sem depender da ordem das chaves). */
 const canon = (v) => (Array.isArray(v) ? v.map(canon) : v && typeof v === 'object' ? Object.fromEntries(Object.keys(v).sort().map((k) => [k, canon(v[k])])) : v)
 
@@ -171,26 +174,41 @@ export async function loja(t, { nomesUf }) {
   igual(chaves(ocb0), ['arte', 'ativo', 'atualizadoEm', 'capa', 'categoria', 'combinaCom', 'combos', 'cor', 'criadoEm', 'demo', 'descricao', 'detalhe', 'estados', 'foto', 'id', 'nome', 'obs', 'ordem', 'podeApagar', 'preco', 'tamanho', 'uso', 'variacoes', 'video'], 'produto do painel: as chaves (com o vídeo e a capa da thumb animada)')
   igual([ocb0.video, ocb0.capa], [null, null], 'produto sem thumb animada na semente: vídeo e capa null')
   {
-    // o material da loja (11/10): as fotos e a thumb animada de fábrica (produtos/, no build) e os 2 produtos novos do RJ
-    const h0 = a0.produtos.find((p) => p.id === 'hennessy-very-special')
-    igual([h0.foto, h0.video, h0.capa], ['produtos/hennessy-very-special.webp', 'produtos/hennessy-very-special.mp4', 'produtos/hennessy-very-special-capa.webp'], 'Hennessy: foto e thumb animada de fábrica (produtos/) na semente')
-    igual(a0.produtos.find((p) => p.id === 'fanta-ghost-face-punch').foto, 'produtos/fanta-ghost-face-punch.webp', 'Fanta Ghost Face: foto de fábrica')
+    // o material da loja (11/10): os 2 produtos novos do RJ. Desde 15/10 (pedido do Ian: os 4 do material no mesmo padrão
+    // do resto do catálogo), nenhum deles vem com a mídia de fábrica: a semente traz os 4 no desenho do site, sem foto,
+    // sem vídeo e sem capa (os arquivos continuam em produtos/, sem ligação com produto nenhum)
+    for (const id of QUATRO_1110) {
+      const n = a0.produtos.find((p) => p.id === id)
+      const pubN = L.produtos.find((p) => p.id === id)
+      igual([n.foto, n.video, n.capa], [null, null, null], `${id}: na semente sem foto, sem vídeo e sem capa (o desenho do site, como o resto do catálogo)`)
+      ok(pubN.foto === null && !('video' in pubN) && !('capa' in pubN), `${id}: o GET loja leva foto null e nada de thumb animada (o site desenha)`)
+    }
+    ok(L.produtos.every((p) => p.foto === null && !('video' in p)) && a0.produtos.every((p) => p.foto === null && p.video === null && p.capa === null), 'a semente inteira sem foto e sem thumb animada: o catálogo todo no desenho do site')
     for (const id of ['jack-daniels-tennessee-apple', 'fanta-maca-china']) {
       const n = a0.produtos.find((p) => p.id === id)
       const pubN = L.produtos.find((p) => p.id === id)
-      ok(!!n && n.preco === null && n.tamanho === '' && n.demo === false && n.foto === `produtos/${id}.webp` && n.obs === 'Visto no story do RJ em 11/10. Preço PENDENTE.', `${id}: na semente, sem preço ("Consultar"), sem tamanho, com a foto de fábrica`)
+      ok(!!n && n.preco === null && n.tamanho === '' && n.demo === false && n.obs === 'Visto no story do RJ em 11/10. Preço PENDENTE.', `${id}: na semente, sem preço ("Consultar"), sem tamanho`)
       igual(Object.entries(pubN.disponivel).filter(([, v]) => v).map(([uf]) => uf), ['rj'], `${id}: à venda só no RJ (veio do Instagram do RJ)`)
     }
     igual(L.categorias.find((c) => c.id === a0.produtos.find((p) => p.id === 'jack-daniels-tennessee-apple').categoria).alcool, true, "Jack Daniel's Tennessee Apple numa categoria de bebida alcoólica (fora da rua e dos prêmios)")
-    // a migração 104 carrega os próprios dados dos 2 novos: têm de bater com o catálogo (a semente)
+    // a migração 104 carrega os próprios dados dos 2 novos: têm de bater com o catálogo (a semente), menos a foto: a 104
+    // (que já rodou no ar e não muda) entra com a foto de fábrica, e a 106 tira, a mesma que ela conhece
     const daMigracao = JSON.parse(
-      execFileSync(t.PHP, ['-r', `define('GC_API', 1); require $argv[1] . '/nucleo/loja-migracoes.php'; echo json_encode(GC_LOJA_NOVOS_1110, JSON_UNESCAPED_UNICODE);`, join(t.raiz, 'public', 'api')], { encoding: 'utf8' }),
+      execFileSync(t.PHP, ['-r', `define('GC_API', 1); require $argv[1] . '/nucleo/loja-migracoes.php'; echo json_encode([GC_LOJA_NOVOS_1110, defined('GC_LOJA_FOTOS_FABRICA_106') ? GC_LOJA_FOTOS_FABRICA_106 : null, defined('GC_LOJA_VIDEO_FABRICA_106') ? GC_LOJA_VIDEO_FABRICA_106 : null], JSON_UNESCAPED_UNICODE);`, join(t.raiz, 'public', 'api')], { encoding: 'utf8' }),
     )
-    for (const m of daMigracao) {
+    const [novos1110, fotos106 = null, video106 = null] = daMigracao
+    ok(fotos106 !== null && video106 !== null, 'migração 106: a mídia de fábrica que ela tira mora nela (GC_LOJA_FOTOS_FABRICA_106 e GC_LOJA_VIDEO_FABRICA_106)')
+    for (const m of novos1110) {
       const sp = s.produtos.find((p) => p.id === m.id)
-      mesmo(canon({ nome: m.nome, tamanho: m.tamanho, detalhe: m.detalhe, descricao: m.descricao, categoria: m.categoria, foto: m.foto, cor: m.cor, arte: m.arte, obs: m.obs }), canon({ nome: sp.nome, tamanho: sp.tamanho, detalhe: sp.detalhe, descricao: sp.descricao, categoria: sp.categoria, foto: sp.foto, cor: sp.cor, arte: sp.arte, obs: sp.obs }), `migração 104: ${m.id} igual ao catálogo`)
+      mesmo(canon({ nome: m.nome, tamanho: m.tamanho, detalhe: m.detalhe, descricao: m.descricao, categoria: m.categoria, cor: m.cor, arte: m.arte, obs: m.obs }), canon({ nome: sp.nome, tamanho: sp.tamanho, detalhe: sp.detalhe, descricao: sp.descricao, categoria: sp.categoria, cor: sp.cor, arte: sp.arte, obs: sp.obs }), `migração 104: ${m.id} igual ao catálogo (menos a foto)`)
+      igual([m.foto, fotos106?.[m.id], sp.foto], [`produtos/${m.id}.webp`, `produtos/${m.id}.webp`, null], `migração 104: ${m.id} entra com a foto de fábrica, a mesma que a 106 tira (no catálogo, sem foto)`)
       igual([sp.preco, Object.entries(sp.disponivel).filter(([, v]) => v).map(([uf]) => uf)], [null, ['rj']], `migração 104 e catálogo: ${m.id} sem preço, só no RJ`)
     }
+    // a 106 conhece exatamente a mídia de fábrica dos 4 (o caminho que a 104 pôs) e nada mais
+    igual(Object.keys(fotos106 ?? {}).sort(), [...QUATRO_1110].sort(), 'migração 106: a foto de fábrica dos 4 produtos do material de 11/10, e só deles')
+    ok(fotos106 !== null && Object.entries(fotos106).every(([id, f]) => f === `produtos/${id}.webp` && existsSync(join(t.raiz, 'public', f))), 'migração 106: cada foto é produtos/<id>.webp, e o arquivo continua no build')
+    igual(video106, ['hennessy-very-special', 'produtos/hennessy-very-special.mp4'], 'migração 106: o vídeo de fábrica do Hennessy (a capa sai junto)')
+    ok(!!video106 && existsSync(join(t.raiz, 'public', video106[1])) && existsSync(join(t.raiz, 'public/produtos/hennessy-very-special-capa.webp')), 'o vídeo e a capa de fábrica continuam no build (só deixam de estar ligados ao produto)')
   }
   igual([ocb0.podeApagar, ocb0.uso.premios.map((x) => x.id)], [false, ['ocb-4-por-3']], 'a OCB tem histórico (prêmio)')
   igual(a0.produtos.find((p) => p.id === 'arizona-green-tea').uso.rateios.map((x) => x.id), ['arizona-green-tea'], 'o Arizona tem histórico (rateio de exemplo)')
@@ -1010,7 +1028,7 @@ export async function lojaMigracao(t) {
   const todas = JSON.parse(
     execFileSync(PHP, ['-r', `define('GC_API', 1); foreach (['banco', 'loja-migracoes', 'pedido-migracoes', 'contas-migracoes', 'painel-dono'] as $m) { if (is_file($argv[1] . "/nucleo/$m.php")) require $argv[1] . "/nucleo/$m.php"; } echo json_encode(array_keys(gc_migracoes()));`, join(raiz, 'public', 'api')], { encoding: 'utf8' }),
   )
-  igual(todas.filter((n) => n < 200), [1, 100, 101, 102, 103, 104, 105], 'as migrações até a loja são 1, 100, 101, 102 (o vídeo e a capa do produto), 103 (a raridade dos prêmios), 104 (o material da loja de 11/10) e 105 (o pedido mínimo pra entrega)')
+  igual(todas.filter((n) => n < 200), [1, 100, 101, 102, 103, 104, 105, 106], 'as migrações até a loja são 1, 100, 101, 102 (o vídeo e a capa do produto), 103 (a raridade dos prêmios), 104 (o material da loja de 11/10), 105 (o pedido mínimo pra entrega) e 106 (os 4 do material de 11/10 de volta pro desenho)')
   igual(todas.filter((n) => n >= 300), [300, 301], 'as do painel do dono (300–399): 300 (os códigos da senha) e 301 (a marca "Bebida alcoólica" das categorias)')
   // a 301 mexe na tabela da loja: sem o módulo da loja carregado, ela espera (como a 206 com o dos pedidos)
   const semLoja = JSON.parse(
@@ -1025,10 +1043,12 @@ export async function lojaMigracao(t) {
     const r = await fetch(`${bA}/api/index.php?r=loja`)
     const j = await r.json()
     igual([r.status, j.loja?.produtos?.length, j.loja?.estados?.length, j.loja?.sorte?.premios?.length], [200, 19, 5, 7], 'banco já instalado: a migração 101 semeia a loja')
-    igual(j.versao, 3, 'e a 103 (a raridade da semente) e a 104 (a thumb de fábrica) sobem a versão: o site lê de novo')
+    igual(j.versao, 4, 'e a 103 (a raridade da semente), a 104 (a mídia de fábrica) e a 106 (que tira ela de novo) sobem a versão: o site lê de novo')
     igual(Object.fromEntries((j.loja?.sorte?.premios ?? []).map((p) => [p.id, p.raridade])), Object.fromEntries((await montarSemente()).sorte.premios.map((p) => [p.id, p.raridade])), 'banco já instalado: a 101 semeia sem a coluna e a 103 põe a raridade de cada prêmio da semente')
-    const hA = j.loja.produtos.find((p) => p.id === 'hennessy-very-special')
-    igual([hA.foto, hA.video, hA.capa], ['produtos/hennessy-very-special.webp', 'produtos/hennessy-very-special.mp4', 'produtos/hennessy-very-special-capa.webp'], 'a 101 semeia sem as colunas do vídeo (a 102 vem depois) e a 104 põe a thumb de fábrica do Hennessy')
+    // a 101 semeia sem as colunas do vídeo (a 102 vem depois), a 104 põe a foto e a thumb de fábrica onde está vazio e a
+    // 106, na mesma subida, tira: o banco instalado antes da loja termina com os 4 no desenho, como o resto
+    const doA = Object.fromEntries(QUATRO_1110.map((id) => j.loja.produtos.find((p) => p.id === id)).map((p) => [p.id, [p.foto, p.video ?? null, p.capa ?? null]]))
+    igual(doA, Object.fromEntries(QUATRO_1110.map((id) => [id, [null, null, null]])), 'banco instalado antes da loja: a 104 põe a mídia de fábrica e a 106 tira na mesma subida (os 4 no desenho do site)')
     igual(marcaDe(j), 'destilados', 'banco já instalado: a 101 semeia sem a coluna e a 301 marca os Destilados como bebida alcoólica')
     igual(banco(join(dirA, 'loja.sqlite')), [todas, 1, 1], 'registro com 1 (a de antes), 100, 101 e as das outras frentes; user_version segue 1 (a base); semeou uma vez')
     await fetch(`${bA}/api/index.php?r=loja`).then((x) => x.text())
@@ -1047,7 +1067,8 @@ export async function lojaMigracao(t) {
     const s1 = await fetch(`${bB}/api/index.php?r=loja`)
     const j1 = await s1.json()
     igual([s1.status, j1.loja?.produtos?.length], [200, 19], 'a instalação semeia a loja')
-    igual(j1.versao, 1, 'banco novo: a 104 não mexe (a loja nem existia); a instalação já semeia com o material novo')
+    igual(j1.versao, 1, 'banco novo: a 104 e a 106 não mexem (a loja nem existia); a instalação já semeia com o material novo, sem a mídia de fábrica')
+    ok(j1.loja.produtos.filter((p) => QUATRO_1110.includes(p.id)).every((p) => p.foto === null && !('video' in p)), 'banco novo: os 4 do material de 11/10 no desenho do site (sem foto e sem vídeo)')
     igual(marcaDe(j1), 'destilados', 'banco novo: a semente já entra com os Destilados marcados como bebida alcoólica')
     igual(banco(join(dirB, 'loja.sqlite'))[2], 1, 'uma vez')
     ok(readFileSync(join(raiz, 'public/api/nucleo/loja-migracoes.php'), 'utf8').includes('100 =>'), 'as migrações da loja ficam na faixa 100–199')
@@ -1141,6 +1162,72 @@ export async function lojaMigracao(t) {
     const ed = await donoB.post('admin-produto-salvar', { id: 'isqueiro-clipper', descricao: 'O isqueiro de sempre.' })
     igual([ed.status, ed.json?.produto?.foto], [200, 'produtos/sumiu-do-build.webp'], 'foto de fábrica já salva que saiu do build: editar outro campo passa e mantém')
     erro(await donoB.post('admin-produto-salvar', { id: 'cuia-de-silicone-raw', foto: 'produtos/sumiu-do-build.webp' }), 400, 'invalido', 'a mesma foto que não existe, num produto novo pra ela: recusa')
+
+    // ─── a 106 (pedido do Ian em 15/10: os 4 do material de 11/10 no mesmo padrão do resto do catálogo) ───
+    const rodar106 = async () => {
+      sql('DELETE FROM migracoes WHERE numero = 106')
+      const r = await fetch(`${bB}/api/index.php?r=loja`)
+      return { r, j: await r.json() }
+    }
+    const midia = (j, id) => {
+      const p = j.loja.produtos.find((x) => x.id === id)
+      return [p.foto, p.video ?? null, p.capa ?? null]
+    }
+    const fabrica = (id) => `produtos/${id}.webp`
+    // o banco que está no ar desde 14/10: a 104 ligou a foto de fábrica nos 4 e a thumb de fábrica no Hennessy. Outro
+    // produto que o dono ligou num arquivo de fábrica (a lata da Fanta no Dr Pepper, o vídeo do Hennessy na Coca) não é
+    // dos 4: fica
+    sql(
+      QUATRO_1110.map((id) => `UPDATE loja_produtos SET foto = '${fabrica(id)}', video = NULL, capa = NULL, atualizado_em = 1000 WHERE id = '${id}'`).join(';;') +
+        ";;UPDATE loja_produtos SET video = 'produtos/hennessy-very-special.mp4', capa = 'produtos/hennessy-very-special-capa.webp' WHERE id = 'hennessy-very-special'" +
+        ";;UPDATE loja_produtos SET foto = 'produtos/fanta-ghost-face-punch.webp' WHERE id = 'dr-pepper'" +
+        ";;UPDATE loja_produtos SET video = 'produtos/hennessy-very-special.mp4', capa = 'produtos/hennessy-very-special-capa.webp' WHERE id = 'coca-cola-vanilla'" +
+        ";;UPDATE ajustes SET valor = '20' WHERE chave = 'loja.versao';;UPDATE ajustes SET valor = '1000' WHERE chave = 'loja.atualizado_em'",
+    )
+    const antes106 = await fetch(`${bB}/api/index.php?r=loja`)
+    const jAntes106 = await antes106.json()
+    igual(QUATRO_1110.map((id) => midia(jAntes106, id)[0]), QUATRO_1110.map(fabrica), '106 (antes): o banco do ar, com a foto de fábrica nos 4')
+    const { r: r106, j: j106 } = await rodar106()
+    igual(Object.fromEntries(QUATRO_1110.map((id) => [id, midia(j106, id)])), Object.fromEntries(QUATRO_1110.map((id) => [id, [null, null, null]])), '106 no banco do ar: os 4 sem foto, e o Hennessy sem o vídeo e a capa de fábrica (o desenho do site)')
+    igual([midia(j106, 'dr-pepper'), midia(j106, 'coca-cola-vanilla')], [['produtos/fanta-ghost-face-punch.webp', null, null], [null, 'produtos/hennessy-very-special.mp4', 'produtos/hennessy-very-special-capa.webp']], '106: o arquivo de fábrica ligado a outro produto (pelo dono) fica')
+    igual(j106.versao, 21, '106: mudou a loja, a versão sobe (20 → 21)')
+    ok(r106.headers.get('etag') !== antes106.headers.get('etag'), '106: o ETag muda junto (o site com a loja guardada no aparelho recebe a nova, não um 304)')
+    ok(Date.parse(j106.atualizadoEm) > Date.parse(jAntes106.atualizadoEm), `106: a hora da mudança anda (${jAntes106.atualizadoEm} → ${j106.atualizadoEm})`)
+    ok(ler(`SELECT atualizado_em AS a FROM loja_produtos WHERE id IN (${QUATRO_1110.map((id) => `'${id}'`).join(', ')})`).every((x) => x.a > 1000), '106: os 4 produtos ficam com a hora da mudança')
+    igual(banco(join(dirB, 'loja.sqlite'))[0], todas, '106 anotada de novo no registro')
+    ok(QUATRO_1110.every((id) => existsSync(join(raiz, 'public', fabrica(id)))) && existsSync(join(raiz, 'public/produtos/hennessy-very-special.mp4')), '106: os arquivos de fábrica continuam no build (o servidor nunca apaga em produtos/)')
+    // rodar de novo, com tudo no lugar: nada muda (nem a versão, nem o ETag)
+    const { r: r106b, j: j106b } = await rodar106()
+    igual([j106b.versao, r106b.headers.get('etag')], [21, r106.headers.get('etag')], '106 de novo: nada a fazer, a versão e o ETag ficam')
+
+    // o dono trocou: a foto e o vídeo que ele pôs (uploads/…) ficam, nos 4; a mídia de fábrica que sobrou sai, uma sem
+    // a outra (no Hennessy: a foto de fábrica com o vídeo dele, e a foto dele com o vídeo de fábrica)
+    sql(
+      "UPDATE loja_produtos SET foto = 'uploads/fotododono1234.webp' WHERE id = 'fanta-ghost-face-punch';;" +
+        "UPDATE loja_produtos SET foto = 'produtos/hennessy-very-special.webp', video = 'uploads/videododono1234.mp4', capa = 'uploads/capadodono1234.webp' WHERE id = 'hennessy-very-special';;" +
+        "UPDATE loja_produtos SET foto = 'uploads/fotodojack12345.webp' WHERE id = 'jack-daniels-tennessee-apple';;" +
+        // a foto de fábrica de OUTRO dos 4 (o caminho não é o dela): é escolha do dono, fica
+        "UPDATE loja_produtos SET foto = 'produtos/fanta-ghost-face-punch.webp' WHERE id = 'fanta-maca-china'",
+    )
+    const vDono = (await (await fetch(`${bB}/api/index.php?r=loja`)).json()).versao
+    const { j: jDono } = await rodar106()
+    igual(
+      Object.fromEntries(QUATRO_1110.map((id) => [id, midia(jDono, id)])),
+      {
+        'fanta-ghost-face-punch': ['uploads/fotododono1234.webp', null, null],
+        'hennessy-very-special': [null, 'uploads/videododono1234.mp4', 'uploads/capadodono1234.webp'],
+        'jack-daniels-tennessee-apple': ['uploads/fotodojack12345.webp', null, null],
+        'fanta-maca-china': ['produtos/fanta-ghost-face-punch.webp', null, null],
+      },
+      '106 com o que o dono pôs: a foto e o vídeo dele ficam; só a foto de fábrica do próprio produto sai (o Hennessy fica com a thumb dele, sem a foto de fábrica)',
+    )
+    igual(jDono.versao, vDono + 1, '106 com o que o dono pôs: tirou a foto de fábrica do Hennessy, a versão sobe')
+    const { j: jDono2 } = await rodar106()
+    igual([jDono2.versao, Object.fromEntries(QUATRO_1110.map((id) => [id, midia(jDono2, id)]))], [jDono.versao, Object.fromEntries(QUATRO_1110.map((id) => [id, midia(jDono, id)]))], '106 de novo: o do dono continua igual, e a versão não sobe')
+    sql("UPDATE loja_produtos SET foto = 'uploads/fotododono1234.webp', video = 'produtos/hennessy-very-special.mp4', capa = 'produtos/hennessy-very-special-capa.webp' WHERE id = 'hennessy-very-special'")
+    const { j: jVideo } = await rodar106()
+    igual(midia(jVideo, 'hennessy-very-special'), ['uploads/fotododono1234.webp', null, null], '106: a foto que o dono pôs no Hennessy fica; a thumb de fábrica (vídeo e capa) sai')
+    // e a loja ainda não semeada (banco novo antes de instalar): a 106 roda e não faz nada (coberto acima: a versão 1)
   } finally {
     filhos.forEach(t.derrubar)
   }

@@ -14,6 +14,8 @@
 // mercador no celular desligada e ligada de novo (na home, o 1º story; na Home 2, ?home=2, o fim do Início), o Teste
 // minha sorte desligado, o estado tirado do site e o ETag (304 sem mudança).
 
+import { readFileSync } from 'node:fs'
+
 /** As telas da loja (o testar-painel.mjs confere 320 px sem rolagem lateral em cada uma). */
 export const ROTAS_LOJA = ['#/mais', '#/ajuda', '#/estoque', '#/produtos', '#/produto/seda-ocb-premium-slim', '#/produtos/novo', '#/loja', '#/loja/estados', '#/loja/estado/mg', '#/loja/estado/ba', '#/loja/stories/mg', '#/loja/categorias', '#/loja/sorte', '#/loja/sorte/novo', '#/loja/sorte/premio/ocb-4-por-3']
 
@@ -328,6 +330,9 @@ export async function fluxoLoja({ p, BASE, ok, print, axe, foto, fotoClara, vide
     ok(!!grav && grav.quadros > 0 && grav.bytes > 1000 && grav.bytes < 3 * 1048576, `gravou no navegador: ${JSON.stringify(grav)}`)
     await p.getByText('Trocar vídeo').waitFor()
     ok(await p.locator('.pn-video-produto video.pn-arte-video').count() === 1, 'a thumb animada pequena aparece no produto')
+    // a thumb animada sem o halo (como no site: o quadro não tem transparência e o halo vazava pelo escuro do produto)
+    const haloThumb = await p.locator('.pn-video-produto .pn-foto-card .pn-arte').first().evaluate((el) => ({ classe: el.classList.contains('pn-arte-halo-site'), antes: getComputedStyle(el, '::before').backgroundImage }))
+    ok(!haloThumb.classe && !/url\(/.test(haloThumb.antes), `a thumb animada que o dono gravou fica sem o halo pontilhado (${JSON.stringify(haloThumb).slice(0, 80)})`)
     await print(p, 'loja-produto-video', true)
     await p.getByRole('button', { name: 'Salvar', exact: true }).tap()
     await p.getByText('Isqueiro Bic Mini: salvo. O site já mostra.').waitFor()
@@ -491,24 +496,41 @@ export async function fluxoLoja({ p, BASE, ok, print, axe, foto, fotoClara, vide
     await semRec.close()
   } else ok(true, 'sem ffmpeg aqui: a thumb animada no painel fica de fora')
 
-  // a thumb animada de fábrica (o Hennessy, do material da loja): aparece no produto e salvar não perde ela
+  // os 4 do material de 11/10 no desenho do site, como o resto do catálogo (pedido do Ian em 15/10: nada da foto nem da
+  // thumb animada de fábrica). No painel, o card do produto mostra o desenho com o halo (a ilustração do site, onde o
+  // produto tem uma, ou a arte em pixel), "Enviar foto" e a linha da thumb animada vazia; a foto ou o vídeo, se o dono
+  // quiser, ele põe pelo Estúdio (o do vídeo foi testado logo acima, no Isqueiro, com o vídeo que o teste sobe)
   {
-    await p.goto(`${BASE}/painel/#/produto/hennessy-very-special`)
-    await p.getByRole('heading', { name: 'Editar produto' }).waitFor()
-    // o MP4 de fábrica é H.264 (toca no celular e no Chrome de verdade); o Chromium dos testes não abre H.264: lá o
-    // vídeo dá erro e a miniatura cai na foto de fábrica, como foi feito pra fazer
-    const h264 = await p.evaluate(() => document.createElement('video').canPlayType('video/mp4; codecs="avc1.42E01E"') !== '')
-    const card = p.locator('.pn-video-produto .pn-foto-card')
-    const esperado = h264 ? card.locator('video.pn-arte-video[src="../produtos/hennessy-very-special.mp4"][poster="../produtos/hennessy-very-special-capa.webp"]') : card.locator('img.pn-arte-foto[src="../produtos/hennessy-very-special-capa.webp"]')
-    ok(await esperado.waitFor({ timeout: 15000 }).then(() => true, () => false), h264 ? 'o vídeo de fábrica no produto, com a capa de fábrica de pôster' : 'o vídeo de fábrica no produto (sem H.264 aqui, a miniatura fica na capa parada, sem cair num desenho qualquer)')
-    ok(await p.getByText('Trocar vídeo').isVisible(), 'a linha da thumb animada sabe que tem vídeo ("Trocar vídeo")')
-    // a thumb animada sem o halo (como no site: o quadro não tem transparência e o halo vazava pelo vidro escuro)
-    const halo = await card.locator('.pn-arte').first().evaluate((el) => ({ classe: el.classList.contains('pn-arte-halo-site'), antes: getComputedStyle(el, '::before').backgroundImage }))
-    ok(!halo.classe && !/url\(/.test(halo.antes), `a thumb animada fica sem o halo pontilhado (${JSON.stringify(halo).slice(0, 80)})`)
-    const capa = await fetch(`${BASE}/produtos/hennessy-very-special-capa.webp`)
-    ok(capa.ok && /image\/webp/.test(capa.headers.get('content-type') ?? ''), `a capa de fábrica abre pelo site (${capa.status})`)
-    await print(p, 'loja-produto-video-fabrica')
-    // salvar outra coisa (o preço) não perde a thumb de fábrica; depois volta pro "Consultar"
+    const realistas = new Set([...readFileSync(new URL('../src/arte/realista/ids.ts', import.meta.url), 'utf8').matchAll(/^\s+'([a-z0-9-]+)',$/gm)].map((m) => m[1]))
+    for (const id of ['hennessy-very-special', 'fanta-ghost-face-punch', 'jack-daniels-tennessee-apple', 'fanta-maca-china']) {
+      const noSite = prod(await loja(), id)
+      ok(noSite.foto === null && !noSite.video && !noSite.capa, `${id}: o GET loja sem foto e sem thumb animada`)
+      await p.goto(`${BASE}/painel/#/produto/${id}`)
+      await p.getByRole('heading', { name: 'Editar produto' }).waitFor()
+      const arte = p.locator('.pn-foto-produto:not(.pn-video-produto) .pn-sq-arte .pn-arte').first()
+      const ilustracao = realistas.has(id)
+      const desenho = await arte
+        .locator(ilustracao ? 'svg.pn-arte-svg' : 'img.pn-arte-pixel')
+        .first()
+        .waitFor({ timeout: 15000 })
+        .then(() => true, () => false)
+      const visto = await arte.evaluate((el) => ({ foto: !!el.querySelector('img.pn-arte-foto, video'), halo: el.classList.contains('pn-arte-halo-site') }))
+      ok(desenho && !visto.foto && visto.halo, `${id}: o card do painel mostra ${ilustracao ? 'a ilustração do site' : 'o desenho em pixel'} com o halo, sem foto nem vídeo (${JSON.stringify(visto)})`)
+      ok(await p.getByText(ilustracao ? 'Sem foto, vale a ilustração do site (a do card).' : 'Sem foto, vale o desenho em pixel (Mais detalhes › Desenho).').isVisible(), `${id}: o painel diz o que vale sem foto`)
+      ok((await p.getByText('Enviar foto', { exact: true }).isVisible()) && (await p.getByText('Escolher vídeo', { exact: true }).isVisible()) && (await p.getByText('Trocar vídeo').count()) === 0 && (await p.locator('.pn-video-produto .pn-video-vazio').count()) === 1, `${id}: "Enviar foto" e "Escolher vídeo" (nada de fábrica no lugar)`)
+      if (id === 'hennessy-very-special') await print(p, 'loja-produto-desenho-hennessy')
+    }
+    // a lista de produtos: os 4 com o desenho pequeno, sem foto e sem thumb
+    await p.goto(`${BASE}/painel/#/produtos`)
+    await p.getByRole('heading', { name: 'Produtos', level: 1 }).waitFor()
+    await p.getByRole('button', { name: 'Todos', exact: true }).tap()
+    for (const nome of ['Hennessy Very Special', 'Fanta Ghost Face Punch', "Jack Daniel's Tennessee Apple", 'Fanta Maçã da China']) {
+      const l = p.locator('.pn-prod').filter({ hasText: nome }).first()
+      const ok1 = await l.locator('.pn-arte svg.pn-arte-svg, .pn-arte img.pn-arte-pixel').first().waitFor({ timeout: 15000 }).then(() => true, () => false)
+      ok(ok1 && (await l.locator('.pn-arte img.pn-arte-foto, .pn-arte video').count()) === 0, `lista de produtos: ${nome} com o desenho, sem foto nem thumb`)
+    }
+    await print(p, 'loja-produtos-desenho')
+    // salvar outra coisa (o preço) não traz mídia nenhuma; depois volta pro "Consultar"
     for (const v of ['199,90', '']) {
       await p.goto(`${BASE}/painel/#/produto/hennessy-very-special`)
       await p.getByRole('heading', { name: 'Editar produto' }).waitFor()
@@ -518,7 +540,7 @@ export async function fluxoLoja({ p, BASE, ok, print, axe, foto, fotoClara, vide
       // salvar volta pra lista (history.back()): espera chegar lá, pro próximo goto não ser desfeito por ele
       await p.getByRole('heading', { name: 'Editar produto' }).waitFor({ state: 'detached' })
       const h = prod(await loja(), 'hennessy-very-special')
-      ok(h.video === 'produtos/hennessy-very-special.mp4' && h.capa === 'produtos/hennessy-very-special-capa.webp' && h.preco === (v ? 199.9 : null), `salvar o produto (preço ${v || 'vazio = Consultar'}) mantém a thumb de fábrica (${h.video})`)
+      ok(h.foto === null && !h.video && !h.capa && h.preco === (v ? 199.9 : null), `salvar o Hennessy (preço ${v || 'vazio = Consultar'}) continua no desenho, sem foto e sem vídeo`)
     }
   }
 

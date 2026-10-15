@@ -20,8 +20,9 @@
 // A vitrine da rua em cada celular (com a loja do servidor simulada: o mercador ergue um produto de verdade e a
 // plaquinha do nome e do preço aparece): no story da home, a plaquinha e o produto inteiros no quadro, entre o cabeçalho
 // e os adesivos do pé, sem rolagem lateral e com alvo de 44 px; no fim do Início da Home 2, dentro da faixa.
-// A thumb animada (o vídeo do produto, GET loja simulado com 4 produtos com vídeo) em cada celular: a primeira tela não
-// baixa vídeo, a grade toca só o que está à vista (no máximo 2) e, com movimento reduzido, fica na capa.
+// A thumb animada (o vídeo do produto, GET loja simulado com 4 produtos com vídeo: desde 15/10 nenhum produto do
+// catálogo tem thumb de fábrica, os 4 do material de 11/10 voltaram pro desenho do site) em cada celular: a primeira
+// tela não baixa vídeo, a grade toca só o que está à vista (no máximo 2) e, com movimento reduzido, fica na capa.
 // A sacola em cada celular (o pedido rápido, pedido do Ian em 14/10; GET loja simulado com R$ 20 de mínimo em MG): o
 // "Fechar pedido no WhatsApp" numa linha, inteiro na tela, travado com o aviso de quanto falta e destravado, e o
 // pedido guiado discreto embaixo, com alvo de 44 px.

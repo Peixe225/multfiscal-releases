@@ -170,7 +170,8 @@ function gc_loja_semear(PDO $db, array $s): void
             : [$c['id'], $c['nome'], $c['curto'], $c['icone'], $bebida, $i, $agora, $agora]);
     }
     // a thumb animada de fábrica (vídeo e capa, migração 102): na 101 (banco instalado antes da loja) as colunas ainda
-    // não existem, e a 104 põe o vídeo de fábrica depois, onde ainda não tem
+    // não existem, e a 104 põe o vídeo de fábrica depois, onde ainda não tem (e a 106 tira de novo, com as fotos de
+    // fábrica: desde 15/10 a semente não traz nenhuma, o catálogo inteiro fica no desenho do site)
     $comVideo = false;
     foreach ($db->query('PRAGMA table_info(loja_produtos)')->fetchAll(PDO::FETCH_ASSOC) as $coluna) {
         $comVideo = $comVideo || $coluna['name'] === 'video';

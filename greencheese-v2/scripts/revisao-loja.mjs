@@ -5,7 +5,8 @@
 // "RESTAM 2" no card, no story e na página do produto, a quantidade que não passa do que resta e o aviso; o estado
 // ativado no painel (BA) no site inteiro, sem a tela de sem atendimento piscar; o WhatsApp próprio do estado e o "o
 // mesmo pra todos"; a entrega grátis em mais de um dia; a frase do story; o material da loja de 11/10 (os 2 novos só no
-// RJ, com a foto de fábrica e "Consultar"; a capa da thumb do Hennessy); o Teste minha sorte desligado; a loja guardada
+// RJ, com "Consultar"; os 4 do material no desenho do site, sem a foto nem a thumb de fábrica; um produto com vídeo no
+// GET loja com a capa no card, sem o halo); o Teste minha sorte desligado; a loja guardada
 // no aparelho com o servidor fora do ar; o 404 sem-loja (volta pra embutida); a resposta torta (ignorada); e o estado
 // que sai do site (quem estava nele vê a tela de sem atendimento).
 import { readFileSync } from 'node:fs'
@@ -221,11 +222,20 @@ export async function rodadaLoja({ browser, base, contexto, conferir, foto, vigi
   await foto(ba, 'loja-06-ba-por-estado')
   conferir(/greencheese_importsba/.test((await ba.locator('.rodape').textContent()) ?? ''), 'loja: o rodapé com o @ da BA')
 
-  // ── RJ: o material da loja de 11/10 (na semente): os 2 novos à venda só no RJ, com a foto de fábrica e "Consultar"
-  // (MG: indisponíveis); a Fanta Ghost Face com a foto; o Hennessy com a capa da thumb animada de fábrica (produtos/) ──
+  // ── RJ: o material da loja de 11/10 (na semente): os 2 novos à venda só no RJ, com "Consultar" (MG: indisponíveis); os
+  // 4 do material (a Fanta Ghost Face, o Hennessy, o Jack Apple e a Fanta da China) no desenho do site, como o resto do
+  // catálogo (pedido do Ian em 15/10: nada da foto nem da thumb animada de fábrica); e a thumb animada continua: um
+  // produto com vídeo no GET loja (a Piteira de vidro, só nesta parte) mostra a capa no card, sem o halo pontilhado ──
   {
+    const vidro = prod('piteira-de-vidro-raw')
+    vidro.video = 'uploads/thumbdaloja01.webm'
+    vidro.capa = 'uploads/capadaloja01.png'
     const ctxRj = await contexto(browser, { width: 390, height: 844 })
     await ctxRj.route(/\/api\/index\.php\?r=loja(&|$)/, responder)
+    // a capa é uma imagem pequena; o vídeo fica baixando (não chega): a capa não sai do card enquanto a rodada olha
+    const capaPng = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64')
+    await ctxRj.route(/\/uploads\/capadaloja01\.png$/, (r) => r.fulfill({ status: 200, contentType: 'image/png', body: capaPng }))
+    await ctxRj.route(/\/uploads\/thumbdaloja01\.webm$/, () => {})
     await ctxRj.addInitScript(() => {
       try {
         localStorage.setItem('gc-idade', JSON.stringify(Date.now() + 864e5))
@@ -241,12 +251,22 @@ export async function rodadaLoja({ browser, base, contexto, conferir, foto, vigi
       await rj.goto(`${base}?uf=${uf}`)
       await esperar(rj, () => JSON.parse(localStorage.getItem('gc-loja') || 'null')?.versao === 7)
       await rj.locator('.vista-inicio .catalogo-inicio .grade').waitFor({ timeout: 8000 }).catch(() => {})
+      // as ilustrações vêm num pedaço à parte: até ele chegar, o card mostra a arte em pixel por cima do halo
+      await esperar(rj, () => !!document.querySelector('.vista-inicio .catalogo-inicio .grade svg.pv-real'), undefined, 10000)
       await rj.waitForTimeout(400)
       return rj.evaluate(() =>
         Object.fromEntries(
           [...document.querySelectorAll('.vista-inicio .catalogo-inicio .grade > .card[data-flip-id]')].map((li) => [
             li.getAttribute('data-flip-id'),
-            { off: li.classList.contains('card-off'), preco: li.querySelector('.sq-preco')?.textContent ?? '', img: li.querySelector('img')?.getAttribute('src') ?? '', halo: !!li.querySelector('.pv.pv-com-halo') },
+            {
+              off: li.classList.contains('card-off'),
+              preco: li.querySelector('.sq-preco')?.textContent ?? '',
+              img: li.querySelector('img')?.getAttribute('src') ?? '',
+              video: !!li.querySelector('video'),
+              halo: !!li.querySelector('.pv.pv-com-halo'),
+              // o desenho do site: a ilustração (svg) ou, sem ela, a arte em pixel do produto (canvas)
+              desenho: li.querySelector('svg.pv-real') ? 'ilustracao' : li.querySelector('.arte-produto canvas') ? 'pixel' : '',
+            },
           ]),
         ),
       )
@@ -254,16 +274,26 @@ export async function rodadaLoja({ browser, base, contexto, conferir, foto, vigi
     const noRj = await cards('rj')
     for (const id of ['jack-daniels-tennessee-apple', 'fanta-maca-china']) {
       const c = noRj[id]
-      conferir(!!c && !c.off && c.preco === 'Consultar' && c.img.endsWith(`produtos/${id}.webp`), `loja: RJ, ${id} à venda, "Consultar" e a foto de fábrica (${JSON.stringify(c)})`)
+      conferir(!!c && !c.off && c.preco === 'Consultar', `loja: RJ, ${id} à venda e "Consultar" (${JSON.stringify(c)})`)
     }
-    conferir(noRj['hennessy-very-special']?.img.endsWith('produtos/hennessy-very-special-capa.webp'), `loja: o Hennessy na grade com a capa da thumb animada de fábrica (${noRj['hennessy-very-special']?.img})`)
-    // a thumb animada (quadro sobre preto, sem transparência) sem o halo, que vazava pelo vidro escuro; a foto recortada, com
-    conferir(noRj['hennessy-very-special']?.halo === false && noRj['fanta-maca-china']?.halo === true, `loja: a thumb animada sem o halo pontilhado, a foto com (${noRj['hennessy-very-special']?.halo}, ${noRj['fanta-maca-china']?.halo})`)
-    conferir(noRj['fanta-ghost-face-punch']?.img.endsWith('produtos/fanta-ghost-face-punch.webp'), `loja: a Fanta Ghost Face com a foto de fábrica (${noRj['fanta-ghost-face-punch']?.img})`)
+    // os 4 do material de 11/10 no desenho, como os outros: nenhuma imagem (nem a foto nem a capa de fábrica) e nenhum vídeo
+    for (const id of ['fanta-ghost-face-punch', 'hennessy-very-special', 'jack-daniels-tennessee-apple', 'fanta-maca-china']) {
+      const c = noRj[id]
+      conferir(!!c && c.img === '' && !c.video && !!c.desenho, `loja: RJ, ${id} no desenho do site, sem foto e sem thumb de fábrica (${JSON.stringify(c)})`)
+    }
+    // a mesma cara do resto da grade: o desenho com o halo pontilhado (e nenhum card da grade com foto de fábrica)
+    conferir(['hennessy-very-special', 'jack-daniels-old-no7-1l', 'coca-cola-vanilla'].every((id) => noRj[id]?.desenho === 'ilustracao' && noRj[id]?.halo), `loja: RJ, o Hennessy no desenho com o halo, igual ao Jack Old No. 7 e à Coca (${JSON.stringify([noRj['hennessy-very-special'], noRj['jack-daniels-old-no7-1l']])})`)
+    conferir(Object.values(noRj).every((c) => !/produtos\//.test(c.img)), 'loja: RJ, nenhum card com mídia de fábrica (produtos/)')
+    // a thumb animada (quadro sobre preto, sem transparência) sem o halo, que vazava pelo escuro do produto; o desenho, com
+    const pv = noRj['piteira-de-vidro-raw']
+    conferir(!!pv && pv.img.endsWith('uploads/capadaloja01.png') && pv.halo === false, `loja: o produto com thumb animada no GET loja mostra a capa no card, sem o halo pontilhado (${JSON.stringify(pv)})`)
     await foto(rj, 'loja-04b-rj-novos')
     const noMg = await cards('mg')
     conferir(noMg['jack-daniels-tennessee-apple']?.off === true && noMg['fanta-maca-china']?.off === true, 'loja: MG, os 2 novos indisponíveis (só RJ)')
+    conferir(noMg['fanta-ghost-face-punch']?.desenho === 'ilustracao' && noMg['fanta-ghost-face-punch']?.halo && noMg['fanta-ghost-face-punch']?.img === '', `loja: MG, a Fanta Ghost Face de volta na ilustração de antes, com o halo (${JSON.stringify(noMg['fanta-ghost-face-punch'])})`)
     await ctxRj.close()
+    delete vidro.video
+    delete vidro.capa
   }
 
   // ── a loja muda de novo: o Teste minha sorte desligado, "o mesmo WhatsApp pra todos", a rua desligada ──

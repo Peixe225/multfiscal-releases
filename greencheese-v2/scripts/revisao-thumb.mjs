@@ -30,13 +30,18 @@ export function arquivosDaThumb() {
   }
 }
 
-/** A loja da semente com a thumb animada nos 4 produtos (e todos à venda em MG). */
-export function lojaComThumb() {
+/**
+ * A loja da semente com a thumb animada nos 4 produtos (e todos à venda em MG). Os vídeos vêm do GET loja simulado,
+ * nunca do catálogo (desde 15/10 nenhum produto do catálogo tem thumb animada: os 4 do material de 11/10 voltaram pro
+ * desenho do site). fotos: ids que ganham também uma foto (a que o dono teria posto pelo Estúdio).
+ */
+export function lojaComThumb({ fotos = [] } = {}) {
   const loja = lojaDaSemente()
   COM_VIDEO.forEach((id, i) => {
     const p = loja.produtos.find((x) => x.id === id)
     p.video = `uploads/thumbteste${i}.webm`
     p.capa = `uploads/capateste${i}.png`
+    if (fotos.includes(id)) p.foto = `uploads/fototeste${i}.png`
   })
   return loja
 }
@@ -45,11 +50,11 @@ export function lojaComThumb() {
  * Prepara o contexto: o GET loja com a thumb, os arquivos dela (e quem baixou o quê), o vídeo com erro (falhar: ids) e
  * a medida da maior pintura (LCP) e do 1º vídeo pedido.
  */
-export async function prepararThumb(ctx, arquivos, { falhar = [] } = {}) {
-  const loja = lojaComThumb()
+export async function prepararThumb(ctx, arquivos, { falhar = [], fotos = [] } = {}) {
+  const loja = lojaComThumb({ fotos })
   await ctx.route(/\/api\/index\.php\?r=loja(&|$)/, (r) => r.fulfill({ json: { ok: true, versao: 31, atualizadoEm: new Date().toISOString(), loja }, headers: { 'Cache-Control': 'no-cache', ETag: '"31"' } }))
   const pedidos = []
-  await ctx.route(/\/uploads\/(thumbteste|capateste)\d\.(webm|png)$/, (r) => {
+  await ctx.route(/\/uploads\/(thumbteste|capateste|fototeste)\d\.(webm|png)$/, (r) => {
     const nome = r.request().url().split('/').pop()
     const video = nome.endsWith('.webm')
     if (video) pedidos.push(nome)
@@ -137,6 +142,15 @@ export async function rodadaThumb({ browser, base, contexto, conferir, foto }) {
     conferir(tocando.length >= 1 && tocando.length <= 2, `thumb: na grade do celular toca 1 ou 2 (${tocando.length}: ${tocando.map((v) => v.id).join(', ')})`)
     conferir(tocando.every((v) => v.vis >= 0.5), `thumb: só toca o que está à vista (${tocando.map((v) => `${v.id} ${v.vis}`).join(', ')})`)
     conferir(grade.filter((v) => v.src && v.vis === 0).length === 0, 'thumb: card fora da tela não baixa vídeo')
+    // a thumb animada (quadro sobre preto, sem transparência) fica sem o halo pontilhado, que vazava pelo escuro do
+    // produto; o card sem vídeo (o desenho do site) continua com ele
+    const halos = await p.evaluate(
+      (ids) => Object.fromEntries([...document.querySelectorAll('.vista-inicio .grade > .card[data-flip-id]')].map((li) => [li.getAttribute('data-flip-id'), { halo: !!li.querySelector('.pv.pv-com-halo'), video: ids.includes(li.getAttribute('data-flip-id')) }])),
+      COM_VIDEO,
+    )
+    const comVideo = Object.entries(halos).filter(([, x]) => x.video)
+    const semVideo = Object.entries(halos).filter(([id, x]) => !x.video && id === 'jack-daniels-old-no7-1l')
+    conferir(comVideo.length === COM_VIDEO.length && comVideo.every(([, x]) => !x.halo) && semVideo.length === 1 && semVideo.every(([, x]) => x.halo), `thumb: o card com vídeo fica sem o halo pontilhado, o do desenho com (${JSON.stringify(halos).slice(0, 300)})`)
     const lcp = await p.evaluate(() => window.__lcp)
     const ini = await p.evaluate(() => performance.getEntriesByType('resource').filter((e) => /thumbteste/.test(e.name)).map((e) => e.startTime).sort((a, b) => a - b)[0] ?? null)
     conferir(ini !== null && lcp.length > 0 && ini > Math.max(...lcp), `thumb: o 1º vídeo só é pedido depois da maior pintura (LCP ${Math.round(Math.max(...lcp))} ms, vídeo ${Math.round(ini)} ms)`)
@@ -193,11 +207,11 @@ export async function rodadaThumb({ browser, base, contexto, conferir, foto }) {
     await ctx.close()
   }
 
-  // vídeo que dá erro: o card volta pra foto do produto (a Fanta Ghost Face tem a de fábrica, produtos/…) ou, sem foto,
-  // pra ilustração, sem ficar preso na capa
-  {
-    const fotoDele = lojaDaSemente().produtos.find((x) => x.id === COM_VIDEO[0])?.foto ?? null
-    const { ctx, p } = await abrir({ width: 390, height: 844 }, {}, { falhar: [COM_VIDEO[0]] })
+  // vídeo que dá erro: o card volta pra foto do produto (a que o dono teria posto, simulada no GET loja) ou, sem foto
+  // (o caso da Fanta Ghost Face, que desde 15/10 vem no desenho do site), pra ilustração, sem ficar preso na capa
+  for (const comFoto of [true, false]) {
+    const fotoDele = comFoto ? `uploads/fototeste0.png` : null
+    const { ctx, p } = await abrir({ width: 390, height: 844 }, {}, { falhar: [COM_VIDEO[0]], fotos: comFoto ? [COM_VIDEO[0]] : [] })
     await p.waitForTimeout(3500)
     await irPraGrade(p)
     const voltou = await p
@@ -212,7 +226,7 @@ export async function rodadaThumb({ browser, base, contexto, conferir, foto }) {
         { timeout: 12000 },
       )
       .then(() => true, () => false)
-    conferir(voltou, `thumb: vídeo com erro volta pra ${fotoDele ? `foto do produto (${fotoDele})` : 'ilustração do produto'}, sem ficar preso na capa`)
+    conferir(voltou, `thumb: vídeo com erro volta pra ${fotoDele ? `foto do produto (${fotoDele})` : 'ilustração do produto (o desenho do site)'}, sem ficar preso na capa`)
     await ctx.close()
   }
 }

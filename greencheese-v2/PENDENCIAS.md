@@ -36,11 +36,11 @@ Tudo funciona até a mensagem pronta no WhatsApp. O que está abaixo depende de 
 Apple (Destilados, marcado como bebida alcoólica: fora da rua e dos prêmios) e a Fanta Maçã da China (Bebidas
 importadas; sem parênteses no nome: na fonte pixel dos títulos o "(" sai igual ao "{") entraram **à venda só no RJ** (`disponivelConfirmado: ["rj"]`, vieram do @greencheese_importsrj), sem preço
 e **sem tamanho** (não dá pra ler na foto: confirmar com a loja e pôr em Produtos → Tamanho). Ligar nos outros estados
-é com o dono. A Fanta Ghost Face Punch e o Hennessy ganharam foto; o Hennessy, a thumb animada (o reel). Os prints são
-pequenos (591×1280, o produto com 120–330 px): as fotos saem um pouco moles no story grande; a foto do celular do dono,
-quando vier, fica melhor (Produtos → Trocar foto). Duas fotos tiveram ajuste no recorte: no Jack, a lata deitada tapava
-o canto de baixo à esquerda da garrafa, que voltou espelhando o lado direito (a garrafa é simétrica); a Fanta da China é
-a lata deitada da frente (a única inteira no print), posta em pé. No banco que já está no ar, a migração 104 só põe os 2
+é com o dono. Em 13/10 os 4 do material (a Fanta Ghost Face Punch, o Hennessy e os 2 novos) ganharam foto tirada dos
+prints, e o Hennessy a thumb animada (o reel); em 15/10, a pedido do Ian ("coloque os no mesmo padrão" do resto do
+catálogo), voltaram pro desenho do site: a Fanta Ghost Face e o Hennessy na ilustração de antes, os 2 novos na arte em
+pixel (não têm ilustração). As fotos e a thumb de fábrica ficam em `public/produtos/`, sem produto ligado. No banco que
+já está no ar, a migração 104 só põe os 2
 novos se a loja ainda não tem o produto (pelo id, pelo id que o painel daria ou pelo nome escrito de outro jeito): se o
 dono já cadastrou depois do story, fica o dele, com o preço e os estados dele. Nome muito diferente ("JD Maçã") não dá
 pra reconhecer: aí aparecem os dois, e o dono apaga o que sobrar em Produtos.
@@ -51,7 +51,7 @@ pra reconhecer: aí aparecem os dois, e o dono apaga o que sobrar em Produtos.
 
 **9 produtos de exemplo** (`demo: true`, marcados "exemplo" na prévia; somem com `modoPrevia: false`): Arizona Green Tea, Dr Pepper, Jägermeister, Seda RAW Classic King Size, Seda Smoking Brown, Piteira de papel RAW, Dichavador de metal 4 partes, Isqueiro Clipper, Bandeja RAW pequena. Preços de exemplo.
 
-**Fotos oficiais**: 4, do material de 11/10 (Fanta Ghost Face Punch, Hennessy Very Special, Jack Daniel's Tennessee Apple e Fanta Maçã da China, em `public/produtos/`). A pasta `referencias/` (os 16 prints) **não veio** com o projeto. Os outros produtos estão como **ilustrações realistas desenhadas em código**, a partir da embalagem pública de cada um (rótulos simplificados: o texto miúdo é aproximado). Fica bom para a prévia; para a versão oficial, o ideal é foto do produto que a loja vende de fato: `npm run recortar` (ver `referencias/LEIA-ME.md`) — a foto entra no lugar da ilustração sozinha.
+**Fotos de verdade**: hoje **nenhum produto tem foto**. As 4 do material de 11/10 (Fanta Ghost Face Punch, Hennessy Very Special, Jack Daniel's Tennessee Apple e Fanta Maçã da China) saíram do catálogo em 15/10, a pedido do Ian, pra ficarem no mesmo padrão do resto (os arquivos continuam em `public/produtos/`, sem uso; a migração 106 tirou do banco no ar só a mídia de fábrica, nunca a do dono). A pasta `referencias/` (os 16 prints) **não veio** com o projeto. Os produtos estão como **ilustrações realistas desenhadas em código**, a partir da embalagem pública de cada um (rótulos simplificados: o texto miúdo é aproximado), e os que não têm ilustração (o Jack Apple, a Fanta da China e os que o dono cadastrar) na arte em pixel do `arte` deles. Se o dono quiser foto ou thumb animada num produto, ele põe pelo Estúdio do painel (Produtos → o produto → Enviar foto / Escolher vídeo) e a dele passa na frente do desenho: é escolha dele, produto a produto. Falta decidir com o Ian se o Jack Apple e a Fanta da China ganham uma ilustração como a dos outros (hoje, na arte em pixel, eles ficam mais simples que o resto da grade).
 
 **Logo**: redesenhado em SVG a partir da descrição do briefing (círculo preto, cuia em linha, GREEN CHEESE inclinado, tesoura). Comparar com a foto de perfil real quando os prints chegarem.
 
@@ -228,9 +228,10 @@ guardada no aparelho ou a embutida (`src/dados`). O que ainda depende do dono ou
 - **Thumb animada**: o vídeo de exemplo veio (11/10, o reel do Hennessy girando no preto, gravado da tela do
   Instagram): o Estúdio agora acha a janela do vídeo na gravação da tela (corta a moldura e o texto da interface
   sozinho, com "Usar o vídeo inteiro" pra desfazer), reconhece o fundo já preto (não recorta, só deixa o preto liso),
-  marca o vídeo curto inteiro e acelera até 1,5× pro giro caber nos 6 s; a thumb do Hennessy é de fábrica
-  (`public/produtos/hennessy-very-special.mp4`, H.264), feita do reel como veio, sem recorte antes (a 1ª versão tinha
-  sido feita do reel cortado à mão no ffmpeg; foi refeita). A janela foi afinada com o `item1.mp4` e com gravações
+  marca o vídeo curto inteiro e acelera até 1,5× pro giro caber nos 6 s; a thumb do Hennessy foi de fábrica de 13/10 a
+  15/10 (`public/produtos/hennessy-very-special.mp4`, H.264, feita do reel como veio, sem recorte antes; o arquivo
+  continua no build, sem produto ligado: desde 15/10 o Hennessy fica no desenho, e a thumb animada é só a que o dono
+  gravar no Estúdio). A janela foi afinada com o `item1.mp4` e com gravações
   sintéticas: conferir com outras gravações do dono (outros jeitos de story e reel). Moldura clara em volta (não a
   interface escura do story) não é reconhecida: aí o painel trata como vídeo comum, e o dono pode cortar o vídeo antes
   no próprio celular. Texto da interface em cima do produto (a legenda por cima da garrafa) não sai. O reel termina uns 15°

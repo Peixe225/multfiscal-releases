@@ -6,7 +6,7 @@
 // por isso aqui pode (e deve) ter degradê.
 // Letreiro: só texto de verdade e legível, em fonte bitmap presa à grade da arte. A marca entra
 // onde a marca é a embalagem (RAW, OCB, Smoking, Clipper) e o rótulo só diz o que diz de fato
-// ("Nº7", "V.S"). Nada de letra falsa: o resto é filete, faixa e selo geométrico.
+// ("Nº7" no Old No. 7, "APPLE" no Tennessee Apple, "V.S"). Nada de letra falsa: o resto é filete, faixa e selo geométrico.
 
 import type { Arte, TipoArte } from '../../lib/tipos'
 
@@ -533,8 +533,16 @@ function estampaAlta(ctx: Ctx, p: Paleta, r: number, yC0: number, yC1: number) {
 
 /* ================================================================ GARRAFAS */
 
+/** O que o rótulo da garrafa quadrada diz de fato, pelo nome do produto: o "Nº 7" do Old No. 7, o "APPLE" do Tennessee
+ *  Apple; outro nome (ou sem nome), nada escrito (o filete no lugar: nada de letra falsa). */
+function rotuloDaQuadrada(nome: string): 'Nº7' | 'APPLE' | null {
+  if (/\bn(?:o\.?|º|°)\s*7\b/i.test(nome)) return 'Nº7'
+  if (/\bapple\b/i.test(nome)) return 'APPLE'
+  return null
+}
+
 /** Garrafa quadrada (Jack Daniel's): ombro reto, gargalo curto, rótulo preto com moldura branca. */
-function garrafaQuadrada(ctx: Ctx, p: Paleta) {
+function garrafaQuadrada(ctx: Ctx, p: Paleta, e: Extra) {
   const xn = 6.2 // meia largura do gargalo
   const xb = 19.5 // meia largura do corpo
   const yN = 27
@@ -627,9 +635,11 @@ function garrafaQuadrada(ctx: Ctx, p: Paleta) {
   filete(ctx, CX, ly + 51, 11, 1, d, 0.75)
   // rótulo também pega a luz (papel fosco)
   sombraPlana(ctx, rot, lx, lx + lw, ly, ly + lh, 0.55)
-  // "Nº 7": o que o rótulo diz de fato, em letreiro (depois da luz: cor lisa): Nº miúdo, 7 grande
-  if (letreiro(ctx, '7', CX + 4.5, ly + 28, 13, 18, d)) letreiro(ctx, 'Nº', CX - 6, ly + 24.5, 9.5, 8, d)
-  else filete(ctx, CX, ly + 26, 12, 3, d)
+  // o que o rótulo diz de fato, em letreiro (depois da luz: cor lisa): no Old No. 7, Nº miúdo e 7 grande; no Tennessee
+  // Apple, o APPLE; em outra garrafa quadrada, só o filete (o "Nº 7" num Jack de outro sabor seria letra falsa)
+  const diz = rotuloDaQuadrada(e.nome)
+  if (diz === 'Nº7' && letreiro(ctx, '7', CX + 4.5, ly + 28, 13, 18, d)) letreiro(ctx, 'Nº', CX - 6, ly + 24.5, 9.5, 8, d)
+  else if (!(diz === 'APPLE' && letreiro(ctx, 'APPLE', CX, ly + 28, lw - 6, 12, d))) filete(ctx, CX, ly + 26, 12, 3, d)
 
   // gargalo: cinta preta com dois filetes brancos
   const cinta = ret(CX - xn - 0.4, 31, (xn + 0.4) * 2, 14.5, 0.6)
