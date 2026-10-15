@@ -357,8 +357,8 @@ function cEsperado(stdClass $h, string $como): array
     ];
 }
 
-const CAMPOS_C = ['bolasOuro', 'bonusOvr', 'como', 'gols', 'headline', 'id', 'jogador', 'modo', 'noHall', 'nota', 'notaV', 'numero', 'pais',
-    'picoOvr', 'posicao', 'publica', 'salvaEm', 'temporadas', 'terminouEm', 'titulos'];
+const CAMPOS_C = ['bolasOuro', 'bonusOvr', 'como', 'gols', 'hall', 'headline', 'id', 'jogador', 'modo', 'noHall', 'nota', 'notaV', 'numero', 'pais',
+    'picoOvr', 'posicao', 'publica', 'salvaEm', 'temporadas', 'terminouEm', 'titulos']; // v3.2 (CONTRATO-v32 §A, X2): hall
 
 function conferirC(string $nome, mixed $c, array $esperado): void
 {
@@ -438,11 +438,16 @@ $r = $anon->pedir('POST', '/api/instalar.php', null, ['auth' => 'Bearer ' . str_
 checar('token errado → 401', $r->status === 401, $r->resumo());
 $r = $anon->pedir('POST', '/api/instalar.php', null, ['auth' => 'Basic ' . base64_encode('x:' . $PAINEL_TOKEN)]);
 checar('Authorization que não é Bearer → 401', $r->status === 401, $r->resumo());
-$tabelasEsperadas = ['admin_log', 'bonus', 'carreiras', 'carreiras_moderacao', 'conquistas_usuario', 'denuncias', 'eventos', 'hall_foto',
+$tabelasV31 = ['admin_log', 'bonus', 'carreiras', 'carreiras_moderacao', 'conquistas_usuario', 'denuncias', 'eventos', 'hall_foto',
     'hall_foto_clubes', 'indicacoes', 'partidas_vid', 'redefinicoes', 'sessoes_login', 'site_config', 'tentativas', 'usuarios', 'visitantes_usuarios',
     'visitas'];
+// v3.2: as tabelas esperadas são as do _schema.sql (cada rodada acrescenta as suas sem mexer aqui), com as 18 da v3.1 entre elas
+preg_match_all('/^CREATE TABLE IF NOT EXISTS\s+(\w+)/mi', (string) file_get_contents(dirname(__DIR__) . '/api/_schema.sql'), $mmTab);
+$tabelasEsperadas = array_values(array_unique($mmTab[1]));
+sort($tabelasEsperadas);
+checar('o _schema.sql tem as 18 tabelas da v3.1', !array_diff($tabelasV31, $tabelasEsperadas), json_encode(array_values(array_diff($tabelasV31, $tabelasEsperadas))));
 $r = $anon->pedir('POST', '/api/instalar.php', null, ['auth' => 'Bearer ' . $PAINEL_TOKEN]);
-checar('com token → 200 e as 18 tabelas', $r->status === 200 && ($r->json['tabelas'] ?? null) === $tabelasEsperadas, $r->resumo());
+checar('com token → 200 e as ' . count($tabelasEsperadas) . ' tabelas', $r->status === 200 && ($r->json['tabelas'] ?? null) === $tabelasEsperadas, $r->resumo());
 $r = $anon->pedir('GET', '/api/instalar.php', null, ['auth' => 'Bearer ' . $PAINEL_TOKEN]);
 checar('de novo (idempotente) → 200, nada a alterar', $r->status === 200 && ($r->json['ok'] ?? false) === true && ($r->json['alteracoes'] ?? null) === [], $r->resumo());
 q('ALTER TABLE eventos DROP INDEX ix_eventos_sid');
@@ -1332,17 +1337,19 @@ $r = $adm->pedir('POST', '/api/painel.php', ['acao' => 'entrar', 'senha' => $PAI
 checar('entrar sem Origin → 403', $r->status === 403, $r->resumo());
 $r = $adm->pedir('POST', '/api/painel.php', ['acao' => 'entrar', 'senha' => $PAINEL_SENHA]);
 $ckp = $r->cookies['lenda_painel'] ?? null;
-checar('entrar → 200 + cookie lenda_painel', $r->status === 200 && $ckp !== null && preg_match('/^\d+\.[0-9a-f]{64}$/', $ckp['valor']) === 1, $r->resumo());
+// v3.2 (CONTRATO-v32 §B): o cookie leva o token da sessão guardada no servidor (só o sha256 no banco), 8 h
+checar('entrar → 200 + cookie lenda_painel', $r->status === 200 && $ckp !== null && preg_match('/^[A-Za-z0-9_-]{43}\.\d+\.[0-9a-f]{64}$/', $ckp['valor']) === 1, $r->resumo());
 $at = strtolower($ckp['attrs'] ?? '');
-checar('cookie do painel: HttpOnly, Path=/lenda/, 12 h', str_contains($at, 'httponly') && str_contains($at, 'path=/lenda/') && str_contains($at, 'max-age=43200'), $at);
-checar('cookie do painel: exp = agora + 12 h', $ckp && abs((int) explode('.', $ckp['valor'])[0] - (time() + 43200)) <= 5);
+checar('cookie do painel: HttpOnly, Path=/lenda/, SameSite=Strict, 8 h', str_contains($at, 'httponly') && str_contains($at, 'path=/lenda/')
+    && str_contains($at, 'samesite=strict') && str_contains($at, 'max-age=28800'), $at);
+checar('cookie do painel: exp = agora + 8 h', $ckp && abs((int) explode('.', $ckp['valor'])[1] - (time() + 28800)) <= 5);
 $r = $adm->pedir('GET', '/api/painel.php');
 checar('com cookie → 200', $r->status === 200 && isset($r->json['agora'], $r->json['periodo']), $r->resumo());
 $mexido = novoNav();
-[$exp, $sig] = explode('.', $ckp['valor'] ?? '0.0');
-$mexido->jar['lenda_painel'] = ((int) $exp + 86400) . '.' . $sig;
+[$tokC, $exp, $sig] = explode('.', $ckp['valor'] ?? 'x.0.0') + [1 => '0', 2 => '0'];
+$mexido->jar['lenda_painel'] = $tokC . '.' . ((int) $exp + 86400) . '.' . $sig;
 checar('cookie com exp mexido → 401', $mexido->pedir('GET', '/api/painel.php')->status === 401);
-$mexido->jar['lenda_painel'] = (time() - 10) . '.' . hash_hmac('sha256', 'painel|' . (time() - 10), (string) getenv('LENDA_SEGREDO'));
+$mexido->jar['lenda_painel'] = $tokC . '.' . (time() - 10) . '.' . hash_hmac('sha256', 'painel|' . $tokC . '|' . (time() - 10), (string) getenv('LENDA_SEGREDO'));
 checar('cookie vencido → 401', $mexido->pedir('GET', '/api/painel.php')->status === 401);
 $r = novoNav()->pedir('GET', '/api/painel.php', null, ['auth' => 'Bearer ' . $PAINEL_TOKEN]);
 checar('Authorization: Bearer <token> → 200', $r->status === 200 && isset($r->json['periodo']), $r->resumo());
@@ -1376,7 +1383,7 @@ novoNav()->pedir('POST', '/api/painel.php', ['acao' => 'entrar', 'senha' => $PAI
 checar('o teto do site só soma as senhas erradas', (int) v("SELECT COALESCE(SUM(n), 0) FROM tentativas WHERE chave = 'painel-todos:todos'") === 0);
 resetarLimites();
 $expF = (string) (time() + 3600);
-$mexido->jar['lenda_painel'] = $expF . '.' . hash_hmac('sha256', 'painel|' . $expF, (string) getenv('LENDA_SEGREDO'));
+$mexido->jar['lenda_painel'] = $tokC . '.' . $expF . '.' . hash_hmac('sha256', 'painel|' . $tokC . '|' . $expF, (string) getenv('LENDA_SEGREDO'));
 checar('cookie assinado só com o segredo (sem a senha do painel na chave) → 401', $mexido->pedir('GET', '/api/painel.php')->status === 401);
 
 secao('IP do visitante: /64 do IPv6, último item do cabeçalho, ip_proxies');
@@ -1807,6 +1814,10 @@ if (!$SEM_CARGA) {
 // ══ v3: configuração, admin, Hall público, conquistas, indicações, bônus, carga e concorrência ═══
 
 require __DIR__ . '/teste-v3.php';
+require __DIR__ . '/teste-v32-mod.php'; // v3.2: moderação, jogadores, Hall, análise (CONTRATO-v32 §A)
+require __DIR__ . '/teste-v32-acesso.php'; // v3.2: acesso ao painel, equipe, Saúde, backup e cópias (CONTRATO-v32 §B)
+require __DIR__ . '/teste-v32-integ.php'; // v3.2: o que a integração acrescentou (CONTRATO-v32 §E: SMTP, tipo na ficha, destaque no hall.php?id=)
+require __DIR__ . '/teste-v32-corr.php'; // v3.2 rev3: correções confirmadas do servidor (CONTRATO-v32 §E.7)
 
 // ══ 9. .htaccess no Apache ═══════════════════════════════════════════════════════════════════════
 

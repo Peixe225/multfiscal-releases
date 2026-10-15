@@ -3,14 +3,15 @@
  *
  *   <FiltroBar filtro={f} onChange={setF} />            país (seleção) e clube (busca com escudo)
  *   <StatusComunidade pg={pg} />                         "Atualizado às 14:05 · próxima atualização às 15:05"
- *   <LinhaComunidade c={c} rank={3} />                   linha do ranking geral (selo "Comunidade", "+N de bônus")
+ *   <LinhaComunidade c={c} rank={3} />                   linha do ranking geral (selo "Comunidade", "Destaque", "+N de bônus")
+ *   <MelhorDaComunidade c={c} />                         "Melhor da comunidade" no herói do Hall sem filtro
  *   <FiltroHero … />                                     "Lendas · Bolívia · Cruzeiro": contagem e pódio do filtro
  *
  * Abrir uma carreira da comunidade leva ao resumo completo (#/resumo?id=…&de=comunidade), que o site busca
  * no servidor sem misturar com o Hall deste aparelho.
  */
 import { memo, useEffect, useId, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent } from 'react'
-import { ArrowRight, CloudOff, Crown, Globe, RefreshCw, Search, Shield, Users, X } from 'lucide-react'
+import { ArrowRight, CloudOff, Crown, Globe, RefreshCw, Search, Shield, Star, Users, X } from 'lucide-react'
 import { REAL_LEGENDS } from '@/engine/legacy'
 import { navigate } from '@/store/app'
 import { useData, useClub, useCountry } from '@/store/data'
@@ -252,12 +253,45 @@ function ComTrofeus({ c, size = 22 }: { c: CarreiraComunidade; size?: number }) 
 
 export const abrirComunidade = (id: string) => navigate('/resumo', { query: { id, de: 'comunidade' } })
 
-export function SeloComunidade({ c }: { c: Pick<CarreiraComunidade, 'bonusOvr'> }) {
+export function SeloComunidade({ c }: { c: Pick<CarreiraComunidade, 'bonusOvr'> & Partial<Pick<CarreiraComunidade, 'destaque'>> }) {
   return (
     <>
       <span className="hl-runtag hl-runtag--com">Comunidade</span>
+      {c.destaque && (
+        <span className="hl-runtag hl-runtag--destaque" title="Escolhida pela moderação como destaque do Hall da comunidade">
+          Destaque
+        </span>
+      )}
       {c.bonusOvr > 0 && <span className="hl-runtag hl-runtag--bonus">+{c.bonusOvr} de bônus</span>}
     </>
+  )
+}
+
+/** "Melhor da comunidade" (a 1ª do Hall público), no pé do herói do Hall sem filtro: abre o resumo dela. */
+export function MelhorDaComunidade({ c }: { c: CarreiraComunidade }) {
+  return (
+    <button type="button" className="hl-melhorcom" onClick={() => abrirComunidade(c.id)} aria-label={`Melhor da comunidade: ${c.jogador}, de ${c.apelido}, nota ${c.nota}. Abrir o resumo`}>
+      <span className="hl-melhorcom__l">
+        <Users size={13} aria-hidden /> Melhor da comunidade
+      </span>
+      <ComunidadeAvatar c={c} size={30} />
+      <span className="hl-melhorcom__who">
+        <b>
+          {c.jogador}
+          {c.destaque && (
+            <span className="hl-runtag hl-runtag--destaque">
+              <Star size={9} aria-hidden /> Destaque
+            </span>
+          )}
+          {c.bonusOvr > 0 && <span className="hl-runtag hl-runtag--bonus">+{c.bonusOvr} de bônus</span>}
+        </b>
+        <small>
+          de {c.apelido} · {c.temporadas} temp. · {formatInt(c.gols)} gols
+        </small>
+      </span>
+      <span className="hl-melhorcom__nota num">{c.nota}</span>
+      <ArrowRight size={15} className="hl-melhorcom__go" aria-hidden />
+    </button>
   )
 }
 

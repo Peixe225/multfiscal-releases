@@ -11,7 +11,7 @@
  */
 import { create } from 'zustand'
 import { api, comReintento, ErroApi } from './api'
-import { bonusDoSite } from './acesso'
+import { bonusDoSite, type RegrasBonus } from './acesso'
 import { useConta } from './conta'
 import { linkConvite } from './indicacao'
 
@@ -96,6 +96,18 @@ export function degrausIndicacao(b: Pick<BonusInfo, 'indicacoes'> | null, valore
 
 /** "faltam 2 partidas" · "falta 1 partida" (para liberar os bônus). */
 export const textoFaltam = (n: number) => (n === 1 ? 'falta 1 partida' : `faltam ${n} partidas`)
+
+/**
+ * A promessa do atalho "Convide amigos" do menu: "+2, +3 e +5 de OVR na sua próxima carreira" (das regras do site).
+ * null = indicações desligadas no painel (o atalho não aparece).
+ */
+export function promessaIndicacao(regras: Pick<RegrasBonus, 'indicacao' | 'maxIndicacoes'> = bonusDoSite()): string | null {
+  const v = regras.indicacao.slice(0, Math.max(0, regras.maxIndicacoes)).filter((x) => x > 0)
+  if (!v.length) return null
+  const t = v.map((x) => `+${x}`)
+  const lista = t.length === 1 ? t[0] : `${t.slice(0, -1).join(', ')} e ${t[t.length - 1]}`
+  return `${lista} de OVR na sua próxima carreira`
+}
 
 export type ResultadoCompartilhar = { ganhou: number; motivo?: 'ja_hoje' | 'bloqueado' }
 

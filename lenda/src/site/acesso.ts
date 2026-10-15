@@ -6,13 +6,13 @@
  *   aplicarSite(r.site)       // depois do GET conta.php (ou aplicarSite(null) se ele falhou)
  *   iniciarAcesso()           // uma vez (vigias): registra a verificação e pergunta só quando precisa
  *
- * Pergunta ao painel.php só quando faz diferença — rota fechada aberta (#/live, #/imersivo, #/kit), site em
- * manutenção, ou este navegador já foi confirmado como admin antes (marca no localStorage) —, para não somar
+ * Pergunta ao painel.php só quando faz diferença — rota fechada aberta (#/live, #/imersivo, #/kit), o "Abrir no jogo"
+ * do painel (#/resumo?…&de=admin), site em manutenção, ou este navegador já foi confirmado como admin antes (marca no localStorage) —, para não somar
  * um pedido por visitante com muita gente jogando. A marca é só um "vale a pena perguntar": quem decide é a
  * resposta do servidor.
  */
 import { useApp } from '@/store/app'
-import { rotaFechada, useAcesso, type AvisoSite } from '@/store/acesso'
+import { rotaDeAdmin, rotaFechada, useAcesso, type AvisoLista, type AvisoSite } from '@/store/acesso'
 import { api, ErroApi } from './api'
 import { armazem } from './medicao'
 
@@ -31,11 +31,15 @@ export interface SiteConfig {
   manutencao: boolean
   cadastroAberto: boolean
   bonus: RegrasBonus
+  /** v3.2 (N14): avisos com público e validade; servidor antigo = lista vazia. */
+  avisos: AvisoLista[]
 }
 
 export const BONUS_PADRAO: RegrasBonus = { indicacao: [2, 3, 5], compartilhar: 2, liberaAposPartidas: 3, maxIndicacoes: 3 }
 /** Sem resposta do servidor: tudo o que é só do admin continua fechado. */
-export const SITE_PADRAO: SiteConfig = { imersivoPublico: false, livePublica: false, aviso: null, manutencao: false, cadastroAberto: true, bonus: BONUS_PADRAO }
+export const SITE_PADRAO: SiteConfig = { imersivoPublico: false, livePublica: false, aviso: null, manutencao: false, cadastroAberto: true, bonus: BONUS_PADRAO, avisos: [] }
+/** O painel aceita até 5; mais que isso vindo do servidor é ignorado. */
+export const AVISOS_MAX = 5
 
 export const CHAVE_ADMIN = 'lenda:admin'
 
@@ -53,6 +57,24 @@ export function normalizarBonus(x: unknown): RegrasBonus {
   }
 }
 
+/** A lista `site.avisos` (v3.2), conferida item a item: sem texto, com público ou data estranhos, fica de fora. */
+export function normalizarAvisos(x: unknown): AvisoLista[] {
+  if (!Array.isArray(x)) return []
+  const out: AvisoLista[] = []
+  for (const v of x) {
+    const a = v as Partial<Record<keyof AvisoLista, unknown>> | null
+    if (!a || typeof a !== 'object' || typeof a.texto !== 'string') continue
+    const texto = a.texto.trim().slice(0, 280)
+    if (!texto) continue
+    const publico = a.publico === 'logados' || a.publico === 'visitantes' ? a.publico : a.publico === undefined || a.publico === 'todos' ? 'todos' : null
+    if (!publico) continue
+    const ate = typeof a.ate === 'string' && Number.isFinite(Date.parse(a.ate)) ? a.ate : null
+    out.push({ texto, tipo: a.tipo === 'alerta' ? 'alerta' : 'info', publico, ate })
+    if (out.length >= AVISOS_MAX) break
+  }
+  return out
+}
+
 /** O `site` do GET conta.php, conferido campo a campo (o que vier estranho fica no padrão fechado). */
 export function normalizarSite(x: unknown): SiteConfig {
   const s = (x ?? null) as Partial<Record<keyof SiteConfig, unknown>> | null
@@ -66,6 +88,7 @@ export function normalizarSite(x: unknown): SiteConfig {
     manutencao: bool(s.manutencao, false),
     cadastroAberto: bool(s.cadastroAberto, true),
     bonus: normalizarBonus(s.bonus),
+    avisos: normalizarAvisos(s.avisos),
   }
 }
 
@@ -76,7 +99,7 @@ export const bonusDoSite = () => regrasBonus
 export function aplicarSite(x: unknown) {
   const c = x === null ? SITE_PADRAO : normalizarSite(x)
   regrasBonus = c.bonus
-  useAcesso.setState({ configPronta: true, livePublica: c.livePublica, imersivoPublico: c.imersivoPublico, manutencao: c.manutencao, cadastroAberto: c.cadastroAberto, aviso: c.aviso })
+  useAcesso.setState({ configPronta: true, livePublica: c.livePublica, imersivoPublico: c.imersivoPublico, manutencao: c.manutencao, cadastroAberto: c.cadastroAberto, aviso: c.aviso, avisos: c.avisos })
 }
 
 const ls = armazem(() => (typeof window !== 'undefined' ? window.localStorage : undefined))
@@ -85,6 +108,8 @@ let tentativaAdmin = 0
 let ultimaVerificacao = 0
 /** Quem já ouviu "não" só pergunta de novo depois disto (o admin que entrou no painel com o jogo aberto). */
 const DE_NOVO_MS = 30_000
+/** No "Abrir no jogo" do painel (de=admin), pergunta de novo mais cedo. */
+const DE_NOVO_ADMIN_MS = 3_000
 /** GET painel.php?so=eu: 200 {admin:true} = admin; 401 = não; sem rede = "não" por ora (tenta de novo depois, se havia a marca). */
 export async function verificarAdmin(): Promise<boolean> {
   if (useAcesso.getState().adminStatus === 'verificando') return useAcesso.getState().admin
@@ -120,8 +145,13 @@ export function iniciarAcesso() {
   const precisa = () => {
     const s = useAcesso.getState()
     if (s.adminStatus === 'verificando' || s.adminStatus === 'sim') return false
-    const fechada = rotaFechada(useApp.getState().route, s)
-    if (s.adminStatus === 'nao') return fechada && Date.now() - ultimaVerificacao > DE_NOVO_MS
+    const route = useApp.getState().route
+    const fechada = rotaFechada(route, s)
+    // #/resumo?…&de=admin (o "Abrir no jogo" do painel): pergunta ao entrar nessa rota — o admin pode ter acabado de
+    // entrar no painel com o jogo aberto —, no máximo a cada 3 s; o público continua vendo o resumo de sempre
+    const deAdmin = rotaDeAdmin(route)
+    if (s.adminStatus === 'nao') return (fechada && Date.now() - ultimaVerificacao > DE_NOVO_MS) || (deAdmin && Date.now() - ultimaVerificacao > DE_NOVO_ADMIN_MS)
+    if (deAdmin) return true
     return fechada || ls.get(CHAVE_ADMIN) === '1'
   }
   if (precisa()) void verificarAdmin()

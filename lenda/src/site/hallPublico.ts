@@ -45,6 +45,7 @@ export function normalizarCarreiraPublica(x: unknown): CarreiraComunidade | null
     clubes: Array.isArray(c.clubes) ? c.clubes.filter((k): k is string => typeof k === 'string' && k.length <= 32).slice(0, 40) : [],
     bonusOvr: Math.max(0, Math.min(10, int(c.bonusOvr))),
     terminouEm: typeof c.terminouEm === 'string' ? c.terminouEm : null,
+    destaque: c.destaque === true,
   }
 }
 
@@ -177,9 +178,9 @@ async function abrir(id: string) {
     })
   guardar({ status: 'carregando' })
   try {
-    const r = await comReintento(() => api<{ carreira?: unknown; apelido?: unknown }>('hall.php', { query: { id }, cache: 'default', tempo: 20_000 }), { tentativas: 2 })
+    const r = await comReintento(() => api<{ carreira?: unknown; apelido?: unknown; destaque?: unknown }>('hall.php', { query: { id }, cache: 'default', tempo: 20_000 }), { tentativas: 2 })
     if (!hallEntryValido(r.carreira)) throw new ErroApi('servidor', 200, 'Essa carreira veio incompleta do servidor.')
-    guardar({ status: 'pronta', entry: r.carreira, apelido: str(r.apelido, 20) || 'Jogador' })
+    guardar({ status: 'pronta', entry: r.carreira, apelido: str(r.apelido, 20) || 'Jogador', destaque: r.destaque === true })
   } catch (err) {
     guardar({ status: 'erro', naoEncontrada: err instanceof ErroApi && err.status === 404 })
   }

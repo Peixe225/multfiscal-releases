@@ -16,11 +16,17 @@
  * depois desse início (1 fim por início), e no máximo 1 partida por aparelho a cada 20 s. Com o Imersivo aberto ao público, também o
  * jogo_fim e a partida_fim dele (a partida_fim precisa de um jogo_inicio do Imersivo antes). Um jogo_fim do Clássico
  * que conta confere a indicação pendente. Tudo isso só no envio que tem fim de partida (os batimentos não pagam).
+ *
+ * v3.2 (CONTRATO-v32 §A): a última tela (view com d.rota em ^/[a-z0-9/_-]{0,23}$) vai para visitas.rota, o modo do
+ * último batimento (hb.m; sem modo = NULL, rev3) para visitas.modo_atual e o tempo dos batimentos "jogando" para
+ * visitas.jogando_s e, por modo, para jogando_classico_s / jogando_imersivo_s / jogando_live_s (rev3) ("Na área" e
+ * "Tempo de jogo" do painel). Sem essas colunas (instalar.php pendente) a visita é gravada sem elas.
  */
 declare(strict_types=1);
 
 require __DIR__ . '/_lib.php';
 require __DIR__ . '/_bonus.php';
+require __DIR__ . '/_celular.php';
 
 cabecalhos();
 
@@ -114,7 +120,12 @@ $bot = in_array($j['bot'] ?? 0, $sim, true) || trim($ua) === '' || preg_match(RO
 $t = time();
 $agora = dt($t);
 $batimentos = 0;
+$batimentosJogando = 0;
 $jogando = false;
+$modoAtual = null;   // v3.2: o modo do último batimento (visitas.modo_atual, "Na área"); rev3: sem modo = NULL (Menu)
+$jogandoPorModo = []; // rev3: batimentos "jogando" de cada modo (visitas.jogando_<modo>_s, o "Tempo de jogo · por modo")
+$mudouModo = false;   // rev3: algum batimento disse o modo (ou que não há modo): modo_atual é gravado
+$rotaAtual = null;   // v3.2: a tela da última view (visitas.rota)
 $essenciais = [];
 $outras = [];
 foreach ($lista as $e) {
@@ -123,10 +134,25 @@ foreach ($lista as $e) {
     }
     if ($e['t'] === 'hb') {
         $batimentos++;
+        $modoHb = is_string($e['m'] ?? null) && in_array($e['m'], MODOS, true) ? $e['m'] : null;
         if (in_array($e['p'] ?? 0, $sim, true)) {
             $jogando = true;
+            $batimentosJogando++;
+            if ($modoHb !== null) {
+                $jogandoPorModo[$modoHb] = ($jogandoPorModo[$modoHb] ?? 0) + 1;
+            }
+        }
+        // rev3: o modo é o do último batimento; o que chega sem modo (m null ou ausente: o jogo no Menu) limpa o selo da
+        // "Na área"; um modo desconhecido (texto fora da lista) é ignorado e deixa o de antes
+        if ($modoHb !== null || ($e['m'] ?? null) === null) {
+            $modoAtual = $modoHb;
+            $mudouModo = true;
         }
         continue;
+    }
+    if ($e['t'] === 'view' && is_array($e['d'] ?? null) && is_string($e['d']['rota'] ?? null)
+        && preg_match('#^/[a-z0-9/_-]{0,23}$#', $e['d']['rota'])) {
+        $rotaAtual = $e['d']['rota'];
     }
     $modo = is_string($e['m'] ?? null) && in_array($e['m'], MODOS, true) ? $e['m'] : null;
     $dados = dadosLimpos($e['t'], $e['d'] ?? null);
@@ -218,7 +244,23 @@ function partidaPareada(string $vid, array $linhas, int $t): ?string
     return null;
 }
 
-[$linhas, $vidSessao, $contou, $cruzouMinuto] = transacao(static function () use ($sid, $vid, $j, $ua, $bot, $uid, $t, $agora, $batimentos, $jogando, $outras, $essenciais, $semCtx): array {
+/**
+ * Roda a consulta com as colunas da v3.2 (rota, modo_atual, jogando_s) e, se o banco ainda não as tem (o instalar.php
+ * não rodou depois de subir os arquivos), a mesma sem elas: a medição não para.
+ */
+function sqlComV32(string $com, array $pCom, string $sem, array $pSem): void
+{
+    try {
+        sql($com, $pCom);
+    } catch (PDOException $e) {
+        if (($e->errorInfo[1] ?? null) !== 1054) {
+            throw $e;
+        }
+        sql($sem, $pSem);
+    }
+}
+
+[$linhas, $vidSessao, $contou, $cruzouMinuto] = transacao(static function () use ($sid, $vid, $j, $ua, $bot, $uid, $t, $agora, $batimentos, $batimentosJogando, $jogando, $jogandoPorModo, $mudouModo, $modoAtual, $rotaAtual, $outras, $essenciais, $semCtx): array {
     $v = umaLinha('SELECT vid, ultimo, usuario_id, bot, eventos, ativo_s FROM visitas WHERE sid = ? FOR UPDATE', [$sid]);
     // teto da sessão na vida toda (só as linhas comuns): passou de 3.000, o resto é descartado em silêncio
     $outras = array_slice($outras, 0, max(0, MAX_LINHAS_SESSAO - ($v === null ? 0 : (int) $v['eventos'])));
@@ -236,18 +278,24 @@ function partidaPareada(string $vid, array $linhas, int $t): ?string
         $lang = is_string($ctx['lang'] ?? null) && preg_match('/^[A-Za-z]{2,3}(-[A-Za-z0-9]{1,8}){0,2}$/', $ctx['lang'])
             ? substr($ctx['lang'], 0, 16) : null;
         $tela = is_string($ctx['tela'] ?? null) && preg_match('/^\d{2,5}x\d{2,5}$/', $ctx['tela']) ? $ctx['tela'] : null;
-        sql('INSERT IGNORE INTO visitas (sid, vid, usuario_id, inicio, ultimo, ativo_s, jogando_ate, origem, utm_source,
-                utm_medium, utm_campaign, dispositivo, idioma, tela, bot, eventos)
-            VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [
+        $pNova = [
             $sid, $vid, $uid, $agora, $agora, $jogando ? dt($t + 45) : null,
             normalizarOrigem($us, is_string($ctx['ref'] ?? null) ? $ctx['ref'] : null),
             $us, texto($utm['medium'] ?? null, 64), texto($utm['campaign'] ?? null, 100), $dev, $lang, $tela, $bot ? 1 : 0,
             count($linhas),
-        ]);
+        ];
+        sqlComV32('INSERT IGNORE INTO visitas (sid, vid, usuario_id, inicio, ultimo, ativo_s, jogando_ate, origem, utm_source,
+                utm_medium, utm_campaign, dispositivo, idioma, tela, bot, eventos, rota, modo_atual)
+            VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', array_merge($pNova, [$rotaAtual, $modoAtual]),
+            'INSERT IGNORE INTO visitas (sid, vid, usuario_id, inicio, ultimo, ativo_s, jogando_ate, origem, utm_source,
+                utm_medium, utm_campaign, dispositivo, idioma, tela, bot, eventos)
+            VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', $pNova);
     } else {
         $vid = (string) $v['vid']; // a sessão é de quem a criou
         $sets = [];
         $params = [];
+        $setsV32 = [];   // colunas da v3.2 (ficam de fora se o banco ainda não as tem)
+        $paramsV32 = [];
         if ($batimentos > 0) {
             // Até 15 s por batimento, nunca mais que o tempo real desde o último.
             $desde = max(0, $t - (paraTempo($v['ultimo']) ?? $t));
@@ -259,6 +307,22 @@ function partidaPareada(string $vid, array $linhas, int $t): ?string
             if ($jogando) {
                 $sets[] = 'jogando_ate = ?';
                 $params[] = dt($t + 45);
+                // tempo jogando (Tempo de jogo do painel): a parte do tempo somado em que o batimento disse "jogando"
+                $jogandoS = min(15 * $batimentosJogando, $somar);
+                $setsV32[] = 'jogando_s = jogando_s + ?';
+                $paramsV32[] = $jogandoS;
+                // rev3: e de cada modo, na proporção dos batimentos de cada um (Clássico e depois Imersivo na mesma sessão
+                // não põe mais tudo no último); batimento "jogando" sem modo fica só no total
+                $resto = intdiv($jogandoS * array_sum($jogandoPorModo), max(1, $batimentosJogando));
+                $nModos = count($jogandoPorModo);
+                foreach ($jogandoPorModo as $mj => $nb) {
+                    $parte = --$nModos === 0 ? $resto : intdiv($jogandoS * $nb, $batimentosJogando);
+                    $resto -= $parte;
+                    if ($parte > 0) {
+                        $setsV32[] = 'jogando_' . $mj . '_s = jogando_' . $mj . '_s + ?';
+                        $paramsV32[] = $parte;
+                    }
+                }
             }
             // passou de mais um minuto jogado nesta sessão: a indicação pendente (que pede tempo de jogo) é conferida
             $cruzouMinuto = $uid !== null && $somar > 0 && intdiv((int) $v['ativo_s'], 60) !== intdiv((int) $v['ativo_s'] + $somar, 60);
@@ -274,7 +338,18 @@ function partidaPareada(string $vid, array $linhas, int $t): ?string
             $sets[] = 'eventos = eventos + ?';
             $params[] = count($linhas);
         }
-        if ($sets) {
+        if ($mudouModo) {
+            $setsV32[] = 'modo_atual = ?';
+            $paramsV32[] = $modoAtual;
+        }
+        if ($rotaAtual !== null) {
+            $setsV32[] = 'rota = ?';
+            $paramsV32[] = $rotaAtual;
+        }
+        if ($setsV32) {
+            sqlComV32('UPDATE visitas SET ' . implode(', ', array_merge($sets, $setsV32)) . ' WHERE sid = ?', array_merge($params, $paramsV32, [$sid]),
+                'UPDATE visitas SET ' . implode(', ', $sets ?: ['ultimo = ultimo']) . ' WHERE sid = ?', array_merge($params, [$sid]));
+        } elseif ($sets) {
             $params[] = $sid;
             sql('UPDATE visitas SET ' . implode(', ', $sets) . ' WHERE sid = ?', $params);
         }
@@ -310,6 +385,8 @@ if ($uid !== null && $contou === 'classico') {
 } elseif ($uid !== null && $cruzouMinuto) {
     conferirIndicacao($uid, null, false); // só faz algo se houver uma indicação pendente (um SELECT pela chave única)
 }
+// v3.2 (O6): aviso de pico de gente online, no máximo uma conferência a cada 10 min (só com o aviso ligado)
+avisarPicoTalvez();
 
 limpezaTalvez();
 semCorpo();

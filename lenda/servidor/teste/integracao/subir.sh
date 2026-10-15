@@ -2,7 +2,7 @@
 # LENDA v3 · integração: sobe a pilha local igual à Hostinger (o jogo do dist-site + o servidor PHP + MariaDB).
 #   docroot  $BASE/public_html          (lenda/ = cópia do dist-site: rode antes `npm run build:site`)
 #   config   $BASE/lenda-config.php     (= dirname(api, 3), onde o _lib.php procura; cookie_seguro=false, e-mail em arquivo)
-#   banco    $BANCO (MariaDB do socket /run/mysqld/mysqld.sock, que já tem de estar no ar)
+#   banco    $BANCO (MariaDB do socket $LENDA_INTEG_SOCK, padrão /run/mysqld/mysqld.sock, que já tem de estar no ar)
 #   php -S   127.0.0.1:$PORTA com $WORKERS processos
 # Segredos aleatórios em $BASE/segredos.env (fora do repositório; só para este teste).
 # Uso: LENDA_INTEG_BASE=/tmp/lenda-integracao PORTA=8752 bash servidor/teste/integracao/subir.sh
@@ -12,7 +12,7 @@ BASE=${LENDA_INTEG_BASE:-/tmp/lenda-integracao}
 PORTA=${PORTA:-8752}
 WORKERS=${WORKERS:-8}
 BANCO=${BANCO:-lenda_integracao}
-SOCK=/run/mysqld/mysqld.sock
+SOCK=${LENDA_INTEG_SOCK:-/run/mysqld/mysqld.sock}
 PROJ="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 mkdir -p "$BASE"
 mariadb --socket="$SOCK" -uroot -e 'SELECT 1' >/dev/null
@@ -48,7 +48,7 @@ cat >"$BASE/lenda-config.php" <<PHP
   'ip_proxies' => ['127.0.0.1'],
 ];
 PHP
-printf 'PAINEL_SENHA=%s\nPAINEL_TOKEN=%s\nPORTA=%s\nBANCO=%s\n' "$PAINEL_SENHA" "$PAINEL_TOKEN" "$PORTA" "$BANCO" > "$BASE/segredos.env"
+printf 'PAINEL_SENHA=%s\nPAINEL_TOKEN=%s\nPORTA=%s\nBANCO=%s\nSOCK=%s\n' "$PAINEL_SENHA" "$PAINEL_TOKEN" "$PORTA" "$BANCO" "$SOCK" > "$BASE/segredos.env"
 umask 022
 rm -rf "$BASE/public_html"
 mkdir -p "$BASE/public_html"

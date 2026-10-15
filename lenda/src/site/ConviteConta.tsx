@@ -2,7 +2,8 @@
  * Diálogo de conta: o convite que aparece depois das 5 partidas e o "Entrar / Criar conta" do menu.
  *
  *   abas: Criar conta (apelido, e-mail, senha, aceite; time do coração e estado opcionais)
- *         Já tenho conta (e-mail, senha) → Esqueci a senha (e-mail → código de 6 dígitos + nova senha)
+ *         Já tenho conta (e-mail, senha) → Esqueci a senha (e-mail → código de 6 dígitos + nova senha); "Já recebi um
+ *         código" vai direto ao código (o que a equipe do LENDA mandou pelo painel, v3.2 — pedir outro trocaria esse)
  *
  * "Agora não" só existe com obrigatorio=false (o convite volta depois de mais `lembrarACada` partidas).
  * No celular vira bottom sheet e sobe junto com o teclado; o botão fica logo abaixo do último campo.
@@ -35,6 +36,7 @@ export default function ConviteConta() {
   const podeFechar = !convite || !regras.obrigatorio
   const [tela, setTela] = useState<Tela>(aberto && d.aba ? d.aba : convite ? 'criar' : 'entrar')
   const [emailEsqueci, setEmailEsqueci] = useState('')
+  const [codigoJaTinha, setCodigoJaTinha] = useState(false)
   // cadastros fechados pelo painel: só "Entrar" (quem já tem conta continua entrando)
   const cadastroAberto = useAcesso((s) => s.cadastroAberto)
   useTecladoVirtual(aberto)
@@ -163,14 +165,15 @@ export default function ConviteConta() {
       )}
       {tela === 'esqueci' && (
         <FormEsqueci
-          onEnviado={(email) => {
+          onEnviado={(email, jaTinha) => {
             setEmailEsqueci(email)
+            setCodigoJaTinha(jaTinha)
             setTela('codigo')
           }}
           onVoltar={() => setTela('entrar')}
         />
       )}
-      {tela === 'codigo' && <FormCodigo email={emailEsqueci} onPronto={(a) => pronto(a, false)} onVoltar={() => setTela('esqueci')} />}
+      {tela === 'codigo' && <FormCodigo email={emailEsqueci} jaTinha={codigoJaTinha} onPronto={(a) => pronto(a, false)} onVoltar={() => setTela('esqueci')} />}
     </Modal>
   )
 }
@@ -300,7 +303,7 @@ function FormEntrar({ autoFoco, onPronto, onEsqueci }: { autoFoco: boolean; onPr
   )
 }
 
-function FormEsqueci({ onEnviado, onVoltar }: { onEnviado: (email: string) => void; onVoltar: () => void }) {
+function FormEsqueci({ onEnviado, onVoltar }: { onEnviado: (email: string, jaTinha: boolean) => void; onVoltar: () => void }) {
   const [email, setEmail] = useState('')
   const [tentou, setTentou] = useState(false)
   const { carregando, erro, rodar } = useEnvio()
@@ -311,8 +314,13 @@ function FormEsqueci({ onEnviado, onVoltar }: { onEnviado: (email: string) => vo
     if (erroEmail(email)) return
     void rodar(async () => {
       await useConta.getState().esqueci(email)
-      onEnviado(email.trim())
+      onEnviado(email.trim(), false)
     })
+  }
+  // o código veio por outro caminho (a equipe do LENDA mandou, v3.2): pedir outro trocaria o que chegou
+  const jaTenho = () => {
+    setTentou(true)
+    if (!erroEmail(email)) onEnviado(email.trim(), true)
   }
   return (
     <form className="sc-form" onSubmit={enviar} noValidate aria-busy={carregando}>
@@ -322,14 +330,19 @@ function FormEsqueci({ onEnviado, onVoltar }: { onEnviado: (email: string) => vo
       <Button type="submit" variant="primary" size="lg" block loading={carregando}>
         {carregando ? 'Enviando…' : 'Enviar código'}
       </Button>
-      <button type="button" className="sc-link" onClick={onVoltar} style={{ justifySelf: 'center' }}>
-        Voltar para entrar
-      </button>
+      <div className="sc-links" style={{ justifyContent: 'center' }}>
+        <button type="button" className="sc-link" onClick={jaTenho}>
+          Já recebi um código
+        </button>
+        <button type="button" className="sc-link" onClick={onVoltar}>
+          Voltar para entrar
+        </button>
+      </div>
     </form>
   )
 }
 
-function FormCodigo({ email, onPronto, onVoltar }: { email: string; onPronto: (apelido: string) => void; onVoltar: () => void }) {
+function FormCodigo({ email, jaTinha, onPronto, onVoltar }: { email: string; jaTinha?: boolean; onPronto: (apelido: string) => void; onVoltar: () => void }) {
   const [codigo, setCodigo] = useState('')
   const [senha, setSenha] = useState('')
   const [tentou, setTentou] = useState(false)
@@ -349,9 +362,15 @@ function FormCodigo({ email, onPronto, onVoltar }: { email: string; onPronto: (a
     <form className="sc-form" onSubmit={enviar} noValidate aria-busy={carregando}>
       <p className="sc-ok" role="status">
         <CircleCheck aria-hidden="true" />
-        <span>
-          Se <b>{email}</b> tiver conta, o código chega em instantes. Confira também a caixa de spam.
-        </span>
+        {jaTinha ? (
+          <span>
+            Digite o código de 6 dígitos que chegou em <b>{email}</b> (ele vale por 30 minutos).
+          </span>
+        ) : (
+          <span>
+            Se <b>{email}</b> tiver conta, o código chega em instantes. Confira também a caixa de spam.
+          </span>
+        )}
       </p>
       <Campo
         label="Código de 6 dígitos"

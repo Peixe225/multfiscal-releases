@@ -46,6 +46,10 @@ function usuarioJson(array $u): array
         'origem' => (string) $u['origem'],
         'hallPublico' => (string) ($u['hall_publico'] ?? 'auto'),
         'codigoConvite' => $codigo,
+        // v3.2: tester abre o Imersivo e a Live (com o selo "Teste"), sem o painel nem o #/kit
+        'tester' => ($u['tipo'] ?? 'jogador') === 'tester',
+        // v3.2: aviso da moderação para o dono (o jogo mostra uma vez; conta.php aviso_lido apaga)
+        'aviso' => ($u['aviso_conta'] ?? null) !== null ? ['texto' => (string) $u['aviso_conta'], 'em' => iso($u['aviso_conta_em'] ?? null)] : null,
         'estatisticas' => [
             // o contador do aparelho (inclui as de antes do cadastro) ou as contadas com a conta: nada de contar os
             // eventos da vida inteira a cada abertura do jogo
@@ -89,8 +93,10 @@ function ligarVisitante(?string $vid, int $uid): void
  * Exclui a conta (LGPD): usuário, sessões, carreiras (e o lugar delas no Hall público, as denúncias contra
  * elas e a decisão de moderação guardada), conquistas, bônus, indicações que ela fez, denúncias que ela fez; a
  * indicação que ela recebeu fica sem o indicado (o bônus do amigo continua dele). As visitas ficam só como
- * estatística anônima, com um vid novo por aparelho. No registro do admin, as linhas da conta e das carreiras dela
- * ficam só com a ação, a data e o id. Sem senha: quem chama confere (conta.php pede a senha; admin.php exige o admin).
+ * estatística anônima, com um vid novo por aparelho. No registro do admin, as linhas da conta, das carreiras dela (também
+ * as da lixeira) e das indicações dela ficam só com a ação, a data e o id (limparRegistroDaConta). Fica a marca da
+ * exclusão (contas_excluidas: só o número da conta), para nenhuma restauração de cópia trazê-la de volta. Sem senha:
+ * quem chama confere (conta.php pede a senha; admin.php exige o admin).
  */
 function excluirUsuario(int $uid): void
 {
@@ -104,16 +110,25 @@ function excluirUsuario(int $uid): void
         foreach (array_chunk($pks, 500) as $lote) {
             sql('DELETE FROM denuncias WHERE carreira_pk IN (' . marcas(count($lote)) . ')', $lote);
         }
-        // registro do admin: fica que a ação aconteceu (e quando), sem o apelido nem os motivos escritos (LGPD)
-        $alvos = array_merge(['usuario:' . $uid], array_map(static fn(int $pk): string => 'carreira:' . $pk, $pks));
-        foreach (array_chunk($alvos, 500) as $lote) {
-            foreach (sql('SELECT id, detalhes FROM admin_log WHERE alvo IN (' . marcas(count($lote)) . ')', $lote)->fetchAll() as $l) {
-                $d = is_string($l['detalhes']) ? json_decode($l['detalhes'], true) : null;
-                sql('UPDATE admin_log SET detalhes = ? WHERE id = ?', [json(['via' => is_array($d) && is_string($d['via'] ?? null) ? $d['via'] : 'sistema',
-                    'excluido' => true]), (int) $l['id']]);
-            }
-        }
+        limparRegistroDaConta($uid, $pks);
         sql('DELETE FROM carreiras_moderacao WHERE usuario_id = ?', [$uid]);
+        if (esquemaV32()) {
+            // a marca da exclusão (só o número): uma cópia do servidor restaurada depois nunca traz a conta de volta
+            try {
+                sql("INSERT IGNORE INTO contas_excluidas (usuario_id, em, via) VALUES (?, ?, ?)",
+                    [$uid, dt(time()), function_exists('adminAtual') && adminAtual() !== null ? 'admin' : 'titular']);
+            } catch (PDOException $e) {
+                if (!eFaltaDeSchema($e)) {
+                    throw $e; // sem a tabela (instalar.php pendente), a restauração ainda olha o registro do admin
+                }
+            }
+            // v3.2: a lixeira das carreiras dela (cópia e marca) e o registro dos e-mails mandados para ela; a anotação
+            // interna e o aviso da moderação ficam na própria linha de usuarios
+            sql('DELETE FROM lixeira_carreiras WHERE usuario_id = ?', [$uid]);
+            sql('DELETE FROM email_log WHERE para_hash = ?', [quemEmail(strtolower((string) $u['email']))]);
+        }
+        // os caches do painel que podem citar a conta (alertas com o apelido, grupos de aparelho) são refeitos
+        sql("DELETE FROM site_config WHERE chave IN ('_atencao', '_multicontas')");
         sql('DELETE FROM carreiras WHERE usuario_id = ?', [$uid]);
         sql('DELETE FROM sessoes_login WHERE usuario_id = ?', [$uid]);
         sql('DELETE FROM visitantes_usuarios WHERE usuario_id = ?', [$uid]);
@@ -135,6 +150,89 @@ function excluirUsuario(int $uid): void
         sql('DELETE FROM redefinicoes WHERE email = ?', [(string) $u['email']]);
         sql('DELETE FROM usuarios WHERE id = ?', [$uid]);
     });
+}
+
+/** Ações do registro cujos detalhes citam a conta pelo id (usuario / indicador / indicado), com outro alvo. */
+const ACOES_LOG_COM_CONTA = ['ocultar_carreira', 'mostrar_carreira', 'apagar_carreira', 'destacar_carreira', 'restaurar_carreira',
+    'resolver_denuncia', 'recusar_indicacao'];
+
+/**
+ * LGPD, no excluirUsuario(): as linhas do registro do admin que falam da conta ficam só com a ação, a data e o id
+ * ({via, excluido: true}): as do alvo usuario:<id>; as das carreiras dela (as que ainda existem e as que estão na
+ * lixeira, apagadas pela moderação); as das indicações em que ela é indicadora ou indicada; e as que citam o id nos
+ * detalhes ("usuario", "indicador", "indicado") com outro alvo (carreira já liberada da lixeira, por exemplo).
+ */
+function limparRegistroDaConta(int $uid, array $pks): void
+{
+    $alvos = ['usuario:' . $uid];
+    foreach ($pks as $pk) {
+        $alvos[] = 'carreira:' . (int) $pk;
+    }
+    try {
+        foreach (sql('SELECT carreira_pk FROM lixeira_carreiras WHERE usuario_id = ?', [$uid])->fetchAll(PDO::FETCH_COLUMN) as $pk) {
+            $alvos[] = 'carreira:' . (int) $pk;
+        }
+    } catch (PDOException $e) {
+        if (!eFaltaDeSchema($e)) {
+            throw $e; // sem a lixeira (instalar.php pendente): não há carreira apagada pela moderação
+        }
+    }
+    foreach (sql('SELECT id FROM indicacoes WHERE indicador_id = ? OR indicado_id = ?', [$uid, $uid])->fetchAll(PDO::FETCH_COLUMN) as $iid) {
+        $alvos[] = 'indicacao:' . (int) $iid;
+    }
+    $ids = [];
+    foreach (array_chunk(array_values(array_unique($alvos)), 500) as $lote) {
+        foreach (sql('SELECT id FROM admin_log WHERE alvo IN (' . marcas(count($lote)) . ')', $lote)->fetchAll(PDO::FETCH_COLUMN) as $id) {
+            $ids[(int) $id] = true;
+        }
+    }
+    // o id nos detalhes (o json() grava "usuario":12, ou "usuario":12} no fim): só nas ações que o escrevem (índice da ação)
+    $parecidos = [];
+    $params = [];
+    foreach (['usuario', 'indicador', 'indicado'] as $k) {
+        foreach ([',', '}'] as $fim) {
+            $parecidos[] = 'detalhes LIKE ?';
+            $params[] = '%"' . $k . '":' . $uid . $fim . '%';
+        }
+    }
+    foreach (sql('SELECT id, detalhes FROM admin_log WHERE acao IN (' . marcas(count(ACOES_LOG_COM_CONTA)) . ') AND (' . implode(' OR ', $parecidos) . ')',
+        array_merge(ACOES_LOG_COM_CONTA, $params))->fetchAll() as $l) {
+        $d = is_string($l['detalhes']) ? json_decode($l['detalhes'], true) : null;
+        foreach (['usuario', 'indicador', 'indicado'] as $k) {
+            if (is_array($d) && ($d[$k] ?? null) === $uid) {
+                $ids[(int) $l['id']] = true;
+            }
+        }
+    }
+    foreach (array_chunk(array_keys($ids), 500) as $lote) {
+        foreach (sql('SELECT id, detalhes FROM admin_log WHERE id IN (' . marcas(count($lote)) . ')', $lote)->fetchAll() as $l) {
+            $d = is_string($l['detalhes']) ? json_decode($l['detalhes'], true) : null;
+            sql('UPDATE admin_log SET detalhes = ? WHERE id = ?', [json(['via' => is_array($d) && is_string($d['via'] ?? null) ? $d['via'] : 'sistema',
+                'excluido' => true]), (int) $l['id']]);
+        }
+    }
+}
+
+/** Código novo de 6 dígitos para trocar a senha (30 min, só o HMAC no banco). Devolve o código (para o e-mail). */
+function gravarCodigoRedefinicao(string $email): string
+{
+    $codigo = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+    sql('INSERT INTO redefinicoes (email, codigo_hash, expira_em, tentativas) VALUES (?, ?, ?, 0)
+        ON DUPLICATE KEY UPDATE codigo_hash = VALUES(codigo_hash), expira_em = VALUES(expira_em), tentativas = 0',
+        [$email, hash_hmac('sha256', $email . '|' . $codigo, segredo()), dt(time() + 1800)]);
+    return $codigo;
+}
+
+/** Texto do e-mail com o código. $pelaEquipe: mandado pelo painel (U14), não pelo "Esqueci a senha". */
+function corpoEmailRedefinicao(string $apelido, string $codigo, bool $pelaEquipe = false): string
+{
+    return "Olá, {$apelido}!\n\n"
+        . ($pelaEquipe ? "A equipe do LENDA mandou este código para você criar uma senha nova (você pediu ajuda para entrar).\n\n"
+            : "Seu código para criar uma senha nova no LENDA é:\n\n")
+        . "    {$codigo}\n\n"
+        . "Ele vale por 30 minutos. Digite o código no jogo, na tela \"Esqueci a senha\".\n\n"
+        . "Se não foi você que pediu, é só ignorar este e-mail: sua senha continua a mesma.\n\n"
+        . "— LENDA · https://oprojeto.online/lenda/\n";
 }
 
 /** Status em vigor ('ativo' | 'suspenso'): suspensão com data vencida conta como ativo. */

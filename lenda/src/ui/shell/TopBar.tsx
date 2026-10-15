@@ -5,7 +5,7 @@
 import { memo } from 'react'
 import { Menu, Save, Volume2, VolumeX } from 'lucide-react'
 import { useApp, type RoutePath } from '@/store/app'
-import { podeImersivo, soAdmin, useAcesso } from '@/store/acesso'
+import { emTeste, podeImersivo, useAcesso } from '@/store/acesso'
 import { decisionProgress, useCareer } from '@/store/career'
 import { Brand, IconButton, MedalIcon, cx, toast, NewBadge } from '@/ui/primitives'
 import { formatSeason } from '@/ui/primitives/format'
@@ -83,7 +83,7 @@ export function TopNav() {
   // site: o Modo Imersivo em desenvolvimento não tem link para o público
   const acesso = useAcesso()
   const imersivo = podeImersivo(acesso)
-  const teste = soAdmin(acesso, acesso.imersivoPublico)
+  const teste = !!emTeste(acesso, acesso.imersivoPublico)
   const links: [string, string, boolean?][] = [
     ['Modo Clássico', '#/identidade'],
     ['Modo Imersivo', '#/imersivo', true],

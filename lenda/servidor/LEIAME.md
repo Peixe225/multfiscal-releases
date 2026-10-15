@@ -2,21 +2,27 @@
 
 PHP 8.1+ e MySQL 8/MariaDB 10.6+, sem framework nem composer, na mesma hospedagem do jogo
 (`https://oprojeto.online/lenda/`). O contrato com o jogo (rotas, campos, erros, tabelas) está em
-[`CONTRATO.md`](CONTRATO.md) (medição, contas, carreiras) e [`CONTRATO-v3.md`](CONTRATO-v3.md) (configuração do site,
-admin, Hall público, conquistas, indicações e bônus; o §8 tem os detalhes do que foi implementado).
+[`CONTRATO.md`](CONTRATO.md) (medição, contas, carreiras), [`CONTRATO-v3.md`](CONTRATO-v3.md) (configuração do site,
+admin, Hall público, conquistas, indicações e bônus; o §8 tem os detalhes do que foi implementado) e
+[`CONTRATO-v32.md`](CONTRATO-v32.md) (o painel completo: moderação no §A; acesso, equipe, PIN, Saúde, backup e cópias
+no §B).
 
 ```
 servidor/
-  api/            → public_html/lenda/api/      (e.php, conta.php, carreiras.php, hall.php, conquistas.php, bonus.php,
-                                                  admin.php, painel.php, instalar.php, _lib.php, _palavras.php,
-                                                  _contas.php, _carreiras.php, _hall.php, _bonus.php, _schema.sql,
-                                                  .htaccess; o lendas.php é de outro time)
+  api/            → public_html/lenda/api/      (a pasta inteira: e.php, conta.php, carreiras.php, hall.php,
+                                                  conquistas.php, bonus.php, admin.php, painel.php, equipe.php,
+                                                  instalar.php, os módulos _*.php — _lib, _admin, _copias, _saude,
+                                                  _palavras, _contas, _carreiras, _hall, _bonus e os da moderação —,
+                                                  _schema.sql e .htaccess; o lendas.php é de outro time)
   painel/         → public_html/lenda/painel/   (a pasta inteira: index.html, painel.css, nucleo.js, visao.js,
                                                   usuarios.js, moderacao.js, sistema.js, painel.js, nomes.json)
   privacidade.html→ public_html/lenda/privacidade.html
   teste/          fica no repositório (não sobe): rodar.sh (servidor) e integracao/ (jogo + servidor + painel juntos:
                   subir.sh, e2e.mjs com vários aparelhos no navegador, hall-prazo.mjs, carga.mjs, teto-cadastro.mjs)
 ```
+
+Fora do `public_html`, ao lado do arquivo de config, o servidor cria sozinho a pasta `lenda-copias/` (as cópias do
+banco que o painel guarda, ver §8). Ela nunca vai para o repositório.
 
 ## Publicar na Hostinger
 
@@ -42,6 +48,11 @@ Guarde a senha do painel e o token fora do repositório. A config recebe só o h
 tem de ser longa e aleatória: o login do painel tem limite por IP e um teto do site inteiro (50 tentativas a cada
 10 min), e sob ataque ele pode responder 429 por alguns minutos; nesse caso, use o token (Bearer).
 
+A senha do painel é a **senha de emergência** do dono: ela sempre entra (sem e-mail) na conta "Dono" do painel, que o
+servidor cria na primeira entrada (v3.2, §5c). Sem `admin_senha_hash` e sem nenhuma conta pessoal, o painel fica
+desligado ("Painel desligado: defina a senha"); o token continua valendo. Trocar o hash na config derruba na hora
+todas as sessões abertas do painel (de todo mundo da equipe).
+
 ### 3. Escrever a config (fora do public_html)
 
 Arquivo `/home/u785231359/domains/oprojeto.online/lenda-config.php` (pelo Gerenciador de Arquivos, fora da
@@ -62,12 +73,19 @@ pasta `public_html`). Nunca suba este arquivo para o repositório.
   'email_remetente' => 'contato@oprojeto.online',
   'cookie_seguro' => true,
   // Opcionais:
-  // 'email_modo' => 'mail',            // 'arquivo' grava o e-mail em email_pasta (só para teste)
+  // 'email_modo' => 'mail',            // 'smtp' manda pela caixa (abaixo; menos spam); 'arquivo' grava em email_pasta (só teste)
+  // 'smtp' => ['host' => 'smtp.hostinger.com', 'porta' => 587, 'usuario' => 'contato@oprojeto.online', 'senha' => 'SENHA-DA-CAIXA'],
+  //                                    // com 'email_modo' => 'smtp': STARTTLS na 587 (ou 'porta' => 465, SSL), certificado conferido
   // 'ip_cabecalho' => '',              // vazio = REMOTE_ADDR; veja "IP do visitante" abaixo antes de mudar
   // 'ip_proxies' => [],                // com ip_cabecalho: só confia no cabeçalho vindo destes IPs/faixas (ex.: '10.0.0.0/8')
   // 'limpeza_a_cada' => 100,           // limpeza leve em 1 a cada N pedidos
-  // 'hall_revisao_nota' => 90,         // carreira com nota a partir disto espera você liberar no painel (101 = desligado)
+  // 'hall_revisao_nota' => 90,         // padrão da revisão do Hall (v3.2: muda no painel, em Configurações; 101 = desligado)
   // 'painel_cache_s' => 90,            // a Visão geral do painel recalcula no máximo a cada N segundos (0 = sempre)
+  // 'backup_pasta' => '/home/u785231359/domains/oprojeto.online/lenda-copias', // padrão: lenda-copias ao lado da config
+  // 'copias_max' => 10,                // quantas cópias do banco ficam guardadas no servidor (1 a 30)
+  // 'copias_diaria' => true,           // false = sem a cópia automática do dia
+  // 'aviso_ntfy' => 'https://ntfy.sh/UM-TOPICO-SECRETO', // aviso no celular (denúncia nova, pico de online); ligue em Configurações
+  // 'aviso_telegram' => ['token' => 'TOKEN-DO-BOT', 'chat' => 'ID-DO-CHAT'], // o mesmo aviso pelo Telegram
 ];
 ```
 
@@ -143,6 +161,52 @@ resposta disser `"faltam"` maior que 0, rode de novo (cada chamada trabalha no m
    "Liberar" (painel → Hall público → **Esperando revisão**; o contador fica na aba). Para mudar o corte, ponha
    `'hall_revisao_nota' => 95` (ou 101 para desligar) na config.
 
+### 5c. Atualizar para a v3.2 (painel completo; o site já está no ar)
+
+1. Suba as pastas `servidor/api/` e `servidor/painel/` **inteiras** (há arquivos novos: `equipe.php`, `_admin.php`,
+   `_copias.php`, `_saude.php` e os módulos da moderação; o painel tem arquivos novos também). Pelo `dist-site/`, o
+   build já leva tudo. Confira que o `api/.htaccess` subiu.
+2. **Logo em seguida**, rode o `instalar.php` (passo 5) até `"faltam": 0`. Ele só acrescenta: cria `admin_contas`,
+   `admin_sessoes`, `admin_papeis`, `admin_recados`, `lixeira_carreiras`, `email_log` e `contas_excluidas` e as colunas novas, sem apagar
+   nada. Entre o upload e o instalar, as rotas do painel que usam tabela nova respondem `503 instalar` ("rode o
+   instalar.php"); o jogo continua funcionando.
+3. Abra `https://oprojeto.online/lenda/painel/` e entre **com a senha de sempre** (deixe o e-mail vazio). Essa
+   primeira entrada cria a conta **Dono** do painel. Os cookies antigos do painel não valem mais: todo mundo entra de
+   novo uma vez.
+4. **Cadastre o PIN** (segunda etapa, 6 dígitos): em Configurações → Minha conta → "Criar PIN" (o painel também mostra
+   a faixa "Cadastre o seu PIN"). Ele pede a senha do arquivo de novo, o PIN e a repetição. Não vale todos iguais nem
+   sequência (123456, 987654). Daí em diante, toda entrada com a senha do arquivo pede o PIN; 3 PINs errados travam a
+   entrada por até 10 minutos.
+5. (Opcional, recomendado) **Crie a sua conta pessoal** (Minha conta → "Criar a minha conta": e-mail, nome e uma senha
+   sua, 12+ caracteres): a sessão da senha do arquivo termina e a próxima entrada é com o e-mail, que pede o PIN na
+   primeira vez. A senha do arquivo continua entrando (é a de emergência, acima de todos na equipe). Faça isto **antes**
+   de convidar alguém: "Criar a minha conta" só aparece enquanto não há nenhuma conta pessoal; depois, a conta Dono cria
+   a sua pela aba Equipe ("Pôr alguém na equipe", papel Dono, com o seu e-mail).
+6. **Equipe** (aba Equipe): convide moderadores, suporte ou leitores. O painel mostra uma senha provisória **uma vez**
+   (copie e mande por um canal seguro); a pessoa troca a senha e cria o PIN no primeiro acesso. Papéis: Dono (tudo),
+   Moderador (Hall e denúncias), Suporte (contas dos jogadores), Leitor (só vê), e papéis seus com os poderes que
+   escolher. Ninguém mexe em quem está no mesmo nível ou acima; o último dono não sai.
+7. **Esqueceu o PIN** da conta Dono: zere pelo token (a próxima entrada pede um PIN novo):
+
+   ```sh
+   # o id da conta Dono aparece na aba Equipe; na primeira instalação, costuma ser 1
+   curl -sS -H "Authorization: Bearer SEU-TOKEN" -H "Content-Type: application/json" \
+     -d '{"acao":"zerar_pin","adminId":1}' https://oprojeto.online/lenda/api/equipe.php
+   curl -sS -H "Authorization: Bearer SEU-TOKEN" https://oprojeto.online/lenda/api/equipe.php?r=equipe   # lista a equipe (ids)
+   ```
+
+   O PIN de uma pessoa da equipe, outro dono zera na aba Equipe. Esqueceu a senha do arquivo: gere outra (§2) e troque o
+   hash na config (isso também derruba todas as sessões do painel).
+8. **Saúde** (aba Saúde): mostra o que falta no banco, as extensões do PHP, a config (só sim/não) e as cópias, com o
+   "como resolver" de cada problema. Por script: `GET equipe.php?r=saude` com o Bearer.
+9. (Opcional, recomendado) **E-mail pela caixa (SMTP)**: o `mail()` da hospedagem cai no spam com frequência. Para mandar
+   os códigos de troca de senha pela caixa `contato@oprojeto.online`, ponha na config `'email_modo' => 'smtp'` e
+   `'smtp' => ['host' => 'smtp.hostinger.com', 'porta' => 587, 'usuario' => 'contato@oprojeto.online', 'senha' => '<a
+   senha da caixa>']` (STARTTLS na 587, ou `'porta' => 465` com SSL; o certificado do servidor é conferido). A senha
+   fica só no arquivo de config (nunca no banco nem no painel). Confira mandando um código a uma conta sua (ficha da
+   conta → "Mandar código de troca de senha") e em Registro → E-mails ("Como saiu: SMTP da caixa"; uma falha mostra
+   o passo e o código do servidor, nunca a senha). Config incompleta aparece na Saúde como problema grave.
+
 ### 6. Conferir
 
 ```sh
@@ -155,15 +219,26 @@ curl -sI https://oprojeto.online/lenda/api/_schema.sql | head -1 # 403
 curl -sS https://oprojeto.online/lenda/api/admin.php?r=resumo   # 401 (sem admin)
 curl -sS -H "Authorization: Bearer SEU-TOKEN" "https://oprojeto.online/lenda/api/painel.php?so=agora"
 curl -sS -H "Authorization: Bearer SEU-TOKEN" "https://oprojeto.online/lenda/api/admin.php?r=resumo"
+curl -sS https://oprojeto.online/lenda/api/painel.php?so=modo  # {"modo":"senha"} (ou "contas" depois da conta pessoal)
+curl -sI https://oprojeto.online/lenda/api/_admin.php | head -1 # 403 (ou 404)
+curl -sS -H "Authorization: Bearer SEU-TOKEN" "https://oprojeto.online/lenda/api/equipe.php?r=saude" | head -c 400
+# "schema":{"faltam":[]} = o banco está completo
 ```
 
 ### 7. O painel
 
-**https://oprojeto.online/lenda/painel/** → senha do painel. Mostra online/jogando agora (atualiza a cada
-15 s), o período (hoje, 7 ou 30 dias, fuso de Brasília), gráfico por dia, funil, origens, aparelhos, horários e
-a seção Contas. "Incluir robôs/testes" mostra também as sessões marcadas como robô. O cookie do painel vale 12 h.
-"Sair" apaga o cookie deste navegador; para derrubar o painel em todos os navegadores (ex.: suspeita de cookie
-copiado), troque a senha do painel (o hash novo na config invalida todos os cookies emitidos).
+**https://oprojeto.online/lenda/painel/** → senha do painel (ou e-mail + senha da sua conta) e o PIN. Mostra
+online/jogando agora (atualiza a cada 15 s), o período (hoje, 7 ou 30 dias, fuso de Brasília), gráfico por dia, funil,
+origens, aparelhos, horários e a seção Contas. "Incluir robôs/testes" mostra também as sessões marcadas como robô (e as
+contas marcadas como teste ou oficial).
+
+Sessões do painel (v3.2): ficam no servidor (no banco só o sha256 do token) e valem 8 h desde a entrada, caindo antes
+com 2 h sem uso; o cookie é `HttpOnly` e `SameSite=Strict`, com token novo a cada etapa (senha → PIN). "Sair" encerra
+esta sessão no servidor; em Minha conta há "Aparelhos com o painel aberto" (encerrar um) e "Sair de todos os outros";
+trocar a senha da conta pessoal pede a atual e derruba as outras sessões. Tudo vai para o Registro (aba Registro →
+Segurança): entradas, senhas e PINs errados, bloqueios, saídas e as ações recusadas por falta de poder, com quem e um
+código do aparelho que muda todo dia (o IP nunca é guardado). Para derrubar o painel em todos os navegadores de uma
+vez (ex.: suspeita de cookie copiado), troque a senha do painel na config.
 
 Por script: `GET /lenda/api/painel.php?de=2026-10-01&ate=2026-10-14&bots=0` com `Authorization: Bearer`.
 
@@ -181,6 +256,32 @@ curl -sS -H "Authorization: Bearer SEU-TOKEN" "https://oprojeto.online/lenda/api
 Tudo o que o admin muda (e cada exportação) fica no registro (`admin_log`, aba Registro). `GET painel.php?so=eu`
 responde `{"admin":true}` para o jogo liberar o Imersivo de teste e a Live só para quem está com o painel aberto
 no mesmo navegador.
+
+### 8. Backup e cópias no servidor (v3.2)
+
+- **Baixar backup** (Configurações → Backup, ou `GET equipe.php?r=backup` com o Bearer): um `.json.gz` com contas,
+  carreiras, conquistas, indicações, bônus, denúncias, a config do site, o registro (90 dias) e a equipe (sem senha nem
+  PIN). Com "incluir medição", também as visitas e os eventos de 30 dias. Ficam de fora as sessões, os códigos de troca
+  de senha e o arquivo de config. **O arquivo tem os e-mails dos jogadores: guarde fora do servidor e não compartilhe.**
+  Faça um antes de qualquer atualização.
+
+  ```sh
+  curl -sS -H "Authorization: Bearer SEU-TOKEN" "https://oprojeto.online/lenda/api/equipe.php?r=backup" -o lenda-backup.json.gz
+  ```
+
+- **Cópias no servidor**: o painel guarda uma por dia (na primeira vez que alguém da equipe abre o painel no dia) e
+  quando você clica em "Guardar cópia agora", na pasta `lenda-copias/` **ao lado do arquivo de config, fora do
+  public_html** (ou em `backup_pasta`). Ficam as 10 mais novas. Se a config estiver dentro do `public_html`, as cópias
+  ficam desligadas (a Saúde avisa) — o backup para baixar continua funcionando.
+- **Restaurar** (só o dono): escolha uma cópia da lista, o modo e digite RESTAURAR. "Completar" só acrescenta o que
+  falta (nada é apagado); "Substituir" volta as tabelas de dados ao que está na cópia. Antes, o servidor confere o
+  arquivo inteiro (estragado = nada muda) e guarda uma cópia "antes de restaurar" do estado atual (é ela que desfaz).
+  A equipe volta desativada e sem senha (dê uma senha provisória na aba Equipe); o registro nunca é apagado; contas
+  excluídas (pelo admin ou pelo próprio jogador) **nunca voltam**: cada exclusão deixa uma marca só com o número da conta
+  (tabela `contas_excluidas`, desde a rev3) e a restauração pula a conta e tudo o que é dela. A lixeira das carreiras
+  apagadas pela moderação vai no backup com a cópia restaurável (desde a rev3); restaurar um backup de antes, no modo
+  "Substituir", mantém as cópias que o banco já tem. Para restaurar um backup baixado, ponha o `.json.gz` na pasta
+  `lenda-copias/` pelo Gerenciador de Arquivos (o nome só com letras minúsculas, números, `.`, `-` e `_`).
 
 ## O que o servidor garante
 
@@ -211,6 +312,13 @@ no mesmo navegador.
   denúncias e salvar travam só a linha da conta (ou da carreira): sem corrida e sem bônus em dobro. O `e.php` só faz
   trabalho a mais em envio com fim de partida e conta logada (um UPDATE e, no máximo, uma consulta).
 - v3 · Exportar CSV: `;`, UTF-8 com BOM, célula de texto entre aspas e com `'` na frente se começa com `= + - @`.
+- v3.2 · Painel: contas da equipe com senha (12+) e PIN de 6 dígitos só em hash (o do PIN com o segredo junto), a mesma
+  mensagem para conta inexistente, desativada ou senha errada, limites por IP, por e-mail (5 erros em 30 min) e do
+  site inteiro, PIN com 3 erros a cada 10 min, sessões no servidor revogáveis (8 h, 2 h sem uso, token novo a cada
+  etapa), um mapa único ação → poder conferido no servidor em toda rota (ação esquecida = só o dono), hierarquia da
+  equipe, CSRF por `Origin` + JSON + `SameSite=Strict`, e o registro de toda entrada, falha, bloqueio, saída e recusa.
+  A Saúde nunca mostra segredo, valor da config ou caminho de arquivo. As cópias ficam fora do `public_html`; a
+  restauração só aceita um arquivo da lista (nada de caminho vindo do pedido) e nunca devolve senha da equipe.
 - Carreiras: até 128 KB comprimida, 20 MB por conta e um limite de KB salvos por conta e por IP a cada 10 min.
 - Nenhum aviso do PHP sai na resposta (`display_errors` desligado nas rotas; erro vira `500` em JSON genérico).
 - Limpeza leve (1% dos pedidos): tentativas velhas, sessões e códigos vencidos, medição com mais de 13 meses.
@@ -230,7 +338,8 @@ Precisa de `php` (8.1+, com `pdo_mysql` e `curl`) e do MariaDB instalados. O scr
 3. monta `/tmp/lenda-teste/public_html/lenda/{api,painel,privacidade.html}` (cópia, como na hospedagem) e sobe
    `php -S 127.0.0.1:8711` (com `display_errors` ligado de propósito);
 4. se houver Apache, sobe um na porta 8712 só para conferir as regras do `api/.htaccess`;
-5. roda `servidor/teste/teste.php` (e, dentro dele, `teste-v3.php`): ~870 verificações por HTTP (curl) e no banco
+5. roda `servidor/teste/teste.php` (e, dentro dele, `teste-v3.php`, `teste-v32-mod.php` e `teste-v32-acesso.php`):
+   mais de 1.000 verificações por HTTP (curl) e no banco
    (PDO) — cadastro, entrar,
    sair, limites (429, inclusive os tetos do site inteiro e os diários), esqueci/redefinir com o código lido do
    arquivo de e-mail, perfil, partidas, estatísticas, vínculo do aparelho, excluir (LGPD, com o vid trocado),
@@ -254,13 +363,52 @@ Precisa de `php` (8.1+, com `pdo_mysql` e `curl`) e do MariaDB instalados. O scr
    contas, 8.000 carreiras, 6.000 no Hall, 60 mil conquistas:
    tempos medidos e índices conferidos com EXPLAIN) e concorrência num segundo `php -S` com 4 processos (~200 pedidos
    ao mesmo tempo; "usar" e "compartilhei" em paralelo sem bônus em dobro; 5 denúncias simultâneas; fotografia
-   vencida com 24 leitores);
-6. termina com `PASSOU: N verificações` (código 0) ou `FALHOU` com a lista; mata pelo PID só o que subiu.
+   vencida com 24 leitores); e a v3.2 do acesso (`teste-v32-acesso.php`): painel desligado, a senha de sempre criando a
+   conta Dono, sessões no servidor (sair, cookie copiado, 8 h, 2 h sem uso, sair de todos, token novo a cada etapa), PIN
+   (fácil, 3 erros, etapa de 10 min, zerar pelo token), conta pessoal (e-mail + senha, mensagem única, 5 erros por
+   e-mail, trocar a senha), equipe (senha provisória, papéis, hierarquia, último dono), cada papel barrado em cada ação
+   sem o poder dele, recados, presença, bloco Segurança, CSRF, Saúde sem segredo e com tabela faltando, backup, cópias
+   (pasta, rotação, diária, caminho malicioso, pasta dentro do public_html) e restauração (completar, substituir,
+   desfazer, LGPD, arquivo estragado ou forjado); e o que a integração acrescentou (`teste-v32-integ.php`): o e-mail pelo
+   SMTP da caixa contra um servidor SMTP de mentira com STARTTLS de verdade (`teste/smtp-falso.php`, certificado sorteado
+   na rodada: código que chega e troca a senha, senha da caixa errada, certificado que não confere, config incompleta,
+   a senha nunca numa resposta), o `tipo` na ficha, o `destaque` no `hall.php?id=` e a linha "revisão" do "Precisa de
+   atenção";
+6. com Chromium (`/opt/pw-browsers/...`, ou `LENDA_CHROMIUM`), roda também o teste do painel pelo navegador
+   (`teste/painel/rodar.sh`: pilha própria na porta `LENDA_TESTE_PORTA + 6`, banco `<banco>_painel`);
+   `LENDA_TESTE_SEM_NAVEGADOR=1` pula;
+7. termina com `PASSOU: N verificações` (código 0) ou `FALHOU` com a lista; mata pelo PID só o que subiu.
 
 Variáveis: `LENDA_TESTE_PORTA` (8711), `LENDA_TESTE_PORTA_APACHE` (8712), `LENDA_TESTE_PORTA_PAR` (porta do
 `php -S` com 4 processos; padrão `LENDA_TESTE_PORTA + 4`), `LENDA_TESTE_BANCO`, `LENDA_TESTE_BASE` (pasta de trabalho,
 `/tmp/lenda-teste`; mude para rodar dois testes ao mesmo tempo), `LENDA_TESTE_SEM_CARGA=1` (pula as cargas). As
 amostras de carreira (`teste/amostras/`) são `HallEntry` reais do jogo.
+
+### Integração (jogo + servidor + painel no navegador)
+
+Em `servidor/teste/integracao/` (precisa do `npm run build:site` antes, do Chromium e do Playwright):
+
+```sh
+LENDA_INTEG_BASE=/tmp/lenda-integracao PORTA=8752 LENDA_INTEG_SOCK=/run/mysqld/mysqld.sock bash servidor/teste/integracao/subir.sh
+cd servidor/teste/integracao
+LENDA_INTEG_BASE=/tmp/lenda-integracao node e2e.mjs          # jogo e painel de ponta a ponta, vários aparelhos
+LENDA_INTEG_BASE=/tmp/lenda-integracao node carga-painel.mjs 50   # 50 jogadores com o painel aberto pulsando
+LENDA_INTEG_SOCK=/run/mysqld/mysqld.sock PORTA=8824 bash atualizar.sh   # deploy por cima do que está no ar
+```
+
+- `subir.sh`: o `dist-site/` + o servidor PHP + um banco novo (`LENDA_INTEG_SOCK` = socket do MariaDB).
+- `e2e.mjs`: o jogo jogado pela tela (carreiras com sementes fixas, conta pelo convite, salvar, conquistas, bônus,
+  segundo aparelho, Hall público com filtros, denúncia) e o painel novo (senha de sempre criando a conta Dono, PIN,
+  "Precisa de atenção", liberar em lote, suspender e ocultar com motivo, "Fora do Hall: …" e o aviso da moderação no
+  jogo, "Em revisão" das notas altas, Convide amigos, Abrir no jogo como admin, lixeira, nota interna, tester,
+  configurações, CSV de contas e de relatório, Registro e Segurança, backup baixado e restaurado, moderadora sem poder
+  de excluir, sessão revogada, tema claro, celular sem rolagem lateral em todas as abas).
+- `carga-painel.mjs`: o `carga.mjs` (N jogadores ao mesmo tempo) com um navegador no painel, pulsando e passeando pelas
+  abas: nenhum 5xx, o pulso rápido durante a carga e quanto cada pulso custa no banco (consultas e linhas lidas, antes
+  e depois da carga).
+- `atualizar.sh`: sobe o `servidor/` de um commit (`LENDA_ATUALIZAR_REF`, padrão `HEAD` = o publicado), cria dados pela
+  API dele, põe os arquivos novos por cima e roda o `instalar.php` duas vezes: nenhuma linha antiga some nem muda, a
+  2ª vez não altera nada, a sessão do jogador continua e o painel novo lê tudo.
 
 Medido aqui (MariaDB 10.11, `php -S`, 4 CPUs): fotografia de 6.000 carreiras (de 8.000, 2.000 contas) em ~0,6 s
 (leitura ~80 ms, troca ~0,5 s); `hall.php` sem filtro, por país, por clube, os dois juntos e a última página em

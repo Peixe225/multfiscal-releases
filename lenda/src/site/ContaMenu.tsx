@@ -1,9 +1,9 @@
 /**
- * Bloco de conta no topo do Menu (só no site): "Entrar / Criar conta" ou o apelido com Minha conta,
- * Minhas carreiras, Salvar a última carreira, Sair e Excluir conta.
+ * Bloco de conta no topo do Menu (só no site): "Entrar / Criar conta" ou o apelido com Minha conta, o atalho
+ * "Convide amigos" (com a promessa do bônus de OVR), Minhas carreiras, Salvar a última carreira, Sair e Excluir conta.
  */
 import { useState, type ComponentType } from 'react'
-import { ArrowRight, ChevronRight, CloudUpload, FolderHeart, LogIn, LogOut, Trash, type LucideProps } from 'lucide-react'
+import { ArrowRight, ChevronRight, CloudUpload, FolderHeart, LogIn, LogOut, Trash, UserPlus, type LucideProps } from 'lucide-react'
 import { toast } from '@/ui/primitives'
 import { mensagemDeErro } from './api'
 import { escolherUltima, hallComUltima, idsNaConta, lerUltima, useCarreiras } from './carreiras'
@@ -11,7 +11,8 @@ import { useConta } from './conta'
 import { track } from './medicao'
 import { salvarManual } from './salvar'
 import { useAcesso } from '@/store/acesso'
-import { abrirCarreiras, abrirConta, abrirPerfil } from './ui'
+import { abrirCarreiras, abrirConta, abrirConvideAmigos, abrirPerfil } from './ui'
+import { promessaIndicacao, useBonus } from './bonus'
 import './site.css'
 
 function Linha({ icon: Ico, titulo, sub, onClick, tom, carregando }: { icon: ComponentType<LucideProps>; titulo: string; sub?: string; onClick: () => void; tom?: 'cta' | 'danger'; carregando?: boolean }) {
@@ -32,6 +33,8 @@ function Linha({ icon: Ico, titulo, sub, onClick, tom, carregando }: { icon: Com
 export default function ContaMenu({ fechar }: { fechar: () => void }) {
   const usuario = useConta((s) => s.usuario)
   const cadastroAberto = useAcesso((s) => s.cadastroAberto)
+  // já ganhou os bônus de todos os amigos (quando o bonus.php já respondeu nesta abertura)
+  const indicacoes = useBonus((s) => s.dados?.indicacoes ?? null)
   const [salvando, setSalvando] = useState(false)
   const [saindo, setSaindo] = useState(false)
 
@@ -52,6 +55,7 @@ export default function ContaMenu({ fechar }: { fechar: () => void }) {
     )
   }
 
+  const promessa = promessaIndicacao()
   const salvarUltima = async () => {
     const { h, perdida } = escolherUltima(hallComUltima(), lerUltima())
     if (perdida) {
@@ -97,10 +101,23 @@ export default function ContaMenu({ fechar }: { fechar: () => void }) {
         </span>
         <span className="sc-me__t">
           <b>{usuario.apelido}</b>
-          <span>Minha conta · {usuario.email}</span>
+          <span>{usuario.aviso ? 'Minha conta · 1 aviso da moderação' : `Minha conta · ${usuario.email}`}</span>
         </span>
+        {usuario.aviso && <span className="sc-dot" aria-hidden="true" />}
         <ChevronRight className="sc-row__chev" aria-hidden="true" />
       </button>
+      {promessa && (
+        <Linha
+          icon={UserPlus}
+          tom="cta"
+          titulo="Convide amigos"
+          sub={indicacoes && indicacoes.limite > 0 && indicacoes.validas >= indicacoes.limite ? 'Você já ganhou todos os bônus de indicação' : promessa}
+          onClick={() => {
+            fechar()
+            abrirConvideAmigos()
+          }}
+        />
+      )}
       <div className="sc-menu__grid">
         <Linha
           icon={FolderHeart}

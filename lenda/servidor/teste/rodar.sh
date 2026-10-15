@@ -4,7 +4,9 @@
 #   bash servidor/teste/rodar.sh
 # Sobe (ou reusa) o MariaDB, cria um banco de teste próprio, escreve a config em /tmp/lenda-teste/,
 # monta um public_html de mentira (lenda/api, lenda/painel, lenda/privacidade.html), sobe o php -S e roda
-# servidor/teste/teste.php contra ele. Se houver Apache, confere também as regras do api/.htaccess.
+# servidor/teste/teste.php contra ele. Se houver Apache, confere também as regras do api/.htaccess. Se houver Chromium,
+# roda no fim o teste do painel pelo navegador (teste/painel/rodar.sh: pilha própria na porta LENDA_TESTE_PORTA + 6 ou
+# LENDA_TESTE_PAINEL_PORTA, banco <banco>_painel; LENDA_TESTE_SEM_NAVEGADOR=1 pula; LENDA_PRINTS=<pasta> tira os prints).
 # Termina com PASSOU/FALHOU; código de saída 0 só se tudo passou. Mata pelo PID só o que ele subiu.
 # Variáveis opcionais: LENDA_TESTE_PORTA (php -S, padrão 8711), LENDA_TESTE_PORTA_APACHE (8712),
 # LENDA_TESTE_PORTA_PAR (php -S com 4 processos para a concorrência; padrão LENDA_TESTE_PORTA + 4),
@@ -241,4 +243,5 @@ export LENDA_SEGREDO="$SEGREDO"
 php -d display_errors=1 -d error_reporting=-1 -d memory_limit=512M "$AQUI/teste.php"
 CODIGO=$?
 escrever_config 100
+if [ "${LENDA_TESTE_SEM_NAVEGADOR:-0}" != 1 ] && [ -x "${LENDA_CHROMIUM:-/opt/pw-browsers/chromium-1194/chrome-linux/chrome}" ]; then LENDA_TESTE_SOCK="$SOCK" LENDA_TESTE_PAINEL_PORTA="${LENDA_TESTE_PAINEL_PORTA:-$((PORTA + 6))}" LENDA_TESTE_PAINEL_BANCO="${BANCO}_painel" LENDA_TESTE_PAINEL_BASE="$BASE/painel" bash "$AQUI/painel/rodar.sh" || CODIGO=1; else echo "· teste do painel pelo navegador: pulado (sem Chromium ou LENDA_TESTE_SEM_NAVEGADOR=1)"; fi
 exit $CODIGO

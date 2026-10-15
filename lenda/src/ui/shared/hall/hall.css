@@ -528,3 +528,17 @@
 .hl-fpod__who b { font: 800 15px/1.15 var(--font-display); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .hl-fpod__who small { font-size: 11.5px; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .hl-fpod__nota { font: 800 22px/1 var(--font-num); color: #fff4d6; flex: none; }
+
+/* ── v3.2: selo "Destaque" (H12) e "Melhor da comunidade" no herói sem filtro (X6) ── */
+.hl-runtag--destaque { gap: 3px; color: #1b1405; background: linear-gradient(100deg, #fff1c4, #ffd66e); box-shadow: 0 0 0 1px rgba(255, 214, 110, .5), 0 0 12px rgba(255, 214, 110, .25); }
+.hl-runtag--destaque svg { flex: none; }
+.hl-melhorcom { display: flex; align-items: center; gap: 10px; width: 100%; min-width: 0; padding: 8px 12px 8px 10px; border-radius: 14px; background: rgba(108, 178, 255, .08); border: 1px solid rgba(108, 178, 255, .3); color: var(--text); text-align: left; cursor: pointer; font: inherit; transition: background-color .15s ease, border-color .15s ease; }
+.hl-melhorcom:hover { background: rgba(108, 178, 255, .14); border-color: rgba(108, 178, 255, .45); }
+.hl-melhorcom:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.hl-melhorcom__l { display: inline-flex; align-items: center; gap: 5px; flex: none; font: 800 10px/1.2 var(--font-ui, inherit); letter-spacing: .12em; text-transform: uppercase; color: #cfe6ff; }
+.hl-melhorcom__who { display: grid; min-width: 0; flex: 1; }
+.hl-melhorcom__who b { font-size: 14px; font-weight: 750; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hl-melhorcom__who small { font-size: 12px; color: var(--text-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hl-melhorcom__nota { flex: none; font: 800 20px/1 var(--font-num); font-variant-numeric: tabular-nums; color: #ffe39a; }
+.hl-melhorcom__go { flex: none; color: var(--text-3); }
+@media (max-width: 36rem) { .hl-melhorcom { flex-wrap: wrap; } .hl-melhorcom__l { width: 100%; } }

@@ -1,10 +1,13 @@
-// LENDA v3 · integração de ponta a ponta: jogo (dist-site) + servidor PHP + MariaDB + painel, com vários
+// LENDA v3/v3.2 · integração de ponta a ponta: jogo (dist-site) + servidor PHP + MariaDB + painel, com vários
 // aparelhos ao mesmo tempo. Pilha: bash subir.sh (porta 8752; antes, npm run build:site). Uso: node e2e.mjs
+// v3.2: o painel novo (conta Dono, PIN, sessões, motivo, lote, atenção, lixeira, equipe, backup) e o que o jogo mostra
+// disso (Em revisão, Fora do Hall, aviso da moderação, Convide amigos, tester, Abrir no jogo).
 // As carreiras são jogadas pela tela (ritmo Expresso, sempre a 1ª opção) com sementes fixas: as mesmas sementes
 // dão as mesmas carreiras (a 1004 é um goleiro boliviano que passa pelo Cruzeiro; a 1011 e a 1001 passam de 90).
 //   C = visitante sem conta · A = Ian (cria conta depois de 5 partidas, joga, salva, convida, compartilha)
 //   B = amigo convidado pelo link ?c= · A2 = segundo aparelho do Ian · ADM = painel do admin
 import { readFileSync, writeFileSync } from 'node:fs'
+import { gunzipSync } from 'node:zlib'
 import { lancar, aparelho, jogarCarreira, ultimaTerminada, lerKv, sql, esperarSql, admin, ok, resultado, sleep, URL0, ORIGEM, PRINTS, env, BASE } from './lib.mjs'
 
 const T0 = Date.now()
@@ -39,6 +42,27 @@ const esperarTexto = (page, re, ms = 20000) => page.getByText(re).first().waitFo
 const hallApi = async (q = '') => (await fetch(`${URL0}api/hall.php${q}`)).json()
 const conquistasDoAparelho = async (page) => Object.keys((await lerKv(page, 'achievements'))?.unlocked ?? {}).sort()
 const conquistasDaConta = (uid) => sql(`SELECT conquista_id FROM conquistas_usuario WHERE usuario_id=${uid} ORDER BY conquista_id`).split('\n').filter(Boolean)
+/**
+ * Preenche o diálogo de conta do jogo. O diálogo põe o foco no 1º campo um quadro depois de aparecer (~30 ms); um robô
+ * que digita nesse meio-tempo perde o texto para o campo que ganhou o foco. Espera o foco chegar e confere cada valor.
+ * campos: [[rótulo, valor, exato?], ...]
+ */
+async function preencherConta(page, d, campos) {
+  await page.waitForFunction(() => {
+    const a = document.activeElement
+    return !!a && !!a.closest('[role="dialog"].sc-modal') && (a.tagName === 'INPUT' || a.getAttribute('role') === 'tab' || a.tagName === 'BUTTON')
+  }, null, { timeout: 5000 }).catch(() => {})
+  await sleep(150)
+  for (let i = 0; i < 4; i++) {
+    for (const [rotulo, valor, exato] of campos) await d.getByLabel(rotulo, { exact: !!exato }).fill(valor)
+    let certo = true
+    for (const [rotulo, valor, exato] of campos) if ((await d.getByLabel(rotulo, { exact: !!exato }).inputValue()) !== valor) certo = false
+    if (certo) return
+    console.log('  ..  o diálogo de conta mexeu no foco no meio do preenchimento; preenchendo de novo')
+    await sleep(300)
+  }
+  throw new Error('o diálogo de conta não guardou o que foi digitado')
+}
 
 const EMAIL_A = `ian${Date.now()}@exemplo.com`
 const EMAIL_B = `bruno${Date.now()}@exemplo.com`
@@ -100,9 +124,7 @@ await etapa('b1. A joga a 5ª partida e cria a conta pelo convite', async () => 
   ok((await page.evaluate(() => localStorage.getItem('lenda:partidas'))) === '5', 'contador do aparelho: 5 partidas')
   ok((await d.getByRole('tab', { name: 'Criar conta' }).getAttribute('aria-selected')) === 'true', 'depois da 5ª partida o convite de conta abre em "Criar conta"')
   await print(page, 'b1-A-convite-conta')
-  await d.getByLabel('Apelido').fill('Ian Cruzeiro')
-  await d.getByLabel('E-mail').fill(EMAIL_A)
-  await d.getByLabel('Senha', { exact: true }).fill(SENHA)
+  await preencherConta(page, d, [['Apelido', 'Ian Cruzeiro'], ['E-mail', EMAIL_A], ['Senha', SENHA, true]])
   await d.getByRole('checkbox').first().check()
   await d.getByRole('button', { name: 'Criar conta', exact: true }).click()
   await page.waitForFunction(() => !document.querySelector('[role="dialog"].sc-modal'), null, { timeout: 20000 })
@@ -168,9 +190,7 @@ await etapa('c1. B abre o link ?c= e cria a conta', async () => {
   await d.waitFor()
   await d.getByRole('tab', { name: 'Criar conta' }).click()
   ok((await d.innerText()).includes('convite de um amigo'), 'cadastro mostra o convite do amigo')
-  await d.getByLabel('Apelido').fill('Bruno Amigo')
-  await d.getByLabel('E-mail').fill(EMAIL_B)
-  await d.getByLabel('Senha', { exact: true }).fill(SENHA)
+  await preencherConta(page, d, [['Apelido', 'Bruno Amigo'], ['E-mail', EMAIL_B], ['Senha', SENHA, true]])
   await d.getByRole('checkbox').first().check()
   await print(page, 'c1-B-cadastro-convite')
   await d.getByRole('button', { name: 'Criar conta', exact: true }).click()
@@ -330,8 +350,7 @@ await etapa('b8. A entra num segundo aparelho: mesmas carreiras e conquistas', a
   await m.getByText('Entrar / Criar conta').click()
   const d = page.locator('[role="dialog"].sc-modal')
   await d.waitFor()
-  await d.getByLabel('E-mail').fill(EMAIL_A)
-  await d.getByLabel('Senha', { exact: true }).fill(SENHA)
+  await preencherConta(page, d, [['E-mail', EMAIL_A], ['Senha', SENHA, true]])
   await d.getByRole('button', { name: 'Entrar', exact: true }).click()
   await page.waitForFunction(() => !document.querySelector('[role="dialog"].sc-modal'), null, { timeout: 20000 })
   await sleep(3000)
@@ -414,42 +433,160 @@ await etapa('d1. A escolhe o que vai para o Hall público', async () => {
   await page.keyboard.press('Escape')
 })
 
-const ADM = await novo('ADM', { partidas: 0, viewport: { width: 1440, height: 900 } })
+// ───────────────────────── painel do admin (v3.2) ─────────────────────────
+// O painel novo: entrada com a senha de sempre (cria a conta "Dono"), PIN, ficha lateral, motivo obrigatório, lote,
+// "Precisa de atenção", lixeira, equipe. Os aparelhos do painel aceitam os confirm() e anotam violações de CSP.
+const PIN_DONO = '482916'
+const PIN_MOD = '613704'
+const SENHA_MOD = 'moderadora-senha-nova-2026'
+const RE_4XX = /Failed to load resource: the server responded with a status of 4\d\d/
+async function novoPainel(nome, o = {}) {
+  const a = await novo(nome, { partidas: 0, viewport: o.viewport ?? { width: 1440, height: 900 }, celular: o.celular, ignorarConsole: RE_4XX })
+  await a.ctx.addInitScript(() => {
+    window.__csp = []
+    document.addEventListener('securitypolicyviolation', (e) => window.__csp.push(e.violatedDirective + ' ' + e.blockedURI))
+  })
+  a.confirmar = true
+  a.page.on('dialog', (d) => (a.confirmar ? d.accept() : d.dismiss()))
+  return a
+}
+const ADM = await novoPainel('ADM')
 const painel = ADM.page
-const dialogo = () => painel.locator('dialog[open]').last()
-const confirmar = () => dialogo().locator('button[type="submit"]').click()
-const avisoPainel = async (re, ms = 10000) => {
+const PAINEL = `${URL0}painel/`
+const dialogo = (p = painel) => p.locator('dialog[open]').last()
+const confirmar = (p = painel) => dialogo(p).locator('button[type="submit"]').click()
+const abaP = (p = painel) => p.locator('.aba:not([hidden])')
+async function avisoPainel(re, ms = 12000, p = painel) {
   try {
-    await painel.waitForFunction((src) => [...document.querySelectorAll('.aviso-flutuante')].some((a) => new RegExp(src, 'i').test(a.textContent)), re.source, { timeout: ms })
+    await p.waitForFunction((src) => [...document.querySelectorAll('#avisos .aviso-flutuante')].some((a) => new RegExp(src, 'i').test(a.textContent)), re.source, { timeout: ms })
     return true
   } catch {
     return false
   }
 }
-const limparAvisos = () => painel.evaluate(() => document.querySelectorAll('.aviso-flutuante').forEach((a) => a.remove()))
+const limparAvisos = (p = painel) => p.evaluate(() => document.querySelectorAll('#avisos .aviso-flutuante').forEach((a) => a.remove()))
+const irP = async (hash, ms = 1500, p = painel) => {
+  await p.evaluate((x) => {
+    location.hash = x
+  }, hash)
+  await sleep(ms)
+}
+async function digitarPin(p, raiz, pin) {
+  await p.locator(`${raiz} .pin-caixa`).first().click()
+  await p.keyboard.type(pin, { delay: 30 })
+}
+/** Entra no painel: e-mail (vazio = senha do arquivo), senha e, se o painel pedir, o PIN. */
+async function entrarPainel(p, { email = '', senha = env.PAINEL_SENHA, pin = null } = {}) {
+  await p.goto(PAINEL)
+  await p.waitForSelector('#form-entrar:not([hidden]), #tela-painel:not([hidden])', { timeout: 20000 })
+  if (await p.isVisible('#tela-painel')) return
+  if (email) await p.fill('#email', email)
+  await p.fill('#senha', senha)
+  await p.click('#botao-entrar')
+  await p.waitForSelector('#form-pin:not([hidden]), #tela-painel:not([hidden]), #form-trocar-senha:not([hidden]), #form-criar-pin:not([hidden])', { timeout: 15000 })
+  if (pin && (await p.isVisible('#form-pin'))) {
+    await digitarPin(p, '#pin-caixas', pin)
+    await p.waitForSelector('#tela-painel:not([hidden])', { timeout: 15000 })
+  }
+}
+const naFicha = (p, texto) => p.locator('#gaveta button', { hasText: texto })
+const semRolagem = async (p) => p.evaluate(() => [document.documentElement.scrollWidth, document.documentElement.clientWidth])
+const AMOSTRA = (() => {
+  const j = JSON.parse(readFileSync(new URL('../amostras/v-intenso-01.json', import.meta.url), 'utf8'))
+  return j?.hall?.[0] ?? j
+})()
+/** Uma carreira de nota alta (o HallEntry real v-intenso-01, nota 93) salva pela conta logada no aparelho. */
+const salvarNotaAlta = (page, id, sobrenome) =>
+  page.evaluate(
+    async ({ h, id, sobrenome }) => {
+      h.id = id
+      h.career.id = id
+      h.summary.e2e = id // cada uma com o seu resumo (o mesmo resumo em outra conta é "cópia")
+      h.identity.surname = sobrenome
+      if (h.career.identity) h.career.identity.surname = sobrenome
+      h.legacy = { ...(h.legacy ?? {}), score: 93, raw: 93, v: 2 }
+      const r = await fetch('api/carreiras.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify({ acao: 'salvar', carreira: h, como: 'manual' }) })
+      return { status: r.status, json: await r.json().catch(() => null) }
+    },
+    { h: structuredClone(AMOSTRA), id, sobrenome },
+  )
+const minhasCarreiras = async (page) => {
+  await page.goto(`${URL0}#/`)
+  await page.waitForSelector('.ld-modes', { timeout: 30000 })
+  const m = await menu(page)
+  await m.getByText('Minhas carreiras').click()
+  const dlg = page.getByRole('dialog', { name: 'Minhas carreiras' })
+  await dlg.waitFor()
+  await dlg.getByRole('tab', { name: /Na conta/ }).click()
+  await dlg.locator('.sc-card').first().waitFor({ timeout: 15000 })
+  await sleep(800)
+  return dlg
+}
 
-await etapa('d2. admin entra no painel e força "Atualizar Hall agora"', async () => {
-  await painel.goto(`${URL0}painel/`)
+await etapa('d2. painel: entra com a senha de sempre (cria o Dono) e força "Atualizar Hall agora"', async () => {
+  await painel.goto(PAINEL)
+  await painel.waitForSelector('#form-entrar:not([hidden])', { timeout: 20000 })
+  ok(!(await painel.isVisible('#campo-email')), 'entrada: sem conta pessoal ainda, só a senha (modo senha, sem o campo E-mail)')
+  await print(painel, 'v32-d2-painel-entrada')
   await painel.fill('#senha', 'errada-de-proposito')
   await painel.click('#botao-entrar')
-  await painel.waitForFunction(() => (document.querySelector('#erro-entrar')?.textContent ?? '').trim().length > 0, null, { timeout: 8000 })
-  ok(true, 'painel: senha errada recusada')
+  await painel.waitForSelector('#erro-entrar:not([hidden])', { timeout: 8000 })
+  ok(/Senha incorreta/.test(await painel.textContent('#erro-entrar')), 'painel: senha errada recusada ("Senha incorreta.")')
   await painel.fill('#senha', env.PAINEL_SENHA)
   await painel.click('#botao-entrar')
-  await painel.waitForSelector('#tela-painel:not([hidden])', { timeout: 10000 })
-  ok(true, 'painel: entrou com a senha')
-  await painel.click('.abas a[data-aba="hall"]')
-  await painel.waitForSelector('#aba-hall .cartao', { timeout: 10000 })
+  await painel.waitForSelector('#tela-painel:not([hidden])', { timeout: 15000 })
+  ok(true, 'painel: entrou com a senha do arquivo de config')
+  const dono = sql(`SELECT CONCAT_WS('|', nome, papel, da_config, ativo, pin_hash IS NULL, email) FROM admin_contas`)
+  ok(dono === 'Dono|dono|1|1|1|', `a 1ª entrada criou a conta "Dono" de emergência, sem PIN e sem e-mail (${dono})`)
+  ok(sql(`SELECT COUNT(*) FROM admin_sessoes WHERE etapa = 'pronto'`) === '1', 'sessão do painel registrada no servidor (admin_sessoes)')
+  await painel.waitForSelector('.faixa-ouro >> text=Cadastre o seu PIN', { timeout: 10000 })
+  ok(true, 'faixa "Cadastre o seu PIN" na conta Dono sem PIN')
+  await painel.waitForFunction(() => /atualizado às/.test(document.getElementById('selo-atualizado')?.textContent ?? ''), null, { timeout: 25000 })
+  ok((await painel.locator('#numeros-acao .numero-acao').count()) === 6, 'pulso: selo "atualizado às" e os 6 números de ação')
+  await print(painel, 'v32-d2-painel-visao')
+  await irP('#/hall', 1800)
   await limparAvisos()
-  await painel.click('#aba-hall button:has-text("Atualizar Hall agora")')
-  ok(await avisoPainel(/Hall atualizado: \d+ carreiras/), 'painel: "Atualizar Hall agora"')
-  ok((await painel.locator('#aba-hall button', { hasText: 'Esperando revisão' }).count()) === 1, 'painel: Hall público com a aba "Esperando revisão" (nota 90+)')
+  await abaP().locator('button', { hasText: 'Atualizar Hall agora' }).click()
+  ok(await avisoPainel(/Hall atualizado: \d+ carreiras?/), 'painel: "Atualizar Hall agora"')
+  ok((await abaP().locator('.segmentos button', { hasText: 'Em revisão' }).count()) === 1, 'painel: Hall público com o filtro "Em revisão"')
   await sleep(800)
   const hall = await hallApi()
   estado.hall1 = hall.itens.map((i) => `${i.posicao}:${i.jogador}:${i.apelido}`)
   ok(hall.itens.some((i) => i.id === estado.idDantas && i.apelido === 'Ian Cruzeiro') && hall.itens.some((i) => i.id === estado.idAmigao && i.apelido === 'Bruno Amigo'), `hall.php: ${estado.hall1.join(' · ')}`)
   ok(hall.itens.filter((i) => i.apelido === 'Ian Cruzeiro').length <= 3, 'A tem no máximo 3 no Hall público')
-  await print(painel, 'd2-painel-hall')
+  await print(painel, 'v32-d2-painel-hall', { fullPage: true })
+})
+
+await etapa('d2b. painel: cadastra o PIN (Configurações → Minha conta), sai e entra com o PIN', async () => {
+  await irP('#/config?parte=conta', 1800)
+  await painel.fill('#cp-senha', env.PAINEL_SENHA)
+  await painel.fill('#cp-pin', '123456')
+  await painel.fill('#cp-rep', '123456')
+  await abaP().locator('button', { hasText: 'Criar PIN' }).click()
+  await sleep(900)
+  ok(/fácil de adivinhar/.test(await abaP().textContent()), 'PIN em sequência recusado (pin_fraco)')
+  await painel.fill('#cp-pin', PIN_DONO)
+  await painel.fill('#cp-rep', PIN_DONO)
+  await limparAvisos()
+  await abaP().locator('button', { hasText: 'Criar PIN' }).click()
+  ok(await avisoPainel(/PIN criado/), 'PIN criado pela Minha conta (pede a senha do arquivo de novo)')
+  ok(sql(`SELECT pin_hash IS NOT NULL FROM admin_contas WHERE da_config = 1`) === '1', 'servidor: a conta Dono agora tem PIN')
+  await print(painel, 'v32-d2b-minha-conta')
+  await painel.locator('.lateral-pe button[data-acao="sair"]').click()
+  await painel.waitForSelector('#form-entrar:not([hidden])', { timeout: 10000 })
+  ok(sql(`SELECT COUNT(*) FROM admin_sessoes`) === '0', 'sair: a sessão sai do servidor')
+  await painel.fill('#senha', env.PAINEL_SENHA)
+  await painel.click('#botao-entrar')
+  await painel.waitForSelector('#form-pin:not([hidden])', { timeout: 10000 })
+  ok(true, 'a entrada seguinte pede o PIN (segunda etapa)')
+  await print(painel, 'v32-d2b-pin')
+  await digitarPin(painel, '#pin-caixas', '000111')
+  await painel.waitForSelector('#erro-pin:not([hidden])', { timeout: 8000 })
+  ok(/Restam 2/.test(await painel.textContent('#erro-pin')), 'PIN errado: "Restam 2 tentativas"')
+  await digitarPin(painel, '#pin-caixas', PIN_DONO)
+  await painel.waitForSelector('#tela-painel:not([hidden])', { timeout: 15000 })
+  ok(true, 'PIN certo: entrou no painel')
+  ok(!(await painel.isVisible('.faixa-ouro >> text=Cadastre o seu PIN')), 'a faixa "Cadastre o seu PIN" sumiu')
 })
 
 await etapa('d3. C (sem conta) filtra Bolívia / Cruzeiro e vê a carreira do A', async () => {
@@ -513,51 +650,141 @@ await etapa('d4. B denuncia a carreira DANTAS', async () => {
   ok(sql(`SELECT CONCAT_WS('|', d.motivo, d.status) FROM denuncias d JOIN carreiras c ON c.id=d.carreira_pk WHERE c.carreira_id='${estado.idDantas}' AND d.usuario_id=${estado.idB}`) === 'trapaca|aberta', 'denúncia do B registrada (trapaça, aberta)')
 })
 
-// ───────────────────────── e. admin no painel ─────────────────────────
+// ───────────────────────── f. v3.2 no jogo e no painel ─────────────────────────
+await etapa('f1. A: atalho "Convide amigos" no menu (com a promessa do bônus) abre a Minha conta em "Convide amigos"', async () => {
+  const { page } = A
+  await page.goto(`${URL0}#/`)
+  await page.waitForSelector('.ld-modes', { timeout: 30000 })
+  const m = await menu(page)
+  const linha = m.getByRole('button', { name: /Convide amigos/ })
+  await linha.waitFor({ timeout: 10000 })
+  const t = (await linha.innerText()).replace(/\s+/g, ' ')
+  ok(/\+2, \+3 e \+5 de OVR/.test(t), `menu logado: "Convide amigos" com a promessa (${t.slice(0, 80)})`)
+  await print(page, 'v32-f1-menu-convide')
+  await linha.click()
+  const mc = page.getByRole('dialog', { name: 'Minha conta' })
+  await mc.waitFor({ timeout: 15000 })
+  await page.waitForFunction(() => document.activeElement?.id === 'sc-convite-h', null, { timeout: 10000 }).catch(() => {})
+  const foco = await page.evaluate(() => document.activeElement?.id ?? '')
+  const visivel = await page.evaluate(() => {
+    const e = document.getElementById('sc-convite-h')
+    if (!e) return false
+    const r = e.getBoundingClientRect()
+    return r.top >= 0 && r.top < innerHeight
+  })
+  ok(foco === 'sc-convite-h' && visivel, `a Minha conta abre rolada até "Indicações e bônus de OVR", com o foco nela (${foco})`)
+  await print(page, 'v32-f1-minha-conta-convite')
+  await page.keyboard.press('Escape')
+})
+
+await etapa('f2. carreiras de nota alta (93) vão para a revisão: o jogador vê "Em revisão" em Minhas carreiras', async () => {
+  estado.idRevA = `career-e2e-revisao-a-${Date.now()}`
+  estado.idRevB = `career-e2e-revisao-b-${Date.now()}`
+  const ra = await salvarNotaAlta(A2.page, estado.idRevA, 'ALTAVISTA')
+  const rb = await salvarNotaAlta(B.page, estado.idRevB, 'ALTAMIRA')
+  ok(ra.status === 200 && ra.json?.carreira?.hall?.estado === 'revisao' && rb.status === 200 && rb.json?.carreira?.hall?.estado === 'revisao',
+    `salvar nota 93: C.hall = revisao no salvar (${ra.status} ${JSON.stringify(ra.json?.carreira?.hall)} · ${rb.status})`)
+  ok(sql(`SELECT GROUP_CONCAT(suspeita ORDER BY id) FROM carreiras WHERE carreira_id IN ('${estado.idRevA}', '${estado.idRevB}')`) === 'revisao,revisao', 'servidor: as duas com suspeita = revisao (fora do Hall até a conferência)')
+  const g = await A2.page.evaluate(async () => (await fetch('api/carreiras.php', { credentials: 'same-origin' })).json())
+  const c = (g.carreiras ?? g.itens ?? []).find((x) => x.id === estado.idRevA) ?? (g.carreiras ?? []).find((x) => x.jogador === 'ALTAVISTA')
+  ok(c?.hall?.estado === 'revisao' && /Em revisão: entra no Hall assim que for conferida/.test(c?.hall?.motivo ?? ''), `GET carreiras.php: hall {estado: revisao, motivo} (${JSON.stringify(c?.hall)})`)
+  const dlg = await minhasCarreiras(A2.page)
+  const card = dlg.locator('.sc-card', { hasText: 'ALTAVISTA' })
+  await card.waitFor({ timeout: 15000 })
+  const tc = await card.innerText()
+  ok(/Em revisão/.test(tc) && /Em revisão: entra no Hall assim que for conferida/.test(tc), `Minhas carreiras (celular): selo "Em revisão" e a frase (${tc.replace(/\s+/g, ' ').slice(0, 140)})`)
+  await card.scrollIntoViewIfNeeded()
+  await print(A2.page, 'v32-f2-minhas-carreiras-em-revisao')
+  const w = await semRolagem(A2.page)
+  ok(w[0] <= w[1], `celular: Minhas carreiras sem rolagem lateral (${w[0]} ≤ ${w[1]})`)
+  await A2.page.keyboard.press('Escape')
+})
+
+await etapa('f3. painel: "Precisa de atenção" com a denúncia e as carreiras em revisão; números ao vivo', async () => {
+  await irP('#/visao', 800)
+  await painel.reload()
+  await painel.waitForSelector('#tela-painel:not([hidden])', { timeout: 15000 })
+  await painel.waitForFunction(() => /denúncia aberta/.test(document.getElementById('atencao')?.textContent ?? '') && /revisão para entrar no Hall/.test(document.getElementById('atencao')?.textContent ?? ''), null, { timeout: 80000 }).catch(() => {})
+  const at = (await painel.textContent('#atencao')) ?? ''
+  ok(/1 denúncia aberta \(a mais antiga há/.test(at), `atenção: "1 denúncia aberta (a mais antiga há …)" (${at.replace(/\s+/g, ' ').slice(0, 200)})`)
+  ok(/2 carreiras de nota alta esperam a sua revisão para entrar no Hall/.test(at), 'atenção: "2 carreiras de nota alta esperam a sua revisão para entrar no Hall"')
+  await painel.waitForFunction(() => (document.getElementById('nav-denunciasAbertas')?.textContent ?? '').trim() === '1', null, { timeout: 20000 }).catch(() => {})
+  ok((await painel.textContent('#nav-denunciasAbertas')).trim() === '1' && Number((await painel.textContent('#nav-suspeitas')).trim()) >= 2, 'números ao vivo: 1 denúncia aberta, 2+ suspeitas/revisão')
+  await print(painel, 'v32-f3-precisa-de-atencao')
+  await painel.locator('#atencao a', { hasText: 'revisão para entrar no Hall' }).click()
+  await painel.waitForFunction(() => location.hash.startsWith('#/hall') && location.hash.includes('filtro=revisao'), null, { timeout: 10000 })
+  await sleep(1500)
+  ok((await abaP().locator('tbody tr').count()) === 2, 'o link do alerta abre o Hall em "Em revisão" com as 2')
+})
+
+await etapa('f4. painel: liberar em lote as carreiras em revisão', async () => {
+  const linhas = abaP().locator('tbody tr')
+  ok((await linhas.filter({ hasText: 'ALTAVISTA' }).count()) === 1 && (await linhas.filter({ hasText: 'ALTAMIRA' }).count()) === 1, 'as duas na lista')
+  for (const c of await abaP().locator('tbody input[type=checkbox]').all()) await c.check()
+  await sleep(300)
+  const barra = abaP().locator('.barra-lote')
+  await print(painel, 'v32-f4-lote-marcado')
+  await limparAvisos()
+  await barra.locator('button', { hasText: /^Liberar/ }).click()
+  await dialogo().waitFor()
+  ok(/Liberar 2 carreiras/.test(await dialogo().locator('button[type=submit]').textContent()), 'diálogo do lote: "Liberar 2 carreiras"')
+  await print(painel, 'v32-f4-lote-dialogo')
+  await confirmar()
+  ok(await avisoPainel(/2 liberadas/), 'toast: "2 liberadas"')
+  ok(sql(`SELECT COUNT(*) FROM carreiras WHERE carreira_id IN ('${estado.idRevA}', '${estado.idRevB}') AND suspeita IS NULL`) === '2', 'servidor: as duas liberadas (sem suspeita)')
+  ok(sql(`SELECT COUNT(*) FROM admin_log WHERE acao = 'mostrar_carreira' AND detalhes LIKE '%"lote":true%'`) === '2' && sql(`SELECT COUNT(*) FROM admin_log WHERE acao = 'carreiras_lote'`) === '1', 'registro: uma linha por carreira + a do lote')
+  const r = await admin({ acao: 'atualizar_hall' })
+  ok(r.status === 200 && (await hallApi()).itens.some((i) => i.id === estado.idRevB), 'depois de atualizar: a do B (Hall automático) entra no Hall público')
+  const g = await A2.page.evaluate(async () => (await fetch('api/carreiras.php', { credentials: 'same-origin' })).json())
+  const c = (g.carreiras ?? []).find((x) => x.id === estado.idRevA)
+  ok(c?.hall?.estado === 'fora' && /escolheu outras carreiras/.test(c?.hall?.motivo ?? ''), `a do A ("Eu escolho") sai da revisão para "fora: você escolheu outras carreiras" (${JSON.stringify(c?.hall)})`)
+})
+
+// ───────────────────────── e. admin no painel (v3 + v3.2) ─────────────────────────
 await etapa('e1. painel: visão geral e usuários', async () => {
-  await painel.click('.abas a[data-aba="visao"]')
-  await painel.waitForSelector('#ladrilhos .ladrilho', { timeout: 15000 })
-  await painel.waitForSelector('#ladrilhos-plataforma .ladrilho', { timeout: 15000 })
-  await sleep(1000)
+  await irP('#/visao', 1500)
+  await painel.waitForFunction(() => document.querySelectorAll('#ladrilhos .ladrilho').length === 12, null, { timeout: 20000 })
   const vis = await painel.textContent('#ladrilhos')
-  ok(/Visitantes/i.test(vis), 'visão geral: números do período')
+  ok(/Visitantes/i.test(vis), 'visão geral: os 12 números do período')
   const p = await admin(null, { r: 'resumo' })
   ok(p.json?.usuarios?.total === 2 && p.json?.denunciasAbertas === 1, `resumo: 2 contas, 1 denúncia aberta (${JSON.stringify(p.json?.usuarios)})`)
   const pn = await (await fetch(`${URL0}api/painel.php`, { headers: { Authorization: `Bearer ${env.PAINEL_TOKEN}` } })).json()
   ok(pn.periodo.visitantes >= 4 && pn.periodo.cadastros === 2, `painel.php: ${pn.periodo.visitantes} visitantes (A, A2, B, C…), ${pn.periodo.cadastros} cadastros, ${pn.periodo.jogaram} jogaram`)
   ok(typeof pn.geradoEm === 'string' && Date.now() - Date.parse(pn.geradoEm) < 120_000, `painel.php: números guardados por até 90 s (geradoEm ${pn.geradoEm})`)
-  await print(painel, 'e1-painel-visao-geral', { fullPage: true })
-  await painel.click('.abas a[data-aba="usuarios"]')
-  await painel.waitForSelector('#aba-usuarios .lista tbody tr', { timeout: 10000 })
-  const linhas = (await painel.locator('#aba-usuarios tbody tr').allInnerTexts()).join(' | ')
+  await print(painel, 'v32-e1-visao-geral', { fullPage: true })
+  await irP('#/usuarios', 1800)
+  await abaP().locator('tbody tr').first().waitFor({ timeout: 10000 })
+  const linhas = (await abaP().locator('tbody tr').allInnerTexts()).join(' | ')
   ok(/Ian Cruzeiro/.test(linhas) && /Bruno Amigo/.test(linhas), 'usuários: A e B na lista')
-  await print(painel, 'e1-painel-usuarios')
+  ok((await abaP().locator('.email-mascara').first().isVisible()) && !linhas.includes(EMAIL_A), 'modo discreto (padrão): e-mails mascarados na lista')
+  await print(painel, 'v32-e1-usuarios')
 })
 
-await etapa('e2. painel: suspender B → B deslogado e fora do Hall; reativar', async () => {
-  await painel.goto(`${URL0}painel/#/usuario/${estado.idB}`)
-  await painel.waitForSelector('#aba-usuario .perfil-nome h2', { timeout: 10000 })
-  ok((await painel.textContent('#aba-usuario .perfil-nome h2')) === 'Bruno Amigo', 'detalhe do B')
-  const det = await painel.textContent('#aba-usuario')
-  ok(/AMIGAO/.test(det), 'detalhe do B: a carreira AMIGAO')
-  await print(painel, 'e2-painel-detalhe-B', { fullPage: true })
+await etapa('e2. painel: suspender B (motivo obrigatório) → B deslogado e fora do Hall; reativar', async () => {
+  await irP(`#/usuarios?conta=${estado.idB}`, 1800)
+  await painel.waitForSelector('#gaveta:not([hidden]) .perfil-nome h2', { timeout: 10000 })
+  ok((await painel.textContent('#gaveta .perfil-nome h2')) === 'Bruno Amigo', 'ficha do B no painel lateral (conta= no hash)')
+  ok(/AMIGAO/.test(await painel.textContent('#gaveta')), 'ficha do B: a carreira AMIGAO')
+  await print(painel, 'v32-e2-ficha-B')
   await limparAvisos()
-  await painel.click('#aba-usuario button:has-text("Suspender")')
+  await naFicha(painel, 'Suspender').click()
+  await dialogo().waitFor()
+  await dialogo().locator('textarea').fill('')
+  await confirmar()
+  ok((await dialogo().locator('.erro-campo:not([hidden])', { hasText: 'motivo' }).count()) === 1, 'suspender sem motivo: o diálogo pede o motivo (não envia)')
   await dialogo().locator('textarea').fill('Teste de moderação')
   await confirmar()
-  ok(await avisoPainel(/suspens/), 'suspender B')
-  await painel.waitForSelector('#aba-usuario .faixa-perigo', { timeout: 10000 })
+  ok(await avisoPainel(/suspens/), 'suspender B com motivo')
+  ok(sql(`SELECT motivo_suspensao FROM usuarios WHERE id=${estado.idB}`) === 'Teste de moderação', 'servidor: motivo da suspensão gravado')
   ok(sql(`SELECT COUNT(*) FROM sessoes_login WHERE usuario_id=${estado.idB}`) === '0', 'sessões do B encerradas')
   const h = await hallApi()
   ok(!h.itens.some((i) => i.id === estado.idAmigao), 'hall.php: a carreira do B saiu do Hall na hora')
-  // B no aparelho dele: deslogado
   const { page } = B
   await page.goto(`${URL0}#/`)
   await page.reload()
   await page.waitForSelector('.ld-modes', { timeout: 30000 })
   await sleep(2000)
   const m = await menu(page)
-  // o bloco de conta do menu é um pedaço à parte (chega logo depois de abrir, se ainda não veio)
   await m.getByText(/Entrar \/ Criar conta|Minha conta/).first().waitFor({ timeout: 10000 })
   ok((await m.innerText()).includes('Entrar / Criar conta') && !(await m.innerText()).includes('Bruno Amigo'), 'B: deslogado no aparelho (o menu volta a "Entrar / Criar conta")')
   const errosAntes = B.erros.length
@@ -565,26 +792,22 @@ await etapa('e2. painel: suspender B → B deslogado e fora do Hall; reativar', 
   const d = page.locator('[role="dialog"].sc-modal')
   await d.waitFor()
   await d.getByRole('tab', { name: /Já tenho conta|Entrar/ }).first().click().catch(() => {})
-  await d.getByLabel('E-mail').fill(EMAIL_B)
-  await d.getByLabel('Senha', { exact: true }).fill(SENHA)
+  await preencherConta(page, d, [['E-mail', EMAIL_B], ['Senha', SENHA, true]])
   await d.getByRole('button', { name: 'Entrar', exact: true }).click()
   await d.getByText(/suspensa/i).first().waitFor({ timeout: 10000 })
   ok(true, 'B: entrar com a conta suspensa mostra "suspensa"')
-  // o 403 do "entrar" suspenso é a resposta esperada (o navegador registra no console)
   B.erros.splice(errosAntes, B.erros.length - errosAntes, ...B.erros.slice(errosAntes).filter((x) => !/status of 403/.test(x)))
-  await print(page, 'e2-B-suspenso')
   await page.keyboard.press('Escape')
-  // reativar
   await limparAvisos()
-  await painel.click('#aba-usuario button:has-text("Reativar")')
+  await naFicha(painel, 'Reativar').click()
+  await dialogo().waitFor()
   await confirmar()
-  ok(await avisoPainel(/reativad/), 'reativar B')
+  ok(await avisoPainel(/reativad/), 'reativar B (motivo opcional)')
   const m2 = await menu(page)
   await m2.getByText('Entrar / Criar conta').click()
   const d2 = page.locator('[role="dialog"].sc-modal')
   await d2.waitFor()
-  await d2.getByLabel('E-mail').fill(EMAIL_B)
-  await d2.getByLabel('Senha', { exact: true }).fill(SENHA)
+  await preencherConta(page, d2, [['E-mail', EMAIL_B], ['Senha', SENHA, true]])
   await d2.getByRole('button', { name: 'Entrar', exact: true }).click()
   await page.waitForFunction(() => !document.querySelector('[role="dialog"].sc-modal'), null, { timeout: 15000 })
   ok(true, 'B: entra de novo depois de reativado')
@@ -592,91 +815,217 @@ await etapa('e2. painel: suspender B → B deslogado e fora do Hall; reativar', 
   ok(r.status === 200 && (await hallApi()).itens.some((i) => i.id === estado.idAmigao), 'depois de reativar + atualizar: a carreira do B volta ao Hall')
 })
 
-await etapa('e3. painel: renomear e dar bônus ao B', async () => {
-  await painel.goto(`${URL0}painel/#/usuario/${estado.idB}`)
-  await painel.waitForSelector('#aba-usuario .perfil-nome h2', { timeout: 10000 })
+await etapa('e3. painel: renomear e dar bônus ao B; nota interna (P1-5)', async () => {
+  await irP(`#/usuarios?conta=${estado.idB}`, 1800)
+  await painel.waitForSelector('#gaveta:not([hidden]) .perfil-nome h2', { timeout: 10000 })
   await limparAvisos()
-  await painel.click('#aba-usuario button:has-text("Renomear")')
+  await naFicha(painel, 'Renomear').click()
   await dialogo().locator('input').fill('Bruno Moderado')
   await confirmar()
   ok(await avisoPainel(/trocado para Bruno Moderado/), 'renomear B')
   const it = (await hallApi()).itens.find((i) => i.id === estado.idAmigao)
   ok(it?.apelido === 'Bruno Moderado', `hall.php já mostra o apelido novo (${it?.apelido})`)
   await limparAvisos()
-  await painel.click('#aba-usuario .perfil-acoes button:has-text("Dar bônus")')
-  await dialogo().locator('button[role="radio"]:has-text("+1")').click()
+  await painel.locator('#gaveta .perfil-acoes button', { hasText: 'Dar bônus' }).first().click()
+  await dialogo().locator('button[role="radio"]', { hasText: '+1' }).click()
   await dialogo().locator('input').fill('Presente da moderação')
   await confirmar()
   ok(await avisoPainel(/Bônus dado/), 'dar bônus +1 ao B')
-  await print(painel, 'e3-painel-B-renomeado-bonus', { fullPage: true })
+  await sleep(600)
+  await painel.fill('#gaveta .nota-interna textarea', 'Conta do amigo do Ian.\nVeio pelo convite; conferido na live.')
+  await limparAvisos()
+  await painel.locator('#gaveta .nota-interna button', { hasText: 'Salvar' }).click()
+  ok(await avisoPainel(/Anotação salva/), 'anotação interna salva (só a equipe vê)')
+  ok(sql(`SELECT nota_admin LIKE '%\\nVeio%' FROM usuarios WHERE id=${estado.idB}`) === '1', 'servidor: a anotação guarda a quebra de linha')
+  ok(sql(`SELECT detalhes FROM admin_log WHERE acao = 'nota' ORDER BY id DESC LIMIT 1`).includes('tamanho') && !sql(`SELECT detalhes FROM admin_log WHERE acao = 'nota' ORDER BY id DESC LIMIT 1`).includes('amigo'), 'registro: só o tamanho da anotação (nunca o texto)')
+  const c = await B.page.evaluate(async () => (await fetch('api/conta.php', { credentials: 'same-origin' })).text())
+  ok(!c.includes('Veio pelo convite') && !c.includes('nota_admin'), 'conta.php do B: a anotação nunca vai para o jogador')
+  await print(painel, 'v32-e3-ficha-nota', { fullPage: false })
   const { page } = B
-  // a criação da carreira pergunta o bonus.php na hora: o presente aparece sem recarregar o jogo
   await page.goto(`${URL0}#/identidade?ritmo=expressa`)
   await page.locator('.id-bonus').waitFor({ timeout: 20000 })
   const t = await page.locator('.id-bonus').innerText()
   ok(/\+1/.test(t) && /presente do LENDA/.test(t), `B vê o bônus na criação da carreira ("${t.replace(/\s+/g, ' ').slice(0, 50)}")`)
-  await print(page, 'e3-B-bonus-admin')
 })
 
-await etapa('e4. painel: ocultar carreira do Hall e resolver a denúncia', async () => {
-  await painel.click('.abas a[data-aba="hall"]')
-  await painel.waitForSelector('#aba-hall .lista tbody tr', { timeout: 10000 })
-  await painel.click('#aba-hall .segmentos button:has-text("No Hall")')
-  await sleep(800)
+await etapa('e4. painel: ocultar com motivo (e avisar o autor) → A vê "Fora do Hall: …"; resolver a denúncia', async () => {
+  await irP('#/hall', 1800)
+  await abaP().locator('tbody tr').first().waitFor({ timeout: 10000 })
   const alvo = estado.foraDoHallA === 'FENOMENO' ? 'MURALHA' : 'FENOMENO'
   const idAlvo = alvo === 'FENOMENO' ? estado.idFenomeno : estado.idMuralha
+  estado.alvoOculta = alvo
+  estado.idAlvoOculta = idAlvo
   ok((await hallApi()).itens.some((i) => i.id === idAlvo), `${alvo} está no Hall antes`)
   await limparAvisos()
-  await painel.locator('#aba-hall tbody tr', { hasText: alvo }).first().locator('button:has-text("Ocultar")').click()
+  await abaP().locator('tbody tr', { hasText: alvo }).first().locator('button[title^="Ocultar"]').click()
+  await dialogo().waitFor()
   await confirmar()
-  ok(await avisoPainel(/Carreira oculta/), `ocultar ${alvo}`)
+  ok((await dialogo().locator('.erro-campo:not([hidden])', { hasText: 'motivo' }).count()) === 1, 'ocultar sem motivo: não envia (P0-4)')
+  await dialogo().locator('.chip-motivo', { hasText: 'Nome ofensivo' }).click()
+  await dialogo().locator('input[type=checkbox]').check()
+  await print(painel, 'v32-e4-ocultar-motivo')
+  await confirmar()
+  ok(await avisoPainel(/ocultada/), `ocultar ${alvo} com o motivo e "Avisar o autor"`)
   ok(!(await hallApi()).itens.some((i) => i.id === idAlvo), `hall.php: ${alvo} saiu na hora`)
-  await print(painel, 'e4-painel-hall-ocultar')
-  await painel.click('.abas a[data-aba="denuncias"]')
-  await painel.waitForSelector('#aba-denuncias .denuncia', { timeout: 10000 })
-  const den = await painel.textContent('#aba-denuncias')
-  ok(/DANTAS/.test(den) && /Números estranhos <b>teste<\/b>/.test(den) && (await painel.locator('#aba-denuncias .denuncia b:has-text("teste")').count()) === 0, 'denúncias: a do B sobre a DANTAS, texto escapado')
-  await print(painel, 'e4-painel-denuncias')
+  ok(sql(`SELECT CONCAT_WS('|', oculta, motivo_admin, moderada_em IS NOT NULL) FROM carreiras WHERE carreira_id='${idAlvo}'`) === '1|Nome ofensivo|1', 'servidor: oculta = 1, motivo_admin e moderada_em gravados')
+  ok(/^Uma carreira sua \(.+\) saiu do Hall público por: nome ofensivo\./.test(sql(`SELECT aviso_conta FROM usuarios WHERE id=${estado.idA}`)), 'servidor: aviso padrão para o autor (H11), sem o motivo escrito')
+  estado.pkOculta = sql(`SELECT id FROM carreiras WHERE carreira_id='${idAlvo}'`)
+  // o jogador
+  const { page } = A
+  const dlg = await minhasCarreiras(page)
+  const card = dlg.locator('.sc-card', { hasText: alvo })
+  const tc = await card.innerText()
+  ok(/Fora do Hall/.test(tc) && /Fora do Hall: a moderação tirou esta carreira do Hall público\./.test(tc), `A em Minhas carreiras: "Fora do Hall: a moderação tirou esta carreira do Hall público." (${tc.replace(/\s+/g, ' ').slice(0, 160)})`)
+  await card.scrollIntoViewIfNeeded()
+  await print(page, 'v32-e4-A-fora-do-hall')
+  await page.keyboard.press('Escape')
+  // o aviso chega na próxima abertura do jogo (o GET conta.php de sempre): lembrete em toast e o ponto no menu
+  await page.reload()
+  await page.waitForSelector('.ld-modes', { timeout: 30000 })
+  ok(await page.getByText('Um aviso sobre o Hall público').first().waitFor({ timeout: 15000 }).then(() => true, () => false), 'ao abrir o jogo: lembrete "Um aviso sobre o Hall público"')
+  await print(page, 'v32-e4-A-lembrete-aviso')
+  const m = await menu(page)
+  await m.getByText(/1 aviso da moderação/).first().waitFor({ timeout: 10000 }).catch(() => {})
+  ok(/1 aviso da moderação/.test(await m.innerText()), 'menu do A: "Minha conta · 1 aviso da moderação"')
+  await m.getByText(/Minha conta/).first().click()
+  const mc = page.getByRole('dialog', { name: 'Minha conta' })
+  await mc.waitFor({ timeout: 15000 })
+  await mc.getByText('Aviso da moderação').waitFor({ timeout: 10000 })
+  ok(/saiu do Hall público por: nome ofensivo/.test(await mc.innerText()), 'Minha conta: cartão "Aviso da moderação" com o texto padrão')
+  await print(page, 'v32-e4-A-aviso-moderacao')
+  const lido = await esperarSql(`SELECT aviso_conta IS NULL FROM usuarios WHERE id=${estado.idA}`, (x) => x === '1', 10000)
+  ok(lido === '1', 'o aviso aparece uma vez (aviso_lido apaga no servidor)')
+  await page.keyboard.press('Escape')
+  // a denúncia do B sobre a DANTAS
+  await irP('#/denuncias', 1800)
+  await abaP().locator('article.denuncia').first().waitFor({ timeout: 10000 })
+  const den = await abaP().textContent()
+  ok(/DANTAS/.test(den) && /Números estranhos <b>teste<\/b>/.test(den) && (await abaP().locator('article.denuncia b', { hasText: /^teste$/ }).count()) === 0, 'denúncias: a do B sobre a DANTAS, texto escapado')
+  await print(painel, 'v32-e4-denuncias')
   await limparAvisos()
-  await painel.locator('#aba-denuncias .denuncia', { hasText: 'DANTAS' }).locator('button:has-text("Manter no Hall")').click()
+  await abaP().locator('article.denuncia', { hasText: 'DANTAS' }).locator('button', { hasText: 'Manter no Hall' }).click()
+  await dialogo().waitFor()
   await confirmar()
-  ok(await avisoPainel(/fechad/), 'denúncia resolvida: manter no Hall')
+  ok(await avisoPainel(/mantida/), 'denúncia resolvida: manter no Hall (motivo opcional)')
   ok(sql(`SELECT COUNT(*) FROM denuncias WHERE status='aberta'`) === '0' && (await hallApi()).itens.some((i) => i.id === estado.idDantas), 'DANTAS continua no Hall, nenhuma denúncia aberta')
 })
 
-await etapa('e5. painel: configurações (aviso no jogo; Imersivo aberto e fechado ao público)', async () => {
-  await painel.click('.abas a[data-aba="config"]')
-  await painel.waitForSelector('#aba-config .config-grade', { timeout: 10000 })
+await etapa('f5. X4: o admin abre no jogo a carreira oculta (o público não)', async () => {
+  const pk = estado.pkOculta
+  await irP(`#/hall?filtro=ocultas&carreira=${pk}`, 1800)
+  await painel.waitForSelector('#gaveta:not([hidden]) .carreira-topo', { timeout: 10000 })
+  ok(/Última decisão: Nome ofensivo/.test(await painel.textContent('#gaveta')), 'ficha da carreira: "Última decisão" com o motivo')
+  const link = painel.locator('#gaveta a', { hasText: 'Abrir no jogo' }).first()
+  ok((await link.getAttribute('href')) === `../#/resumo?id=${pk}&de=admin`, 'ficha: "Abrir no jogo" → ../#/resumo?id=<pk>&de=admin')
+  await print(painel, 'v32-f5-ficha-carreira')
+  const [aba] = await Promise.all([ADM.ctx.waitForEvent('page'), link.click()])
+  await aba.locator('.sm-admin').waitFor({ timeout: 30000 })
+  const t = await aba.locator('.sm-admin').innerText()
+  ok(/Visão do admin/i.test(t) && /Oculta pela moderação/i.test(t) && /Nome ofensivo/.test(t), `jogo, como admin: faixa "Visão do admin" com o estado e o motivo (${t.replace(/\s+/g, ' ').slice(0, 160)})`)
+  ok((await aba.getByText(estado.alvoOculta).count()) > 0 && (await aba.getByRole('button', { name: 'Salvar na minha conta' }).count()) === 0 && (await aba.getByRole('button', { name: 'Denunciar' }).count()) === 0, 'resumo completo, sem Salvar nem Denunciar')
+  await print(aba, 'v32-f5-jogo-visao-do-admin')
+  await aba.close()
+  const { page } = C
+  await page.goto(`${URL0}#/resumo?id=${pk}&de=admin`)
+  await page.getByText('Carreira não encontrada').first().waitFor({ timeout: 20000 })
+  ok((await page.locator('.sm-admin').count()) === 0, 'público no mesmo endereço: "Carreira não encontrada" (sem a faixa do admin)')
+  const st = await page.evaluate(async (id) => (await fetch(`api/admin.php?r=carreira&id=${id}`, { credentials: 'same-origin' })).status, pk)
+  ok(st === 401, `público: admin.php?r=carreira → ${st}`)
+  await print(page, 'v32-f5-publico-nao-encontrada')
+})
+
+await etapa('f6. lixeira: apagar (motivo) → o aparelho não sobe de novo (409) → restaurar oculta', async () => {
+  const pk = estado.pkOculta
+  await irP(`#/hall?filtro=ocultas&carreira=${pk}`, 1800)
+  await painel.waitForSelector('#gaveta:not([hidden]) .carreira-topo', { timeout: 10000 })
+  await limparAvisos()
+  await naFicha(painel, 'Apagar').click()
+  await dialogo().waitFor()
+  ok(/Prefira Ocultar/.test(await dialogo().textContent()), 'apagar: "Prefira Ocultar" antes')
+  await dialogo().locator('textarea').fill('Teste da lixeira (integração)')
+  await confirmar()
+  ok(await avisoPainel(/lixeira/), 'apagar: vai para a lixeira')
+  ok(sql(`SELECT CONCAT_WS('|', motivo, dados IS NOT NULL) FROM lixeira_carreiras WHERE carreira_id='${estado.idAlvoOculta}'`) === 'Teste da lixeira (integração)|1', 'servidor: cópia na lixeira com o motivo')
+  const h = (await lerKv(A.page, 'hall')).find((x) => x.id === estado.idAlvoOculta)
+  const r409 = await A.page.evaluate(async (h) => {
+    const r = await fetch('api/carreiras.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify({ acao: 'salvar', carreira: h, como: 'auto' }) })
+    return `${r.status}:${(await r.json()).erro}`
+  }, h)
+  ok(r409 === '409:apagada', `o aparelho do A salvando a mesma carreira de novo: ${r409}`)
+  A.erros.splice(0, A.erros.length, ...A.erros.filter((x) => !/status of 409/.test(x)))
+  await irP('#/hall?filtro=lixeira', 1800)
+  const linhaLix = abaP().locator('tbody tr', { hasText: 'Teste da lixeira (integração)' })
+  ok((await linhaLix.count()) === 1, 'lixeira: a carreira apagada com o motivo, quem e quando vence')
+  await print(painel, 'v32-f6-lixeira')
+  await limparAvisos()
+  await linhaLix.locator('button', { hasText: 'Restaurar' }).click()
+  ok(await avisoPainel(/restaurada/), 'lixeira: restaurar (confirm)')
+  ok(sql(`SELECT CONCAT_WS('|', id, oculta) FROM carreiras WHERE carreira_id='${estado.idAlvoOculta}'`) === `${pk}|1`, 'voltou com o mesmo id e oculta = 1')
+  await painel.keyboard.press('Escape')
+})
+
+await etapa('f7. tester: a conta do B vira tester → abre a Live e o Imersivo com o selo de teste', async () => {
+  await irP(`#/usuarios?conta=${estado.idB}`, 1800)
+  await painel.waitForSelector('#gaveta:not([hidden]) .tipo-conta select', { timeout: 10000 })
+  await limparAvisos()
+  await painel.selectOption('#gaveta .tipo-conta select', 'tester')
+  ok(await avisoPainel(/agora é tester/), 'tipo de conta: tester (com confirm)')
+  ok(sql(`SELECT tipo FROM usuarios WHERE id=${estado.idB}`) === 'tester', 'servidor: tipo = tester')
+  const { page } = B
+  await page.goto(`${URL0}#/`)
+  await page.reload()
+  await page.waitForSelector('.ld-modes', { timeout: 30000 })
+  await sleep(2500)
+  const u = await page.evaluate(async () => (await fetch('api/conta.php', { credentials: 'same-origin' })).json())
+  ok(u.usuario?.tester === true, 'conta.php: U.tester = true')
+  const m = await menu(page)
+  ok(/liberado para a sua conta de testes/.test(await m.innerText()) && !/Painel do admin/.test(await m.innerText()), 'menu do tester: "liberado para a sua conta de testes", sem "Painel do admin"')
+  await print(page, 'v32-f7-tester-menu')
+  await fecharMenu(page)
+  await page.goto(`${URL0}#/identidade?modo=imersivo`)
+  await page.locator('.pt-selo').waitFor({ timeout: 20000 })
+  ok(/Teste · conta de testes/.test(await page.locator('.pt-selo').innerText()), 'Imersivo aberto para o tester, com o selo "Teste · conta de testes"')
+  await page.goto(`${URL0}#/kit`)
+  await esperarTexto(page, 'Página não encontrada', 15000)
+  ok(true, 'tester: #/kit continua fechado')
+})
+
+await etapa('e5. painel: configurações (aviso no jogo; Imersivo aberto e fechado ao público; revisão do Hall)', async () => {
+  await irP('#/config', 2000)
+  await painel.waitForSelector('.config-grade', { timeout: 10000 })
   await painel.locator('[data-chave="aviso"] .interruptor').click()
   await painel.fill('#cfg-aviso-texto', 'Hall das Lendas atualizado a cada hora!')
   await painel.locator('[data-chave="imersivo_publico"] .interruptor').click()
+  await painel.fill('#cfg-hall_revisao_nota', '95')
   await limparAvisos()
-  await painel.click('#aba-config .barra-salvar button:has-text("Salvar")')
+  await painel.locator('.barra-salvar button', { hasText: 'Salvar' }).click()
   await dialogo().waitFor()
-  await print(painel, 'e5-painel-config-confirmar')
+  ok(/Abrir o Modo Imersivo para todo mundo/.test(await dialogo().textContent()), 'salvar: o diálogo avisa o que todo mundo vê')
+  await print(painel, 'v32-e5-config-confirmar')
   await confirmar()
-  ok(await avisoPainel(/Configurações salvas/), 'config salva: aviso + Imersivo aberto')
+  ok(await avisoPainel(/Configurações salvas/), 'config salva: aviso + Imersivo aberto + revisão em 95')
+  ok(sql("SELECT valor FROM site_config WHERE chave = 'hall_revisao_nota'") === '95', 'X1: hall_revisao_nota = 95 no banco')
   const { page } = C
   await page.goto(`${URL0}#/`)
   await page.reload()
-  await page.locator('.lx-aviso').waitFor({ timeout: 20000 })
-  ok((await page.locator('.lx-aviso').innerText()).includes('Hall das Lendas atualizado a cada hora!'), 'C vê o aviso no topo do jogo')
+  await page.locator('.lx-aviso').first().waitFor({ timeout: 20000 })
+  ok((await page.locator('.lx-aviso').first().innerText()).includes('Hall das Lendas atualizado a cada hora!'), 'C vê o aviso no topo do jogo')
   await page.waitForSelector('.ld-modes')
   await sleep(1500)
   const imm = page.locator('.ld-mode').nth(1)
   ok((await imm.getAttribute('aria-disabled')) === null && !/Em desenvolvimento/.test(await imm.innerText()), 'C (público): cartão do Imersivo liberado')
-  await print(page, 'e5-C-aviso-imersivo-aberto')
   await page.goto(`${URL0}#/identidade?modo=imersivo`)
   await page.waitForSelector('#id-surname', { timeout: 30000 })
-  ok((await page.getByText('Partida a partida,').count()) === 0 && (await page.locator('.pt-selo').count()) === 0, 'C: o Imersivo abre para o público (sem "Em breve" e sem selo de admin)')
-  await print(page, 'e5-C-imersivo-publico')
-  // volta a fechar
+  ok((await page.getByText('Partida a partida,').count()) === 0 && (await page.locator('.pt-selo').count()) === 0, 'C: o Imersivo abre para o público (sem "Em breve" e sem selo)')
+  await irP('#/config', 2000)
+  await painel.waitForSelector('.config-grade', { timeout: 10000 })
   await painel.locator('[data-chave="imersivo_publico"] .interruptor').click()
   await painel.locator('[data-chave="aviso"] .interruptor').click()
+  await painel.fill('#cfg-hall_revisao_nota', '90')
   await limparAvisos()
-  await painel.click('#aba-config .barra-salvar button:has-text("Salvar")')
+  await painel.locator('.barra-salvar button', { hasText: 'Salvar' }).click()
   await confirmar()
-  ok(await avisoPainel(/Configurações salvas/), 'config salva: Imersivo fechado de novo, sem aviso')
+  ok(await avisoPainel(/Configurações salvas/), 'config salva: Imersivo fechado de novo, sem aviso, revisão em 90')
   await page.goto(`${URL0}#/imersivo`)
   await page.reload()
   await esperarTexto(page, 'Partida a partida,', 20000)
@@ -685,45 +1034,190 @@ await etapa('e5. painel: configurações (aviso no jogo; Imersivo aberto e fecha
   ok(cfg.site.imersivoPublico === false && cfg.site.livePublica === false && cfg.site.aviso === null, 'conta.php: Imersivo e Live fechados ao público')
 })
 
-await etapa('e6. painel: Testes → Imersivo e Live em outra aba (só o admin)', async () => {
-  await painel.click('.abas a[data-aba="testes"]')
+await etapa('e6. painel: Testes → Imersivo e Live em outra aba (só a equipe)', async () => {
+  await irP('#/testes', 1800)
   await painel.waitForSelector('.grade-testes', { timeout: 10000 })
-  await print(painel, 'e6-painel-testes')
+  await print(painel, 'v32-e6-testes')
   const [imm] = await Promise.all([ADM.ctx.waitForEvent('page'), painel.click('a:has-text("Nova carreira no Imersivo")')])
   await imm.waitForSelector('#id-surname', { timeout: 30000 })
   await imm.locator('.pt-selo').waitFor({ timeout: 20000 })
   ok((await imm.locator('.pt-selo').innerText()).includes('Teste · só admin'), 'outra aba: Imersivo (nova carreira) com o selo "Teste · só admin"')
-  await print(imm, 'e6-admin-imersivo-teste')
   await imm.close()
   const [live] = await Promise.all([ADM.ctx.waitForEvent('page'), painel.click('a:has-text("Abrir a Live")')])
   await live.waitForLoadState()
   await sleep(4000)
   ok((await live.getByText('Página não encontrada').count()) === 0, 'outra aba: a Live abre para o admin')
-  await print(live, 'e6-admin-live')
   await live.close()
-  // o mesmo endereço, sem o cookie do painel, continua fechado
   await C.page.goto(`${URL0}#/live`)
   await esperarTexto(C.page, 'Página não encontrada', 15000)
   ok(true, 'C (público) no mesmo endereço: "Página não encontrada"')
 })
 
-await etapa('e7. painel: exportar CSV e Registro', async () => {
-  await painel.click('.abas a[data-aba="usuarios"]')
-  await painel.waitForSelector('#aba-usuarios .lista tbody tr', { timeout: 10000 })
+await etapa('e7. painel: exportar CSV, relatório em CSV e o Registro', async () => {
+  await irP('#/usuarios', 1800)
+  await abaP().locator('tbody tr').first().waitFor({ timeout: 10000 })
   const [csv] = await Promise.all([painel.waitForEvent('download', { timeout: 15000 }), painel.click('#acoes-aba button:has-text("Exportar CSV")')])
   const conteudo = readFileSync(await csv.path()).toString('utf8')
-  const linhas = conteudo.replace(/^\uFEFF/, '').trim().split(/\r?\n/)
-  ok(conteudo.charCodeAt(0) === 0xfeff && linhas.length === 3 && conteudo.includes(EMAIL_A) && conteudo.includes(EMAIL_B) && /Bruno Moderado/.test(conteudo), `CSV: BOM + cabeçalho + 2 contas (${csv.suggestedFilename()})`)
-  await painel.click('.abas a[data-aba="registro"]')
-  await painel.waitForSelector('#aba-registro .lista tbody tr', { timeout: 10000 })
-  const reg = await painel.textContent('#aba-registro tbody')
-  const faltam = ['Exportou usuários', 'Suspendeu conta', 'Reativou conta', 'Renomeou', 'Deu bônus', 'Ocultou carreira', 'Resolveu denúncia', 'Mudou configurações', 'Atualizou o Hall'].filter((a) => !reg.includes(a))
-  ok(faltam.length === 0, `Registro com todas as ações${faltam.length ? ` (faltam: ${faltam.join(', ')})` : ''}`)
-  await print(painel, 'e7-painel-registro')
+  const linhas = conteudo.replace(/^﻿/, '').trim().split(/\r?\n/)
+  ok(conteudo.charCodeAt(0) === 0xfeff && linhas.length === 3 && conteudo.includes(EMAIL_A) && conteudo.includes(EMAIL_B) && /Bruno Moderado/.test(conteudo), `CSV de contas: BOM + cabeçalho + 2 contas (${csv.suggestedFilename()})`)
+  await irP('#/relatorios?tipo=engajados', 2000)
+  await abaP().locator('tbody tr').first().waitFor({ timeout: 10000 })
+  await print(painel, 'v32-e7-relatorios')
+  const [rel] = await Promise.all([painel.waitForEvent('download', { timeout: 15000 }), abaP().locator('button', { hasText: 'Baixar CSV' }).click()])
+  const tr = readFileSync(await rel.path()).toString('utf8')
+  const lr = tr.replace(/^﻿/, '').trim().split(/\r?\n/)
+  ok(tr.charCodeAt(0) === 0xfeff && lr[0].includes(';') && lr.length === 3 && /^lenda-engajados-\d{4}-\d\d-\d\d\.csv$/.test(rel.suggestedFilename()), `relatório "engajados" em CSV: BOM, ";" e as 2 contas (${rel.suggestedFilename()})`)
+  ok(sql(`SELECT COUNT(*) FROM admin_log WHERE acao = 'exportar' AND detalhes LIKE '%relatorio:engajados%'`) === '1', 'o CSV do relatório fica no registro')
+  await irP('#/registro', 2000)
+  await abaP().locator('tbody tr').first().waitFor({ timeout: 10000 })
+  const reg = await abaP().locator('tbody').textContent()
+  const faltam = ['Exportou', 'Suspendeu conta', 'Reativou conta', 'Renomeou', 'Deu bônus', 'Ocultou carreira', 'Resolveu denúncia', 'Mudou configurações', 'Atualizou o Hall', 'Carreiras em lote', 'Anotou na conta', 'Mudou o tipo de conta', 'Apagou carreira', 'Restaurou carreira'].filter((a) => !reg.includes(a))
+  ok(faltam.length === 0, `Registro com as ações${faltam.length ? ` (faltam: ${faltam.join(', ')})` : ''}`)
+  ok(/Dono/.test(reg), 'Registro: "quem" é a conta Dono (não "painel")')
+  await print(painel, 'v32-e7-registro')
+  await irP('#/registro?parte=seguranca', 2000)
+  const seg = await abaP().textContent()
+  ok(/Errou a senha do painel/.test(seg) && /Errou o PIN/.test(seg) && /Criou o PIN/.test(seg), 'Registro → Segurança: senha errada, PIN errado e PIN criado')
+  await print(painel, 'v32-e7-seguranca')
+})
+
+await etapa('f8. backup: baixar, guardar no servidor e restaurar o baixado (completar)', async () => {
+  await irP('#/config?parte=backup', 2200)
+  const [bk] = await Promise.all([painel.waitForEvent('download', { timeout: 30000 }), abaP().locator('button', { hasText: 'Baixar backup' }).click()])
+  const nome = bk.suggestedFilename()
+  const bruto = readFileSync(await bk.path())
+  const json = JSON.parse(gunzipSync(bruto).toString('utf8'))
+  const tab = json.tabelas ?? {}
+  ok(/^lenda-backup-\d{4}-\d\d-\d\d_\d{4}\.json\.gz$/.test(nome) && json.versao === 1 && (tab.usuarios ?? []).length === 2 && (tab.carreiras ?? []).length >= 6,
+    `backup baixado (${nome}): JSON em gzip, ${(tab.usuarios ?? []).length} contas, ${(tab.carreiras ?? []).length} carreiras`)
+  const semSegredo = (tab.admin_contas ?? []).length >= 1 && (tab.admin_contas ?? []).every((x) => !('senha_hash' in x) && !('pin_hash' in x)) && !('admin_sessoes' in tab) && !('sessoes_login' in tab)
+  ok(semSegredo, 'backup: a equipe sem senha nem PIN; sem sessões')
+  ok(sql(`SELECT COUNT(*) FROM admin_log WHERE acao = 'backup'`) === '1', 'o download fica no registro')
+  await limparAvisos()
+  await abaP().locator('button', { hasText: 'Guardar cópia agora' }).click()
+  ok(await avisoPainel(/Cópia guardada/, 30000), '"Guardar cópia agora": cópia no servidor (fora do public_html)')
+  // o backup baixado vai para a pasta das cópias (como pelo Gerenciador de Arquivos) e a carreira AMIGAO some da conta do B
+  const pasta = `${BASE}/lenda-copias`
+  writeFileSync(`${pasta}/${nome}`, bruto, { mode: 0o600 })
+  const antes = sql(`SELECT COUNT(*) FROM carreiras WHERE usuario_id=${estado.idB}`)
+  const ap = await B.page.evaluate(async (id) => (await fetch('api/carreiras.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify({ acao: 'apagar', id }) })).status, estado.idAmigao)
+  ok(ap === 200 && sql(`SELECT COUNT(*) FROM carreiras WHERE carreira_id='${estado.idAmigao}'`) === '0', 'B apagou a AMIGAO da conta')
+  await irP('#/config?parte=backup', 2200)
+  const linha = abaP().locator('tbody tr', { hasText: nome })
+  await linha.waitFor({ timeout: 10000 })
+  await print(painel, 'v32-f8-backup')
+  await linha.locator('button', { hasText: 'Restaurar' }).click()
+  await dialogo().waitFor()
+  ok(/Contas que o próprio jogador excluiu depois desta cópia voltam/.test(await dialogo().textContent()), 'restaurar: o aviso de LGPD')
+  ok(await dialogo().locator('button[type=submit]').isDisabled(), 'restaurar: o botão só libera com RESTAURAR digitado')
+  await dialogo().locator('.confirmar-digitando input').fill('RESTAURAR')
+  await print(painel, 'v32-f8-restaurar-dialogo')
+  await limparAvisos()
+  await confirmar()
+  ok(await avisoPainel(/Cópia restaurada \(completar\): 1 linha gravada \(carreiras 1\)/, 60000), 'restaurar (completar): toast "1 linha gravada (carreiras 1)" e a cópia de antes')
+  ok(sql(`SELECT COUNT(*) FROM carreiras WHERE usuario_id=${estado.idB}`) === antes && sql(`SELECT COUNT(*) FROM carreiras WHERE carreira_id='${estado.idAmigao}'`) === '1', 'a AMIGAO voltou pela cópia baixada')
+  ok(sql(`SELECT COUNT(*) FROM admin_log WHERE acao = 'backup_restaurar'`) === '1', 'restaurar fica no registro')
+})
+
+let MODp = null
+await etapa('f9. equipe: moderadora (senha provisória → senha → PIN) e o papel negado em excluir', async () => {
+  await irP('#/equipe', 1800)
+  await painel.locator('#acoes-aba button', { hasText: 'Pôr alguém' }).click()
+  await dialogo().waitFor()
+  const campos = dialogo().locator('input')
+  await campos.nth(0).fill('Moderadora Bia')
+  await campos.nth(1).fill('bia.moderadora@exemplo.com')
+  await dialogo().locator('select').selectOption('moderador')
+  await confirmar()
+  await painel.waitForSelector('dialog[open] .caixa-segredo', { timeout: 10000 })
+  const provisoria = (await painel.textContent('dialog[open] .caixa-segredo code')).trim()
+  ok(provisoria.length === 14 && !/[0O1lI]/.test(provisoria), 'senha provisória (14, sem 0/O/1/l/I) mostrada uma vez')
+  await print(painel, 'v32-f9-senha-provisoria')
+  await painel.keyboard.press('Escape')
+  const MOD = await novoPainel('MOD')
+  estado.idMod = sql("SELECT id FROM admin_contas WHERE email = 'bia.moderadora@exemplo.com'")
+  await MOD.page.goto(PAINEL)
+  await MOD.page.waitForSelector('#form-entrar:not([hidden])')
+  ok(await MOD.page.isVisible('#campo-email'), 'com conta pessoal na equipe, a entrada mostra o campo E-mail (modo contas)')
+  await entrarPainel(MOD.page, { email: 'bia.moderadora@exemplo.com', senha: provisoria })
+  await MOD.page.waitForSelector('#form-trocar-senha:not([hidden])', { timeout: 10000 })
+  await MOD.page.fill('#nova-senha', SENHA_MOD)
+  await MOD.page.fill('#nova-senha-2', SENHA_MOD)
+  await MOD.page.click('#botao-trocar')
+  await MOD.page.waitForSelector('#form-criar-pin:not([hidden])', { timeout: 10000 })
+  await digitarPin(MOD.page, '#pin-novo', PIN_MOD)
+  await digitarPin(MOD.page, '#pin-repetir', PIN_MOD)
+  await MOD.page.click('#botao-criar-pin')
+  await MOD.page.waitForSelector('#tela-painel:not([hidden])', { timeout: 15000 })
+  ok(true, 'moderadora: provisória → senha nova → PIN → painel')
+  await irP(`#/usuarios?conta=${estado.idA}`, 1800, MOD.page)
+  await MOD.page.waitForSelector('#gaveta:not([hidden]) .perfil-nome h2', { timeout: 10000 })
+  ok((await naFicha(MOD.page, 'Excluir conta').count()) === 0 && (await naFicha(MOD.page, 'Suspender').count()) === 0, 'moderadora: sem "Excluir conta" nem "Suspender" na ficha')
+  const neg = await MOD.page.evaluate(async (id) => {
+    const r = await fetch('../api/admin.php', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ acao: 'excluir_usuario', id, confirma: 'Ian Cruzeiro', motivo: 'outro' }) })
+    return `${r.status}:${(await r.json()).erro}`
+  }, Number(estado.idA))
+  ok(neg === '403:sem_poder', `moderadora: excluir_usuario → ${neg}`)
+  ok(sql(`SELECT COUNT(*) FROM usuarios WHERE id=${estado.idA}`) === '1' && sql(`SELECT COUNT(*) FROM admin_log WHERE acao = 'negado' AND alvo = 'excluir_usuario' AND quem = 'a${estado.idMod}'`) === '1', 'a conta continua e o "negado" fica no registro com quem tentou')
+  ok((await MOD.page.locator('.abas a.trancada[data-aba="equipe"]').count()) === 1, 'moderadora: Equipe com cadeado')
+  await print(MOD.page, 'v32-f9-moderadora-ficha')
+  MOD.erros.splice(0, MOD.erros.length, ...MOD.erros.filter((x) => !/status of 403/.test(x)))
+  MODp = MOD.page
+})
+
+await etapa('f10. celular: o painel sem rolagem lateral em todas as abas; a sessão revogada para de valer', async () => {
+  const CEL = await novoPainel('ADM-celular', { viewport: { width: 390, height: 844 }, celular: true })
+  await entrarPainel(CEL.page, { senha: env.PAINEL_SENHA, pin: PIN_DONO })
+  await CEL.page.waitForSelector('#tela-painel:not([hidden])', { timeout: 15000 })
+  const ABAS = ['visao', 'area', 'usuarios', 'hall', 'denuncias', 'indicacoes', 'conquistas', 'relatorios', 'tempo', 'registro', 'saude', 'equipe', 'config', 'testes']
+  const largas = []
+  for (const a of ABAS) {
+    await irP(`#/${a}`, 1500, CEL.page)
+    const w = await semRolagem(CEL.page)
+    if (w[0] > w[1]) largas.push(`${a} ${w[0]}>${w[1]}`)
+    if (['visao', 'hall', 'usuarios', 'registro', 'config'].includes(a)) await print(CEL.page, `v32-f10-celular-${a}`)
+  }
+  ok(largas.length === 0, `celular: nenhuma das 14 abas rola para o lado${largas.length ? ` (${largas.join(', ')})` : ''}`)
+  await irP(`#/usuarios?conta=${estado.idB}`, 1800, CEL.page)
+  ok((await CEL.page.evaluate(() => document.getElementById('gaveta').getBoundingClientRect().width)) >= 389, 'celular: a ficha ocupa a tela toda')
+  await print(CEL.page, 'v32-f10-celular-ficha')
+  // a sessão do celular é encerrada pela Minha conta do computador ("Sair de todos os outros")
+  await irP('#/config?parte=conta', 1800)
+  await limparAvisos()
+  await abaP().locator('button', { hasText: 'Sair de todos os outros' }).click()
+  ok(await avisoPainel(/sess(ão|ões) encerrada/), 'Minha conta: "Sair de todos os outros"')
+  const st = await CEL.page.evaluate(async () => (await fetch('../api/admin.php?r=resumo', { credentials: 'same-origin' })).status)
+  ok(st === 401, `o celular revogado: admin.php → ${st}`)
+  await irP('#/hall', 2000, CEL.page)
+  await CEL.page.waitForSelector('#form-entrar:not([hidden])', { timeout: 20000 }).catch(() => {})
+  ok(await CEL.page.isVisible('#form-entrar'), 'o celular revogado volta para a entrada')
+  ok((await admin(null, { r: 'resumo' })).status === 200 && (await painel.evaluate(async () => (await fetch('../api/admin.php?r=resumo', { credentials: 'same-origin' })).status)) === 200, 'o computador (a sessão que pediu) continua valendo')
+  await CEL.ctx.close()
+})
+
+await etapa('f11. aparência: tema claro (e de volta ao original)', async () => {
+  await irP('#/visao', 1200)
+  await painel.keyboard.press('t')
+  ok((await painel.getAttribute('html', 'data-tema')) === 'claro', 'atalho T: tema Claro')
+  await sleep(600)
+  await print(painel, 'v32-f11-tema-claro-visao', { fullPage: true })
+  await irP(`#/usuarios?conta=${estado.idA}`, 1800)
+  await print(painel, 'v32-f11-tema-claro-ficha')
+  await painel.reload()
+  await painel.waitForSelector('#tela-painel:not([hidden])', { timeout: 15000 })
+  ok((await painel.getAttribute('html', 'data-tema')) === 'claro', 'o tema fica depois de recarregar')
+  await painel.keyboard.press('Escape')
+  await painel.keyboard.press('t')
+  await painel.keyboard.press('t')
+  ok((await painel.getAttribute('html', 'data-tema')) === null, 'T de novo: Alto contraste → Original')
 })
 
 // ───────────────────────── fim ─────────────────────────
-await etapa('z. sem erro de console nem 5xx', async () => {
+await etapa('z. sem erro de console, sem 5xx, sem violação de CSP no painel', async () => {
+  for (const p of [painel, MODp].filter(Boolean)) {
+    const csp = await p.evaluate(() => window.__csp ?? []).catch(() => [])
+    ok(csp.length === 0, `CSP do painel sem violação${csp.length ? `: ${csp.slice(0, 3).join(' | ')}` : ''}`)
+  }
   const erros = aparelhos.flatMap((a) => a.erros)
   const r5 = aparelhos.flatMap((a) => a.respostas5xx)
   ok(erros.length === 0, `console sem erro${erros.length ? `:\n      ${erros.slice(0, 12).join('\n      ')}` : ''}`)
@@ -733,6 +1227,7 @@ await etapa('z. sem erro de console nem 5xx', async () => {
     log = readFileSync(`${BASE}/php-erros.log`, 'utf8').trim()
   } catch {}
   ok(!log, `log de erros do PHP vazio${log ? `:\n${log.slice(0, 800)}` : ''}`)
+  estado.pinDono = PIN_DONO
 })
 
 await browser.close()

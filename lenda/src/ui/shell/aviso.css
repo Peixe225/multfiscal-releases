@@ -8,3 +8,6 @@
 .lx-aviso__x:hover { color: var(--text); background: rgba(255, 255, 255, .06); }
 .lx-aviso__x:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .lx-aviso__x svg { width: 16px; height: 16px; }
+/* v3.2 (N14): vários avisos empilhados, cada um com o seu X */
+.lx-avisos { position: relative; z-index: 6; display: grid; flex: none; }
+.lx-avisos > .lx-aviso + .lx-aviso { border-top: 0; }

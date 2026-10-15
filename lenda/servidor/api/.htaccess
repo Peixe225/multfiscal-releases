@@ -1,7 +1,7 @@
 # ─────────────────────────────────────────────────────────────────────────────────────────────
 # LENDA · public_html/lenda/api/.htaccess
 # Serve só as rotas (e.php, conta.php, carreiras.php, hall.php, conquistas.php, bonus.php, admin.php, lendas.php,
-# painel.php, instalar.php).
+# painel.php, equipe.php, instalar.php).
 # Nega _*.php (biblioteca e config), *.sql, *.md e afins. Sem listagem. Sem cache.
 # Sem RewriteEngine de propósito: ligar o mod_rewrite aqui desligaria, nesta pasta, as regras herdadas
 # do .htaccess de cima (ex.: forçar https).
@@ -35,7 +35,7 @@
 # 5 min) e conquistas.php (a raridade é pública, 1 h; o resto sai com no-store pelo PHP). O cache do LiteSpeed é
 # desligado pelo próprio PHP (X-LiteSpeed-Cache-Control: no-cache).
 <IfModule mod_headers.c>
-  <FilesMatch "^(e|conta|carreiras|bonus|admin|painel|instalar)\.php$">
+  <FilesMatch "^(e|conta|carreiras|bonus|admin|painel|equipe|instalar)\.php$">
     Header set Cache-Control "no-store"
     Header set X-Content-Type-Options "nosniff"
   </FilesMatch>

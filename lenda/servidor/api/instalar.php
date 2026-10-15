@@ -5,7 +5,9 @@
  * _schema.sql que faltar (nunca apaga nem muda o que já existe). Depois preenche o que a v3 trouxe para os
  * dados antigos: código de convite das contas e, das carreiras salvas antes, os clubes, as Copas, o bônus, o hash
  * do resumo e a plausibilidade (lidos do HallEntry guardado); a decisão de moderação das carreiras já escondidas
- * (carreiras_moderacao) e, na primeira vez, as partidas por aparelho (partidas_vid, a partir dos eventos).
+ * (carreiras_moderacao) e, na primeira vez, as partidas por aparelho (partidas_vid, a partir dos eventos). No fim, grava
+ * site_config._esquema = 32 (v3.2): até lá, as rotas do jogo não usam as colunas e tabelas novas (subir os arquivos antes
+ * de rodar isto não quebra o jogo; o painel responde 503 instalar nas telas novas).
  * Responde a lista de tabelas do banco e o que preencheu; se a resposta disser "faltam" > 0, rode de novo.
  *   curl -X POST -H "Authorization: Bearer $TOKEN" https://oprojeto.online/lenda/api/instalar.php
  */
@@ -111,6 +113,22 @@ while (microtime(true) < $fim) {
         $resumos++;
     }
 }
+// rev3: o hash do resumo das carreiras que já estavam na lixeira, tirado da linha guardada (a mesma carreira salva por
+// outra conta vira "cópia"); sem hash, '' (não fica voltando aqui). Conta junto com os resumos.
+if (in_array('lixeira_carreiras', $tabelas, true)) {
+    while (microtime(true) < $fim) {
+        $lote = sql('SELECT id, linha FROM lixeira_carreiras WHERE resumo_hash IS NULL ORDER BY id LIMIT 500')->fetchAll();
+        if (!$lote) {
+            break;
+        }
+        foreach ($lote as $l) {
+            $d = is_string($l['linha']) ? json_decode($l['linha'], true) : null;
+            $hash = is_array($d) && is_string($d['resumo_hash'] ?? null) && preg_match('/^[0-9a-f]{40}$/', $d['resumo_hash']) ? $d['resumo_hash'] : '';
+            sql('UPDATE lixeira_carreiras SET resumo_hash = ? WHERE id = ?', [$hash, (int) $l['id']]);
+            $resumos++;
+        }
+    }
+}
 // v3.1: as carreiras já escondidas (admin ou denúncias) guardam a decisão fora da linha (sobrevive ao "apagar")
 $moderacao = sql('INSERT IGNORE INTO carreiras_moderacao (usuario_id, carreira_id, resumo_hash, oculta, em)
     SELECT usuario_id, carreira_id, resumo_hash, oculta, UTC_TIMESTAMP() FROM carreiras WHERE oculta > 0')->rowCount();
@@ -123,6 +141,9 @@ if (!in_array('partidas_vid', $antes, true)) {
         GROUP BY e.vid
         ON DUPLICATE KEY UPDATE n = GREATEST(n, VALUES(n))")->rowCount();
 }
+// v3.2: o banco tem tudo do _schema.sql; as rotas passam a usar as colunas e tabelas novas (esquemaV32() no _lib.php)
+gravarSiteConfig('_esquema', LENDA_ESQUEMA, 'instalar');
+esquecerSiteConfig();
 $faltam = (int) umValor('SELECT COUNT(*) FROM carreiras WHERE clubes IS NULL OR resumo_hash IS NULL')
     + (int) umValor('SELECT COUNT(*) FROM usuarios WHERE codigo_convite IS NULL');
 responder(200, ['ok' => true, 'comandos' => count($comandos), 'alteracoes' => $alteracoes, 'tabelas' => $tabelas,

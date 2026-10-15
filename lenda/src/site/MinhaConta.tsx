@@ -2,14 +2,16 @@
  * "Minha conta": quem é, desde quando, as estatísticas que o servidor junta (partidas, carreiras salvas,
  * melhor nota, Bolas de Ouro, gols, títulos, tempo jogado, aparelhos), apelido / time do coração / estado
  * editáveis, Sair e Excluir conta (pede a senha).
+ * v3.2: o aviso que a moderação deixou para o dono (H11, mostrado uma vez: ao aparecer, vai o "aviso_lido") e a
+ * abertura já rolada até "Convide amigos" (o atalho do menu, X3).
  */
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { FolderHeart, LogOut, Save, Trash } from 'lucide-react'
+import { FolderHeart, LogOut, Save, ShieldAlert, Trash } from 'lucide-react'
 import { navigate } from '@/store/app'
 import { Button, Modal, formatInt, toast } from '@/ui/primitives'
 import { mensagemDeErro } from './api'
 import { Campo, CampoSenha, CampoUf, Erro, nomeUf, useTecladoVirtual } from './campos'
-import { erroApelido, useConta, type Usuario } from './conta'
+import { erroApelido, useConta, type AvisoConta, type Usuario } from './conta'
 import { track } from './medicao'
 import { abrirCarreiras, useSiteUi } from './ui'
 import { lazySite } from '@/ui/shell/lazySite'
@@ -54,18 +56,63 @@ export default function MinhaConta() {
     if (d?.tipo === 'perfil' && !usuario) fechar()
   }, [d, usuario, fechar])
 
+  // o aviso da moderação: o que apareceu nesta abertura continua na tela até fechar (o servidor já o apagou)
+  const [avisoVisto, setAvisoVisto] = useState<AvisoConta | null>(null)
+  useEffect(() => {
+    if (!aberto) {
+      setAvisoVisto(null)
+      return
+    }
+    const a = usuario?.aviso
+    if (!a) return
+    setAvisoVisto(a)
+    void useConta.getState().avisoLido()
+  }, [aberto, usuario?.aviso])
+
   return (
     <Modal open={aberto} onClose={fechar} title="Minha conta" size="lg" className="sc-modal">
-      {usuario && <Corpo u={usuario} excluirAberto={d?.tipo === 'perfil' && !!d.excluir} />}
+      {usuario && <Corpo u={usuario} aviso={avisoVisto ?? usuario.aviso} excluirAberto={d?.tipo === 'perfil' && !!d.excluir} irPara={aberto && d?.tipo === 'perfil' ? d.secao : undefined} />}
     </Modal>
   )
 }
 
-function Corpo({ u, excluirAberto }: { u: Usuario; excluirAberto: boolean }) {
+/** Rola até a seção pedida quando ela aparecer (o cartão de convites vem num pedaço à parte), no máximo ~2 s. */
+function useRolarAte(id: string | null) {
+  useEffect(() => {
+    if (!id) return
+    let tentativas = 0
+    let t = 0
+    const tentar = () => {
+      const el = document.getElementById(id)
+      // espera o cartão (não o esqueleto): a altura dele é a que vale para rolar certo
+      if (el && (el.nextElementSibling?.matches('.sc-conv') || tentativas > 12)) {
+        el.scrollIntoView({ block: 'start', behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })
+        el.focus({ preventScroll: true })
+        return
+      }
+      if (tentativas++ < 25) t = window.setTimeout(tentar, 80)
+    }
+    t = window.setTimeout(tentar, 60)
+    return () => window.clearTimeout(t)
+  }, [id])
+}
+
+function Corpo({ u, aviso, excluirAberto, irPara }: { u: Usuario; aviso: AvisoConta | null; excluirAberto: boolean; irPara?: 'convite' }) {
   const e = u.estatisticas
   const aparelhos = e.aparelhos.map((a) => APARELHO[a] ?? a).join(' · ') || '—'
+  useRolarAte(irPara === 'convite' ? 'sc-convite-h' : null)
   return (
     <>
+      {aviso && (
+        <div className="sc-avisoconta" role="status">
+          <ShieldAlert aria-hidden="true" />
+          <div className="min-w-0">
+            <b>Aviso da moderação</b>
+            <p>{aviso.texto}</p>
+            <small>{aviso.em ? `${dataBr(aviso.em, true)} · ` : ''}este aviso aparece só uma vez</small>
+          </div>
+        </div>
+      )}
       <div className="sc-perfil__head">
         <span className="sc-avatar sc-avatar--lg" aria-hidden="true">
           {u.apelido.trim().charAt(0) || '?'}
@@ -126,7 +173,9 @@ function Corpo({ u, excluirAberto }: { u: Usuario; excluirAberto: boolean }) {
         <BotaoSair />
       </div>
 
-      <h3 className="sc-sec">Indicações e bônus de OVR</h3>
+      <h3 id="sc-convite-h" className="sc-sec sc-sec--alvo" tabIndex={-1}>
+        Indicações e bônus de OVR
+      </h3>
       <ConvideAmigos />
 
       <h3 className="sc-sec">Seu perfil</h3>

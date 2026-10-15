@@ -4,7 +4,7 @@
  * (hall_foto), que é refeita no máximo a cada hall_intervalo_min (o primeiro pedido depois do prazo responde
  * com a anterior e refaz logo em seguida). Público, sem login; navegador e CDN guardam 5 min.
  *   GET  hall.php?pais=BOL&clube=<clubId>&pagina=1 → {atualizadoEm, proximaEm, total, pagina, porPagina, itens}
- *   GET  hall.php?id=<HallEntry.id>                → {carreira: HallEntry, apelido, posicao} (só se está na foto)
+ *   GET  hall.php?id=<HallEntry.id>                → {carreira: HallEntry, apelido, posicao, destaque} (só se está na foto)
  *   POST hall.php {"acao":"denunciar","id","motivo":"nome"|"trapaca"|"outro","texto"?} → {ok: true} (logado)
  * Contrato: servidor/CONTRATO-v3.md §4.
  */
@@ -12,6 +12,7 @@ declare(strict_types=1);
 
 require __DIR__ . '/_lib.php';
 require __DIR__ . '/_hall.php';
+require __DIR__ . '/_celular.php';
 
 cabecalhos();
 
@@ -58,15 +59,17 @@ if ($m === 'GET') {
     [$e, $refazer] = hallTalvez();
     if (isset($_GET['id'])) {
         $id = lerIdHall($_GET['id']);
-        $l = umaLinha('SELECT f.id AS posicao, f.apelido, c.dados FROM hall_foto f
+        // v3.2 (H12): o selo "Destaque" também no resumo aberto pelo link (só com o banco da v3.2, S22)
+        $l = umaLinha('SELECT f.id AS posicao, f.apelido, ' . (esquemaV32() ? 'f.destaque' : '0 AS destaque') . ', c.dados FROM hall_foto f
             JOIN carreiras c ON c.id = f.carreira_pk JOIN usuarios u ON u.id = c.usuario_id
-            WHERE f.carreira_id = ? AND ' . sqlCarreiraVisivel() . ' AND ' . LENDA_SQL_ATIVO . "
+            WHERE f.carreira_id = ? AND ' . sqlCarreiraVisivel() . ' AND ' . LENDA_SQL_ATIVO . ' AND ' . sqlContaNoHall() . "
               AND (u.hall_publico = 'auto' OR (u.hall_publico = 'manual' AND c.publica = 1))", [$id]);
         $json = $l !== null && is_string($l['dados']) ? @gzdecode($l['dados']) : false;
         if (!is_string($json) || $json === '') {
             erro(404, 'nao_encontrada', 'Essa carreira não está no Hall público.');
         }
-        responderHall('{"carreira":' . $json . ',"apelido":' . json((string) $l['apelido']) . ',"posicao":' . (int) $l['posicao'] . '}', $refazer);
+        responderHall('{"carreira":' . $json . ',"apelido":' . json((string) $l['apelido']) . ',"posicao":' . (int) $l['posicao']
+            . ',"destaque":' . ((int) $l['destaque'] === 1 ? 'true' : 'false') . '}', $refazer);
     }
 
     $pais = $_GET['pais'] ?? '';
@@ -172,4 +175,11 @@ $ocultou = transacao(static function () use ($pk, $uid, $motivo, $texto, $proteg
 if ($ocultou) {
     tirarDoHall($pk);
 }
-responder(200, ['ok' => true]);
+// v3.2 (O6): aviso no celular do admin, se ligado — depois de responder, sem o jogador esperar
+terminarResposta(200, ['ok' => true]);
+try {
+    avisarDenunciaNova($ocultou);
+} catch (Throwable $e) {
+    error_log('LENDA aviso no celular: ' . $e->getMessage());
+}
+exit;

@@ -74,6 +74,8 @@ function ModalInner({ onClose, title, description, media, children, footer, size
   closeRef.current = onClose
   const dismissRef = useRef(dismissible)
   dismissRef.current = dismissible
+  /** This modal's entry in the stack (the top one owns Esc and Tab). */
+  const meRef = useRef({})
 
   useEffect(() => {
     const prev = document.activeElement as HTMLElement | null
@@ -91,14 +93,16 @@ function ModalInner({ onClose, title, description, media, children, footer, size
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Focus can fall out of the panel (the focused button unmounts → <body>): the panel's own onKeyDown
-  // never sees the key then. Esc still closes the top modal, and Tab brings focus back inside.
+  // Focus can fall out of the panel (the focused button unmounts → <body>; or a modal closing hands focus
+  // back to its trigger while this one opens — Menu → Minha conta): the panel's own onKeyDown never sees the
+  // key then. Esc still closes the top modal, and Tab brings focus back inside.
   useEffect(() => {
-    const me = {}
+    const me = meRef.current
     stack.push(me)
     const onDocKey = (e: KeyboardEvent) => {
       const el = panel.current
-      const lost = !document.activeElement || document.activeElement === document.body
+      const ativo = document.activeElement
+      const lost = !ativo || ativo === document.body || (!!el && !el.contains(ativo))
       if (stack[stack.length - 1] !== me || !el || !lost) return
       if (e.key === 'Escape' && dismissRef.current) {
         e.preventDefault()
@@ -117,6 +121,9 @@ function ModalInner({ onClose, title, description, media, children, footer, size
   }, [])
 
   const onKeyDown = (e: React.KeyboardEvent) => {
+    // a panel on its way out (Menu → Minha conta) can still hold the focus: the key belongs to the modal on top,
+    // whose document listener handles it (the focus is outside its panel)
+    if (stack[stack.length - 1] !== meRef.current) return
     if (e.key === 'Escape' && dismissible) {
       e.stopPropagation()
       closeRef.current()

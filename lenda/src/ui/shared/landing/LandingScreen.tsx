@@ -8,7 +8,7 @@ import { motion } from 'motion/react'
 import { ArrowRight, Check, Clock3, Layers, Play, Trophy, Tv2 } from 'lucide-react'
 import type { Pace } from '@/engine/types'
 import { buildHash, navigate, useApp } from '@/store/app'
-import { podeImersivo, podeLive, soAdmin, useAcesso } from '@/store/acesso'
+import { emTeste, podeImersivo, podeLive, useAcesso } from '@/store/acesso'
 import { selectHasActiveCareer, useCareer } from '@/store/career'
 import { peekSavedImmersive } from '@/store/immersive'
 import type { ImmersiveState } from '@/engine/immersive/types'
@@ -29,7 +29,7 @@ export function LandingNav() {
   // site: com o Modo Imersivo ainda em desenvolvimento, o público vê "Em breve" (sem link); o admin, "Teste"
   const acesso = useAcesso()
   const imersivo = podeImersivo(acesso)
-  const teste = soAdmin(acesso, acesso.imersivoPublico)
+  const teste = !!emTeste(acesso, acesso.imersivoPublico)
   const links: [string, string, string?][] = [
     ['Modo Clássico', '#/identidade'],
     ['Modo Imersivo', '#/imersivo', teste ? 'Teste' : 'Novo'],
@@ -75,7 +75,7 @@ export default function LandingScreen() {
   // site: Modo Imersivo "Em desenvolvimento" para o público (cartão desabilitado); o admin joga (selo "Teste")
   const acesso = useAcesso()
   const imersivo = podeImersivo(acesso)
-  const imersivoTeste = soAdmin(acesso, acesso.imersivoPublico)
+  const imersivoTeste = !!emTeste(acesso, acesso.imersivoPublico)
   const liveVisivel = podeLive(acesso)
   // modo de jogo escolhido nos cards (o Imersivo abre a identidade em ?modo=imersivo)
   const [modeSel, setMode] = useState<'classico' | 'imersivo'>(query.modo === 'imersivo' ? 'imersivo' : 'classico')

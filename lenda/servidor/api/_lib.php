@@ -220,7 +220,9 @@ function bd(): PDO
             PDO::ATTR_STRINGIFY_FETCHES => false,
             PDO::ATTR_TIMEOUT => 5,
         ]);
-        $pdo->exec("SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci, time_zone = '+00:00'");
+        // group_concat_max_len: o padrão do MySQL 8 é 1024 (o do MariaDB, 1M); a lista de contas de um aparelho
+        // (gruposMulticontas) cortava em ~146 contas (rev3)
+        $pdo->exec("SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci, time_zone = '+00:00', SESSION group_concat_max_len = 1048576");
     } catch (PDOException $e) {
         error_log('LENDA banco: ' . $e->getMessage());
         erro(500, 'banco', 'Servidor indisponível. Tente de novo daqui a pouco.');
@@ -570,6 +572,17 @@ function limpezaTalvez(): void
     } catch (Throwable $e) {
         error_log('LENDA limpeza: ' . $e->getMessage());
     }
+    if (!esquemaV32()) {
+        return; // tabelas da v3.2 ainda não criadas (rode o instalar.php)
+    }
+    try {
+        // v3.2: a cópia das carreiras apagadas pelo admin vence em 30 dias (fica só a marca que impede o reenvio) e o
+        // registro de e-mails, em 90
+        sql('UPDATE lixeira_carreiras SET linha = NULL, dados = NULL WHERE expira_em < ? AND dados IS NOT NULL LIMIT 500', [dt($t)]);
+        sql('DELETE FROM email_log WHERE em < ? LIMIT 5000', [dt($t - 90 * 86400)]);
+    } catch (Throwable $e) {
+        error_log('LENDA limpeza v3.2: ' . $e->getMessage());
+    }
 }
 
 // ── cookies e sessão do jogador ──────────────────────────────────────────────────────────────────
@@ -700,54 +713,9 @@ function exigirUsuario(): array
     return $u;
 }
 
-// ── administrador (painel e instalar) ────────────────────────────────────────────────────────────
-
-function cabecalhoAutorizacao(): string
-{
-    foreach (['HTTP_AUTHORIZATION', 'REDIRECT_HTTP_AUTHORIZATION'] as $k) {
-        if (!empty($_SERVER[$k]) && is_string($_SERVER[$k])) {
-            return $_SERVER[$k];
-        }
-    }
-    if (function_exists('getallheaders')) {
-        foreach ((array) getallheaders() as $k => $v) {
-            if (is_string($k) && strcasecmp($k, 'Authorization') === 0 && is_string($v)) {
-                return $v;
-            }
-        }
-    }
-    return '';
-}
-
-function tokenAdminValido(): bool
-{
-    $esperado = strtolower((string) (config()['admin_token_sha256'] ?? ''));
-    if (!preg_match('/^[0-9a-f]{64}$/', $esperado)) {
-        return false;
-    }
-    if (!preg_match('/^Bearer\s+(\S{16,256})$/i', trim(cabecalhoAutorizacao()), $m)) {
-        return false;
-    }
-    return hash_equals($esperado, hash('sha256', $m[1]));
-}
-
-/** HMAC do exp; a chave leva o hash da senha do painel: trocar a senha derruba todos os cookies emitidos. */
-function assinaturaPainel(string $exp): string
-{
-    return hash_hmac('sha256', 'painel|' . $exp, segredo() . '|' . (string) (config()['admin_senha_hash'] ?? ''));
-}
-
-function cookiePainelValido(): bool
-{
-    $v = $_COOKIE[LENDA_COOKIE_PAINEL] ?? null;
-    if (!is_string($v) || !preg_match('/^(\d{9,11})\.([0-9a-f]{64})$/', $v, $m)) {
-        return false;
-    }
-    if ((int) $m[1] < time()) {
-        return false;
-    }
-    return hash_equals(assinaturaPainel($m[1]), $m[2]);
-}
+// ── administrador (painel, instalar e scripts) ───────────────────────────────────────────────────
+// Token Bearer, cookie e sessões do painel, papéis e poderes, exigirAdmin(), exigirAdminAcao(), adminAtual() e
+// registrarAdmin() ficam no _admin.php (incluído no fim deste arquivo). CONTRATO-v32 §B.
 
 // ── origem da visita ─────────────────────────────────────────────────────────────────────────────
 
@@ -797,12 +765,62 @@ function normalizarOrigem(?string $utmSource, ?string $ref): string
 
 // ── e-mail ───────────────────────────────────────────────────────────────────────────────────────
 
-/** Envia (mail()) ou grava num arquivo (email_modo = 'arquivo', para teste). */
-function enviarEmail(string $para, string $assunto, string $corpo): bool
+/** "jo***@gmail.com": as 2 primeiras letras (1 se o nome tem até 2) e o domínio. */
+function mascararEmail(string $email): string
+{
+    $email = strtolower(trim($email));
+    $p = strrpos($email, '@');
+    if ($p === false) {
+        return '***';
+    }
+    $nome = substr($email, 0, $p);
+    $vis = mb_substr($nome, 0, mb_strlen($nome, 'UTF-8') <= 2 ? 1 : 2, 'UTF-8');
+    return mb_substr($vis . '***' . substr($email, $p), 0, 80, 'UTF-8');
+}
+
+/**
+ * Uma linha em email_log por tentativa de envio (90 dias): o endereço só como HMAC (quemEmail, para achar) e mascarado
+ * (para ler). Falha calada: o registro nunca impede o e-mail.
+ */
+function registrarEmail(string $para, string $tipo, string $via, bool $ok, ?string $detalhe): void
+{
+    try {
+        sql('INSERT INTO email_log (em, para_hash, para_mask, tipo, via, ok, detalhe) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            [dt(time()), quemEmail(strtolower(trim($para))), mascararEmail($para), substr(preg_replace('/[^a-z0-9_]/', '', $tipo) ?: 'outro', 0, 16),
+                $via, $ok ? 1 : 0, $detalhe !== null ? mb_substr(semEmails($detalhe, $para), 0, 200, 'UTF-8') : null]);
+    } catch (Throwable) {
+        // tabela ainda não criada (rode o instalar.php) ou banco fora: o e-mail já foi (ou não) e isso basta
+    }
+}
+
+/**
+ * O texto sem nenhum endereço de e-mail inteiro: cada coisa com cara de e-mail vira a máscara (jo***@gmail.com), e o
+ * destinatário some também codificado em base64. Usado no detalhe do email_log (ao gravar e ao mostrar):
+ * o servidor de e-mail costuma repetir o endereço na recusa ("550 5.1.1 <ana@x.com>: Recipient address rejected").
+ */
+function semEmails(string $t, string $para = ''): string
+{
+    $para = strtolower(trim($para));
+    if ($para !== '') {
+        $t = str_ireplace(base64_encode($para), '***', str_ireplace($para, mascararEmail($para), $t));
+    }
+    return (string) preg_replace_callback('/[^\s<>()\[\]"\',;:]+@[^\s<>()\[\]"\',;:]+/u',
+        static fn(array $m): string => str_contains($m[0], '***@') ? $m[0] : mascararEmail($m[0]), $t);
+}
+
+/**
+ * Envia (mail()), manda pelo SMTP autenticado da caixa (email_modo = 'smtp', O7) ou grava num arquivo (email_modo =
+ * 'arquivo', para teste). $tipo vai para o email_log (esqueci, admin_redef, outro). true do mail() só quer dizer
+ * "aceito pelo servidor de envio"; o do SMTP, que o servidor da caixa aceitou a mensagem (250 depois do DATA).
+ */
+function enviarEmail(string $para, string $assunto, string $corpo, string $tipo = 'outro'): bool
 {
     $c = config();
     $rem = (string) $c['email_remetente'];
+    $modo = (string) ($c['email_modo'] ?? 'mail');
+    $via = $modo === 'arquivo' ? 'arquivo' : ($modo === 'smtp' ? 'smtp' : 'mail');
     if (!filter_var($rem, FILTER_VALIDATE_EMAIL) || !filter_var($para, FILTER_VALIDATE_EMAIL)) {
+        registrarEmail($para, $tipo, $via, false, 'endereço inválido');
         return false;
     }
     $cab = [
@@ -825,12 +843,133 @@ function enviarEmail(string $para, string $assunto, string $corpo): bool
                 $linhas[] = $k . ': ' . $v;
             }
             $nome = $dir . '/' . gmdate('Ymd-His') . '-' . bin2hex(random_bytes(6)) . '.eml';
-            return file_put_contents($nome, implode("\r\n", $linhas) . "\r\n\r\n" . $corpo, LOCK_EX) !== false;
+            $ok = file_put_contents($nome, implode("\r\n", $linhas) . "\r\n\r\n" . $corpo, LOCK_EX) !== false;
+        } elseif ($via === 'smtp') {
+            [$ok, $erroSmtp] = enviarSmtp(is_array($c['smtp'] ?? null) ? $c['smtp'] : [], $rem, $para, $assuntoMime, $cab, $corpo);
+            // a falha fica no email_log (Registro → E-mails e o alerta "e-mails falhando"), como a do mail()
+            registrarEmail($para, $tipo, $via, $ok, $erroSmtp);
+            return $ok;
+        } else {
+            $ok = mail($para, $assuntoMime, $corpo, $cab, '-f' . $rem);
         }
-        return mail($para, $assuntoMime, $corpo, $cab, '-f' . $rem);
+        $erro = $ok ? null : (error_get_last()['message'] ?? 'recusado pelo servidor de envio');
+        registrarEmail($para, $tipo, $via, $ok, $erro);
+        return $ok;
     } catch (Throwable $e) {
         error_log('LENDA e-mail: ' . $e->getMessage());
+        registrarEmail($para, $tipo, $via, false, $e->getMessage());
         return false;
+    }
+}
+
+/**
+ * O7 · envio por SMTP autenticado (a caixa da Hostinger: smtp.hostinger.com, porta 587 com STARTTLS ou 465 com SSL),
+ * com o certificado do servidor conferido (verify_peer e o nome). Config (só no arquivo, nunca no banco nem no painel):
+ *   'email_modo' => 'smtp',
+ *   'smtp' => ['host' => 'smtp.hostinger.com', 'porta' => 587, 'usuario' => '<a caixa>', 'senha' => '<a senha da caixa>',
+ *              'seguranca' => 'starttls'|'ssl' (padrão: ssl na 465, starttls nas outras), 'cafile' => '<CA própria, só teste>'],
+ * Devolve [ok, detalhe]: o detalhe (vai para o email_log) diz o passo e o código do servidor, nunca o usuário nem a senha.
+ * Timeout de 10 s para conectar e 15 s por resposta. O corpo vai em base64 (não depende do 8BITMIME do servidor).
+ */
+function enviarSmtp(array $s, string $rem, string $para, string $assuntoMime, array $cab, string $corpo): array
+{
+    $host = is_string($s['host'] ?? null) ? trim($s['host']) : '';
+    $porta = is_int($s['porta'] ?? null) ? $s['porta'] : (is_string($s['porta'] ?? null) && ctype_digit($s['porta']) ? (int) $s['porta'] : 587);
+    $usuario = is_string($s['usuario'] ?? null) ? $s['usuario'] : '';
+    $senha = is_string($s['senha'] ?? null) ? $s['senha'] : '';
+    if ($host === '' || $usuario === '' || $senha === '' || $porta < 1 || $porta > 65535 || preg_match('/[\s\/:]/', $host)) {
+        return [false, 'smtp: falta host, usuário ou senha na config'];
+    }
+    $seg = (($s['seguranca'] ?? ($porta === 465 ? 'ssl' : 'starttls')) === 'ssl') ? 'ssl' : 'starttls';
+    $ssl = ['verify_peer' => true, 'verify_peer_name' => true, 'peer_name' => $host, 'allow_self_signed' => false, 'SNI_enabled' => true,
+        'crypto_method' => STREAM_CRYPTO_METHOD_TLSv1_2_CLIENT | (defined('STREAM_CRYPTO_METHOD_TLSv1_3_CLIENT') ? STREAM_CRYPTO_METHOD_TLSv1_3_CLIENT : 0)];
+    if (is_string($s['cafile'] ?? null) && $s['cafile'] !== '') {
+        $ssl['cafile'] = $s['cafile'];
+    }
+    $limpar = static function (string $t) use ($usuario, $senha): string {
+        // nada do que a config tem de segredo vai para o registro, nem em base64
+        $fora = array_filter([$senha, $usuario, base64_encode($usuario), base64_encode($senha), base64_encode("\0" . $usuario . "\0" . $senha)],
+            static fn(string $x): bool => $x !== '');
+        return mb_substr(str_replace($fora, '***', (string) preg_replace('/[\x00-\x1f\x7f]+/', ' ', $t)), 0, 200, 'UTF-8');
+    };
+    $nErro = 0;
+    $tErro = '';
+    $fp = @stream_socket_client(($seg === 'ssl' ? 'ssl://' : 'tcp://') . $host . ':' . $porta, $nErro, $tErro, 10,
+        STREAM_CLIENT_CONNECT, stream_context_create(['ssl' => $ssl]));
+    if (!is_resource($fp)) {
+        $tls = error_get_last()['message'] ?? '';
+        return [false, $limpar('smtp: sem conexão com ' . $host . ':' . $porta . ' (' . ($tErro !== '' ? $tErro : 'erro ' . $nErro)
+            . (str_contains($tls, 'certificate') ? '; certificado não conferiu' : '') . ')')];
+    }
+    stream_set_timeout($fp, 15);
+    /** Uma resposta (com as linhas de continuação "250-…"): [código, linhas]. */
+    $ler = static function () use ($fp): array {
+        $linhas = [];
+        while (($l = fgets($fp, 2048)) !== false) {
+            $linhas[] = rtrim($l, "\r\n");
+            if (strlen($l) < 4 || $l[3] !== '-' || count($linhas) > 50) {
+                break;
+            }
+        }
+        $ult = $linhas ? (string) end($linhas) : '';
+        return [ctype_digit(substr($ult, 0, 3)) ? (int) substr($ult, 0, 3) : 0, $linhas];
+    };
+    $passo = static function (?string $cmd, array $esperados, string $nome) use ($fp, $ler, $limpar): array {
+        if ($cmd !== null && @fwrite($fp, $cmd . "\r\n") === false) {
+            throw new RuntimeException('smtp ' . $nome . ': a conexão caiu');
+        }
+        [$cod, $linhas] = $ler();
+        if (!in_array($cod, $esperados, true)) {
+            $txt = $linhas ? (string) preg_replace('/^\d{3}[ -]?/', '', (string) end($linhas)) : '';
+            throw new RuntimeException($limpar('smtp ' . $nome . ': ' . ($cod > 0 ? $cod . ' ' . $txt : 'sem resposta')));
+        }
+        return $linhas;
+    };
+    $dominio = substr((string) strrchr($rem, '@'), 1) ?: 'localhost';
+    try {
+        $passo(null, [220], 'saudação');
+        $ehlo = $passo('EHLO ' . $dominio, [250], 'EHLO');
+        if ($seg === 'starttls') {
+            if (!preg_grep('/^250[ -]STARTTLS\b/i', $ehlo)) {
+                throw new RuntimeException('smtp: o servidor não oferece STARTTLS (a senha não sai sem criptografia)');
+            }
+            $passo('STARTTLS', [220], 'STARTTLS');
+            if (@stream_socket_enable_crypto($fp, true, $ssl['crypto_method']) !== true) {
+                $m = (string) (error_get_last()['message'] ?? '');
+                throw new RuntimeException('smtp STARTTLS: ' . (str_contains($m, 'certificate') ? 'o certificado do servidor não conferiu' : 'a criptografia não abriu'));
+            }
+            $ehlo = $passo('EHLO ' . $dominio, [250], 'EHLO');
+        }
+        $auth = strtoupper(implode(' ', preg_grep('/^250[ -]AUTH\b/i', $ehlo) ?: []));
+        if (str_contains($auth, 'PLAIN')) {
+            $passo('AUTH PLAIN ' . base64_encode("\0" . $usuario . "\0" . $senha), [235], 'AUTH');
+        } else {
+            $passo('AUTH LOGIN', [334], 'AUTH');
+            $passo(base64_encode($usuario), [334], 'AUTH');
+            $passo(base64_encode($senha), [235], 'AUTH');
+        }
+        $passo('MAIL FROM:<' . $rem . '>', [250], 'MAIL FROM');
+        $passo('RCPT TO:<' . $para . '>', [250, 251], 'RCPT TO');
+        $passo('DATA', [354], 'DATA');
+        $h = ['Date' => date('r'), 'Message-ID' => '<' . bin2hex(random_bytes(12)) . '@' . $dominio . '>', 'To' => $para, 'Subject' => $assuntoMime]
+            + array_merge($cab, ['Content-Transfer-Encoding' => 'base64']);
+        $msg = '';
+        foreach ($h as $k => $v) {
+            $msg .= $k . ': ' . str_replace(["\r", "\n"], '', (string) $v) . "\r\n";
+        }
+        // base64 em linhas de 76: nenhuma começa com ponto (nada de dot-stuffing) e nada depende de 8 bits
+        $msg .= "\r\n" . rtrim(chunk_split(base64_encode($corpo), 76, "\r\n")) . "\r\n.";
+        $passo($msg, [250], 'envio');
+        try {
+            $passo('QUIT', [221], 'QUIT');
+        } catch (RuntimeException) {
+            // a mensagem já foi aceita
+        }
+        return [true, null];
+    } catch (RuntimeException $e) {
+        return [false, $limpar($e->getMessage())];
+    } finally {
+        @fclose($fp);
     }
 }
 
@@ -1078,7 +1217,10 @@ function lerApelido(mixed $v, bool $reservados = true): string
 // ── configuração do site (tabela site_config; o banco manda, o arquivo de config dá o padrão) ───
 
 const LENDA_CONFIG_CHAVES = ['regras', 'imersivo_publico', 'live_publica', 'aviso', 'manutencao', 'bonus', 'hall_intervalo_min',
-    'cadastro_aberto'];
+    'cadastro_aberto', 'hall_revisao_nota', 'avisos', 'aviso_celular'];
+/** Versão do banco que o instalar.php grava em site_config._esquema (o código novo só usa coluna/tabela nova com ela). */
+const LENDA_ESQUEMA = 32;
+const LENDA_AVISOS_MAX = 5;
 
 /** Padrões de cada chave (o `regras` vem do arquivo de config). */
 function configPadrao(): array
@@ -1094,7 +1236,47 @@ function configPadrao(): array
         'bonus' => ['indicacao' => [2, 3, 5], 'compartilhar' => 2, 'liberaAposPartidas' => 3, 'maxIndicacoes' => 3],
         'hall_intervalo_min' => 60,
         'cadastro_aberto' => true,
+        // v3.2: nota a partir da qual a carreira espera a revisão do admin para entrar no Hall (101 = desligado); o
+        // padrão é o do arquivo de config
+        'hall_revisao_nota' => revisaoNotaArquivo(),
+        // v3.2: avisos com público e validade (até 5), além do `aviso` único da v3
+        'avisos' => [],
+        // v3.2: aviso no celular (ntfy/Telegram do arquivo de config) para denúncia nova e pico de gente online
+        'aviso_celular' => ['denuncia' => false, 'picoOnline' => 0],
     ];
+}
+
+/** hall_revisao_nota do arquivo de config (padrão 90; 101 desliga). */
+function revisaoNotaArquivo(): int
+{
+    $n = config()['hall_revisao_nota'] ?? 90;
+    return is_int($n) && $n >= 1 ? min($n, 101) : 90;
+}
+
+/** "2026-10-14" (fim do dia em Brasília) ou ISO com hora → ISO UTC; null/"" → null; inválido → false. */
+function lerDataLimite(mixed $v): string|false|null
+{
+    if ($v === null || $v === '') {
+        return null;
+    }
+    if (!is_string($v) || strlen($v) > 40) {
+        return false;
+    }
+    if (preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $v, $p)) {
+        if (!checkdate((int) $p[2], (int) $p[3], (int) $p[1])) {
+            return false;
+        }
+        $t = (int) strtotime($v . ' 23:59:59 UTC') + LENDA_FUSO_H * 3600;
+    } else {
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})$/', $v)) {
+            return false;
+        }
+        $t = strtotime($v);
+        if ($t === false) {
+            return false;
+        }
+    }
+    return gmdate('Y-m-d\TH:i:s\Z', $t);
 }
 
 /**
@@ -1164,6 +1346,47 @@ function normalizarConfig(string $chave, mixed $v): mixed
                 $ruim('O Hall público é recalculado a cada 60 a 180 minutos.');
             }
             return $m;
+        case 'hall_revisao_nota':
+            $m = $int($v, 50, 101);
+            if ($m === null) {
+                $ruim('Revisão do Hall: nota de 50 a 100 (a carreira com essa nota ou mais espera a conferência); 101 desliga.');
+            }
+            return $m;
+        case 'avisos':
+            if (!is_array($v) || !array_is_list($v) || count($v) > LENDA_AVISOS_MAX) {
+                $ruim('Avisos: uma lista de até ' . LENDA_AVISOS_MAX . ' avisos.');
+            }
+            $out = [];
+            foreach ($v as $i => $a) {
+                $n = $i + 1;
+                if (!is_array($a)) {
+                    $ruim("Aviso $n: informe o texto, o tipo, o público e a validade.");
+                }
+                $txt = texto($a['texto'] ?? null, 400);
+                $tipo = $a['tipo'] ?? 'info';
+                $pub = $a['publico'] ?? 'todos';
+                $ate = lerDataLimite($a['ate'] ?? null);
+                if ($txt === null || mb_strlen($txt, 'UTF-8') > 200) {
+                    $ruim("Aviso $n: o texto precisa ter de 1 a 200 caracteres.");
+                }
+                if (!in_array($tipo, ['info', 'alerta'], true) || !in_array($pub, ['todos', 'logados', 'visitantes'], true)) {
+                    $ruim("Aviso $n: tipo info ou alerta; público todos, logados ou visitantes.");
+                }
+                if ($ate === false) {
+                    $ruim("Aviso $n: a validade é uma data (AAAA-MM-DD) ou vazia (sem fim).");
+                }
+                $out[] = ['texto' => $txt, 'tipo' => $tipo, 'publico' => $pub, 'ate' => $ate];
+            }
+            return $out;
+        case 'aviso_celular':
+            if (!is_array($v) || !is_bool($v['denuncia'] ?? null)) {
+                $ruim('Aviso no celular: informe denuncia (sim ou não) e picoOnline (0 desliga).');
+            }
+            $pico = $int($v['picoOnline'] ?? 0, 0, 100000);
+            if ($pico === null) {
+                $ruim('Aviso no celular: picoOnline de 0 (desligado) a 100.000 pessoas online.');
+            }
+            return ['denuncia' => $v['denuncia'], 'picoOnline' => $pico];
     }
     $ruim('Chave de configuração desconhecida: ' . mb_substr($chave, 0, 40) . '.');
 }
@@ -1184,14 +1407,19 @@ function siteConfig(bool $recarregar = false): array
         }
     }
     $c = configPadrao();
+    $c['_esquema'] = 0;
     try {
-        $linhas = sql('SELECT chave, valor FROM site_config WHERE chave IN (' . marcas(count(LENDA_CONFIG_CHAVES)) . ')',
-            LENDA_CONFIG_CHAVES)->fetchAll();
+        $chaves = array_merge(LENDA_CONFIG_CHAVES, ['_esquema']);
+        $linhas = sql('SELECT chave, valor FROM site_config WHERE chave IN (' . marcas(count($chaves)) . ')', $chaves)->fetchAll();
     } catch (PDOException $e) {
         error_log('LENDA site_config: ' . $e->getMessage()); // tabela ainda não criada (rode o instalar.php)
         $linhas = [];
     }
     foreach ($linhas as $l) {
+        if ($l['chave'] === '_esquema') {
+            $c['_esquema'] = (int) json_decode((string) $l['valor'], true);
+            continue;
+        }
         try {
             $c[$l['chave']] = normalizarConfig((string) $l['chave'], json_decode((string) $l['valor'], true, 16, JSON_THROW_ON_ERROR));
         } catch (Throwable) {
@@ -1202,6 +1430,18 @@ function siteConfig(bool $recarregar = false): array
         apcu_store($chaveApcu, $c, 10);
     }
     return $c;
+}
+
+/** O banco já tem as colunas e tabelas da v3.2 (o instalar.php rodou)? Lido junto com a config (sem consulta a mais). */
+function esquemaV32(): bool
+{
+    return (int) (siteConfig()['_esquema'] ?? 0) >= LENDA_ESQUEMA;
+}
+
+/** A config sem o estado interno (chaves com _), para o painel. */
+function siteConfigPainel(bool $recarregar = false): array
+{
+    return array_filter(siteConfig($recarregar), static fn($k): bool => !str_starts_with((string) $k, '_'), ARRAY_FILTER_USE_KEY);
 }
 
 function esquecerSiteConfig(): void
@@ -1238,10 +1478,24 @@ function regrasPublicas(): array
     return siteConfig()['regras'];
 }
 
-/** O que o jogo precisa saber do site (sem nada secreto). */
-function sitePublico(): array
+/**
+ * O que o jogo precisa saber do site (sem nada secreto). `avisos` (v3.2): só os que estão valendo e, com $logado
+ * (true/false), só os do público de quem pediu (null = todos, para o painel).
+ */
+function sitePublico(?bool $logado = null): array
 {
     $c = siteConfig();
+    $agora = gmdate('Y-m-d\TH:i:s\Z');
+    $avisos = [];
+    foreach ((array) ($c['avisos'] ?? []) as $a) {
+        if (!is_array($a) || (is_string($a['ate'] ?? null) && $a['ate'] < $agora)) {
+            continue; // venceu
+        }
+        if ($logado !== null && ($a['publico'] ?? 'todos') !== 'todos' && ($a['publico'] === 'logados') !== $logado) {
+            continue;
+        }
+        $avisos[] = ['texto' => $a['texto'], 'tipo' => $a['tipo'], 'publico' => $a['publico'] ?? 'todos', 'ate' => $a['ate'] ?? null];
+    }
     return [
         'imersivoPublico' => $c['imersivo_publico'],
         'livePublica' => $c['live_publica'],
@@ -1249,61 +1503,8 @@ function sitePublico(): array
         'manutencao' => $c['manutencao'],
         'cadastroAberto' => $c['cadastro_aberto'],
         'bonus' => $c['bonus'],
+        'avisos' => $avisos,
     ];
-}
-
-// ── administrador: quem é e registro do que fez ──────────────────────────────────────────────────
-
-/** 'painel' (cookie lenda_painel), 'token' (Authorization: Bearer) ou null. */
-function adminLogado(): ?string
-{
-    if (cookiePainelValido()) {
-        return 'painel';
-    }
-    return tokenAdminValido() ? 'token' : null;
-}
-
-function exigirAdmin(): string
-{
-    $a = adminLogado();
-    if ($a === null) {
-        erro(401, 'nao_logado', 'Entre com a senha do painel.');
-    }
-    return $a;
-}
-
-/** Escrita do admin: JSON sempre; Origin do site quando vem do painel (cookie). Com o Bearer não há CSRF. */
-function exigirEscritaAdmin(string $via): void
-{
-    if ($via !== 'token') {
-        exigirEscrita();
-        return;
-    }
-    $ct = strtolower(trim(explode(';', (string) ($_SERVER['CONTENT_TYPE'] ?? $_SERVER['HTTP_CONTENT_TYPE'] ?? ''), 2)[0]));
-    if ($ct !== 'application/json') {
-        erro(403, 'origem', 'Pedido recusado.');
-    }
-}
-
-/** Uma linha em admin_log (detalhes curtos: textos longos são cortados). */
-function registrarAdmin(string $acao, ?string $alvo, array $detalhes = []): void
-{
-    $cortar = static function (mixed $v) use (&$cortar): mixed {
-        if (is_string($v)) {
-            return mb_substr($v, 0, 300, 'UTF-8');
-        }
-        if (is_array($v)) {
-            return array_map($cortar, array_slice($v, 0, 40, true));
-        }
-        return $v;
-    };
-    $detalhes = ['via' => adminLogado() ?? 'sistema'] + $cortar($detalhes);
-    $txt = json($detalhes);
-    if (strlen($txt) > 8000) {
-        $txt = json(['via' => $detalhes['via'], 'cortado' => true]);
-    }
-    sql('INSERT INTO admin_log (em, acao, alvo, detalhes) VALUES (?, ?, ?, ?)',
-        [dt(time()), substr($acao, 0, 40), $alvo !== null ? mb_substr($alvo, 0, 80, 'UTF-8') : null, $txt]);
 }
 
 // ── código de convite ────────────────────────────────────────────────────────────────────────────
@@ -1365,3 +1566,5 @@ function linkConvite(string $codigo): string
     }
     return ($o !== '' ? $o : 'https://oprojeto.online') . LENDA_CAMINHO_COOKIE . '?c=' . $codigo;
 }
+
+require_once __DIR__ . '/_admin.php';

@@ -1,7 +1,7 @@
 <?php
 /**
  * LENDA · carreiras salvas na conta (cada uma é um HallEntry inteiro do jogo, guardado com gzip).
- *   GET  carreiras.php            → {carreiras: [C…], limite: 200, hallPublico, hallMax: 3}
+ *   GET  carreiras.php            → {carreiras: [C…], limite: 200, hallPublico, hallMax: 3} (C.hall: CONTRATO-v32 §A, X2)
  *   GET  carreiras.php?id=<id>    → {carreira: HallEntry}
  *   POST {"acao":"salvar","carreira": HallEntry, "como":"auto"|"manual"} → {carreira: C}
  *   POST {"acao":"apagar","id": "<id>"}                                  → {ok: true}
@@ -30,11 +30,12 @@ function lerId(mixed $v): string
     return $v;
 }
 
-/** C de uma carreira da conta, com o noHall em vigor. */
-function cDaConta(int $uid, string $id, string $modoHall): ?array
+/** C de uma carreira da conta, com o noHall em vigor e onde ela está em relação ao Hall (C.hall). */
+function cDaConta(array $u, string $id, string $modoHall): ?array
 {
+    $uid = (int) $u['id'];
     $l = umaLinha('SELECT ' . CAMPOS_C . ' FROM carreiras WHERE usuario_id = ? AND carreira_id = ?', [$uid, $id]);
-    return $l === null ? null : carreiraC($l, idsNoHall($uid, $modoHall));
+    return $l === null ? null : carreiraC($l, idsNoHall($uid, $modoHall), ['hall_publico' => $modoHall] + $u);
 }
 
 // ── rotas ────────────────────────────────────────────────────────────────────────────────────────
@@ -65,7 +66,7 @@ if ($m === 'GET') {
     $lista = sql('SELECT ' . CAMPOS_C . ' FROM carreiras WHERE usuario_id = ? ORDER BY salva_em DESC, id DESC', [$uid])->fetchAll();
     $noHall = idsNoHall($uid, $modoHall);
     responder(200, [
-        'carreiras' => array_map(static fn(array $l): array => carreiraC($l, $noHall), $lista),
+        'carreiras' => array_map(static fn(array $l): array => carreiraC($l, $noHall, $u), $lista),
         'limite' => LIMITE_CARREIRAS,
         'hallPublico' => $modoHall,
         'hallMax' => LENDA_HALL_POR_CONTA,
@@ -103,6 +104,10 @@ if ($acao === 'salvar') {
     $agora = dt(time());
     $mudouSuspeita = transacao(static function () use ($uid, $id, $como, $json, $f, $gz, $agora): bool {
         sql('SELECT id FROM usuarios WHERE id = ? FOR UPDATE', [$uid]); // uma gravação por conta de cada vez
+        // v3.2: carreira apagada pela moderação não volta pelo aparelho (lixeira_carreiras; o admin pode liberar)
+        if (esquemaV32() && umValor('SELECT 1 FROM lixeira_carreiras WHERE usuario_id = ? AND carreira_id = ?', [$uid, $id]) !== null) {
+            erro(409, 'apagada', 'Esta carreira foi removida pela moderação.');
+        }
         $antes = umaLinha('SELECT id, suspeita, clubes, dados FROM carreiras WHERE usuario_id = ? AND carreira_id = ?', [$uid, $id]);
         if ($antes === null && (int) umValor('SELECT COUNT(*) FROM carreiras WHERE usuario_id = ?', [$uid]) >= LIMITE_CARREIRAS) {
             erro(409, 'cheio', 'Sua conta já tem ' . LIMITE_CARREIRAS . ' carreiras salvas. Apague alguma para salvar esta.');
@@ -137,7 +142,7 @@ if ($acao === 'salvar') {
     if ($mudouSuspeita) {
         tirarDoHall((int) umValor('SELECT id FROM carreiras WHERE usuario_id = ? AND carreira_id = ?', [$uid, $id]));
     }
-    responder(200, ['carreira' => cDaConta($uid, $id, $modoHall)]);
+    responder(200, ['carreira' => cDaConta($u, $id, $modoHall)]);
 }
 
 if ($acao === 'apagar') {
@@ -169,6 +174,9 @@ if ($acao === 'publicar') {
         erro(404, 'nao_encontrada', 'Carreira não encontrada.');
     }
     $pk = (int) $pk;
+    if ($sim && (int) ($u['hall_bloqueado'] ?? 0) === 1) {
+        erro(403, 'hall_bloqueado', 'Sua conta não pode publicar no Hall público.');
+    }
     $modoNovo = transacao(static function () use ($uid, $pk, $sim): string {
         $modo = (string) umValor('SELECT hall_publico FROM usuarios WHERE id = ? FOR UPDATE', [$uid]);
         if ($modo === 'auto') {
@@ -196,7 +204,7 @@ if ($acao === 'publicar') {
     if (!$sim) {
         tirarDoHall($pk); // sair do Hall é na hora; entrar, na próxima fotografia
     }
-    responder(200, ['carreira' => cDaConta($uid, $id, $modoNovo), 'hallPublico' => $modoNovo]);
+    responder(200, ['carreira' => cDaConta($u, $id, $modoNovo), 'hallPublico' => $modoNovo]);
 }
 
 erro(400, 'acao', 'Ação desconhecida.');

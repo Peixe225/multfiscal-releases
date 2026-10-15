@@ -13,10 +13,12 @@ import { toast } from '@/ui/primitives'
 import { iniciarMedicao, track, type ModoJogo } from './medicao'
 import { CHAVE_USUARIO, deveAbrirConvite, selectTemConta, useConta } from './conta'
 import { CONVITE_ESPERA_MS, momentoSeguro } from './convite'
-import { mensagemDeErro } from './api'
+import { codigoDeErro, mensagemDeErro } from './api'
 import {
   abrirCarreiraDaConta,
   acharCarreira,
+  avisoAoSalvar,
+  revisaoNoLote,
   apagadasNoAparelho,
   deveSalvarSozinha,
   fimClassico,
@@ -32,12 +34,13 @@ import {
   vigiarTransitorias,
 } from './carreiras'
 import { aoEntrar } from './conta'
-import { abrirCarreiras, abrirConta, useSiteUi } from './ui'
+import { abrirCarreiras, abrirConta, abrirPerfil, useSiteUi } from './ui'
 import { comReintento, esperaReintento, valeTentar } from './api'
 import { useAcesso } from '@/store/acesso'
 import { iniciarAcesso } from './acesso'
 import { iniciarConquistas } from './conquistas'
 import { iniciarHallPublico } from './hallPublico'
+import { iniciarResumoAdmin } from './resumoAdmin'
 import { iniciarPontes } from './pontes'
 import { pendentesManuais } from './carreiras'
 import { salvarManual } from './salvar'
@@ -63,6 +66,20 @@ function estadoJogo(): { jogando: boolean; modo: ModoJogo | null } {
 
 const naLive = () => useLiveSession.getState().on || useApp.getState().route.path === '/live'
 
+/**
+ * A tela de agora para a medição ("Na área" do painel, CONTRATO-v32 §A.4): a rota do jogo ou, com um diálogo de tela
+ * cheia aberto por cima, o dele — Minha conta ("/conta"), Minhas carreiras ("/conta/carreiras"), entrar/criar conta
+ * ("/conta/entrar") e Conquistas ("/conquistas").
+ */
+export function telaAtual(): string {
+  const d = useSiteUi.getState().dialogo
+  if (d?.tipo === 'perfil') return '/conta'
+  if (d?.tipo === 'carreiras') return '/conta/carreiras'
+  if (d?.tipo === 'conta') return '/conta/entrar'
+  if (useApp.getState().dialog === 'achievements') return '/conquistas'
+  return useApp.getState().route.path
+}
+
 const notaDe = (h: HallEntry) => (typeof h.legacy?.score === 'number' ? h.legacy.score : Math.round(h.summary?.legacyScore ?? 0))
 
 /** Salva na conta (como "auto") uma carreira 90+ que acabou de terminar. */
@@ -78,9 +95,13 @@ async function salvarSozinha(h: HallEntry) {
   if (!deveSalvarSozinha(h, { logado: true, naConta: idsNaConta(carreiras.lista), apagadas: apagadasNoAparelho() })) return
   try {
     // salvar é idempotente (grava ou atualiza pelo id): sem rede, tenta de novo com espera crescente
-    await comReintento(() => useCarreiras.getState().salvar(h, 'auto'), { tentativas: 3, base: 2000 })
-    toast.success('Salva na sua conta', `${h.identity.surname} · pico ${h.summary.peakOvr}`, { key: `conta-salva-${h.id}` })
+    const c = await comReintento(() => useCarreiras.getState().salvar(h, 'auto'), { tentativas: 3, base: 2000 })
+    // nota alta: o Hall público espera a conferência do admin — o jogador fica sabendo aqui, sem alarde
+    const revisao = avisoAoSalvar(c)
+    toast.success('Salva na sua conta', `${h.identity.surname} · pico ${h.summary.peakOvr}${revisao ? `. ${revisao}` : ''}`, { key: `conta-salva-${h.id}` })
   } catch (err) {
+    // removida pela moderação (409 apagada): é final, já saiu das filas (useCarreiras.salvar)
+    if (codigoDeErro(err) === 'apagada') return
     marcarPendente(h.id)
     if (valeTentar(err)) toast.info('Sem conexão agora', `${h.identity.surname} sobe para a sua conta sozinha quando a internet voltar.`, { key: `conta-salva-${h.id}` })
     else toast.error('Não deu para salvar na conta', mensagemDeErro(err), { key: `conta-salva-${h.id}` })
@@ -144,11 +165,15 @@ export async function sincronizarAoEntrar(salvarId?: string) {
   }
   const subir = paraSubirAoEntrar(hall, idsNaConta(useCarreiras.getState().lista), apagadasNoAparelho())
   let n = 0
+  let emRevisao = 0
   for (let i = 0; i < subir.length; i++) {
     try {
-      await useCarreiras.getState().salvar(subir[i], 'auto')
+      const c = await useCarreiras.getState().salvar(subir[i], 'auto')
       n++
+      if (avisoAoSalvar(c)) emRevisao++
     } catch (err) {
+      // removida pela moderação: segue para a próxima (essa não volta)
+      if (codigoDeErro(err) === 'apagada') continue
       if (valeTentar(err)) {
         // a atual e as que faltam esperam na fila (um 409/413 é regra: não adianta repetir a cada abertura)
         for (const h of subir.slice(i)) marcarPendente(h.id)
@@ -159,7 +184,8 @@ export async function sincronizarAoEntrar(salvarId?: string) {
     }
   }
   if (n) {
-    toast.success(n === 1 ? '1 carreira 90+ foi para a sua conta' : `${n} carreiras 90+ foram para a sua conta`, 'As outras ficam em "Minhas carreiras", com o botão de salvar.', {
+    const rev = revisaoNoLote(n, emRevisao)
+    toast.success(n === 1 ? '1 carreira 90+ foi para a sua conta' : `${n} carreiras 90+ foram para a sua conta`, `As outras ficam em "Minhas carreiras", com o botão de salvar.${rev ? ` ${rev}` : ''}`, {
       action: { label: 'Ver minhas carreiras', onClick: () => abrirCarreiras('conta'), icon: ArrowRight },
     })
   }
@@ -200,6 +226,8 @@ async function reenviarPendentes() {
         await useCarreiras.getState().salvar(h, manual ? 'manual' : 'auto')
         n++
       } catch (err) {
+        // removida pela moderação: saiu da fila, as outras seguem
+        if (codigoDeErro(err) === 'apagada') continue
         if (valeTentar(err)) agendarReenvio()
         return
       }
@@ -240,11 +268,12 @@ let iniciado = false
 export function iniciarSite() {
   if (iniciado || typeof window === 'undefined') return
   iniciado = true
-  iniciarMedicao({ estadoJogo })
+  iniciarMedicao({ estadoJogo, telaAtual })
   // público × admin (Live, Imersivo de teste, aviso, manutenção), Hall público, conquistas na conta,
   // bônus de OVR / convite de amigos
   iniciarAcesso()
   iniciarHallPublico()
+  iniciarResumoAdmin()
   iniciarConquistas()
   iniciarPontes()
   vigiarTransitorias()
@@ -262,15 +291,40 @@ export function iniciarSite() {
     .carregar()
     .then(() => reenviarPendentes())
 
-  // ── telas ──
+  // ── telas (a rota e os diálogos de tela cheia: Minha conta, Minhas carreiras, Conquistas) ──
   let rota = ''
-  const view = (path: string) => {
-    if (path === rota) return
-    rota = path
-    track('view', null, { rota: path })
+  const view = () => {
+    const tela = telaAtual()
+    if (tela === rota) return
+    rota = tela
+    track('view', null, { rota: tela })
   }
-  view(useApp.getState().route.path)
-  useApp.subscribe((s) => view(s.route.path))
+  view()
+  useApp.subscribe(view)
+  useSiteUi.subscribe(view)
+
+  // ── aviso da moderação para o dono (H11): Minha conta mostra; aqui só um lembrete por abertura do jogo ──
+  let lembrouAviso = ''
+  let toastAviso = ''
+  const lembrarAviso = () => {
+    const a = useConta.getState().usuario?.aviso
+    if (!a || lembrouAviso === a.texto || useSiteUi.getState().dialogo?.tipo === 'perfil') return
+    lembrouAviso = a.texto
+    toastAviso = toast.info('Um aviso sobre o Hall público', 'A moderação deixou um recado na sua conta.', {
+      key: 'aviso-conta',
+      action: { label: 'Ver', icon: ArrowRight, onClick: () => abrirPerfil() },
+    })
+  }
+  useConta.subscribe((s, p) => {
+    if (s.usuario?.aviso && s.usuario.aviso !== p.usuario?.aviso) lembrarAviso()
+  })
+  // abriu a Minha conta (onde o aviso aparece): o lembrete sai
+  useSiteUi.subscribe((s) => {
+    if (s.dialogo?.tipo === 'perfil' && toastAviso) {
+      toast.dismiss(toastAviso)
+      toastAviso = ''
+    }
+  })
 
   // ── Clássico ──
   const modoDe = new Map<string, ModoJogo>()
@@ -352,8 +406,9 @@ export function iniciarSite() {
   const tentadas = new Set<string>()
   const resumoDaConta = () => {
     const r = useApp.getState().route
-    // carreira da comunidade (de outro jogador): quem busca é o Hall público, nunca a conta
-    const id = r.path === '/resumo' && r.query.de !== 'comunidade' ? r.query.id : undefined
+    // carreira da comunidade (de outro jogador): quem busca é o Hall público, nunca a conta; a do "Abrir no jogo" do
+    // painel (de=admin) é do admin (src/site/resumoAdmin.ts)
+    const id = r.path === '/resumo' && r.query.de !== 'comunidade' && r.query.de !== 'admin' ? r.query.id : undefined
     if (!id || tentadas.has(id) || !useConta.getState().usuario || useCareer.getState().status !== 'ready') return
     if (useCareer.getState().finishedCareers.some((h) => h.id === id)) return
     tentadas.add(id)

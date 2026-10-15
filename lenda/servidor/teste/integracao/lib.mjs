@@ -16,7 +16,7 @@ export const EXE = process.env.LENDA_CHROMIUM ?? '/opt/pw-browsers/chromium-1194
 export const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
 export const sql = (q) =>
-  execFileSync('mariadb', ['--socket=/run/mysqld/mysqld.sock', '--default-character-set=utf8mb4', '-uroot', '-N', '-B', env.BANCO || 'lenda_integracao', '-e', q], {
+  execFileSync('mariadb', [`--socket=${env.SOCK || '/run/mysqld/mysqld.sock'}`, '--default-character-set=utf8mb4', '-uroot', '-N', '-B', env.BANCO || 'lenda_integracao', '-e', q], {
     encoding: 'utf8',
   }).trim()
 

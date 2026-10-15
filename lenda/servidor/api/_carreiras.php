@@ -18,10 +18,13 @@ const CAMPOS_C = 'id, carreira_id, modo, jogador, numero, pais, posicao, nota, n
 const ORDEM_HALL = 'nota DESC, pico_ovr DESC, bolas_ouro DESC, titulos DESC, gols DESC, id ASC';
 const BONUS_OVR_MAX = 20;
 
-/** Linha do banco → C (item da lista). $noHall = ids (carreiras.id) que entram no Hall público. */
-function carreiraC(array $l, array $noHall = []): array
+/**
+ * Linha do banco → C (item da lista). $noHall = ids (carreiras.id) que entram no Hall público. Com $u (a conta dona,
+ * v3.2), C ganha `hall` = onde a carreira está em relação ao Hall público (hallDaCarreira).
+ */
+function carreiraC(array $l, array $noHall = [], ?array $u = null): array
 {
-    return [
+    $c = [
         'id' => (string) $l['carreira_id'],
         'modo' => (string) $l['modo'],
         'jogador' => (string) $l['jogador'],
@@ -43,6 +46,113 @@ function carreiraC(array $l, array $noHall = []): array
         'noHall' => in_array((int) $l['id'], $noHall, true),
         'bonusOvr' => (int) ($l['bonus_ovr'] ?? 0),
     ];
+    if ($u !== null) {
+        $c['hall'] = hallDaCarreira($l, $noHall, $u);
+    }
+    return $c;
+}
+
+/**
+ * Onde a carreira está em relação ao Hall público, para o próprio jogador (Minhas carreiras): {estado: no_hall |
+ * entra_na_proxima (rev3: entra pelas regras de agora, mas ainda não está na fotografia) | revisao | suspeita | oculta |
+ * fora | privada, porque?, motivo?}. Os motivos são textos curtos que dá para mostrar: não
+ * dizem o que a conferência olha nem o que a moderação escreveu (não ensinam a burlar). `porque` (só no "fora") diz se a
+ * estrela do jogador muda alguma coisa: bloqueada | imersivo | versao | duplicada (não muda) · escolha | limite (muda).
+ */
+function hallDaCarreira(array $l, array $noHall, array $u): array
+{
+    $modoHall = (string) ($u['hall_publico'] ?? 'auto');
+    if ($modoHall === 'nao') {
+        return ['estado' => 'privada', 'motivo' => 'Você escolheu não aparecer no Hall público.'];
+    }
+    if ((int) ($u['hall_bloqueado'] ?? 0) === 1) {
+        return ['estado' => 'fora', 'porque' => 'bloqueada', 'motivo' => 'Sua conta não pode publicar no Hall público.'];
+    }
+    $oculta = (int) ($l['oculta'] ?? 0);
+    if ($oculta === 1) {
+        return ['estado' => 'oculta', 'motivo' => 'A moderação tirou esta carreira do Hall público.'];
+    }
+    if ($oculta === 2) {
+        return ['estado' => 'oculta', 'motivo' => 'Esta carreira está em análise depois de denúncias.'];
+    }
+    $susp = $l['suspeita'] ?? null;
+    if ($susp === 'revisao') {
+        // rev3: só promete a entrada quando, conferida, ela estaria entre as que a conta mostra (as 3 melhores no
+        // automático; as escolhidas no "Eu escolho"); senão, a revisão não muda nada e a promessa seria falsa
+        $uid = (int) ($l['usuario_id'] ?? ($u['id'] ?? 0));
+        $entraria = $uid > 0 && in_array((int) $l['id'], idsNoHallConferidas($uid, $modoHall), true);
+        return ['estado' => 'revisao', 'motivo' => $entraria ? 'Em revisão: entra no Hall assim que for conferida.'
+            : 'Em revisão: a moderação confere as notas altas antes do Hall.'];
+    }
+    if (is_string($susp) && $susp !== '') {
+        $m = explode(',', $susp);
+        $motivo = in_array('copia', $m, true) ? 'Esta carreira já foi salva por outra conta.'
+            : (in_array('nome', $m, true) ? 'Um nome ou texto desta carreira não é permitido no Hall.'
+            : (in_array('dados', $m, true) ? 'Os dados desta carreira não abriram direito.'
+            : 'Os números desta carreira esperam a conferência da moderação.'));
+        return ['estado' => 'suspeita', 'motivo' => $motivo];
+    }
+    if (($l['modo'] ?? 'classico') !== 'classico' && !siteConfig()['imersivo_publico']) {
+        return ['estado' => 'fora', 'porque' => 'imersivo', 'motivo' => 'As carreiras do Imersivo ainda não entram no Hall público.'];
+    }
+    if (($l['nota_v'] ?? null) === null || (int) $l['nota_v'] !== LENDA_NOTA_VERSAO) {
+        return ['estado' => 'fora', 'porque' => 'versao', 'motivo' => 'A nota desta carreira é de uma versão antiga do jogo.'];
+    }
+    if (in_array((int) $l['id'], $noHall, true)) {
+        // rev3: "no Hall" só quando já está na fotografia (o que o hall.php mostra); pelas regras de agora ela entra,
+        // mas a fotografia é refeita de hora em hora: até lá, entra_na_proxima com a hora da próxima atualização
+        if (carreiraNaFoto((int) $l['id'])) {
+            return ['estado' => 'no_hall'];
+        }
+        return ['estado' => 'entra_na_proxima', 'motivo' => 'Entra no Hall público na próxima atualização' . horaProximaFoto() . '.'];
+    }
+    $cheio = count($noHall) >= LENDA_HALL_POR_CONTA;
+    if ($modoHall === 'manual' && (int) ($l['publica'] ?? 0) !== 1) {
+        return ['estado' => 'fora', 'porque' => 'escolha', 'motivo' => 'Você escolheu outras carreiras para o Hall.'];
+    }
+    return ['estado' => 'fora', 'porque' => $cheio ? 'limite' : 'duplicada', 'motivo' => $cheio ? 'Só as ' . LENDA_HALL_POR_CONTA . ' melhores carreiras de cada conta entram no Hall.'
+        : 'Outra conta já mostra esta mesma carreira no Hall.'];
+}
+
+/** rev3 (X2): a carreira (carreiras.id) está na fotografia do Hall público agora (o que o hall.php mostra)? */
+function carreiraNaFoto(int $pk): bool
+{
+    return umValor('SELECT 1 FROM hall_foto WHERE carreira_pk = ? LIMIT 1', [$pk]) !== null;
+}
+
+/** " (por volta das HH:MM)" da próxima fotografia do Hall, na hora de Brasília; '' se ela já passou da hora ou não há. */
+function horaProximaFoto(): string
+{
+    if (!function_exists('hallEstado')) {
+        return '';
+    }
+    $e = hallEstado();
+    $em = is_array($e) ? paraTempo(str_replace(['T', 'Z'], [' ', ''], (string) ($e['em'] ?? ''))) : null;
+    if ($em === null) {
+        return '';
+    }
+    $prox = $em + hallIntervaloS();
+    return $prox > time() ? ' (por volta das ' . gmdate('H:i', $prox - LENDA_FUSO_H * 3600) . ')' : '';
+}
+
+/**
+ * rev3 (X2): as carreiras que a conta mostraria no Hall se as que esperam a revisão da nota alta já estivessem
+ * conferidas (idsNoHall com `revisao` contando como liberada). Uma vez por conta e modo em cada pedido.
+ */
+function idsNoHallConferidas(int $uid, string $modoHall): array
+{
+    static $cache = [];
+    $k = $uid . ':' . $modoHall;
+    if (isset($cache[$k])) {
+        return $cache[$k];
+    }
+    if ($modoHall === 'nao' || (esquemaV32() && (int) umValor('SELECT hall_bloqueado FROM usuarios WHERE id = ?', [$uid]) === 1)) {
+        return $cache[$k] = [];
+    }
+    $manual = $modoHall === 'manual' ? ' AND c.publica = 1' : '';
+    $visivel = str_replace('c.suspeita IS NULL', "(c.suspeita IS NULL OR c.suspeita = 'revisao')", sqlCarreiraVisivel());
+    return $cache[$k] = array_map('intval', sql('SELECT c.id FROM carreiras c WHERE c.usuario_id = ? AND ' . $visivel . $manual
+        . ' AND ' . sqlNaoECopia() . ' ORDER BY c.' . str_replace(', ', ', c.', ORDEM_HALL) . ' LIMIT ' . LENDA_HALL_POR_CONTA, [$uid])->fetchAll(PDO::FETCH_COLUMN));
 }
 
 function inteiro(mixed $v, int $min, int $max): int
@@ -213,11 +323,20 @@ function textosDoHallEntry(stdClass $h): array
     return $out;
 }
 
-/** Nota a partir da qual a carreira espera a revisão do admin para entrar no Hall (config hall_revisao_nota). */
+/**
+ * Nota a partir da qual a carreira espera a revisão do admin para entrar no Hall: hall_revisao_nota do painel
+ * (site_config, v3.2) ou, sem ela, a do arquivo de config (padrão 90). 101 = desligado.
+ */
 function notaRevisao(): int
 {
-    $n = config()['hall_revisao_nota'] ?? 90;
+    $n = siteConfig()['hall_revisao_nota'] ?? revisaoNotaArquivo();
     return is_int($n) && $n >= 1 ? $n : 90;
+}
+
+/** Condição SQL (apelido $a de usuarios) de conta que pode aparecer no Hall: não bloqueada pelo admin (v3.2). */
+function sqlContaNoHall(string $a = 'u'): string
+{
+    return esquemaV32() ? "$a.hall_bloqueado = 0" : '1 = 1';
 }
 
 /**
@@ -287,7 +406,8 @@ function plausibilidade(array $f, int $uid, string $carreiraId, ?int $pk = null)
     $p = $pk !== null ? [$pk] : [];
     $copia = umValor('SELECT 1 FROM carreiras WHERE carreira_id = ? AND usuario_id <> ?' . $antes . ' LIMIT 1', array_merge([$carreiraId, $uid], $p)) !== null
         || (is_string($f['resumo_hash'] ?? null)
-            && umValor('SELECT 1 FROM carreiras WHERE resumo_hash = ? AND usuario_id <> ?' . $antes . ' LIMIT 1', array_merge([$f['resumo_hash'], $uid], $p)) !== null);
+            && umValor('SELECT 1 FROM carreiras WHERE resumo_hash = ? AND usuario_id <> ?' . $antes . ' LIMIT 1', array_merge([$f['resumo_hash'], $uid], $p)) !== null)
+        || copiaDeApagada($f, $uid, $carreiraId, $pk);
     if ($copia) {
         $m[] = 'copia';
     }
@@ -295,6 +415,30 @@ function plausibilidade(array $f, int $uid, string $carreiraId, ?int $pk = null)
         $m[] = 'revisao';
     }
     return $m ? substr(implode(',', $m), 0, 64) : null;
+}
+
+/**
+ * rev3: a mesma carreira (mesmo id ou mesmo resumo) foi APAGADA pela moderação na conta de outra pessoa (lixeira)? A
+ * linha some de carreiras, então sem isto a segunda conta do mesmo aparelho salvava o mesmo HallEntry e ele voltava ao
+ * Hall: apagar protegia menos que ocultar. Com $pk (instalar.php), só conta a apagada que era mais antiga que ela.
+ */
+function copiaDeApagada(array $f, int $uid, string $carreiraId, ?int $pk): bool
+{
+    if (!esquemaV32()) {
+        return false;
+    }
+    $antes = $pk !== null ? ' AND carreira_pk < ?' : '';
+    $p = $pk !== null ? [$pk] : [];
+    try {
+        return umValor('SELECT 1 FROM lixeira_carreiras WHERE carreira_id = ? AND usuario_id <> ?' . $antes . ' LIMIT 1', array_merge([$carreiraId, $uid], $p)) !== null
+            || (is_string($f['resumo_hash'] ?? null) && $f['resumo_hash'] !== ''
+                && umValor('SELECT 1 FROM lixeira_carreiras WHERE resumo_hash = ? AND usuario_id <> ?' . $antes . ' LIMIT 1', array_merge([$f['resumo_hash'], $uid], $p)) !== null);
+    } catch (PDOException $e) {
+        if (!eFaltaDeSchema($e)) {
+            throw $e;
+        }
+        return false; // lixeira sem a coluna resumo_hash (instalar.php pendente)
+    }
 }
 
 /** Condição SQL (apelido `c`, ou $a) de carreira que pode aparecer no Hall público. */
@@ -312,7 +456,7 @@ function sqlNaoECopia(): string
 {
     return 'NOT EXISTS (SELECT 1 FROM carreiras c2 JOIN usuarios u2 ON u2.id = c2.usuario_id
         WHERE c2.carreira_id = c.carreira_id AND c2.id < c.id AND c2.usuario_id <> c.usuario_id AND ' . sqlCarreiraVisivel('c2') . '
-          AND ' . str_replace('u.', 'u2.', LENDA_SQL_ATIVO) . " AND u2.hall_publico <> 'nao')";
+          AND ' . str_replace('u.', 'u2.', LENDA_SQL_ATIVO) . " AND u2.hall_publico <> 'nao' AND " . sqlContaNoHall('u2') . ')';
 }
 
 /**
@@ -325,6 +469,9 @@ function idsNoHall(int $uid, string $modoHall): array
         return [];
     }
     $manual = $modoHall === 'manual' ? ' AND c.publica = 1' : '';
+    if (esquemaV32() && (int) umValor('SELECT hall_bloqueado FROM usuarios WHERE id = ?', [$uid]) === 1) {
+        return []; // conta tirada do Hall pelo admin (bloquear_hall)
+    }
     return array_map('intval', sql('SELECT c.id FROM carreiras c WHERE c.usuario_id = ? AND ' . sqlCarreiraVisivel() . $manual
         . ' AND ' . sqlNaoECopia() . ' ORDER BY c.' . str_replace(', ', ', c.', ORDEM_HALL) . ' LIMIT ' . LENDA_HALL_POR_CONTA, [$uid])->fetchAll(PDO::FETCH_COLUMN));
 }

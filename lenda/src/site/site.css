@@ -214,3 +214,23 @@
 .sc-aviso-cad svg { color: var(--info, #6cb2ff); }
 .sc-hint--convite { display: flex; align-items: flex-start; gap: 6px; color: var(--text-2); }
 .sc-hint--convite svg { flex: none; width: 14px; height: 14px; margin-top: 1px; color: var(--nx-gold, #ffd66e); }
+
+/* ── v3.2: Hall público por carreira (X2), aviso da moderação (H11), atalho Convide amigos (X3) ── */
+.sc-chip--rev { color: #cfe6ff; background: rgba(108, 178, 255, .12); border-color: rgba(108, 178, 255, .34); }
+.sc-card__hall { margin: -2px 0 0; font-size: 12px; line-height: 1.4; color: var(--text-3); overflow-wrap: anywhere; }
+.sc-card__hall.is-revisao { color: #cfe6ff; }
+.sc-card__hall.is-aviso { color: #ffd59a; }
+.sc-hallresumo { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 6px 8px; max-width: 100%; font-size: 12.5px; line-height: 1.4; color: var(--text-3); }
+.sc-hallresumo__t { min-width: 0; overflow-wrap: anywhere; }
+.sc-hallresumo.is-revisao .sc-hallresumo__t { color: #cfe6ff; }
+.sc-hallresumo.is-aviso .sc-hallresumo__t { color: #ffd59a; }
+.sc-avisoconta { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 10px; margin: 0 0 14px; padding: 12px 14px; border-radius: var(--radius-md, 14px); background: rgba(255, 170, 60, .1); border: 1px solid rgba(255, 170, 60, .32); }
+.sc-avisoconta > svg { width: 20px; height: 20px; color: #ffb648; margin-top: 1px; }
+.sc-avisoconta b { display: block; font-size: 13.5px; color: var(--text); }
+.sc-avisoconta p { margin: 3px 0 0; font-size: 13px; line-height: 1.45; color: var(--text-2); overflow-wrap: anywhere; }
+.sc-avisoconta small { display: block; margin-top: 4px; font-size: 11.5px; color: var(--text-3); }
+.sc-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: #ffb648; box-shadow: 0 0 0 3px rgba(255, 182, 72, .2); }
+.sc-sec--alvo { scroll-margin-top: 12px; }
+.sc-sec--alvo:focus { outline: none; }
+/* a promessa do convite (e o "Entrar / Criar conta") quebra a linha no celular em vez de cortar */
+.sc-row--cta .sc-row__t > span { white-space: normal; text-overflow: clip; }

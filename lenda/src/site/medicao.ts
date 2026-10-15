@@ -11,9 +11,13 @@
  * servidor só usa o do primeiro).
  * Fila: envia a cada 10 s, ao juntar 20 eventos, e ao esconder/fechar a aba (sendBeacon). Rede falhou → os
  * eventos voltam para a fila (máx. 200, saem os mais antigos) e vão no próximo envio. Nunca lança erro.
- * Batimento a cada 15 s só com a aba visível; p:1 quando está jogando.
+ * Batimento a cada 15 s só com a aba visível; p:1 quando está jogando (com o modo em `m`).
+ * "Na área" do painel (v3.2, P1-4): o servidor guarda a tela do último `view` e o modo do último batimento. Sessão que
+ * começa sem trocar de tela (a aba ficou 30 min no fundo) leva um `view` da tela de agora no primeiro envio — um evento
+ * por sessão nova, nada a mais nos batimentos.
  */
 import { apiUrl } from './api'
+import { codigoValido } from './indicacao'
 
 export type TipoEvento = 'view' | 'hb' | 'jogo_inicio' | 'jogo_fim' | 'partida_fim' | 'gate_ver' | 'gate_fechar' | 'cadastro' | 'login' | 'logout' | 'compartilhar'
 export type ModoJogo = 'classico' | 'imersivo' | 'live'
@@ -171,6 +175,22 @@ export function utmDe(search: string): Contexto['utm'] {
   return { source: pega('source'), medium: pega('medium'), campaign: pega('campaign') }
 }
 
+/**
+ * Os utm da visita; quem chegou pelo link de convite de um amigo (`?c=<código>`) sem utm_source fica com a origem
+ * "convite" (medium "indicacao"): o "De onde vieram" do painel separa os convites (MAPA A5).
+ */
+export function utmDaVisita(search: string): Contexto['utm'] {
+  const utm = utmDe(search)
+  if (utm.source) return utm
+  let c: string | undefined
+  try {
+    c = new URLSearchParams(search).get('c')?.trim()
+  } catch {
+    c = undefined
+  }
+  return codigoValido(c) ? { ...utm, source: 'convite', medium: utm.medium || 'indicacao' } : utm
+}
+
 /** Origem resumida (mesma regra do painel): utm_source, senão o domínio normalizado, senão "direto". */
 export function origemResumida(ctx: Pick<Contexto, 'ref' | 'utm'>): string {
   if (ctx.utm.source) return ctx.utm.source.toLowerCase().slice(0, 40)
@@ -249,6 +269,18 @@ interface EstadoJogo {
   modo: ModoJogo | null
 }
 
+/** O que o servidor aceita como tela (visitas.rota): "/", "/hall", "/conta/carreiras"… até 24 caracteres. */
+export const ROTA_RE = /^\/[a-z0-9/_-]{0,23}$/
+
+/**
+ * Sessão nova (o servidor abre outra visita): se o lote não traz um `view`, um da tela de agora vai na frente, para a
+ * visita nova já saber onde a pessoa está. Devolve o lote (o mesmo, se não precisou).
+ */
+export function comTelaDaSessao(eventos: Evento[], nova: boolean, tela: string | null | undefined, agora = Date.now()): Evento[] {
+  if (!nova || !tela || !ROTA_RE.test(tela) || eventos.some((e) => e.t === 'view')) return eventos
+  return [{ t: 'view', m: null, ts: agora, d: { rota: tela } }, ...eventos]
+}
+
 interface Runtime {
   ls: Armazem
   ss: Armazem
@@ -256,6 +288,8 @@ interface Runtime {
   vid: string
   bot: 0 | 1
   estadoJogo: () => EstadoJogo
+  /** A tela de agora (rota, ou "/conta" com Minha conta aberta…), para a sessão nova. */
+  telaAtual: (() => string | null) | null
   enviando: boolean
 }
 
@@ -265,16 +299,24 @@ function contextoAgora(): Contexto {
   const largura = Math.round(window.innerWidth || screen.width || 0)
   return {
     ref: dominioDeOrigem(document.referrer, location.hostname),
-    utm: utmDe(location.search),
+    utm: utmDaVisita(location.search),
     dev: dispositivo(navigator.userAgent, largura, navigator.maxTouchPoints || 0),
     lang: (navigator.language || '').slice(0, 16),
     tela: `${screen.width || 0}x${screen.height || 0}`,
   }
 }
 
-function cabecalho(r: Runtime): Cabecalho {
-  const { sid, ctx } = tocarSessao(r.ss, Date.now(), contextoAgora)
-  return { v: r.vid, s: sid, bot: r.bot, ctx }
+function cabecalho(r: Runtime): Cabecalho & { nova: boolean } {
+  const { sid, ctx, nova } = tocarSessao(r.ss, Date.now(), contextoAgora)
+  return { v: r.vid, s: sid, bot: r.bot, ctx, nova }
+}
+
+function telaDe(r: Runtime): string | null {
+  try {
+    return r.telaAtual?.() ?? null
+  } catch {
+    return null
+  }
 }
 
 /** Envia o que está na fila. `fechando`: a aba está sumindo — vai por sendBeacon, sem esperar resposta. */
@@ -283,8 +325,9 @@ async function enviar(fechando = false) {
   // um envio normal em andamento não segura o da saída (a fila já está sem os eventos dele)
   if (!r || (r.enviando && !fechando) || !r.fila.tamanho) return
   const url = apiUrl('e.php')
-  const eventos = r.fila.tirarTudo()
-  const corpos = montarCorpos(cabecalho(r), eventos)
+  const { nova, ...cab } = cabecalho(r)
+  const eventos = comTelaDaSessao(r.fila.tirarTudo(), nova, nova ? telaDe(r) : null)
+  const corpos = montarCorpos(cab, eventos)
   if (fechando) {
     let ok = true
     try {
@@ -371,8 +414,11 @@ export function origemAtual(): string | null {
   }
 }
 
-/** Liga a medição (uma vez). `estadoJogo` diz, a cada batimento, se o visitante está jogando e em que modo. */
-export function iniciarMedicao(opts: { estadoJogo: () => EstadoJogo }): void {
+/**
+ * Liga a medição (uma vez). `estadoJogo` diz, a cada batimento, se o visitante está jogando e em que modo; `telaAtual`,
+ * a tela de agora (para a sessão que começa sem trocar de tela).
+ */
+export function iniciarMedicao(opts: { estadoJogo: () => EstadoJogo; telaAtual?: () => string | null }): void {
   if (rt || typeof window === 'undefined') return
   const ls = armazem(() => window.localStorage)
   const ss = armazem(() => window.sessionStorage)
@@ -382,7 +428,7 @@ export function iniciarMedicao(opts: { estadoJogo: () => EstadoJogo }): void {
   } catch {
     /* ignora */
   }
-  rt = { ls, ss, fila: new FilaEventos(), vid: obterVisitante(ls), bot, estadoJogo: opts.estadoJogo, enviando: false }
+  rt = { ls, ss, fila: new FilaEventos(), vid: obterVisitante(ls), bot, estadoJogo: opts.estadoJogo, telaAtual: opts.telaAtual ?? null, enviando: false }
   // a sessão começa já (o contexto da primeira página é o que vale)
   tocarSessao(ss, Date.now(), contextoAgora)
 

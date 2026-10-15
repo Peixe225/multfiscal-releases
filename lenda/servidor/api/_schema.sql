@@ -9,6 +9,11 @@
 -- hall_foto_clubes, denuncias, conquistas_usuario, indicacoes e bonus. Para atualizar um banco da v2, rode o
 -- instalar.php de novo: ele cria o que falta e preenche as colunas novas das contas e carreiras antigas.
 -- v3.1 (CONTRATO-v3.md §12): carreiras.resumo_hash, eventos.nota e as tabelas carreiras_moderacao e partidas_vid.
+-- v3.2 (CONTRATO-v32.md §A): usuarios.tipo, hall_bloqueado, nota_admin e aviso_conta, carreiras.motivo_admin,
+-- moderada_em e destaque, visitas.rota, modo_atual e jogando_s, admin_log.quem e ip_dia, hall_foto.destaque e as
+-- tabelas lixeira_carreiras e email_log. As contas, sessões, papéis e recados do painel ficam no bloco do fim.
+-- v3.2 rev3 (CONTRATO-v32 §E.7): visitas.jogando_classico_s, jogando_imersivo_s e jogando_live_s (tempo jogando por
+-- modo), lixeira_carreiras.resumo_hash (a cópia de uma carreira apagada em outra conta) e a tabela contas_excluidas.
 
 CREATE TABLE IF NOT EXISTS usuarios (
   id            INT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -29,11 +34,21 @@ CREATE TABLE IF NOT EXISTS usuarios (
   codigo_convite   CHAR(8)      CHARACTER SET ascii COLLATE ascii_bin NULL,
   hall_publico     VARCHAR(6)   CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'auto',
   partidas_conta   INT UNSIGNED NOT NULL DEFAULT 0,
+  tipo             VARCHAR(10)  CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'jogador',
+  tipo_em          DATETIME     NULL,
+  hall_bloqueado   TINYINT(1)   NOT NULL DEFAULT 0,
+  nota_admin       VARCHAR(500) NULL,
+  nota_admin_em    DATETIME     NULL,
+  nota_admin_por   VARCHAR(20)  CHARACTER SET ascii COLLATE ascii_bin NULL,
+  aviso_conta      VARCHAR(300) NULL,
+  aviso_conta_em   DATETIME     NULL,
   PRIMARY KEY (id),
   UNIQUE KEY uq_usuarios_email (email),
   UNIQUE KEY uq_usuarios_convite (codigo_convite),
   KEY ix_usuarios_criado (criado_em),
-  KEY ix_usuarios_status (status, suspenso_ate)
+  KEY ix_usuarios_status (status, suspenso_ate),
+  KEY ix_usuarios_tipo (tipo, criado_em),
+  KEY ix_usuarios_acesso (ultimo_acesso)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS sessoes_login (
@@ -76,6 +91,9 @@ CREATE TABLE IF NOT EXISTS carreiras (
   copas        SMALLINT UNSIGNED NOT NULL DEFAULT 0,
   bonus_ovr    SMALLINT UNSIGNED NOT NULL DEFAULT 0,
   resumo_hash  CHAR(40)          CHARACTER SET ascii COLLATE ascii_bin NULL,
+  motivo_admin VARCHAR(200)      NULL,
+  moderada_em  DATETIME          NULL,
+  destaque     TINYINT(1)        NOT NULL DEFAULT 0,
   PRIMARY KEY (id),
   UNIQUE KEY uq_carreiras_usuario_carreira (usuario_id, carreira_id),
   KEY ix_carreiras_usuario_salva (usuario_id, salva_em),
@@ -84,7 +102,8 @@ CREATE TABLE IF NOT EXISTS carreiras (
   KEY ix_carreiras_suspeita (suspeita),
   KEY ix_carreiras_oculta (oculta),
   KEY ix_carreiras_carreira (carreira_id),
-  KEY ix_carreiras_resumo (resumo_hash)
+  KEY ix_carreiras_resumo (resumo_hash),
+  KEY ix_carreiras_destaque (destaque)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS visitantes_usuarios (
@@ -128,12 +147,19 @@ CREATE TABLE IF NOT EXISTS visitas (
   tela         VARCHAR(12)  CHARACTER SET ascii COLLATE ascii_bin NULL,
   bot          TINYINT(1)   NOT NULL DEFAULT 0,
   eventos      INT UNSIGNED NOT NULL DEFAULT 0,
+  rota         VARCHAR(24)  CHARACTER SET ascii COLLATE ascii_bin NULL,
+  modo_atual   VARCHAR(10)  CHARACTER SET ascii COLLATE ascii_bin NULL,
+  jogando_s    INT UNSIGNED NOT NULL DEFAULT 0,
+  jogando_classico_s INT UNSIGNED NOT NULL DEFAULT 0,
+  jogando_imersivo_s INT UNSIGNED NOT NULL DEFAULT 0,
+  jogando_live_s     INT UNSIGNED NOT NULL DEFAULT 0,
   PRIMARY KEY (sid),
   KEY ix_visitas_inicio (inicio, bot, vid, ativo_s, origem, dispositivo),
   KEY ix_visitas_ultimo (ultimo),
   KEY ix_visitas_vid (vid, inicio),
   KEY ix_visitas_usuario (usuario_id),
-  KEY ix_visitas_bot (bot, inicio)
+  KEY ix_visitas_bot (bot, inicio),
+  KEY ix_visitas_usuario_vid (usuario_id, vid)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS eventos (
@@ -171,9 +197,13 @@ CREATE TABLE IF NOT EXISTS admin_log (
   acao     VARCHAR(40)  CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
   alvo     VARCHAR(80)  NULL,
   detalhes TEXT         NULL,
+  quem     VARCHAR(20)  CHARACTER SET ascii COLLATE ascii_bin NULL,
+  ip_dia   CHAR(16)     CHARACTER SET ascii COLLATE ascii_bin NULL,
   PRIMARY KEY (id),
   KEY ix_admin_log_em (em),
-  KEY ix_admin_log_alvo (alvo)
+  KEY ix_admin_log_alvo (alvo),
+  KEY ix_admin_log_acao (acao, em),
+  KEY ix_admin_log_quem (quem, em)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Fotografia do Hall público: id = posição geral (1 = melhor), refeita de hora em hora (hall_intervalo_min).
@@ -198,6 +228,7 @@ CREATE TABLE IF NOT EXISTS hall_foto (
   clubes        TEXT              CHARACTER SET ascii COLLATE ascii_bin NULL,
   bonus_ovr     SMALLINT UNSIGNED NOT NULL DEFAULT 0,
   terminou_em   DATETIME          NULL,
+  destaque      TINYINT(1)        NOT NULL DEFAULT 0,
   PRIMARY KEY (id),
   UNIQUE KEY uq_hall_foto_carreira (carreira_id),
   KEY ix_hall_foto_pais (pais, id),
@@ -250,7 +281,8 @@ CREATE TABLE IF NOT EXISTS indicacoes (
   PRIMARY KEY (id),
   UNIQUE KEY uq_indicacoes_indicado (indicado_id),
   KEY ix_indicacoes_indicador (indicador_id, status),
-  KEY ix_indicacoes_criada (criada_em)
+  KEY ix_indicacoes_criada (criada_em),
+  KEY ix_indicacoes_status (status, criada_em)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Bônus de OVR para a próxima carreira (indicação, compartilhar ou dado pelo admin).
@@ -292,4 +324,120 @@ CREATE TABLE IF NOT EXISTS partidas_vid (
   atualizado_em DATETIME     NOT NULL,
   PRIMARY KEY (vid),
   KEY ix_partidas_vid_n (n)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ── v3.2 ────────────────────────────────────────────────────────────────────────────────────────
+
+-- Carreiras apagadas pelo admin: a cópia fica por 30 dias (restaurável) e, depois, só a marca que impede o mesmo
+-- HallEntry de ser salvo de novo na conta. Some junto com a conta (excluir).
+CREATE TABLE IF NOT EXISTS lixeira_carreiras (
+  id          INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  carreira_pk INT UNSIGNED NOT NULL,
+  usuario_id  INT UNSIGNED NOT NULL,
+  carreira_id VARCHAR(64)  CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+  jogador     VARCHAR(40)  NOT NULL DEFAULT '',
+  nota        SMALLINT     NOT NULL DEFAULT 0,
+  linha       MEDIUMTEXT   NULL,
+  dados       MEDIUMBLOB   NULL,
+  motivo      VARCHAR(200) NULL,
+  apagada_em  DATETIME     NOT NULL,
+  apagada_por VARCHAR(20)  CHARACTER SET ascii COLLATE ascii_bin NULL,
+  expira_em   DATETIME     NOT NULL,
+  resumo_hash CHAR(40)     CHARACTER SET ascii COLLATE ascii_bin NULL,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_lixeira_carreira (usuario_id, carreira_id),
+  KEY ix_lixeira_expira (expira_em),
+  KEY ix_lixeira_carreira_id (carreira_id),
+  KEY ix_lixeira_resumo (resumo_hash)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Contas de jogador excluídas (pelo próprio jogador ou pelo admin): só o número da conta e quando, sem e-mail, apelido
+-- nem outro dado. Serve para a restauração de uma cópia (backup) nunca trazer de volta uma conta excluída.
+CREATE TABLE IF NOT EXISTS contas_excluidas (
+  usuario_id INT UNSIGNED NOT NULL,
+  em         DATETIME     NOT NULL,
+  via        VARCHAR(8)   CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'titular',
+  PRIMARY KEY (usuario_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- E-mails que o servidor tentou mandar, por 90 dias. O endereço fica só como HMAC (para achar) e mascarado (para ler).
+CREATE TABLE IF NOT EXISTS email_log (
+  id        BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  em        DATETIME     NOT NULL,
+  para_hash CHAR(64)     CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  para_mask VARCHAR(80)  NOT NULL,
+  tipo      VARCHAR(16)  CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  via       VARCHAR(8)   CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  ok        TINYINT(1)   NOT NULL DEFAULT 0,
+  detalhe   VARCHAR(200) NULL,
+  PRIMARY KEY (id),
+  KEY ix_email_log_em (em),
+  KEY ix_email_log_para (para_hash, em)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ── admin: contas, sessões, papéis, recados (CONTRATO-v32 §B) ──────────────────────────────────
+
+-- Contas do painel. A senha do arquivo de config entra na conta da_config = 1 (o Dono de emergência, criada na
+-- primeira entrada, com e-mail vazio). As outras são pessoais (e-mail + senha própria). Senha e PIN só em hash.
+CREATE TABLE IF NOT EXISTS admin_contas (
+  id            INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  email         VARCHAR(190) NOT NULL,
+  nome          VARCHAR(60)  NOT NULL,
+  senha_hash    VARCHAR(255) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  pin_hash      VARCHAR(255) CHARACTER SET ascii COLLATE ascii_bin NULL,
+  papel         VARCHAR(20)  CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'dono',
+  ativo         TINYINT(1)   NOT NULL DEFAULT 1,
+  trocar_senha  TINYINT(1)   NOT NULL DEFAULT 0,
+  da_config     TINYINT(1)   NOT NULL DEFAULT 0,
+  criado_em     DATETIME     NOT NULL,
+  criado_por    INT UNSIGNED NULL,
+  senha_em      DATETIME     NULL,
+  pin_em        DATETIME     NULL,
+  ultimo_acesso DATETIME     NULL,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_admin_contas_email (email),
+  KEY ix_admin_contas_papel (papel, ativo)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Sessões do painel: o cookie leva o token, aqui fica só o sha256. 8 h desde a entrada, 2 h sem uso, e a etapa
+-- intermediária (pin, criar_pin, trocar_senha) vence em 10 min. Token novo a cada etapa.
+CREATE TABLE IF NOT EXISTS admin_sessoes (
+  token_sha256 CHAR(64)     CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  admin_id     INT UNSIGNED NOT NULL DEFAULT 0,
+  etapa        VARCHAR(12)  CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'pronto',
+  criada_em    DATETIME     NOT NULL,
+  expira_em    DATETIME     NOT NULL,
+  visto_em     DATETIME     NOT NULL,
+  aparelho     VARCHAR(10)  CHARACTER SET ascii COLLATE ascii_bin NULL,
+  PRIMARY KEY (token_sha256),
+  KEY ix_admin_sessoes_admin (admin_id),
+  KEY ix_admin_sessoes_expira (expira_em),
+  KEY ix_admin_sessoes_visto (visto_em)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Papéis personalizados (os de fábrica ficam no código e não podem ser sobrescritos). poderes = lista separada por
+-- vírgula. O nível sai dos poderes e nunca chega ao do dono.
+CREATE TABLE IF NOT EXISTS admin_papeis (
+  chave     VARCHAR(20)  CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  nome      VARCHAR(40)  NOT NULL,
+  descricao VARCHAR(200) NULL,
+  poderes   VARCHAR(300) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  criado_em DATETIME     NOT NULL,
+  PRIMARY KEY (chave)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Recados internos da equipe. para = ids das contas separados por vírgula (vazio = todos) e lidos = quem já leu.
+CREATE TABLE IF NOT EXISTS admin_recados (
+  id         INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  titulo     VARCHAR(90)  NOT NULL,
+  texto      VARCHAR(600) NULL,
+  tom        VARCHAR(10)  CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'nota',
+  para       VARCHAR(200) CHARACTER SET ascii COLLATE ascii_bin NULL,
+  fixo       TINYINT(1)   NOT NULL DEFAULT 0,
+  ate        DATETIME     NULL,
+  criado_em  DATETIME     NOT NULL,
+  criado_por INT UNSIGNED NOT NULL,
+  lidos      TEXT         CHARACTER SET ascii COLLATE ascii_bin NULL,
+  PRIMARY KEY (id),
+  KEY ix_admin_recados_criado (criado_em)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

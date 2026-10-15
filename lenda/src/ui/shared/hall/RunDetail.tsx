@@ -30,7 +30,7 @@ import { navigate } from '@/store/app'
 import { useCareer } from '@/store/career'
 import { useClub, useCountry } from '@/store/data'
 import { Button, Crest, Eyebrow, Modal, POSITION_LABEL, TabPanel, Tabs, cx, formatInt, plural, toast } from '@/ui/primitives'
-import { CategoryGlyph, LegendAvatar, NotaRing, RunCrests, TieNote, useRunModeLabel, valueOf } from './parts'
+import { BonusTag, CategoryGlyph, LegendAvatar, NotaRing, RunCrests, TieNote, useRunModeLabel, valueOf } from './parts'
 import { dayLabel, gapText, monthLabel, runHeadline, yearsLabel, type HallModel } from './model'
 
 function Breakdown({ items, values }: { items: RunLegacy['breakdown']; values: RunLegacy | LegendLegacy }) {
@@ -86,6 +86,7 @@ export function RunDetail({ entry: run, hall, onClose }: { entry: RunLegacy | nu
           run ? (
             <span className="hl-md__t">
               {run.input.identity.surname} <span className="hl-runtag">Carreira nº {run.runNo}</span>
+              <BonusTag id={run.id} />
             </span>
           ) : undefined
         }

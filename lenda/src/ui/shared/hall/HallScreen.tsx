@@ -19,7 +19,7 @@ import { CATEGORIES, CATEGORY_GROUPS, CATEGORY_IDS, CATEGORY_TIEBREAK, LEGENDS_A
 import { liveUpdatedLabel } from '@/data/legendsLive'
 import { navigate, useApp } from '@/store/app'
 import { selectHasActiveCareer, useCareer } from '@/store/career'
-import { chaveFiltro, useComunidade, type FiltroHall } from '@/store/comunidade'
+import { chaveFiltro, useComunidade, type CarreiraComunidade, type FiltroHall } from '@/store/comunidade'
 import { useClub, useCountry } from '@/store/data'
 import { Button, Eyebrow, POSITION_LABEL, Segmented, clubVars, cx, formatInt, rowClubVars, useReducedMotion } from '@/ui/primitives'
 import { useShellSlots } from '@/ui/shell/slots'
@@ -29,7 +29,7 @@ import { BonusTag, CategoryGlyph, EntryAvatar, KeyTrophies, LegendAvatar, Legend
 import { HowModal, LegendDetail, RunDetail } from './RunDetail'
 import { dayLabel, gapText, monthLabel, runHeadline, useHallModel, yearsLabel, type HallModel } from './model'
 import { comunidadeNoFiltro, filtrarHall, filtroAtivo, misturarRanking, type LinhaMista } from './filtros'
-import { ComunidadeVazia, FiltroBar, FiltroHero, LinhaComunidade, LinhasCarregando, StatusComunidade, abrirComunidade } from './Comunidade'
+import { ComunidadeVazia, FiltroBar, FiltroHero, LinhaComunidade, LinhasCarregando, MelhorDaComunidade, StatusComunidade, abrirComunidade } from './Comunidade'
 import '@/ui/shared/achievements/unlockToasts'
 import './hall.css'
 
@@ -129,7 +129,7 @@ export default function HallScreen() {
       {ativo ? (
         <FiltroHero filtro={filtro} linhas={linhas} lendas={fh.legends.length} suas={fh.runs.length} comunidade={com.ativo ? (com.pg?.status === 'pronto' ? com.pg.total : null) : null} carregando={com.ativo && com.pg?.status === 'carregando'} onOpen={abrirLinha} />
       ) : (
-        <Hero hall={hall} onOpen={setOpen} />
+        <Hero hall={hall} onOpen={setOpen} melhorComunidade={com.ativo && com.pg?.status === 'pronto' ? com.itens[0] : undefined} />
       )}
       <Overall hall={vista} linhas={linhas} com={com} filtro={filtro} seg={seg} onSeg={(v) => mudar({ seg: v === 'todos' ? undefined : v })} onOpen={setOpen} />
       <Categories hall={vista} onOpen={setOpen} filtrado={ativo} />
@@ -160,7 +160,7 @@ export default function HallScreen() {
 
 const DUELS: CategoryId[] = ['ballonDor', 'worldCups', 'ucl', 'libertadores', 'titles', 'bestPlayer', 'topScorer', 'goals']
 
-function Hero({ hall, onOpen }: { hall: HallModel; onOpen: (e: RankEntry) => void }) {
+function Hero({ hall, onOpen, melhorComunidade }: { hall: HallModel; onOpen: (e: RankEntry) => void; melhorComunidade?: CarreiraComunidade }) {
   const rm = useReducedMotion()
   const best = hall.bestRun
   const top = hall.topLegend
@@ -180,6 +180,7 @@ function Hero({ hall, onOpen }: { hall: HallModel; onOpen: (e: RankEntry) => voi
       </div>
       {best && <Duels run={best} legend={top} />}
       {best && <HeroFoot run={best} hall={hall} onOpen={onOpen} />}
+      {melhorComunidade && <MelhorDaComunidade c={melhorComunidade} />}
     </motion.section>
   )
 }

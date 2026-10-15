@@ -1,5 +1,6 @@
 /* LENDA · painel — Visão geral: os números de antes (../api/painel.php), iguais, mais o resumo da plataforma
- * (admin.php?r=resumo, desenhado pelo painel.js). Sem biblioteca: os gráficos são SVG feitos à mão. */
+ * (admin.php?r=resumo): ativas em 7/30 dias, saúde da base (A10), tempo de resposta da moderação (H14/A8) e as
+ * campanhas por campo do link (A4, &utm=1). Sem biblioteca: os gráficos são SVG feitos à mão. */
 'use strict';
 
 (function () {
@@ -29,7 +30,7 @@
   function consulta() {
     const hoje = LP.hojeSp();
     const de = estado.periodo === 'hoje' ? hoje : LP.diasAntes(hoje, estado.periodo === '30' ? 29 : 6);
-    return '?de=' + de + '&ate=' + hoje + '&bots=' + (estado.bots ? '1' : '0');
+    return '?de=' + de + '&ate=' + hoje + '&bots=' + (estado.bots ? '1' : '0') + '&utm=1';
   }
 
   function aviso(msg) {
@@ -95,6 +96,81 @@
       null, 'Sem sessões no período.');
     graficoHoras($('grafico-horas'), d.horas || []);
     desenharContas(d.contas || {}, d.ultimosCadastros || [], p);
+    desenharCampanhas(d.campanhas || null);
+    const st = d.semContasTeste || 0;
+    $('rodape-teste').textContent = st && !estado.bots ? LP.plural(st, 'conta de teste/oficial ficou', 'contas de teste/oficiais ficaram') + ' de fora destes números.' : '';
+  }
+
+  /** A4: top 6 de utm_source, utm_medium e utm_campaign no período (visitas, contas que entraram, partidas). */
+  function desenharCampanhas(c) {
+    const box = $('campanhas');
+    if (!box) return;
+    LP.limpar(box);
+    const campos = [['source', 'Fonte (utm_source)'], ['medium', 'Meio (utm_medium)'], ['campaign', 'Campanha (utm_campaign)']];
+    campos.forEach(([k, rot]) => {
+      const itens = c && Array.isArray(c[k]) ? c[k] : [];
+      const col = h('div', null, h('h3', null, rot));
+      const barras = h('div', { class: 'barras' });
+      barras_(barras, itens.map((x) => ({ nome: x.valor || '(vazio)', n: x.visitas || 0,
+        extra: LP.plural(x.contas || 0, 'conta', 'contas') + ' · ' + LP.plural(x.partidas || 0, 'partida', 'partidas') })), null,
+      c ? 'Nenhuma visita com este campo no período.' : 'Sem os números de campanha (o servidor ainda não manda).');
+      col.appendChild(barras);
+      box.appendChild(col);
+    });
+  }
+
+  /** Contas da plataforma (admin.php?r=resumo): ativas em 7/30 dias e nunca jogaram, no cartão Contas. */
+  function desenharContasResumo() {
+    const box = $('ladrilhos-contas');
+    if (!box) return;
+    box.querySelectorAll('.ladrilho-resumo').forEach((x) => x.remove());
+    const u = (LP.resumo && LP.resumo.usuarios) || null;
+    if (!u) return;
+    const L = LP.ladrilho;
+    [
+      L('Ativas em 7 dias', num(u.ativos7), LP.pct(u.ativos7 || 0, u.total || 0) + ' das contas (último acesso)', { classe: 'ladrilho-resumo', href: '#/relatorios?tipo=base' }),
+      L('Ativas em 30 dias', num(u.ativos30), LP.pct(u.ativos30 || 0, u.total || 0) + ' das contas', { classe: 'ladrilho-resumo', href: '#/relatorios?tipo=sumidos30', title: 'Abre os sumidos há 30 dias' }),
+      L('Nunca jogaram com conta', num(u.nuncaJogaram), 'criaram a conta e não terminaram partida', { classe: 'ladrilho-resumo', href: '#/relatorios?tipo=nunca_jogaram' }),
+    ].forEach((x) => box.appendChild(x));
+  }
+
+  /** A10: saúde da base, cada número abre a lista filtrada. */
+  function desenharBase() {
+    const box = $('visao-base');
+    if (!box) return;
+    LP.limpar(box);
+    const b = (LP.resumo && LP.resumo.base) || null;
+    if (!b) { box.appendChild(h('p', { class: 'vazio' }, 'Indisponível agora.')); return; }
+    const L = LP.ladrilho;
+    [
+      L('Suspensas', num(b.suspensas), 'não entram', { href: '#/usuarios?status=suspenso', classe: b.suspensas ? 'ladrilho-alerta' : '' }),
+      L('Fora do Hall', num(b.foraDoHall), 'tiradas pela moderação', { href: '#/usuarios?hall=bloqueado' }),
+      L('Não aparecem', num(b.naoAparecem), 'escolheram não aparecer no Hall', { href: '#/usuarios?hall=nao' }),
+      L('Mesmo aparelho', b.multicontas === null || b.multicontas === undefined ? '—' : num(b.multicontas), b.multicontasEm ? 'grupos · conferido ' + LP.relativo(b.multicontasEm) : 'grupos de contas num aparelho', { href: '#/indicacoes?status=aparelho', classe: b.multicontas ? 'ladrilho-alerta' : '' }),
+      L('Sem time do coração', num(b.semTime), 'no cadastro', { href: '#/usuarios?sem=time' }),
+      L('Sem estado (UF)', num(b.semUf), 'no cadastro', { href: '#/usuarios?sem=uf' }),
+      L('Com anotação', num(b.comNota), 'notas internas da equipe', { href: '#/usuarios?nota=1' }),
+      L('Testers', num(b.testers), 'abrem o Imersivo e a Live', { href: '#/usuarios?tipo=tester' }),
+    ].forEach((x) => box.appendChild(x));
+  }
+
+  /** H14/A8: espera mais antiga, média e mediana até decidir (ouro > 8 h, vermelho > 24 h). */
+  function desenharResposta() {
+    const box = $('visao-resposta');
+    if (!box) return;
+    LP.limpar(box);
+    const r = LP.resumo || {};
+    const cor = (hh) => (hh === null || hh === undefined ? '' : hh > 24 ? 'ladrilho-perigo' : hh > 8 ? 'ladrilho-alerta' : 'ladrilho-ok');
+    const bloco = (titulo, m, href, oque) => {
+      const x = m || {};
+      return h('div', null, h('h3', null, titulo),
+        h('div', { class: 'ladrilhos ladrilhos-pequenos' },
+          LP.ladrilho('Esperando há', LP.horas(x.esperaMaisAntigaH), x.esperaMaisAntigaH === null || x.esperaMaisAntigaH === undefined ? 'nada esperando' : 'a ' + oque + ' mais antiga', { href: href, classe: cor(x.esperaMaisAntigaH) }),
+          LP.ladrilho('Média até decidir', LP.horas(x.mediaH), LP.plural(x.decididas30d || 0, 'decidida', 'decididas') + ' em 30 dias', { classe: cor(x.mediaH) }),
+          LP.ladrilho('Mediana', LP.horas(x.medianaH), 'metade decidida antes disso', { classe: cor(x.medianaH) })));
+    };
+    box.appendChild(bloco('Denúncias', r.moderacao, '#/denuncias', 'denúncia aberta'));
+    box.appendChild(bloco('Indicações', r.moderacaoIndicacoes, '#/indicacoes?status=pendente', 'indicação pendente'));
   }
 
   /** Online/jogando agora: os cartões grandes da visão geral (a lateral o painel.js atualiza). */
@@ -126,12 +202,12 @@
       LP.ladrilho('Contas', num(u.total), num(u.novosHoje) + ' hoje · ' + num(u.novos7Dias) + ' em 7 dias', { href: '#/usuarios' }),
       LP.ladrilho('Suspensas', num(u.suspensos), num(u.ativos) + ' ativas', { href: '#/usuarios?status=suspenso' }),
       LP.ladrilho('No Hall público', num(c.noHall), hall.atualizadoEm ? 'foto ' + LP.relativo(hall.atualizadoEm) + (hall.proximaEm ? ' · próxima ' + LP.relativo(hall.proximaEm) : '') : 'ainda sem fotografia', { href: '#/hall' }),
-      LP.ladrilho('Denúncias abertas', num(den), num(c.ocultasPorDenuncia) + ' escondidas por denúncia', { href: '#/denuncias', classe: den ? 'ladrilho-perigo' : '' }),
-      LP.ladrilho('Esperando revisão', num(rev), 'nota ' + num(c.revisaoNota || 90) + '+ só entra no Hall depois de você liberar', { href: '#/hall?filtro=revisao', classe: rev ? 'ladrilho-alerta' : '' }),
+      LP.ladrilho('Denúncias abertas', num(den), num(c.ocultasPorDenuncia) + ' escondidas por denúncia', { href: '#/hall?filtro=denunciadas', classe: den ? 'ladrilho-perigo' : '' }),
+      LP.ladrilho('Esperando revisão', num(rev), (c.revisaoNota >= 101 ? 'revisão desligada (Configurações)' : 'nota ' + num(c.revisaoNota || 90) + '+ só entra no Hall depois de liberar'), { href: '#/hall?filtro=revisao', classe: rev ? 'ladrilho-alerta' : '' }),
       LP.ladrilho('Carreiras suspeitas', num(susp), num(c.ocultas) + ' ocultas pelo admin', { href: '#/hall?filtro=suspeitas', classe: susp ? 'ladrilho-alerta' : '' }),
-      LP.ladrilho('Carreiras salvas', num(c.total), 'em todas as contas', { href: '#/hall?filtro=todas' }),
+      LP.ladrilho('Carreiras salvas', num(c.total), num(c.destaques || 0) + ' em destaque · ' + num(c.lixeira || 0) + ' na lixeira', { href: '#/hall?filtro=todas' }),
       LP.ladrilho('Indicações', num(ind.validas), num(ind.pendentes) + ' pendentes · ' + num(ind.recusadas) + ' recusadas', { href: '#/indicacoes' }),
-      LP.ladrilho('Bônus de OVR', num(b.naoUsados), 'esperando uso · ' + num(b.usados) + ' usados', { href: '#/indicacoes' }),
+      LP.ladrilho('Bônus de OVR', num(b.naoUsados), 'esperando uso · ' + num(b.usados) + ' usados', { href: '#/indicacoes?status=bonus' }),
       // o teto de e-mails (a cota de envio da hospedagem) segurou códigos de troca de senha: só aparece se aconteceu
       mails.total ? LP.ladrilho('E-mails de senha segurados', num(mails.total), 'pelo teto do site · último ' + LP.relativo(mails.ultimoEm), { classe: 'ladrilho-alerta' }) : null,
     ].filter(Boolean).forEach((x) => box.appendChild(x));
@@ -177,12 +253,13 @@
       const nome = h('div', { class: 'barra-nome', title: i.nome }, i.nome);
       const cheia = h('div', { class: 'barra-cheia' });
       cheia.style.width = (base ? Math.min(100, ((i.n || 0) / base) * 100) : 0) + '%';
-      const valor = h('div', { class: 'barra-valor' }, num(i.n || 0));
+      const valor = h('div', { class: 'barra-valor' }, i.valor !== undefined ? i.valor : num(i.n || 0));
       if (i.extra) valor.appendChild(h('small', null, i.extra));
       box.appendChild(h('div', { class: 'barra-linha' }, nome, h('div', { class: 'barra-trilho' }, cheia), valor));
     });
   }
   LP.barras = barras;
+  const barras_ = barras;
 
   // Escala "redonda" para o eixo Y.
   function escala(max, passos) {
@@ -390,6 +467,7 @@
       L('Carreiras salvas', num(cs.total), 'automáticas ' + num(cs.auto) + ' · manuais ' + num(cs.manual)),
       L('Salvas no período', num((np.auto || 0) + (np.manual || 0)), 'automáticas ' + num(np.auto) + ' · manuais ' + num(np.manual)),
     ].forEach((x) => box.appendChild(x));
+    desenharContasResumo();
 
     const tm = $('tabela-melhores');
     LP.limpar(tm);
@@ -411,7 +489,7 @@
       linhaTabela(tc, [{ t: 'Nenhum cadastro ainda.' }]);
     } else {
       linhaTabela(tc, [{ t: 'Apelido' }, { t: 'Quando' }, { t: 'Origem' }], true);
-      ultimos.forEach((u) => linhaTabela(tc, [{ t: u.apelido }, { t: dataHora(u.em) }, { t: LP.origem(u.origem) }]));
+      ultimos.forEach((u) => linhaTabela(tc, [{ no: u.id ? LP.linkUsuario({ id: u.id, apelido: u.apelido }) : null, t: u.apelido }, { t: dataHora(u.em) }, { t: LP.origem(u.origem) }]));
     }
   }
 
@@ -448,16 +526,25 @@
       }, 150);
     });
     window.addEventListener('scroll', esconderDica, { passive: true });
+    LP.redesenharGraficos = () => {
+      if (estado.dados && estado.montada) {
+        graficoDias($('grafico-dias'), estado.dados.dias || []);
+        graficoHoras($('grafico-horas'), estado.dados.horas || []);
+      }
+    };
     document.addEventListener('pointerdown', (e) => { if (!(e.target instanceof Element) || !e.target.closest('.alvo')) esconderDica(); });
   }
 
   LP.abas.visao = {
     titulo: 'Visão geral',
-    sub: 'Visitantes, jogos e contas · números ao vivo a cada 15 s',
+    sub: 'Como estamos indo: visitantes, jogos e contas · os números de cima são ao vivo (15 s)',
     montar: function () {
       ligarControles();
       estado.montada = true;
       if (LP.resumo) LP.desenharPlataforma(LP.resumo);
+      desenharBase();
+      desenharResposta();
+      if (LP.agora) LP.desenharAgoraVisao(LP.agora);
       if (estado.dados) {
         // volta para a aba: redesenha já (os gráficos precisam da largura de agora) e busca de novo
         desenhar(estado.dados);
@@ -474,5 +561,11 @@
     },
     recarregar: function () { carregarTudo(); },
     esquecer: function () { estado.dados = null; },
+    aoResumo: function (r) {
+      LP.desenharPlataforma(r);
+      desenharContasResumo();
+      desenharBase();
+      desenharResposta();
+    },
   };
 })();

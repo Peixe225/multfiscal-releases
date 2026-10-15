@@ -38,7 +38,7 @@ function brasileiro(id = 'run-bra'): RunInput {
 }
 
 function com(o: Partial<CarreiraComunidade> & { id: string; nota: number }): CarreiraComunidade {
-  return { posicao: 1, apelido: 'Foguete', jogador: 'BATISTA', numero: 10, pais: 'BOL', posicaoCampo: 'MEI', picoOvr: 90, temporadas: 20, gols: 300, titulos: 20, bolasOuro: 0, copas: 0, headline: '', clubes: ['e2022'], bonusOvr: 0, terminouEm: null, ...o }
+  return { posicao: 1, apelido: 'Foguete', jogador: 'BATISTA', numero: 10, pais: 'BOL', posicaoCampo: 'MEI', picoOvr: 90, temporadas: 20, gols: 300, titulos: 20, bolasOuro: 0, copas: 0, headline: '', clubes: ['e2022'], bonusOvr: 0, terminouEm: null, destaque: false, ...o }
 }
 
 describe('filtros do Hall: país e clube', () => {

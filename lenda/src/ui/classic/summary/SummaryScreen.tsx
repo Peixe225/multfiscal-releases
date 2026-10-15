@@ -7,16 +7,20 @@
  *
  * Source: the current career (`useCareer.state`, summarized by the engine) or a Hall das Lendas entry
  * (`#/resumo?id=<hallId>`). Finished careers are saved to the Hall automatically by the store.
+ * Só no site: `&de=comunidade` (carreira do Hall público) e `&de=admin` (o "Abrir no jogo" do painel: qualquer carreira
+ * salva, inclusive oculta ou suspeita, só para o admin — para o público a rota é a de sempre).
  */
 import { memo, useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { motion } from 'motion/react'
-import { ArrowLeft, ArrowRight, ChartLine, Crown, Flag as FlagIcon, Landmark, Quote, RotateCcw, Share2, Sparkles, Star, Trophy as TrophyIcon, Users } from 'lucide-react'
+import { ArrowLeft, ArrowRight, ChartLine, Crown, ExternalLink, EyeOff, Flag as FlagIcon, Landmark, Quote, RotateCcw, Share2, ShieldAlert, Sparkles, Star, Trophy as TrophyIcon, Users } from 'lucide-react'
 import type { CareerSummary } from '@/engine/types'
 import { LEGENDS } from '@/engine/career/summary'
 import { clubArticle } from '@/engine/career/util'
 import { navigate, useApp } from '@/store/app'
-import { useCareer } from '@/store/career'
+import { pedirAdmin, useAcesso } from '@/store/acesso'
+import { useCareer, type HallEntry } from '@/store/career'
 import { useComunidade } from '@/store/comunidade'
+import { estadoAdmin, useResumoAdmin, type MetaAdmin } from '@/store/resumoAdmin'
 import { getClub, getCompetition, getCountry, getLeague, getTrophy } from '@/store/data'
 import {
   BallIcon,
@@ -82,15 +86,73 @@ export default function SummaryScreen() {
   const id = useApp((s) => s.route.query.id)
   // #/resumo?id=…&de=comunidade: a carreira de outro jogador (Hall público), buscada pelo site — nunca entra
   // no Hall deste aparelho
-  const deComunidade = useApp((s) => s.route.query.de === 'comunidade')
-  if (deComunidade && id) return <ResumoComunidade id={id} />
+  const de = useApp((s) => s.route.query.de)
+  if (de === 'comunidade' && id) return <ResumoComunidade id={id} />
+  if (de === 'admin' && id && import.meta.env.VITE_SITE === '1') return <ResumoAdmin id={id} />
   return <ResumoDaqui id={id} />
+}
+
+function ResumoCarregando({ label }: { label: string }) {
+  return (
+    <div className="relative z-[1] flex-1 w-full max-w-[1392px] mx-auto px-4 sm:px-6 pt-4 grid gap-3 content-start" aria-busy="true" aria-label={label}>
+      <Skeleton h={220} r={22} />
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Skeleton h={240} r={22} />
+        <Skeleton h={240} r={22} />
+      </div>
+    </div>
+  )
+}
+
+/**
+ * "Abrir no jogo" do painel (#/resumo?id=<carreiras.id>&de=admin): só depois de o servidor dizer que este navegador é
+ * do admin (painel.php?so=eu); quem não é segue o caminho de sempre (o resumo daqui, que não acha esse id).
+ */
+function ResumoAdmin({ id }: { id: string }) {
+  const adminStatus = useAcesso((s) => s.adminStatus)
+  const admin = useAcesso((s) => s.admin)
+  useEffect(() => {
+    pedirAdmin()
+  }, [])
+  if (!admin && adminStatus === 'nao') return <ResumoDaqui id={id} />
+  if (!admin) return <ResumoCarregando label="Conferindo o acesso" />
+  return <ResumoAdminCarreira id={id} />
+}
+
+function ResumoAdminCarreira({ id }: { id: string }) {
+  const abrir = useResumoAdmin((s) => s.abrir)
+  const aberta = useResumoAdmin((s) => s.abertas[id])
+  useEffect(() => {
+    if (abrir) abrir(id)
+  }, [abrir, id])
+  useShellSlots({ sub: '', center: <span className="sm-topbar-t">Carreira · visão do admin</span>, stage: { preset: 'legend' } }, [])
+  if (aberta?.status === 'erro') {
+    return (
+      <PlaceholderScreen eyebrow="Visão do admin" title={aberta.motivo === 'nao_encontrada' ? 'Carreira não encontrada' : aberta.motivo === 'sessao' ? 'Entre no painel de novo' : 'Não deu para carregar'} icon={ShieldAlert} description={aberta.mensagem}>
+        <div className="mt-5 flex gap-3 flex-wrap">
+          <Button variant="primary" icon={ExternalLink} href="./painel/" target="_blank" rel="noopener">
+            Abrir o painel
+          </Button>
+          {aberta.motivo === 'rede' && (
+            <Button variant="ghost" icon={RotateCcw} onClick={() => abrir?.(id)}>
+              Tentar de novo
+            </Button>
+          )}
+        </div>
+      </PlaceholderScreen>
+    )
+  }
+  if (aberta?.status !== 'pronta') return <ResumoCarregando label="Carregando a carreira" />
+  const h: HallEntry = aberta.entry
+  return <SummaryBody career={h.career} summary={h.summary} live={false} saved={false} immersive={h.mode === 'immersive'} admin={aberta.meta} />
 }
 
 function ResumoComunidade({ id }: { id: string }) {
   const ativo = useComunidade((s) => s.ativo)
   const abrir = useComunidade((s) => s.abrir)
   const aberta = useComunidade((s) => s.abertas[id])
+  // o selo "Destaque" (H12) vem na lista do Hall: a página que o jogador já abriu diz
+  const destaque = useComunidade((s) => Object.values(s.filtros).some((pg) => pg.itens.some((c) => c.id === id && c.destaque)))
   useEffect(() => {
     if (abrir) abrir(id)
   }, [abrir, id])
@@ -136,7 +198,7 @@ function ResumoComunidade({ id }: { id: string }) {
     )
   }
   const h = aberta.entry
-  return <SummaryBody career={h.career} summary={h.summary} live={false} saved={false} immersive={h.mode === 'immersive'} comunidade={{ id: h.id, apelido: aberta.apelido }} />
+  return <SummaryBody career={h.career} summary={h.summary} live={false} saved={false} immersive={h.mode === 'immersive'} comunidade={{ id: h.id, apelido: aberta.apelido, destaque: destaque || aberta.destaque === true }} />
 }
 
 function ResumoDaqui({ id }: { id: string | undefined }) {
@@ -259,6 +321,7 @@ const SummaryBody = memo(function SummaryBody({
   naConta,
   immersive,
   comunidade,
+  admin,
 }: {
   career: SummaryCareer
   summary: CareerSummary
@@ -267,8 +330,12 @@ const SummaryBody = memo(function SummaryBody({
   naConta?: boolean
   immersive?: boolean
   /** Carreira de outro jogador (Hall público): sem salvar, sem bônus de compartilhar, com "Denunciar". */
-  comunidade?: { id: string; apelido: string }
+  comunidade?: { id: string; apelido: string; destaque?: boolean }
+  /** "Abrir no jogo" do painel: a carreira de qualquer conta, com o estado dela na moderação (sem salvar nem denunciar). */
+  admin?: MetaAdmin
 }) {
+  // de outra pessoa (comunidade ou visão do admin): nada de salvar, de bônus de compartilhar nem de misturar com o Hall daqui
+  const alheia = !!comunidade || !!admin
   const rm = useReducedMotion()
   const desktop = useIsDesktop()
   const seasons = career.seasons
@@ -330,6 +397,7 @@ const SummaryBody = memo(function SummaryBody({
 
   return (
     <div className="sm" style={clubVars(mc ?? lastClub)}>
+      {admin && <FaixaAdmin m={admin} />}
       {/* ── hero band ── */}
       <section className="sm-top" aria-label="Resumo">
         <motion.div className="sm-cardslot" {...enter(0)}>
@@ -394,9 +462,14 @@ const SummaryBody = memo(function SummaryBody({
                 <b className="num">+{career.bonusOvr}</b> de bônus
               </span>
             )}
-            {comunidade && (
+            {(comunidade || admin) && (
               <span className="sm-chip sm-chip--com">
-                <Users aria-hidden="true" /> Carreira de <b>{comunidade.apelido}</b>
+                <Users aria-hidden="true" /> Carreira de <b>{comunidade?.apelido ?? admin?.apelido}</b>
+              </span>
+            )}
+            {(comunidade?.destaque || admin?.destaque) && (
+              <span className="sm-chip sm-chip--destaque" title="Escolhida pela moderação como destaque do Hall da comunidade">
+                <Star aria-hidden="true" /> Destaque
               </span>
             )}
           </div>
@@ -536,7 +609,7 @@ const SummaryBody = memo(function SummaryBody({
         <LegendsCard summary={summary} />
       </div>
 
-      <LegacyRankCard career={career} comunidade={!!comunidade} />
+      <LegacyRankCard career={career} comunidade={alheia} />
 
       {(summary.ballonDorPodiums.length > 0 || hasTop10(career)) && (
         <div className="sm-bdo">
@@ -548,7 +621,9 @@ const SummaryBody = memo(function SummaryBody({
       <section id="sm-share" className="lx-glass sm-panel sm-sharepanel" aria-labelledby="sm-share-h">
         <header className="sm-panel__h">
           <h2 id="sm-share-h">Card para compartilhar</h2>
-          {comunidade ? (
+          {admin ? (
+            <span className="sm-panel__aside">Visão do admin · não entra no Hall deste aparelho</span>
+          ) : comunidade ? (
             <button type="button" className="sm-saved" onClick={() => navigate('/hall', { query: { seg: 'comunidade' } })}>
               <Users aria-hidden="true" /> No Hall da comunidade <ArrowRight aria-hidden="true" />
             </button>
@@ -561,12 +636,12 @@ const SummaryBody = memo(function SummaryBody({
           )}
         </header>
         {/* o bônus de compartilhar é só do card final das SUAS carreiras */}
-        <SharePanel m={share} compact={!desktop} careerId={comunidade ? undefined : career.id} />
+        <SharePanel m={share} compact={!desktop} careerId={alheia ? undefined : career.id} />
       </section>
 
       <footer className="sm-foot">
         <PlayAgain size="lg" live={live} finished={finished} />
-        {SalvarNaConta && !comunidade && <SalvarNaConta careerId={career.id} finished={finished} />}
+        {SalvarNaConta && !alheia && <SalvarNaConta careerId={career.id} finished={finished} />}
         {DenunciarCarreira && comunidade && <DenunciarCarreira id={comunidade.id} jogador={career.identity.surname} />}
         {live && finished && (
           <Button variant="ghost" size="lg" icon={ChartLine} onClick={() => navigate('/carreira')}>
@@ -582,6 +657,48 @@ const SummaryBody = memo(function SummaryBody({
     </div>
   )
 })
+
+const DIA_BR = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'America/Sao_Paulo' })
+const diaBr = (iso: string | null) => {
+  const d = iso ? new Date(iso) : null
+  return d && !Number.isNaN(d.getTime()) ? DIA_BR.format(d) : ''
+}
+
+/** Visão do admin: o estado na moderação, o motivo guardado e os sinais graves — decidir é no painel. */
+function FaixaAdmin({ m }: { m: MetaAdmin }) {
+  const e = estadoAdmin(m)
+  const graves = m.sinais.filter((x) => x.nivel === 'grave')
+  return (
+    <section className="sm-admin" aria-label="Visão do admin">
+      <div className="sm-admin__top">
+        <span className="sm-admin__t">
+          <ShieldAlert aria-hidden="true" /> Visão do admin
+        </span>
+        <span className={cx('sm-admin__pill', `is-${e.tom}`)}>
+          {e.tom === 'aviso' ? <EyeOff aria-hidden="true" /> : <Landmark aria-hidden="true" />} {e.texto}
+        </span>
+        {m.denunciasAbertas > 0 && <span className="sm-admin__pill is-aviso">{plural(m.denunciasAbertas, 'denúncia aberta', 'denúncias abertas')}</span>}
+        <span className="sm-admin__pill">Nota {m.nota}</span>
+        <Button variant="ghost" size="sm" icon={ExternalLink} href={m.pk ? `./painel/#/hall?carreira=${m.pk}` : './painel/'} target="_blank" rel="noopener" className="sm-admin__go">
+          Abrir no painel
+        </Button>
+      </div>
+      {m.moderacao?.motivo && (
+        <p className="sm-admin__l">
+          Motivo guardado{m.moderacao.em ? ` em ${diaBr(m.moderacao.em)}` : ''}: <b>{m.moderacao.motivo}</b>
+        </p>
+      )}
+      {graves.length > 0 && (
+        <ul className="sm-admin__sinais" aria-label="Sinais graves">
+          {graves.map((x) => (
+            <li key={x.codigo || x.texto}>{x.texto}</li>
+          ))}
+        </ul>
+      )}
+      <p className="sm-admin__l sm-admin__l--dim">Só você vê esta tela. Ela não entra no Hall deste aparelho e nada aqui muda a carreira: decida no painel.</p>
+    </section>
+  )
+}
 
 function hasTop10(career: SummaryCareer): boolean {
   return Object.values(career.world?.seasons ?? {}).some((s) => s.awards.some((a) => a.award === 'ballon_dor' && a.ranking.some((e) => e.isUser)))

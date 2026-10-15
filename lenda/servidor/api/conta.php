@@ -2,7 +2,8 @@
 /**
  * LENDA · conta do jogador: cadastrar, entrar, sair, esqueci, redefinir, perfil, partidas, excluir.
  *   GET  conta.php                  → {usuario: U | null, regras, site}
- *   POST conta.php {"acao": "..."}  → ver servidor/CONTRATO.md e CONTRATO-v3.md §3
+ *   POST conta.php {"acao": "..."}  → ver servidor/CONTRATO.md e CONTRATO-v3.md §3; v3.2 (CONTRATO-v32 §A.7): U.tester,
+ *        U.aviso e {"acao": "aviso_lido"}, site.avisos do público de quem pediu
  */
 declare(strict_types=1);
 
@@ -81,7 +82,7 @@ if (metodo() === 'GET') {
         limitar('conta-get', 'u' . $u['id'], 300); // o jogo pede uma vez por abertura: folga para muitas abas
     }
     limpezaTalvez();
-    responder(200, ['usuario' => $u ? usuarioJson($u) : null, 'regras' => regrasPublicas(), 'site' => sitePublico()]);
+    responder(200, ['usuario' => $u ? usuarioJson($u) : null, 'regras' => regrasPublicas(), 'site' => sitePublico($u !== null)]);
 }
 if (metodo() !== 'POST') {
     erroMetodo();
@@ -212,21 +213,12 @@ switch ($acao) {
             }
         }
         if ($manda) {
-            $codigo = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
-            sql('INSERT INTO redefinicoes (email, codigo_hash, expira_em, tentativas) VALUES (?, ?, ?, 0)
-                ON DUPLICATE KEY UPDATE codigo_hash = VALUES(codigo_hash), expira_em = VALUES(expira_em), tentativas = 0',
-                [$email, hash_hmac('sha256', $email . '|' . $codigo, segredo()), dt(time() + 1800)]);
+            $codigo = gravarCodigoRedefinicao($email);
         }
         // Responde antes de mandar o e-mail: a resposta não demora mais quando a conta existe.
         terminarResposta(200, ['ok' => true]);
         if ($u !== null && $codigo !== null) {
-            $corpo = "Olá, {$u['apelido']}!\n\n"
-                . "Seu código para criar uma senha nova no LENDA é:\n\n"
-                . "    {$codigo}\n\n"
-                . "Ele vale por 30 minutos. Digite o código no jogo, na tela \"Esqueci a senha\".\n\n"
-                . "Se não foi você que pediu, é só ignorar este e-mail: sua senha continua a mesma.\n\n"
-                . "— LENDA · https://oprojeto.online/lenda/\n";
-            enviarEmail($email, 'LENDA: seu código para trocar a senha', $corpo);
+            enviarEmail($email, 'LENDA: seu código para trocar a senha', corpoEmailRedefinicao((string) $u['apelido'], $codigo), 'esqueci');
         }
         exit;
 
@@ -340,6 +332,14 @@ switch ($acao) {
         sql('UPDATE usuarios SET partidas = GREATEST(partidas, ?) WHERE id = ?', [$n, (int) $u['id']]);
         if ($n >= 1) {
             acertarPartidasConta($u); // partidas desde o cadastro (bônus) e a indicação pendente, pelos eventos
+        }
+        responder(200, ['ok' => true]);
+
+    case 'aviso_lido':
+        // v3.2 (H11): o jogador viu o aviso da moderação em Minha conta; ele some
+        $u = exigirUsuario();
+        if (esquemaV32()) {
+            sql('UPDATE usuarios SET aviso_conta = NULL, aviso_conta_em = NULL WHERE id = ?', [(int) $u['id']]);
         }
         responder(200, ['ok' => true]);
 

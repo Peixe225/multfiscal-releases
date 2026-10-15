@@ -7,7 +7,11 @@
  *
  * Regras: carreira terminada com pico de OVR >= 90 vai para a conta sozinha (como "auto"); ao entrar ou
  * criar a conta, as do Hall do aparelho com pico >= 90 que ainda não estão lá sobem sozinhas. As outras
- * só pelo botão ("manual"). Uma carreira apagada da conta neste aparelho nunca sobe sozinha de novo.
+ * só pelo botão ("manual"). Uma carreira apagada da conta neste aparelho nunca sobe sozinha de novo, nem uma que a
+ * moderação removeu (409 apagada, v3.2): essa sai da fila na hora e só volta pelo botão, se o admin liberar.
+ *
+ * Hall público (v3.2, X2): cada carreira da conta vem com `hall` = {estado, motivo?} — no Hall, em revisão, fora (e
+ * por quê) ou privada —, e seloHall() diz o que a lista e o resumo mostram.
  */
 import { create } from 'zustand'
 import { navigate, useApp } from '@/store/app'
@@ -46,6 +50,112 @@ export interface CarreiraConta {
   oculta: boolean
   suspeita: boolean
   bonusOvr: number
+  /** Onde ela está em relação ao Hall público, segundo o servidor (v3.2); null = servidor antigo ou só no aparelho. */
+  hall: HallDaCarreira | null
+}
+
+export type EstadoHall = 'no_hall' | 'revisao' | 'suspeita' | 'oculta' | 'fora' | 'privada'
+export const ESTADOS_HALL: readonly EstadoHall[] = ['no_hall', 'revisao', 'suspeita', 'oculta', 'fora', 'privada']
+
+/**
+ * Por que a carreira está "fora" (servidor v3.2 com a correção da revisão 3): bloqueada, imersivo, versao e duplicada não
+ * mudam com a estrela; escolha e limite mudam.
+ */
+export type PorqueFora = 'bloqueada' | 'imersivo' | 'versao' | 'duplicada' | 'escolha' | 'limite'
+export const PORQUES_FORA: readonly PorqueFora[] = ['bloqueada', 'imersivo', 'versao', 'duplicada', 'escolha', 'limite']
+/** Os "fora" em que pôr no Hall não muda nada (a estrela não aparece; tirar continua podendo). */
+export const PORQUES_SEM_ESTRELA: readonly PorqueFora[] = ['bloqueada', 'imersivo', 'versao', 'duplicada']
+
+export interface HallDaCarreira {
+  estado: EstadoHall
+  /** Texto curto do servidor, que dá para mostrar (nunca o que a moderação escreveu). */
+  motivo: string | null
+  /** Só no "fora", de servidor novo; sem ele, a estrela segue a regra de antes. */
+  porque?: PorqueFora
+}
+
+/** O `hall` do C, conferido: estado desconhecido = sem selo (null). */
+export function normalizarHall(x: unknown): HallDaCarreira | null {
+  const h = x as { estado?: unknown; motivo?: unknown; porque?: unknown } | null
+  if (!h || typeof h !== 'object' || typeof h.estado !== 'string' || !(ESTADOS_HALL as readonly string[]).includes(h.estado)) return null
+  const motivo = typeof h.motivo === 'string' ? h.motivo.replace(/\s+/g, ' ').trim().slice(0, 160) : ''
+  const porque = typeof h.porque === 'string' && (PORQUES_FORA as readonly string[]).includes(h.porque) ? (h.porque as PorqueFora) : null
+  return porque ? { estado: h.estado as EstadoHall, motivo: motivo || null, porque } : { estado: h.estado as EstadoHall, motivo: motivo || null }
+}
+
+/**
+ * A estrela "Pôr no Hall" de uma carreira da conta aparece? Some quando a moderação tirou ou a conferência segura a
+ * carreira, com "Nenhuma no Hall" e quando ela está fora por uma regra que a estrela não muda (Imersivo, nota de versão
+ * antiga, conta fora do Hall, a mesma carreira já no Hall por outra conta) — a não ser que já esteja marcada (para tirar).
+ */
+export function estrelaDoHall(h: HallDaCarreira | null | undefined, marcada: boolean): boolean {
+  if (!h) return true
+  if (h.estado !== 'no_hall' && h.estado !== 'fora' && h.estado !== 'revisao') return false
+  if (h.estado === 'fora' && h.porque && (PORQUES_SEM_ESTRELA as readonly string[]).includes(h.porque) && !marcada) return false
+  return true
+}
+
+/**
+ * O toast depois da estrela, com o `hall` que o servidor devolveu no publicar: nunca promete o Hall a uma carreira que
+ * continua fora (o motivo do servidor vai no lugar da promessa).
+ */
+export function avisoAoPublicar(jogador: string, sim: boolean, h: HallDaCarreira | null | undefined): { tipo: 'success' | 'info'; titulo: string; texto: string } {
+  if (!sim) return { tipo: 'success', titulo: `${jogador} saiu do Hall público`, texto: 'Sai do Hall da comunidade em poucos minutos.' }
+  // a revisão: o texto do servidor (ele só promete a entrada quando, conferida, ela estaria entre as que a conta mostra)
+  if (h?.estado === 'revisao') return { tipo: 'success', titulo: `${jogador} vai para o Hall público`, texto: h.motivo ?? 'Está em revisão: entra no Hall assim que for conferida.' }
+  if (!h || h.estado === 'no_hall') return { tipo: 'success', titulo: `${jogador} vai para o Hall público`, texto: 'Aparece na próxima atualização do Hall, em até 3 h.' }
+  return { tipo: 'info', titulo: `${jogador} marcada para o Hall`, texto: seloHall(h)?.texto ?? 'Fora do Hall: esta carreira não aparece no Hall público agora.' }
+}
+
+export interface SeloHall {
+  estado: EstadoHall
+  /** O que vai no selo (curto). */
+  rotulo: string
+  /** A frase inteira (title e a linha embaixo do cartão); null = o selo basta. */
+  texto: string | null
+  tom: 'ok' | 'revisao' | 'aviso' | 'neutro'
+}
+
+/**
+ * Depois de salvar (sozinha ou pelo botão): a frase discreta que vai junto do "Salva na sua conta" quando a carreira
+ * acabou de ir para a revisão do Hall (nota alta: o admin confere antes de ela aparecer para todo mundo).
+ */
+export function avisoAoSalvar(c: Pick<CarreiraConta, 'hall'> | null | undefined): string | null {
+  return c?.hall?.estado === 'revisao' ? 'Em revisão: entra no Hall público assim que for conferida.' : null
+}
+
+/** Várias subiram de uma vez (ao entrar): quantas delas foram para a revisão, numa frase (null = nenhuma). */
+export function revisaoNoLote(salvas: number, emRevisao: number): string | null {
+  if (emRevisao <= 0) return null
+  if (emRevisao === 1) return `${salvas === 1 ? 'Ela está' : 'Uma delas está'} em revisão: entra no Hall público assim que for conferida.`
+  return `${emRevisao === salvas ? 'Elas estão' : `${emRevisao} delas estão`} em revisão: entram no Hall público assim que forem conferidas.`
+}
+
+/** "A moderação tirou…" → "a moderação tirou…" (depois de "Fora do Hall:"), sem mexer em sigla. */
+const minuscula = (t: string) => (t.length > 1 && /\p{Lu}/u.test(t[0]) && !/\p{Lu}/u.test(t[1]) ? t[0].toLocaleLowerCase('pt-BR') + t.slice(1) : t)
+
+/**
+ * O selo do Hall público de uma carreira da conta (Minhas carreiras e o resumo dela): "No Hall público", "Em revisão:
+ * entra no Hall assim que for conferida", "Fora do Hall: <motivo>" ou "Privada". Sem `hall` (servidor antigo): null.
+ */
+export function seloHall(h: HallDaCarreira | null | undefined): SeloHall | null {
+  if (!h) return null
+  switch (h.estado) {
+    case 'no_hall':
+      return { estado: h.estado, rotulo: 'No Hall público', texto: null, tom: 'ok' }
+    case 'revisao':
+      return { estado: h.estado, rotulo: 'Em revisão', texto: h.motivo ?? 'Em revisão: entra no Hall assim que for conferida.', tom: 'revisao' }
+    case 'privada':
+      return { estado: h.estado, rotulo: 'Privada', texto: h.motivo ?? 'Você escolheu não aparecer no Hall público.', tom: 'neutro' }
+    default:
+      return {
+        estado: h.estado,
+        rotulo: 'Fora do Hall',
+        texto: `Fora do Hall: ${h.motivo ? minuscula(h.motivo) : 'esta carreira não aparece no Hall público agora.'}`,
+        // escondida pela moderação ou esperando a conferência: aviso; escolha do jogador ou regra do Hall: neutro
+        tom: h.estado === 'fora' ? 'neutro' : 'aviso',
+      }
+  }
 }
 
 /** Pico de OVR a partir do qual a carreira vai para a conta sozinha ("acima de 89"). */
@@ -60,6 +170,8 @@ export const CHAVE_APAGADAS = 'lenda:carreiras-apagadas'
 export const CHAVE_PENDENTES = 'lenda:carreiras-pendentes'
 /** As que o jogador mandou salvar (botão) e não subiram por falta de rede: sobem como "manual". */
 export const CHAVE_PENDENTES_MANUAL = 'lenda:carreiras-pendentes-manual'
+/** As que o servidor recusou com 409 apagada (a moderação removeu): nunca sobem sozinhas de novo neste aparelho. */
+export const CHAVE_REMOVIDAS = 'lenda:carreiras-removidas'
 /** Id e momento da última carreira encerrada neste aparelho (sabe que ela existiu mesmo se o Hall a cortou). */
 export const CHAVE_ULTIMA = 'lenda:ultima-carreira'
 
@@ -166,6 +278,7 @@ export function resumoLocal(h: HallEntry): CarreiraConta {
     oculta: false,
     suspeita: false,
     bonusOvr: typeof h.career?.bonusOvr === 'number' ? h.career.bonusOvr : 0,
+    hall: null,
   }
 }
 
@@ -196,6 +309,7 @@ export function normalizarCarreira(x: unknown): CarreiraConta | null {
     oculta: c.oculta === true || (c.oculta as unknown) === 1,
     suspeita: !!c.suspeita,
     bonusOvr: Math.max(0, Math.min(10, num(c.bonusOvr))),
+    hall: normalizarHall(c.hall),
   }
 }
 
@@ -209,6 +323,8 @@ export const HALL_PUBLICO_MAX = 3
  */
 export function idsNoHallPublico(lista: readonly CarreiraConta[], modo: 'auto' | 'manual' | 'nao', versao = LEGACY_VERSION): Set<string> {
   if (modo === 'nao') return new Set()
+  // v3.2: o estado de cada uma (no Hall, em revisão, fora…) é o que vale
+  if (lista.some((c) => c.hall !== null)) return new Set(lista.filter((c) => c.hall?.estado === 'no_hall').map((c) => c.id))
   if (lista.some((c) => c.noHall !== null)) return new Set(lista.filter((c) => c.noHall).map((c) => c.id))
   const validas = lista.filter((c) => !c.oculta && !c.suspeita && c.nota !== null && c.notaV === versao)
   if (modo === 'manual') return new Set(validas.filter((c) => c.publica).slice(0, HALL_PUBLICO_MAX).map((c) => c.id))
@@ -256,6 +372,8 @@ const ls = armazem(() => (typeof window !== 'undefined' ? window.localStorage : 
 interface CarreirasStore {
   /** null = ainda não carregou (ou sem conta). */
   lista: CarreiraConta[] | null
+  /** Quando a lista veio do servidor (ms; 0 = nunca): o resumo pede de novo se ela tem mais de 1 min. */
+  carregadaEm: number
   limite: number
   carregando: boolean
   erro: string | null
@@ -266,7 +384,8 @@ interface CarreirasStore {
   apagar(id: string): Promise<void>
   abrir(id: string): Promise<HallEntry>
   /** Marca/desmarca para o Hall público (passa a conta para o modo "escolher", se estava no automático). */
-  publicar(id: string, sim: boolean): Promise<void>
+  /** Devolve a carreira como o servidor a deixou (com o `hall` de agora), ou null. */
+  publicar(id: string, sim: boolean): Promise<CarreiraConta | null>
   limpar(): void
 }
 
@@ -280,6 +399,7 @@ function tratar401(err: unknown) {
 
 export const useCarreiras = create<CarreirasStore>()((set, get) => ({
   lista: null,
+  carregadaEm: 0,
   limite: LIMITE_PADRAO,
   carregando: false,
   erro: null,
@@ -292,7 +412,7 @@ export const useCarreiras = create<CarreirasStore>()((set, get) => ({
     try {
       const r = await api<{ carreiras?: unknown[]; limite?: number; hallPublico?: unknown }>('carreiras.php')
       const lista = (r.carreiras ?? []).map(normalizarCarreira).filter((c): c is CarreiraConta => !!c)
-      set({ lista, limite: typeof r.limite === 'number' ? r.limite : LIMITE_PADRAO, carregando: false })
+      set({ lista, limite: typeof r.limite === 'number' ? r.limite : LIMITE_PADRAO, carregando: false, carregadaEm: Date.now() })
       // o modo do Hall público vem junto (pode ter mudado em outro aparelho)
       const u = useConta.getState().usuario
       const modo = r.hallPublico === 'auto' || r.hallPublico === 'manual' || r.hallPublico === 'nao' ? r.hallPublico : null
@@ -324,11 +444,16 @@ export const useCarreiras = create<CarreirasStore>()((set, get) => ({
       if (pendM.delete(h.id)) gravarIds(ls, CHAVE_PENDENTES_MANUAL, pendM)
       const apag = lerIds(ls, CHAVE_APAGADAS)
       if (apag.delete(h.id)) gravarIds(ls, CHAVE_APAGADAS, apag)
+      // o admin liberou o reenvio (ou foi engano): deixa de ser "removida"
+      const rem = lerIds(ls, CHAVE_REMOVIDAS)
+      if (rem.delete(h.id)) gravarIds(ls, CHAVE_REMOVIDAS, rem)
       const u = useConta.getState().usuario
       if (u && !atual?.some((x) => x.id === c.id)) useConta.setState({ usuario: { ...u, estatisticas: { ...u.estatisticas, carreirasSalvas: u.estatisticas.carreirasSalvas + 1 } } })
       return c
     } catch (err) {
       tratar401(err)
+      // a moderação removeu esta carreira: é final — sai das filas e nunca mais sobe sozinha deste aparelho
+      if (err instanceof ErroApi && err.codigo === 'apagada') marcarRemovida(h.id)
       throw err
     } finally {
       const { [h.id]: _, ...resto } = get().salvando
@@ -382,10 +507,11 @@ export const useCarreiras = create<CarreirasStore>()((set, get) => ({
     void get()
       .carregar(true)
       .catch(() => {})
+    return c
   },
 
   limpar() {
-    set({ lista: null, erro: null, salvando: {} })
+    set({ lista: null, erro: null, salvando: {}, carregadaEm: 0 })
   },
 }))
 
@@ -414,7 +540,23 @@ export async function atualizarNotasVelhas(lista: readonly CarreiraConta[]) {
 }
 
 export const idsNaConta = (lista: readonly CarreiraConta[] | null): Set<string> => new Set((lista ?? []).map((c) => c.id))
-export const apagadasNoAparelho = () => lerIds(ls, CHAVE_APAGADAS)
+/** As que não sobem sozinhas: apagadas da conta pelo jogador neste aparelho e as removidas pela moderação. */
+export const apagadasNoAparelho = () => new Set([...lerIds(ls, CHAVE_APAGADAS), ...lerIds(ls, CHAVE_REMOVIDAS)])
+/** Removidas pela moderação (409 apagada): a lista "Neste aparelho" mostra o selo. */
+export const removidasNoAparelho = () => lerIds(ls, CHAVE_REMOVIDAS)
+
+/** 409 apagada: sai das duas filas e entra nas removidas (nada de tentar de novo a cada abertura). */
+export function marcarRemovida(id: string, a: Armazem = ls) {
+  for (const chave of [CHAVE_PENDENTES, CHAVE_PENDENTES_MANUAL]) {
+    const p = lerIds(a, chave)
+    if (p.delete(id)) gravarIds(a, chave, p)
+  }
+  const r = lerIds(a, CHAVE_REMOVIDAS)
+  if (!r.has(id)) {
+    r.add(id)
+    gravarIds(a, CHAVE_REMOVIDAS, r)
+  }
+}
 
 /** O HallEntry de uma carreira deste aparelho: no Hall ou, cortada pelo teto dele, a última encerrada nesta janela. */
 export function acharCarreira(id: string): HallEntry | null {

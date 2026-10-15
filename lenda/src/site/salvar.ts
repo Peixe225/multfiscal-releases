@@ -5,12 +5,13 @@
 import type { HallEntry } from '@/store/career'
 import { toast } from '@/ui/primitives'
 import { mensagemDeErro, valeTentar } from './api'
-import { marcarPendente, useCarreiras } from './carreiras'
+import { avisoAoSalvar, marcarPendente, useCarreiras } from './carreiras'
 
 export async function salvarManual(h: HallEntry): Promise<boolean> {
   try {
-    await useCarreiras.getState().salvar(h, 'manual')
-    toast.success('Salva na sua conta', `${h.identity.surname} · pico ${h.summary.peakOvr}`)
+    const c = await useCarreiras.getState().salvar(h, 'manual')
+    const revisao = avisoAoSalvar(c)
+    toast.success('Salva na sua conta', `${h.identity.surname} · pico ${h.summary.peakOvr}${revisao ? `. ${revisao}` : ''}`)
     return true
   } catch (err) {
     if (valeTentar(err)) {

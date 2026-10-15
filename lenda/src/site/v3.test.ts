@@ -28,6 +28,9 @@ const acesso = (o: Partial<Acesso> = {}): Acesso => ({
   manutencao: false,
   cadastroAberto: true,
   aviso: null,
+  avisos: [],
+  logado: false,
+  tester: false,
   verificarAdmin: null,
   ...o,
 })

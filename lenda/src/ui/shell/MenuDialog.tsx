@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from 'react'
 import { ChevronRight, Crown, Flag as FlagIcon, FlaskConical, House, ChartLine, LayoutDashboard, Play, Radio, ScrollText, Settings2, Sparkles, Trash, Tv2, UserRound, Video } from 'lucide-react'
 import type { ImmersiveState } from '@/engine/immersive/types'
 import { navigate, useApp, type RoutePath } from '@/store/app'
-import { podeImersivo, podeLive, soAdmin, useAcesso } from '@/store/acesso'
+import { emTeste, podeImersivo, podeLive, useAcesso } from '@/store/acesso'
 import { selectHasActiveCareer, useCareer } from '@/store/career'
 import { peekSavedImmersive, useImmersive } from '@/store/immersive'
 import { useData } from '@/store/data'
@@ -58,12 +58,13 @@ export function MenuDialog() {
   const unlocked = useCareer((s) => Object.keys(s.achievements).length)
   const total = useAchievementCatalog((s) => s.list.length)
   const rm = useReducedMotion()
-  // site: Live e Modo Imersivo só aparecem para quem pode (o admin, enquanto não forem públicos)
+  // site: Live e Modo Imersivo só aparecem para quem pode (o admin e as contas de testes, enquanto não forem públicos)
   const acesso = useAcesso()
   const live = podeLive(acesso)
   const imersivo = podeImersivo(acesso)
-  const liveTeste = soAdmin(acesso, acesso.livePublica)
-  const imersivoTeste = soAdmin(acesso, acesso.imersivoPublico)
+  const liveTeste = emTeste(acesso, acesso.livePublica)
+  const imersivoTeste = emTeste(acesso, acesso.imersivoPublico)
+  const quemTesta = (t: 'admin' | 'tester') => (t === 'admin' ? 'só você vê (admin)' : 'liberado para a sua conta de testes')
   const [confirm, setConfirm] = useState(false)
   // a carreira imersiva salva (o store do Imersivo só carrega dentro do modo; aqui basta espiar o save)
   const immLoaded = useImmersive((s) => (s.state && !s.isFixture ? s.state : null))
@@ -100,8 +101,8 @@ export function MenuDialog() {
         <NavRow icon={Radio} label="Ligas ao vivo" sub={tablesDay ? `Tabelas reais de ${tablesDay}` : 'Tabelas reais'} to="/ligas" onGo={close} />
         <NavRow icon={Crown} label="Hall das Lendas" sub="Suas carreiras contra as lendas reais" to="/hall" onGo={close} />
         <NavRow icon={MedalIcon as unknown as typeof House} label="Conquistas" sub={`${unlocked} de ${total} desbloqueadas`} onGo={() => openDialog('achievements')} />
-        {live && <NavRow icon={Video} label="Live interativa" sub={liveTeste ? 'Teste · só você vê (admin)' : 'TikTok LIVE: o chat decide com comentários e presentes'} to="/live" onGo={close} />}
-        {imersivoTeste && <NavRow icon={FlaskConical} label="Modo Imersivo (teste)" sub="Em desenvolvimento · só você vê (admin)" to="/identidade" query={{ modo: 'imersivo' }} onGo={close} />}
+        {live && <NavRow icon={Video} label="Live interativa" sub={liveTeste ? `Teste · ${quemTesta(liveTeste)}` : 'TikTok LIVE: o chat decide com comentários e presentes'} to="/live" onGo={close} />}
+        {imersivoTeste && <NavRow icon={FlaskConical} label="Modo Imersivo (teste)" sub={`Em desenvolvimento · ${quemTesta(imersivoTeste)}`} to="/identidade" query={{ modo: 'imersivo' }} onGo={close} />}
         <NavRow icon={ScrollText} label="Créditos" sub="Fotos, fontes, dados e licenças" to="/creditos" onGo={close} />
         {import.meta.env.DEV && <NavRow icon={Sparkles} label="Design kit" sub="Primitivos e estados" to="/kit" onGo={close} />}
         {acesso.admin && (

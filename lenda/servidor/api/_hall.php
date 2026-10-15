@@ -79,7 +79,7 @@ function refazerFoto(bool $forcar, int $esperaS, string $por = 'auto'): ?array
                         c.pico_ovr, c.temporadas, c.gols, c.titulos, c.bolas_ouro, c.copas, c.headline, c.clubes, c.bonus_ovr,
                         c.terminou_em, ROW_NUMBER() OVER (PARTITION BY c.usuario_id ORDER BY ' . $ordemC . ') AS rn
                     FROM carreiras c JOIN usuarios u ON u.id = c.usuario_id
-                    WHERE ' . sqlCarreiraVisivel() . ' AND ' . LENDA_SQL_ATIVO . ' AND ' . sqlNaoECopia() . "
+                    WHERE ' . sqlCarreiraVisivel() . ' AND ' . LENDA_SQL_ATIVO . ' AND ' . sqlNaoECopia() . ' AND ' . sqlContaNoHall() . "
                       AND (u.hall_publico = 'auto' OR (u.hall_publico = 'manual' AND c.publica = 1))
                 ) s WHERE s.rn <= " . LENDA_HALL_POR_CONTA . '
             ) t WHERE t.rd = 1
@@ -119,6 +119,10 @@ function refazerFoto(bool $forcar, int $esperaS, string $por = 'auto'): ?array
                         array_slice($cparams, $i * 4000, count($pedaco) * 2));
                 }
             }
+            if (esquemaV32()) {
+                // selo "Destaque" (destacar_carreira do admin)
+                sql('UPDATE hall_foto f JOIN carreiras c ON c.id = f.carreira_pk SET f.destaque = 1 WHERE c.destaque = 1');
+            }
         });
         // 3) o que saiu do Hall enquanto a leitura rodava (moderação no meio do caminho) sai de novo
         limparFotoMudancas();
@@ -143,6 +147,7 @@ function refazerFoto(bool $forcar, int $esperaS, string $por = 'auto'): ?array
 function limparFotoMudancas(): void
 {
     $modo = siteConfig()['imersivo_publico'] ? '' : " OR c.modo <> 'classico'";
+    $modo .= esquemaV32() ? ' OR u.hall_bloqueado <> 0' : '';
     $ids = sql('SELECT f.id FROM hall_foto f LEFT JOIN carreiras c ON c.id = f.carreira_pk LEFT JOIN usuarios u ON u.id = f.usuario_id
         WHERE c.id IS NULL OR u.id IS NULL OR c.oculta <> 0 OR c.suspeita IS NOT NULL OR u.hall_publico = \'nao\'
            OR (u.hall_publico = \'manual\' AND c.publica = 0)' . $modo . '
@@ -213,5 +218,6 @@ function itemHall(array $l, int $posicao): array
         'clubes' => is_array($clubes) ? array_values(array_filter($clubes, 'is_string')) : [],
         'bonusOvr' => (int) $l['bonus_ovr'],
         'terminouEm' => iso($l['terminou_em']),
+        'destaque' => (int) ($l['destaque'] ?? 0) === 1,
     ];
 }

@@ -1,6 +1,8 @@
 /**
- * "Minhas carreiras": aba "Na conta" (lista do servidor: abrir no resumo, apagar) e aba "Neste aparelho"
- * (Hall local que não está na conta: abrir, salvar na conta).
+ * "Minhas carreiras": aba "Na conta" (lista do servidor: abrir no resumo, apagar, pôr/tirar do Hall público) e aba
+ * "Neste aparelho" (Hall local que não está na conta: abrir, salvar na conta).
+ * v3.2 (X2): cada carreira da conta mostra onde está no Hall público — "No Hall público", "Em revisão: entra no Hall
+ * assim que for conferida", "Fora do Hall: <motivo>" ou "Privada" —, com o texto do servidor (seloHall).
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Cloud, CloudUpload, Crown, Eye, FolderOpen, HardDrive, LogIn, RefreshCw, ShieldAlert, Sparkles, Star, StarOff, Trash, Tv2, Users } from 'lucide-react'
@@ -10,16 +12,21 @@ import { Button, Flag, Modal, OvrPill, Segmented, Tabs, formatInt, toast } from 
 import { codigoDeErro, mensagemDeErro } from './api'
 import {
   abrirCarreiraDaConta,
+  avisoAoPublicar,
   ehTransitoria,
+  estrelaDoHall,
   HALL_PUBLICO_MAX,
   idsNaConta,
   idsNoHallPublico,
   nesteAparelho,
   PICO_AUTO,
+  removidasNoAparelho,
   resumoLocal,
+  seloHall,
   useCarreiras,
   type CarreiraConta,
 } from './carreiras'
+import { ChipHall } from './SeloHall'
 import { useConta, type ModoHallPublico } from './conta'
 import { salvarManual } from './salvar'
 import { dataBr } from './MinhaConta'
@@ -136,17 +143,22 @@ function ListaDaConta({ lista, modo, apelido }: { lista: CarreiraConta[]; modo: 
       setMudando(false)
     }
   }
+  // marcada para o Hall: no "eu escolho", a estrela do jogador (mesmo esperando a revisão); no automático, as que estão lá
+  const marcadas = useMemo(() => (modo === 'manual' ? new Set(lista.filter((c) => c.publica).map((c) => c.id)) : noHall), [lista, modo, noHall])
   const alternar = async (c: CarreiraConta) => {
-    const sim = !noHall.has(c.id)
-    const quer = sim ? [...noHall, c.id] : [...noHall].filter((id) => id !== c.id)
+    const sim = !marcadas.has(c.id)
+    const quer = sim ? [...marcadas, c.id] : [...marcadas].filter((id) => id !== c.id)
     if (quer.length > HALL_PUBLICO_MAX) {
       toast.info(`Até ${HALL_PUBLICO_MAX} carreiras no Hall público`, 'Tire uma das que estão lá para pôr esta.')
       return
     }
     try {
       // no automático, mexer em uma passa para "eu escolho" mantendo as outras que estavam no Hall (o servidor faz)
-      await useCarreiras.getState().publicar(c.id, sim)
-      toast.success(sim ? `${c.jogador} vai para o Hall público` : `${c.jogador} saiu do Hall público`, sim ? 'Aparece na próxima atualização do Hall, em até 3 h.' : 'Sai do Hall da comunidade em poucos minutos.')
+      const nova = await useCarreiras.getState().publicar(c.id, sim)
+      // o toast segue o `hall` que o servidor devolveu: nada de prometer o Hall a uma carreira que continua fora
+      const a = avisoAoPublicar(c.jogador, sim, nova ? nova.hall : c.hall)
+      if (a.tipo === 'info') toast.info(a.titulo, a.texto)
+      else toast.success(a.titulo, a.texto)
     } catch (err) {
       toast.error('Não deu para mudar o Hall público', codigoDeErro(err) === 'cheio' || codigoDeErro(err) === 'limite_hall' ? `Até ${HALL_PUBLICO_MAX} carreiras no Hall público. Tire uma para pôr outra.` : mensagemDeErro(err))
     }
@@ -193,7 +205,7 @@ function ListaDaConta({ lista, modo, apelido }: { lista: CarreiraConta[]; modo: 
       </p>
       <div className="sc-list">
         {lista.map((c) => (
-          <Cartao key={c.id} c={c} naConta hall={{ dentro: noHall.has(c.id), modo, alternar: () => alternar(c) }} />
+          <Cartao key={c.id} c={c} naConta hall={{ dentro: noHall.has(c.id), marcada: marcadas.has(c.id), modo, alternar: () => alternar(c) }} />
         ))}
       </div>
     </>
@@ -205,6 +217,10 @@ function NoAparelho() {
   const lista = useCarreiras((s) => s.lista)
   const usuario = useConta((s) => s.usuario)
   const locais = useMemo(() => nesteAparelho(hall.filter((h) => !ehTransitoria(h.id)), idsNaConta(lista)).map(resumoLocal), [hall, lista])
+  // removidas pela moderação (o servidor recusou com 409 apagada): o selo avisa; salvar de novo só se o admin liberar.
+  // Relido quando a lista muda ou um salvar termina (a recusa chega no fim dele)
+  const salvando = useCarreiras((s) => s.salvando)
+  const removidas = useMemo(() => removidasNoAparelho(), [lista, salvando])
   if (!hall.length) {
     return (
       <div className="sc-empty">
@@ -240,20 +256,25 @@ function NoAparelho() {
       </p>
       <div className="sc-list">
         {locais.map((c) => (
-          <Cartao key={c.id} c={c} />
+          <Cartao key={c.id} c={c} removida={removidas.has(c.id)} />
         ))}
       </div>
     </>
   )
 }
 
-function Cartao({ c, naConta, hall }: { c: CarreiraConta; naConta?: boolean; hall?: { dentro: boolean; modo: ModoHallPublico; alternar: () => Promise<void> } }) {
+function Cartao({ c, naConta, hall, removida }: { c: CarreiraConta; naConta?: boolean; hall?: { dentro: boolean; marcada: boolean; modo: ModoHallPublico; alternar: () => Promise<void> }; removida?: boolean }) {
   const [alternando, setAlternando] = useState(false)
   const salvando = useCarreiras((s) => !!s.salvando[c.id])
   const [abrindo, setAbrindo] = useState(false)
   const [confirmar, setConfirmar] = useState(false)
   const [apagando, setApagando] = useState(false)
   const lenda = c.picoOvr >= PICO_AUTO
+  // v3.2: o que o servidor diz do Hall público (só na conta; o aparelho não sabe)
+  const selo = naConta ? seloHall(c.hall) : null
+  // a estrela some quando a moderação tirou ou a conferência segura a carreira (e com "Nenhuma no Hall"), e quando ela
+  // está fora por uma regra que a estrela não muda (Imersivo, nota antiga…), a não ser que esteja marcada (para tirar)
+  const podeMarcar = selo ? estrelaDoHall(c.hall, !!hall?.marcada) : !c.oculta && !c.suspeita
   // a confirmação aparece no lugar dos botões: o foco vai para "Cancelar" e, ao cancelar, volta ao "Apagar"
   const cancelar = useRef<HTMLButtonElement>(null)
   const apagarBtn = useRef<HTMLButtonElement>(null)
@@ -344,23 +365,35 @@ function Cartao({ c, naConta, hall }: { c: CarreiraConta; naConta?: boolean; hal
           </span>
         )}
         {!!c.bonusOvr && <span className="sc-chip sc-chip--auto">+{c.bonusOvr} de bônus</span>}
-        {hall && c.oculta && (
-          <span className="sc-chip sc-chip--warn" title="A moderação tirou do Hall público">
-            <ShieldAlert aria-hidden="true" /> Fora do Hall (moderação)
-          </span>
+        {selo ? (
+          <ChipHall selo={selo} />
+        ) : (
+          <>
+            {hall && c.oculta && (
+              <span className="sc-chip sc-chip--warn" title="A moderação tirou do Hall público">
+                <ShieldAlert aria-hidden="true" /> Fora do Hall (moderação)
+              </span>
+            )}
+            {hall && !c.oculta && c.suspeita && (
+              <span className="sc-chip sc-chip--warn" title="Os números estão em análise: fica fora do Hall público até a moderação liberar">
+                <ShieldAlert aria-hidden="true" /> Em análise
+              </span>
+            )}
+            {hall && hall.dentro && (
+              <span className="sc-chip sc-chip--ok" title="Aparece no Hall das Lendas da comunidade">
+                <Users aria-hidden="true" /> No Hall público
+              </span>
+            )}
+          </>
         )}
-        {hall && !c.oculta && c.suspeita && (
-          <span className="sc-chip sc-chip--warn" title="Os números estão em análise: fica fora do Hall público até a moderação liberar">
-            <ShieldAlert aria-hidden="true" /> Em análise
-          </span>
-        )}
-        {hall && hall.dentro && (
-          <span className="sc-chip sc-chip--ok" title="Aparece no Hall das Lendas da comunidade">
-            <Users aria-hidden="true" /> No Hall público
+        {removida && (
+          <span className="sc-chip sc-chip--warn" title="A moderação removeu esta carreira da sua conta: ela não sobe sozinha de novo">
+            <ShieldAlert aria-hidden="true" /> Removida pela moderação
           </span>
         )}
         <span>{naConta ? `Salva em ${dataBr(c.salvaEm)}` : `Terminou em ${dataBr(c.terminouEm)}`}</span>
       </div>
+      {selo?.texto && <p className={`sc-card__hall is-${selo.tom}`}>{selo.texto}</p>}
       {confirmar ? (
         <div className="sc-confirm" role="group" aria-label="Confirmar">
           <p>
@@ -380,20 +413,20 @@ function Cartao({ c, naConta, hall }: { c: CarreiraConta; naConta?: boolean; hal
           <Button variant="primary" size="sm" icon={FolderOpen} loading={abrindo} onClick={abrir}>
             Abrir
           </Button>
-          {naConta && hall && hall.modo !== 'nao' && !c.oculta && !c.suspeita && (
+          {naConta && hall && hall.modo !== 'nao' && podeMarcar && (
             <Button
               variant="ghost"
               size="sm"
-              icon={hall.dentro ? StarOff : Star}
+              icon={hall.marcada ? StarOff : Star}
               loading={alternando}
-              aria-pressed={hall.dentro}
+              aria-pressed={hall.marcada}
               onClick={async () => {
                 setAlternando(true)
                 await hall.alternar()
                 setAlternando(false)
               }}
             >
-              {hall.dentro ? 'Tirar do Hall' : 'Pôr no Hall'}
+              {hall.marcada ? 'Tirar do Hall' : 'Pôr no Hall'}
             </Button>
           )}
           {naConta ? (

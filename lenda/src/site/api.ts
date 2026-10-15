@@ -38,6 +38,8 @@ const PADRAO: Record<string, string> = {
   limite_hall: 'Você já tem 3 carreiras no Hall público. Tire uma para pôr outra.',
   cadastro_fechado: 'Os cadastros estão fechados no momento. Tente de novo mais tarde.',
   ja_denunciou: 'Você já denunciou essa carreira. Obrigado!',
+  apagada: 'Esta carreira foi removida pela moderação.',
+  hall_bloqueado: 'Sua conta não pode publicar no Hall público.',
 }
 
 export class ErroApi extends Error {

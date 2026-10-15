@@ -1,15 +1,18 @@
 /**
- * Faixa discreta no topo com o aviso do site (site_config.aviso, editado no painel — servidor/CONTRATO-v3.md
- * §1). Fecha no X e não volta para o mesmo texto neste aparelho; um aviso novo aparece de novo. Fora do site
- * o aviso é sempre null e nada aparece.
+ * Faixas discretas no topo com os avisos do site (editados no painel — servidor/CONTRATO-v3.md §1 e CONTRATO-v32 §A.5):
+ * o `aviso` único de sempre e, desde a v3.2 (N14), a lista `avisos` com público (todos, só logados, só visitantes) e
+ * validade. Cada um fecha no X e não volta para o mesmo texto neste aparelho; um aviso novo aparece de novo; o que vence
+ * some sozinho. Fora do site não há aviso e nada aparece.
  */
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Info, TriangleAlert, X } from 'lucide-react'
-import { useAcesso } from '@/store/acesso'
+import { avisosVisiveis, proximoVencimento, useAcesso, type AvisoSite } from '@/store/acesso'
 import { cx } from '@/ui/primitives'
 import './aviso.css'
 
 const CHAVE = 'lenda:aviso-fechado'
+/** Quantas assinaturas de avisos fechados ficam guardadas (as mais antigas saem). */
+const FECHADOS_MAX = 30
 
 /** Assinatura curta do texto (o que foi fechado), sem guardar o texto inteiro. */
 export function assinaturaAviso(texto: string): string {
@@ -18,40 +21,75 @@ export function assinaturaAviso(texto: string): string {
   return (h >>> 0).toString(36)
 }
 
-const lerFechado = () => {
+export const assinaturaDe = (a: AvisoSite) => assinaturaAviso(`${a.tipo}:${a.texto}`)
+
+/** O que está guardado: uma assinatura só (v3, o aviso único) ou a lista (v3.2). Nunca lança. */
+export function lerFechados(bruto: string | null): string[] {
+  if (!bruto) return []
+  if (!bruto.startsWith('[')) return [bruto]
   try {
-    return localStorage.getItem(CHAVE)
+    const l = JSON.parse(bruto) as unknown
+    return Array.isArray(l) ? l.filter((x): x is string => typeof x === 'string').slice(-FECHADOS_MAX) : []
   } catch {
-    return null
+    return []
+  }
+}
+
+/** Guarda mais um fechado (sem repetir, no máximo FECHADOS_MAX). */
+export function comFechado(lista: readonly string[], ass: string): string[] {
+  return [...lista.filter((x) => x !== ass), ass].slice(-FECHADOS_MAX)
+}
+
+const ler = (): string[] => {
+  try {
+    return lerFechados(localStorage.getItem(CHAVE))
+  } catch {
+    return []
   }
 }
 
 export function AvisoFaixa() {
   const aviso = useAcesso((s) => s.aviso)
-  const [fechado, setFechado] = useState<string | null>(lerFechado)
-  const ass = aviso ? assinaturaAviso(`${aviso.tipo}:${aviso.texto}`) : ''
-  useEffect(() => setFechado(lerFechado()), [ass])
-  if (!aviso || fechado === ass) return null
-  const Ico = aviso.tipo === 'alerta' ? TriangleAlert : Info
+  const avisos = useAcesso((s) => s.avisos)
+  const logado = useAcesso((s) => s.logado)
+  const [fechados, setFechados] = useState<string[]>(ler)
+  // o próximo que vence some na hora certa, sem recarregar (no máximo um relógio por vez)
+  const [agora, setAgora] = useState(() => Date.now())
+  useEffect(() => {
+    const fim = proximoVencimento(avisos, agora)
+    if (fim === null) return
+    const t = window.setTimeout(() => setAgora(Date.now()), Math.min(3_600_000, Math.max(1000, fim - Date.now() + 500)))
+    return () => window.clearTimeout(t)
+  }, [avisos, agora])
+  const lista = useMemo(() => avisosVisiveis({ aviso, avisos: avisos ?? [], logado }, agora), [aviso, avisos, logado, agora])
+  const assinaturas = lista.map(assinaturaDe).join('|')
+  // outra aba fechou (ou chegou aviso novo): relê o que está fechado
+  useEffect(() => setFechados(ler()), [assinaturas])
+  const abertos = lista.filter((a) => !fechados.includes(assinaturaDe(a)))
+  if (!abertos.length) return null
+  const fechar = (a: AvisoSite) => {
+    const novo = comFechado(fechados, assinaturaDe(a))
+    setFechados(novo)
+    try {
+      localStorage.setItem(CHAVE, JSON.stringify(novo))
+    } catch {
+      /* sem storage: fecha só agora */
+    }
+  }
   return (
-    <div className={cx('lx-aviso', aviso.tipo === 'alerta' && 'lx-aviso--alerta')} role={aviso.tipo === 'alerta' ? 'alert' : 'status'}>
-      <Ico className="lx-aviso__i" aria-hidden="true" />
-      <p className="lx-aviso__t">{aviso.texto}</p>
-      <button
-        type="button"
-        className="lx-aviso__x"
-        aria-label="Fechar aviso"
-        onClick={() => {
-          setFechado(ass)
-          try {
-            localStorage.setItem(CHAVE, ass)
-          } catch {
-            /* sem storage: fecha só agora */
-          }
-        }}
-      >
-        <X aria-hidden="true" />
-      </button>
+    <div className="lx-avisos">
+      {abertos.map((a) => {
+        const Ico = a.tipo === 'alerta' ? TriangleAlert : Info
+        return (
+          <div key={assinaturaDe(a)} className={cx('lx-aviso', a.tipo === 'alerta' && 'lx-aviso--alerta')} role={a.tipo === 'alerta' ? 'alert' : 'status'}>
+            <Ico className="lx-aviso__i" aria-hidden="true" />
+            <p className="lx-aviso__t">{a.texto}</p>
+            <button type="button" className="lx-aviso__x" aria-label="Fechar aviso" onClick={() => fechar(a)}>
+              <X aria-hidden="true" />
+            </button>
+          </div>
+        )
+      })}
     </div>
   )
 }

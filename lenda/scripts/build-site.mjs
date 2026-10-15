@@ -113,6 +113,14 @@ if (existsSync(join(servidor, 'privacidade.html'))) {
   copiados.push('privacidade.html')
 }
 if (copiados.some((f) => /(^|\/)_config/i.test(f))) fail('a config do servidor (_config*.php) não pode ir para o site')
+// nomes.json do painel (clubes, países, troféus, prêmios e conquistas em pt-BR): refeito dos dados do jogo a cada build
+// (scripts/painel-nomes.mjs), para o painel nunca mostrar um nome velho
+if (existsSync(join(out, 'painel'))) {
+  const { gerarNomesPainel } = await import('./painel-nomes.mjs')
+  const n = await gerarNomesPainel({ saida: join(out, 'painel', 'nomes.json') })
+  if (!copiados.includes('painel/nomes.json')) copiados.push('painel/nomes.json')
+  console.log(`  painel/nomes.json: ${Object.entries(n).map(([k, v]) => `${v} ${k}`).join(', ')}`)
+}
 
 // ── 2. .htaccess ──
 // Vale só para public_html/lenda/ e o que está dentro: o .htaccess do public_html continua mandando no

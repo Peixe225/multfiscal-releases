@@ -8,6 +8,9 @@
  *
  * Contador de partidas (localStorage['lenda:partidas']): +1 por carreira terminada no Clássico e +1 por
  * partida jogada no Imersivo (a Live não conta). Logado, o servidor guarda o maior número que já viu.
+ *
+ * v3.2 (CONTRATO-v32 §A.7): U.tester (conta de testes: abre o Imersivo e a Live) e U.aviso (o recado da moderação,
+ * mostrado uma vez em Minha conta → avisoLido()). A conta de testes e "há conta aberta" vão para o useAcesso.
  */
 import { create } from 'zustand'
 import { api, esperaReintento, valeTentar } from './api'
@@ -46,6 +49,23 @@ export interface Usuario {
   /** Código do link de convite (…/lenda/?c=<código>), §8.2. */
   codigoConvite: string | null
   estatisticas: Estatisticas
+  /** Conta de testes (v3.2, P1-6): abre o Imersivo e a Live com o selo "Teste". Servidor antigo = false. */
+  tester: boolean
+  /** Aviso da moderação para o dono (v3.2, H11): Minha conta mostra uma vez e manda "aviso_lido". */
+  aviso: AvisoConta | null
+}
+
+export interface AvisoConta {
+  texto: string
+  em: string | null
+}
+
+/** O U.aviso do servidor, conferido (texto curto, só texto). */
+export function normalizarAvisoConta(x: unknown): AvisoConta | null {
+  const a = x as { texto?: unknown; em?: unknown } | null
+  if (!a || typeof a !== 'object' || typeof a.texto !== 'string') return null
+  const texto = a.texto.trim().slice(0, 300)
+  return texto ? { texto, em: typeof a.em === 'string' ? a.em : null } : null
 }
 
 export interface Regras {
@@ -109,6 +129,8 @@ export function normalizarUsuario(x: unknown): Usuario | null {
     origem: typeof u.origem === 'string' ? u.origem : null,
     hallPublico: u.hallPublico === 'manual' || u.hallPublico === 'nao' ? u.hallPublico : 'auto',
     codigoConvite: typeof u.codigoConvite === 'string' && /^[A-Za-z0-9]{4,16}$/.test(u.codigoConvite) ? u.codigoConvite : null,
+    tester: u.tester === true,
+    aviso: normalizarAvisoConta(u.aviso),
     estatisticas: {
       partidas: num(e.partidas),
       carreirasSalvas: num(e.carreirasSalvas),
@@ -175,6 +197,8 @@ interface ContaStore {
   redefinir(email: string, codigo: string, senha: string): Promise<Usuario>
   perfil(p: { apelido?: string; timeCoracao?: string; uf?: string; hallPublico?: ModoHallPublico }): Promise<Usuario>
   excluir(senha: string): Promise<void>
+  /** O jogador viu o aviso da moderação (H11): some daqui na hora e do servidor quando ele responder. */
+  avisoLido(): Promise<void>
 }
 
 const ls = armazem(() => (typeof window !== 'undefined' ? window.localStorage : undefined))
@@ -240,11 +264,13 @@ export const useConta = create<ContaStore>()((set, get) => {
 
     async carregar() {
       try {
+        // o que é público e o que é só do admin (Live, Imersivo, avisos, manutenção, cadastro, bônus) vem no `site`
         const r = await api<{ usuario: unknown; regras: unknown; site?: unknown }>('conta.php', { tempo: 8000 })
-        // o que é público e o que é só do admin (Live, Imersivo, aviso, manutenção, cadastro, bônus)
-        aplicarSite(r.site ?? {})
         const antes = get().usuario
         const u = normalizarUsuario(r.usuario)
+        // a conta de testes antes da config: a rota fechada que ela pode abrir não pisca "não encontrada"
+        sincronizarAcesso(u)
+        aplicarSite(r.site ?? {})
         lembrar(u)
         set({ usuario: u, lembrado: u?.apelido ?? null, regras: normalizarRegras(r.regras), status: 'pronto' })
         if (u && get().partidas > u.estatisticas.partidas) enviarPartidas(get().partidas)
@@ -362,7 +388,29 @@ export const useConta = create<ContaStore>()((set, get) => {
       set({ usuario: null, lembrado: null })
       get().adiarConvite()
     },
+
+    async avisoLido() {
+      const u = get().usuario
+      if (!u?.aviso) return
+      set({ usuario: { ...u, aviso: null } })
+      try {
+        await api('conta.php', { corpo: { acao: 'aviso_lido' } })
+      } catch {
+        // sem rede (ou servidor antigo): o aviso volta na próxima abertura da conta, e só isso
+      }
+    },
   }
+})
+
+/** A conta de testes e "há conta aberta" vão para o store de acesso (menu, rotas, avisos por público). */
+function sincronizarAcesso(u: Usuario | null) {
+  const tester = !!u?.tester
+  const logado = !!u
+  const a = useAcesso.getState()
+  if (a.tester !== tester || a.logado !== logado) useAcesso.setState({ tester, logado })
+}
+useConta.subscribe((s, p) => {
+  if (s.usuario !== p.usuario) sincronizarAcesso(s.usuario)
 })
 
 /** Logado de verdade (o servidor confirmou) ou, sem servidor, lembrado neste aparelho. */

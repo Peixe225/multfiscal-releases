@@ -292,3 +292,21 @@
 .sc__none { grid-column: 1 / -1; font-size: 8.5px; color: rgba(244, 245, 248, .55); padding-top: 8px; }
 .sc__foot { position: relative; display: flex; justify-content: space-between; align-items: center; margin-top: auto; padding-top: 7px; border-top: 1px solid rgba(255, 255, 255, .08); font-size: 7.2px; color: rgba(244, 245, 248, .6); font-weight: 600; }
 .sc__foot b { color: #ffd66e; font-weight: 800; letter-spacing: .12em; }
+
+/* ── v3.2: selo "Destaque" (H12) e a visão do admin (X4, "Abrir no jogo" do painel) ── */
+.sm-chip--destaque { background: linear-gradient(100deg, rgba(255, 231, 163, .22), rgba(243, 198, 92, .16)); border-color: rgba(243, 198, 92, .5); color: #ffe7a3; }
+.sm-chip--destaque svg { width: 13px; height: 13px; }
+.sm-admin { display: grid; gap: 8px; padding: 12px 14px; border-radius: 16px; background: linear-gradient(120deg, rgba(108, 178, 255, .12), rgba(108, 178, 255, .04)); border: 1px solid rgba(108, 178, 255, .35); }
+.sm-admin__top { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.sm-admin__t { display: inline-flex; align-items: center; gap: 6px; font: 800 11px/1 var(--font-ui, inherit); letter-spacing: .12em; text-transform: uppercase; color: #cfe6ff; }
+.sm-admin__t svg { width: 15px; height: 15px; }
+.sm-admin__pill { display: inline-flex; align-items: center; gap: 5px; min-height: 24px; padding: 2px 9px; border-radius: 999px; font-size: 12px; font-weight: 700; color: var(--text-2); background: var(--surface); border: 1px solid var(--border-strong); }
+.sm-admin__pill svg { width: 13px; height: 13px; flex: none; }
+.sm-admin__pill.is-ok { color: var(--nx-positive-soft, #b4f7da); background: var(--positive-bg); border-color: var(--nx-positive-line, rgba(62, 230, 164, .3)); }
+.sm-admin__pill.is-aviso { color: #ffd59a; background: rgba(255, 170, 60, .12); border-color: rgba(255, 170, 60, .35); }
+.sm-admin__go { margin-left: auto; }
+.sm-admin__l { margin: 0; font-size: 13px; line-height: 1.45; color: var(--text-2); overflow-wrap: anywhere; }
+.sm-admin__l b { color: var(--text); }
+.sm-admin__l--dim { font-size: 12px; color: var(--text-3); }
+.sm-admin__sinais { margin: 0; padding-left: 18px; display: grid; gap: 2px; font-size: 12.5px; color: #ffb3bf; }
+@media (max-width: 40rem) { .sm-admin__go { margin-left: 0; } }
