@@ -66,11 +66,13 @@ depende dele):
 
 ### 4. Saber pra onde voltar
 
-Desde 14/10 (21h59, horário de Brasília), o que está no ar é a `greencheese-v2/` do commit `263a4ad`, com o pedido
-rápido (os 130 arquivos do ar conferidos um a um com a cópia publicada; o banco subiu sozinho para as migrações 105 e
-209). Se a próxima publicação der errado, voltar é publicar de novo esse commit, do mesmo jeito (build dele, cópia sem
-o `api/instalacao.php`, ensaio e envio). Antes dele, estiveram no ar o `a3d7372` (14/10, 13h44, a v2 sem o pedido
-rápido) e a pasta `greencheese/` do repositório (commit `f30c143`). A cada publicação, troque o hash desta frase pelo do commit que ficou no ar (passo 9).
+Desde 15/10 (16h16, horário de Brasília), o que está no ar é a `greencheese-v2/` do commit `78c855e`, com os 4 produtos
+do material de 11/10 de volta pro desenho do site (os 130 arquivos do ar conferidos um a um com a cópia publicada; o
+banco subiu sozinho para a migração 106, e o `GET loja` mostra os 4 sem foto nem vídeo, com o halo `#a8641f` e
+`#7dbb3c` no Jack Apple e na Fanta da China). Se a próxima publicação der errado, voltar é publicar de novo esse commit,
+do mesmo jeito (build dele, cópia sem o `api/instalacao.php`, ensaio e envio). Antes dele, estiveram no ar o `263a4ad`
+(14/10, 21h59, com o pedido rápido e as fotos de fábrica), o `a3d7372` (14/10, 13h44, a v2 sem o pedido rápido) e a
+pasta `greencheese/` do repositório (commit `f30c143`). A cada publicação, troque o hash desta frase pelo do commit que ficou no ar (passo 9).
 
 ### 5. Ensaio (nada sobe)
 
