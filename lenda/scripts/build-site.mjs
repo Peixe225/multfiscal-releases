@@ -177,6 +177,26 @@ const CSP = [
   'upgrade-insecure-requests',
 ].join('; ')
 if (CSP.includes('"')) fail('a CSP não pode ter aspas duplas (vai entre aspas no .htaccess)')
+// Links curtos de divulgação (oprojeto.online/lenda/reddit, /insta, /blog/<nome>…): um 302 para o jogo com os
+// utm_* já postos, que a medição grava como a origem da visita (painel → De onde vieram e Campanhas).
+// Por mod_alias (RedirectMatch), não por RewriteRule: um RewriteEngine aqui desligaria as regras herdadas do
+// .htaccess de cima (ver o cabeçalho). O nome depois da barra vira o utm_campaign (só letras, números, - e _).
+const BASE_PATH = new URL(siteUrl).pathname
+const LINKS_CURTOS = [
+  ['reddit', 'reddit', 'social'],
+  ['insta', 'instagram', 'social'],
+  ['ig', 'instagram', 'social'],
+  ['blog', 'blog', 'referral'],
+  ['tiktok', 'tiktok', 'social'],
+  ['yt', 'youtube', 'social'],
+  ['zap', 'whatsapp', 'social'],
+]
+const esc = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+const regrasLinks = LINKS_CURTOS.flatMap(([caminho, source, medium]) => {
+  const de = `(?i)^${esc(BASE_PATH)}${caminho}`
+  const para = `${BASE_PATH}?utm_source=${source}&utm_medium=${medium}`
+  return [`  RedirectMatch 302 "${de}/?$" "${para}"`, `  RedirectMatch 302 "${de}/([A-Za-z0-9_-]{1,40})/?$" "${para}&utm_campaign=$1"`]
+}).join('\n')
 const htaccess = `# ─────────────────────────────────────────────────────────────────────────────────────────────
 # LENDA · public_html/lenda/.htaccess — gerado por scripts/build-site.mjs (não edite aqui: rode
 # "npm run build:site" de novo e suba a pasta dist-site/ inteira).
@@ -203,6 +223,17 @@ const htaccess = `# ────────────────────
 <IfModule mod_dir.c>
   DirectorySlash On
   DirectoryIndex index.html
+</IfModule>
+
+# Links curtos de divulgação: /lenda/reddit, /lenda/insta (ou /ig), /lenda/blog, /lenda/tiktok, /lenda/yt e
+# /lenda/zap levam ao jogo com os utm_* da origem; com um nome depois (/lenda/blog/nome-do-blog,
+# /lenda/reddit/futebol) o nome vira o utm_campaign. 302 (não 301): o navegador não guarda para sempre.
+# O LiteSpeed nem sempre se apresenta como mod_alias, por isso o mesmo bloco de novo para ele.
+<IfModule mod_alias.c>
+${regrasLinks}
+</IfModule>
+<IfModule LiteSpeed>
+${regrasLinks}
 </IfModule>
 
 # Tipos certos. Módulo JavaScript só roda com tipo de JavaScript (o navegador recusa

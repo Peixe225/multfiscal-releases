@@ -191,16 +191,26 @@ export function utmDaVisita(search: string): Contexto['utm'] {
   return codigoValido(c) ? { ...utm, source: 'convite', medium: utm.medium || 'indicacao' } : utm
 }
 
+/** Rede conhecida pelo nome (utm, com apelidos) ou pelo domínio; mesma regra do normalizarOrigem do servidor. */
+const REDES: [string, string[], RegExp][] = [
+  ['tiktok', ['tiktok', 'tt'], /(^|\.)tiktok\.com$/],
+  ['youtube', ['youtube', 'yt', 'youtu.be'], /(^|\.)youtube\.com$/],
+  ['instagram', ['instagram', 'insta', 'ig'], /(^|\.)instagram\.com$/],
+  ['reddit', ['reddit', 'redd.it'], /(^|\.)reddit\.com$/],
+  ['facebook', ['facebook', 'fb', 'fb.com', 'fb.me'], /(^|\.)facebook\.com$/],
+  ['x', ['x', 'twitter', 't.co'], /(^|\.)(x|twitter)\.com$/],
+  ['whatsapp', ['whatsapp', 'zap', 'wa.me'], /(^|\.)whatsapp\.com$/],
+  ['google', ['google'], /(^|\.)google\.[a-z.]+$/],
+]
+const rede = (h: string) => REDES.find(([, nomes, dominio]) => nomes.includes(h) || dominio.test(h))?.[0]
+
 /** Origem resumida (mesma regra do painel): utm_source, senão o domínio normalizado, senão "direto". */
 export function origemResumida(ctx: Pick<Contexto, 'ref' | 'utm'>): string {
-  if (ctx.utm.source) return ctx.utm.source.toLowerCase().slice(0, 40)
+  const u = ctx.utm.source.trim().toLowerCase().replace(/^www\d*\./, '')
+  if (u) return rede(u) ?? u.slice(0, 40)
   const r = ctx.ref
   if (!r) return 'direto'
-  if (/(^|\.)tiktok\.com$/.test(r)) return 'tiktok'
-  if (/(^|\.)(youtube\.com|youtu\.be)$/.test(r)) return 'youtube'
-  if (/(^|\.)instagram\.com$/.test(r)) return 'instagram'
-  if (/(^|\.)google\.[a-z.]+$/.test(r)) return 'google'
-  return r.slice(0, 40)
+  return rede(r) ?? r.slice(0, 40)
 }
 
 /** Fila de eventos com teto: passando de `max`, os mais antigos saem. */

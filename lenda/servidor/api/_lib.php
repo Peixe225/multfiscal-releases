@@ -719,7 +719,11 @@ function exigirUsuario(): array
 
 // ── origem da visita ─────────────────────────────────────────────────────────────────────────────
 
-/** Domínio (ou utm) → tiktok, youtube, instagram, google, direto, ou o próprio domínio. */
+/**
+ * Domínio (ou utm) → tiktok, youtube, instagram, reddit, facebook, x, whatsapp, google, direto, ou o próprio
+ * domínio. Apelidos de utm (ig, insta, yt, tt, fb, twitter, zap) caem no mesmo nome. A mesma regra está em
+ * src/site/medicao.ts (origemResumida).
+ */
 function normalizarOrigem(?string $utmSource, ?string $ref): string
 {
     $mapear = static function (string $h): string {
@@ -728,14 +732,28 @@ function normalizarOrigem(?string $utmSource, ?string $ref): string
         if ($h === '') {
             return '';
         }
-        if ($h === 'tiktok' || $h === 'tiktok.com' || str_ends_with($h, '.tiktok.com')) {
+        $de = static fn(array $nomes, array $dominios): bool => in_array($h, $nomes, true)
+            || array_filter($dominios, static fn(string $d): bool => $h === $d || str_ends_with($h, '.' . $d)) !== [];
+        if ($de(['tiktok', 'tt'], ['tiktok.com'])) {
             return 'tiktok';
         }
-        if ($h === 'youtube' || $h === 'youtube.com' || str_ends_with($h, '.youtube.com') || $h === 'youtu.be') {
+        if ($de(['youtube', 'yt', 'youtu.be'], ['youtube.com'])) {
             return 'youtube';
         }
-        if ($h === 'instagram' || $h === 'instagram.com' || str_ends_with($h, '.instagram.com')) {
+        if ($de(['instagram', 'insta', 'ig'], ['instagram.com'])) {
             return 'instagram';
+        }
+        if ($de(['reddit', 'redd.it'], ['reddit.com'])) {
+            return 'reddit';
+        }
+        if ($de(['facebook', 'fb', 'fb.com', 'fb.me'], ['facebook.com'])) {
+            return 'facebook';
+        }
+        if ($de(['x', 'twitter', 't.co'], ['x.com', 'twitter.com'])) {
+            return 'x';
+        }
+        if ($de(['whatsapp', 'zap', 'wa.me'], ['whatsapp.com'])) {
+            return 'whatsapp';
         }
         if ($h === 'google' || preg_match('/(^|\.)google\.[a-z.]{2,12}$/', $h)) {
             return 'google';

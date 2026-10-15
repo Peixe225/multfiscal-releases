@@ -538,6 +538,17 @@ $casos = [
     ['', [], 'direto'],
     ['https://www.google.com/', ['source' => 'TikTok'], 'tiktok'],
     ['', ['source' => 'youtube', 'medium' => 'shorts', 'campaign' => 'lancamento'], 'youtube'],
+    ['https://old.reddit.com/r/futebol/comments/x', [], 'reddit'],
+    ['https://out.reddit.com/t3_x', [], 'reddit'],
+    ['https://l.instagram.com/?u=x', [], 'instagram'],
+    ['https://lm.facebook.com/l.php', [], 'facebook'],
+    ['https://t.co/abc', [], 'x'],
+    ['', ['source' => 'reddit', 'medium' => 'social', 'campaign' => 'futebol'], 'reddit'],
+    ['', ['source' => 'insta', 'medium' => 'bio'], 'instagram'],
+    ['', ['source' => 'IG'], 'instagram'],
+    ['', ['source' => 'zap'], 'whatsapp'],
+    ['https://www.reddit.com/', ['source' => 'blog', 'campaign' => 'blogdofulano'], 'blog'],
+    ['https://blogdofulano.com.br/post/1', [], 'blogdofulano.com.br'],
     ["<script>alert('x')</script>", [], null],
 ];
 foreach ($casos as [$ref, $utm, $esperado]) {

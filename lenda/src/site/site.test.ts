@@ -200,6 +200,18 @@ describe('medição: fila e envio', () => {
     expect(origemResumida({ ref: 'google.com.br', utm: { source: '', medium: '', campaign: '' } })).toBe('google')
     expect(origemResumida({ ref: '', utm: { source: '', medium: '', campaign: '' } })).toBe('direto')
     expect(origemResumida({ ref: 'google.com', utm: { source: 'TikTok', medium: '', campaign: '' } })).toBe('tiktok')
+    const sem = { source: '', medium: '', campaign: '' }
+    expect(origemResumida({ ref: 'old.reddit.com', utm: sem })).toBe('reddit')
+    expect(origemResumida({ ref: 'out.reddit.com', utm: sem })).toBe('reddit')
+    expect(origemResumida({ ref: 'l.instagram.com', utm: sem })).toBe('instagram')
+    expect(origemResumida({ ref: 'lm.facebook.com', utm: sem })).toBe('facebook')
+    expect(origemResumida({ ref: 't.co', utm: sem })).toBe('x')
+    expect(origemResumida({ ref: 'blogdofulano.com.br', utm: sem })).toBe('blogdofulano.com.br')
+    expect(origemResumida({ ref: '', utm: { ...sem, source: 'IG' } })).toBe('instagram')
+    expect(origemResumida({ ref: '', utm: { ...sem, source: 'insta' } })).toBe('instagram')
+    expect(origemResumida({ ref: '', utm: { ...sem, source: 'Reddit' } })).toBe('reddit')
+    expect(origemResumida({ ref: '', utm: { ...sem, source: 'zap' } })).toBe('whatsapp')
+    expect(origemResumida({ ref: 'reddit.com', utm: { ...sem, source: 'blog', campaign: 'blogdofulano' } })).toBe('blog')
   })
 
   it('endereço da API é relativo à pasta do jogo', () => {

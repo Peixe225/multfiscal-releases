@@ -130,7 +130,7 @@
 
   // ── nomes ───────────────────────────────────────────────────────────────────────────────────
   LP.NOMES_MODO = { classico: 'Clássico', imersivo: 'Imersivo', live: 'Live', outro: 'Fora de partida' };
-  LP.NOMES_ORIGEM = { tiktok: 'TikTok', youtube: 'YouTube', instagram: 'Instagram', google: 'Google', direto: 'Direto (link ou digitado)' };
+  LP.NOMES_ORIGEM = { tiktok: 'TikTok', youtube: 'YouTube', instagram: 'Instagram', reddit: 'Reddit', facebook: 'Facebook', x: 'X (Twitter)', whatsapp: 'WhatsApp', blog: 'Blogs', convite: 'Convite de amigo', google: 'Google', direto: 'Direto (link ou digitado)' };
   LP.NOMES_APARELHO = { mobile: 'Celular', desktop: 'Computador', tablet: 'Tablet', outro: 'Outro' };
   LP.NOMES_STATUS_INDICACAO = { pendente: 'Pendente', valida: 'Válida', recusada: 'Recusada' };
   LP.NOMES_MOTIVO_INDICACAO = {
