@@ -206,7 +206,9 @@
   }
   function desenharTempo(d) {
     const t = d.total || {};
-    LP.subAba((d.de ? LP.data(d.de) : 'desde o começo') + ' a ' + LP.data(d.ate || new Date().toISOString()) + ' · ' + (GRUPOS.find((g) => g[0] === tp.grupo) || [0, ''])[1].toLowerCase());
+    // rev3 (§E.7): o servidor guarda o "tudo" por até 10 min e o mês por até 3 min; o geradoEm diz de quando são os números
+    LP.subAba((d.de ? LP.data(d.de) : 'desde o começo') + ' a ' + LP.data(d.ate || new Date().toISOString()) + ' · ' + (GRUPOS.find((g) => g[0] === tp.grupo) || [0, ''])[1].toLowerCase()
+      + (d.geradoEm ? ' · números das ' + LP.hora(d.geradoEm) : ''));
     const L = LP.ladrilho;
     const ladr = h('div', { class: 'ladrilhos espaco-baixo' },
       L('Tempo com o jogo aberto', LP.tempo(t.ativoS), 'aba visível'),

@@ -54,8 +54,14 @@ export interface CarreiraConta {
   hall: HallDaCarreira | null
 }
 
-export type EstadoHall = 'no_hall' | 'revisao' | 'suspeita' | 'oculta' | 'fora' | 'privada'
-export const ESTADOS_HALL: readonly EstadoHall[] = ['no_hall', 'revisao', 'suspeita', 'oculta', 'fora', 'privada']
+/**
+ * `entra_na_proxima` (servidor com a correção da revisão 3, §E.7): entra pelas regras de agora, mas ainda não está na
+ * fotografia do Hall (refeita de hora em hora); o `motivo` traz a hora da próxima atualização.
+ */
+export type EstadoHall = 'no_hall' | 'entra_na_proxima' | 'revisao' | 'suspeita' | 'oculta' | 'fora' | 'privada'
+export const ESTADOS_HALL: readonly EstadoHall[] = ['no_hall', 'entra_na_proxima', 'revisao', 'suspeita', 'oculta', 'fora', 'privada']
+/** Está no Hall público ou entra na próxima atualização (é uma das que a conta mostra). */
+export const noHallOuEntrando = (h: HallDaCarreira | null | undefined): boolean => h?.estado === 'no_hall' || h?.estado === 'entra_na_proxima'
 
 /**
  * Por que a carreira está "fora" (servidor v3.2 com a correção da revisão 3): bloqueada, imersivo, versao e duplicada não
@@ -90,7 +96,7 @@ export function normalizarHall(x: unknown): HallDaCarreira | null {
  */
 export function estrelaDoHall(h: HallDaCarreira | null | undefined, marcada: boolean): boolean {
   if (!h) return true
-  if (h.estado !== 'no_hall' && h.estado !== 'fora' && h.estado !== 'revisao') return false
+  if (h.estado !== 'no_hall' && h.estado !== 'entra_na_proxima' && h.estado !== 'fora' && h.estado !== 'revisao') return false
   if (h.estado === 'fora' && h.porque && (PORQUES_SEM_ESTRELA as readonly string[]).includes(h.porque) && !marcada) return false
   return true
 }
@@ -104,6 +110,8 @@ export function avisoAoPublicar(jogador: string, sim: boolean, h: HallDaCarreira
   // a revisão: o texto do servidor (ele só promete a entrada quando, conferida, ela estaria entre as que a conta mostra)
   if (h?.estado === 'revisao') return { tipo: 'success', titulo: `${jogador} vai para o Hall público`, texto: h.motivo ?? 'Está em revisão: entra no Hall assim que for conferida.' }
   if (!h || h.estado === 'no_hall') return { tipo: 'success', titulo: `${jogador} vai para o Hall público`, texto: 'Aparece na próxima atualização do Hall, em até 3 h.' }
+  // entra pelas regras de agora: o servidor diz quando (a hora da próxima fotografia)
+  if (h.estado === 'entra_na_proxima') return { tipo: 'success', titulo: `${jogador} vai para o Hall público`, texto: h.motivo ?? 'Entra no Hall público na próxima atualização.' }
   return { tipo: 'info', titulo: `${jogador} marcada para o Hall`, texto: seloHall(h)?.texto ?? 'Fora do Hall: esta carreira não aparece no Hall público agora.' }
 }
 
@@ -143,6 +151,8 @@ export function seloHall(h: HallDaCarreira | null | undefined): SeloHall | null 
   switch (h.estado) {
     case 'no_hall':
       return { estado: h.estado, rotulo: 'No Hall público', texto: null, tom: 'ok' }
+    case 'entra_na_proxima':
+      return { estado: h.estado, rotulo: 'Entra em breve', texto: h.motivo ?? 'Entra no Hall público na próxima atualização.', tom: 'ok' }
     case 'revisao':
       return { estado: h.estado, rotulo: 'Em revisão', texto: h.motivo ?? 'Em revisão: entra no Hall assim que for conferida.', tom: 'revisao' }
     case 'privada':
@@ -323,8 +333,9 @@ export const HALL_PUBLICO_MAX = 3
  */
 export function idsNoHallPublico(lista: readonly CarreiraConta[], modo: 'auto' | 'manual' | 'nao', versao = LEGACY_VERSION): Set<string> {
   if (modo === 'nao') return new Set()
-  // v3.2: o estado de cada uma (no Hall, em revisão, fora…) é o que vale
-  if (lista.some((c) => c.hall !== null)) return new Set(lista.filter((c) => c.hall?.estado === 'no_hall').map((c) => c.id))
+  // v3.2: o estado de cada uma (no Hall, em revisão, fora…) é o que vale; a que entra na próxima atualização (rev3)
+  // já é uma das que a conta mostra (a estrela fica marcada no automático e conta no "N/3")
+  if (lista.some((c) => c.hall !== null)) return new Set(lista.filter((c) => noHallOuEntrando(c.hall)).map((c) => c.id))
   if (lista.some((c) => c.noHall !== null)) return new Set(lista.filter((c) => c.noHall).map((c) => c.id))
   const validas = lista.filter((c) => !c.oculta && !c.suspeita && c.nota !== null && c.notaV === versao)
   if (modo === 'manual') return new Set(validas.filter((c) => c.publica).slice(0, HALL_PUBLICO_MAX).map((c) => c.id))

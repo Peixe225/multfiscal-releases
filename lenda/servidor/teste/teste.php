@@ -76,7 +76,21 @@ function v(string $sql, array $p = []): mixed
 
 function resetarLimites(): void
 {
+    esperarJanelaDoLimite();
     q('DELETE FROM tentativas');
+}
+
+/**
+ * Os limites contam em janelas do relógio (intdiv(time(), 600); as de 30 min viram junto): perto da virada, as tentativas
+ * de um teste caíam em duas janelas e o contador recomeçava no meio (a 11ª senha dava 401 em vez de 429). Faltando menos
+ * de 20 s para virar, espera a janela nova.
+ */
+function esperarJanelaDoLimite(): void
+{
+    $falta = 600 - time() % 600;
+    if ($falta < 20) {
+        usleep(($falta + 1) * 1_000_000);
+    }
 }
 
 function uuid4(): string
@@ -423,6 +437,7 @@ function encherLimite(string $chave, int $n, bool $diario = false): void
 /** Apaga só os limites de 10 min (os diários, "dia-*", ficam). */
 function resetarLimitesCurtos(): void
 {
+    esperarJanelaDoLimite();
     q("DELETE FROM tentativas WHERE chave NOT LIKE 'dia-%'");
 }
 

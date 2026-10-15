@@ -26,6 +26,7 @@ BANCO="${LENDA_TESTE_BANCO:-lenda_teste_back_e2e}"
 SOCK_COMPARTILHADO=/run/mysqld/mysqld.sock
 
 PIDS=()
+AP_PROPRIA=""   # pasta do Apache fora do $BASE (quando o www-data não chega nele), apagada no fim
 limpar() {
   for p in "${PIDS[@]:-}"; do
     [ -n "$p" ] && kill "$p" 2>/dev/null
@@ -33,6 +34,7 @@ limpar() {
   for p in "${PIDS[@]:-}"; do
     [ -n "$p" ] && for _ in $(seq 1 50); do kill -0 "$p" 2>/dev/null || break; sleep 0.1; done
   done
+  [ -n "$AP_PROPRIA" ] && rm -rf "$AP_PROPRIA"
 }
 trap limpar EXIT
 falhar() { echo "FALHOU (preparação): $*"; exit 1; }
@@ -161,6 +163,15 @@ echo "· php -S com 4 processos em http://127.0.0.1:$PORTA_PAR (concorrência)"
 URL_APACHE=""
 if command -v apache2 >/dev/null 2>&1 && [ -f /usr/lib/apache2/modules/mod_setenvif.so ]; then
   AP="$BASE/apache"
+  # O Apache atende como www-data: se uma pasta acima do $BASE não deixa ele passar (ex.: um $BASE dentro de uma pasta
+  # 700 do root), todo pedido daria 403 e as regras do .htaccess "falhariam" sem ser culpa delas. Aí a cópia do Apache
+  # vai para uma pasta própria em /tmp (apagada no fim).
+  if command -v runuser >/dev/null 2>&1 && id www-data >/dev/null 2>&1 && ! runuser -u www-data -- test -x "$BASE" 2>/dev/null; then
+    AP_PROPRIA="$(mktemp -d /tmp/lenda-teste-apache.XXXXXX)" || falhar "mktemp para o Apache"
+    chmod 755 "$AP_PROPRIA"
+    AP="$AP_PROPRIA"
+    echo "· Apache: o www-data não chega em $BASE; a cópia do Apache fica em $AP (apagada no fim)"
+  fi
   rm -rf "$AP"
   mkdir -p "$AP/public_html/lenda"
   cp -r "$SERVIDOR/api" "$AP/public_html/lenda/"

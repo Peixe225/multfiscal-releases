@@ -85,11 +85,14 @@
       }));
   }
   function acoesPessoa(x, p) {
+    // rev3 (§E.7): reativar, zerar o PIN e a senha provisória dão acesso à conta da pessoa: pedem também todos os
+    // poderes dela (podeAssumir; servidor antigo, sem o campo = pode). O servidor recusa com 403 hierarquia de todo jeito.
+    const assume = x.podeAssumir !== false;
     return [
       LP.botao('Papel', () => mudarPapel(x, p), { tipo: 'fantasma', pequeno: true, icone: 'escudo' }),
-      LP.botao(x.ativo ? 'Desativar' : 'Ativar', () => ativar(x, !x.ativo), { tipo: x.ativo ? 'fantasma' : 'ok', pequeno: true, icone: x.ativo ? 'bloquear' : 'reativar' }),
-      x.temPin ? LP.botao('Zerar PIN', () => zerarPin(x), { tipo: 'fantasma', pequeno: true, icone: 'cadeado', gerundio: 'Zerando…', title: 'Esqueceu o PIN: cria outro na próxima entrada' }) : null,
-      !x.daConfig ? LP.botao('Senha provisória', () => senhaProvisoria(x), { tipo: 'fantasma', pequeno: true, icone: 'lapis' }) : null,
+      x.ativo || assume ? LP.botao(x.ativo ? 'Desativar' : 'Ativar', () => ativar(x, !x.ativo), { tipo: x.ativo ? 'fantasma' : 'ok', pequeno: true, icone: x.ativo ? 'bloquear' : 'reativar' }) : null,
+      x.temPin && assume ? LP.botao('Zerar PIN', () => zerarPin(x), { tipo: 'fantasma', pequeno: true, icone: 'cadeado', gerundio: 'Zerando…', title: 'Esqueceu o PIN: cria outro na próxima entrada' }) : null,
+      !x.daConfig && assume ? LP.botao('Senha provisória', () => senhaProvisoria(x), { tipo: 'fantasma', pequeno: true, icone: 'lapis' }) : null,
       !x.daConfig ? LP.botao('Tirar da equipe', () => excluirPessoa(x), { tipo: 'perigo', pequeno: true, icone: 'lixo' }) : null,
     ];
   }

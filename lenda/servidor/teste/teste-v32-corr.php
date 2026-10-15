@@ -392,6 +392,9 @@ $pksLista = array_column($lista->json['itens'] ?? [], 'id');
 checar('pulso.suspeitas = total da lista "Suspeitas"; a escondida pelo admin não está nela (mas está em "ocultas")', $pulso === ($lista->json['total'] ?? -2)
     && in_array($pkSu1, $pksLista, true) && !in_array($pkSu2, $pksLista, true) && in_array($pkSu2, array_column(crGet('r=hall&filtro=ocultas')->json['itens'] ?? [], 'id'), true),
     "pulso $pulso / " . $lista->resumo());
+$resumoSu = crGet('r=resumo')->json['carreiras'] ?? [];
+checar('…e o ?r=resumo (ladrilho "Carreiras suspeitas" da Visão geral, que abre essa lista) conta o mesmo; a escondida vai em "ocultas"',
+    ($resumoSu['suspeitas'] ?? -1) === $pulso && ($resumoSu['ocultas'] ?? 0) >= 1, json_encode($resumoSu));
 
 // ══ 15. X2: "no Hall" só na fotografia; "Em revisão" só promete o que acontece ═══════════════════
 
@@ -466,6 +469,14 @@ comConfig(['painel_cache_s' => 60], static function () use ($uidTm): void {
     $u = crGet('r=tempo&jan=tudo&grupo=todos&usuario=' . $uidTm);
     checar('…com usuario= (a ficha), sempre na hora', ($u->json['total']['jogandoS'] ?? 0) === 105, $u->resumo());
 });
+// o ranking guardado tem apelidos: excluir uma conta (LGPD) apaga as respostas guardadas junto
+[$navZ] = novaConta('Sai Do Ranking');
+$senhaZ = 'senha-v3-' . $CONTAS_N;
+$tinhaCache = (int) v("SELECT COUNT(*) FROM site_config WHERE chave = '_tempo:tudo:todos'");
+resetarLimitesCurtos();
+$rz = conta($navZ, ['acao' => 'excluir', 'senha' => $senhaZ]);
+checar('excluir uma conta apaga o Tempo de jogo guardado (o ranking cita apelidos) e o resumo guardado da Visão geral', $tinhaCache === 1 && $rz->status === 200
+    && (int) v("SELECT COUNT(*) FROM site_config WHERE chave LIKE '\\_tempo:%' OR chave LIKE '\\_painel:%'") === 0, $rz->resumo());
 q("DELETE FROM site_config WHERE chave LIKE '\\_tempo:%'");
 
 // ══ 5. e-mail inteiro no email_log ══════════════════════════════════════════════════════════════

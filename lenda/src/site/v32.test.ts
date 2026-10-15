@@ -192,6 +192,23 @@ describe('Hall público por carreira (X2)', () => {
     expect(avisoAoPublicar('VIEIRA', false, imersivo)).toEqual({ tipo: 'success', titulo: 'VIEIRA saiu do Hall público', texto: 'Sai do Hall da comunidade em poucos minutos.' })
   })
 
+  it('revisão 3: `entra_na_proxima` (servidor §E.7) tem selo "Entra em breve", estrela, conta no "N/3" e o toast diz quando', () => {
+    const motivo = 'Entra no Hall público na próxima atualização (por volta das 14:00).'
+    // antes o estado era desconhecido: sem selo e sem contar no Hall da conta
+    expect(normalizarHall({ estado: 'entra_na_proxima', motivo })).toEqual({ estado: 'entra_na_proxima', motivo })
+    expect(seloHall({ estado: 'entra_na_proxima', motivo })).toMatchObject({ rotulo: 'Entra em breve', texto: motivo, tom: 'ok' })
+    expect(seloHall({ estado: 'entra_na_proxima', motivo: null })?.texto).toBe('Entra no Hall público na próxima atualização.')
+    expect(estrelaDoHall({ estado: 'entra_na_proxima', motivo }, true)).toBe(true)
+    expect(estrelaDoHall({ estado: 'entra_na_proxima', motivo }, false)).toBe(true)
+    expect(avisoAoPublicar('VIEIRA', true, { estado: 'entra_na_proxima', motivo })).toEqual({ tipo: 'success', titulo: 'VIEIRA vai para o Hall público', texto: motivo })
+    const lista = [
+      carreira({ id: 'a', nota: 99, hall: { estado: 'no_hall', motivo: null } }),
+      carreira({ id: 'b', nota: 95, hall: { estado: 'entra_na_proxima', motivo } }),
+      carreira({ id: 'c', nota: 70, hall: { estado: 'fora', porque: 'limite', motivo: 'Só as 3 melhores…' } }),
+    ]
+    expect([...idsNoHallPublico(lista, 'auto')].sort()).toEqual(['a', 'b'])
+  })
+
   it('publicar devolve a carreira como o servidor a deixou (o `hall` de agora, para o toast)', async () => {
     useCarreiras.setState({ lista: [carreira({ id: 'imer', hall: { estado: 'fora', porque: 'imersivo', motivo: 'As carreiras do Imersivo ainda não entram no Hall público.' } })] })
     rede((_u, metodo) => (metodo === 'GET' ? resposta(200, { carreiras: [], limite: 200, hallPublico: 'manual' })

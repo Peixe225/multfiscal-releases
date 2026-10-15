@@ -1,8 +1,9 @@
 /**
  * "Minhas carreiras": aba "Na conta" (lista do servidor: abrir no resumo, apagar, pôr/tirar do Hall público) e aba
  * "Neste aparelho" (Hall local que não está na conta: abrir, salvar na conta).
- * v3.2 (X2): cada carreira da conta mostra onde está no Hall público — "No Hall público", "Em revisão: entra no Hall
- * assim que for conferida", "Fora do Hall: <motivo>" ou "Privada" —, com o texto do servidor (seloHall).
+ * v3.2 (X2): cada carreira da conta mostra onde está no Hall público — "No Hall público", "Entra em breve" (rev3),
+ * "Em revisão: entra no Hall assim que for conferida", "Fora do Hall: <motivo>" ou "Privada" —, com o texto do servidor
+ * (seloHall).
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Cloud, CloudUpload, Crown, Eye, FolderOpen, HardDrive, LogIn, RefreshCw, ShieldAlert, Sparkles, Star, StarOff, Trash, Tv2, Users } from 'lucide-react'

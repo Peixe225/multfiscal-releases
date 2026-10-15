@@ -127,8 +127,9 @@ function excluirUsuario(int $uid): void
             sql('DELETE FROM lixeira_carreiras WHERE usuario_id = ?', [$uid]);
             sql('DELETE FROM email_log WHERE para_hash = ?', [quemEmail(strtolower((string) $u['email']))]);
         }
-        // os caches do painel que podem citar a conta (alertas com o apelido, grupos de aparelho) são refeitos
-        sql("DELETE FROM site_config WHERE chave IN ('_atencao', '_multicontas')");
+        // os caches do painel que podem citar a conta (alertas com o apelido, grupos de aparelho, o ranking do Tempo de
+        // jogo e as últimas contas/carreiras da Visão geral) são refeitos
+        sql("DELETE FROM site_config WHERE chave IN ('_atencao', '_multicontas') OR chave LIKE '\\_tempo:%' OR chave LIKE '\\_painel:%'");
         sql('DELETE FROM carreiras WHERE usuario_id = ?', [$uid]);
         sql('DELETE FROM sessoes_login WHERE usuario_id = ?', [$uid]);
         sql('DELETE FROM visitantes_usuarios WHERE usuario_id = ?', [$uid]);

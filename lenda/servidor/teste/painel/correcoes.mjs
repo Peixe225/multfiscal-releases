@@ -4,7 +4,9 @@
 //   fila ao vivo (aviso velho, redesenho de 4 s, "resolvido em outra aba" da própria ação, aviso único) · foco no pulso ·
 //   "Está tudo certo" em grupo de 2 contas · trio de bônus em 360/320 px · botões travados no pedido · seletor de ordem ·
 //   "N dispensados" aberto · recado fixo · coluna "Desde" dos testers · coluna fixa e rótulos em 1024 px · nomes do
-//   Registro e das etapas, "Quem" sem código e Conquistas no hash.
+//   Registro e das etapas, "Quem" sem código e Conquistas no hash. O bloco 8b confere que o painel acompanha as correções
+//   do servidor (§E.7): "409 ja_decidida" no Manter/Ocultar, podeAssumir na Equipe, "Entra em breve" na ficha e o
+//   geradoEm do Tempo de jogo.
 const { chromium } = await import(process.env.LENDA_PLAYWRIGHT ?? '/opt/node22/lib/node_modules/playwright/index.mjs')
 import { readFileSync, readdirSync } from 'node:fs'
 import { BASE, PAINEL, admin, env, esc, ok, pedido, resultado, sleep, sql, uuid } from './lib.mjs'
@@ -388,6 +390,63 @@ await secao('8. Registro: nomes de todas as ações; "Quem" pelo nome; Conquis',
   await page.waitForTimeout(2500)
   ok(await aba(page).locator('input[type=search]').inputValue() === 'gol' && await aba(page).locator('select[aria-label="Raridade no jogo"]').inputValue() === 'comum'
     && /Conquista/.test(await aba(page).locator('th[aria-sort="ascending"]').textContent().catch(() => '')), 'Conquistas: recarregar volta com a mesma busca, raridade e ordem')
+})
+// ═══ 8b. o painel acompanha as correções do servidor (§E.7): "ja_decidida", podeAssumir e "Entra em breve" ════════
+await secao('8b. ja_decidida, podeAssumir e Entra em breve', async () => {
+  // outra pessoa decide a denúncia com o diálogo "Manter" aberto nesta aba: 409 ja_decidida
+  const F = livres[5]
+  const j = await jogador('Corr Den 6')
+  ok((await denunciar(j, F.hid, 'Teste: já decidida')).status === 200, 'denúncia na carreira F')
+  await ir(page, '#/visao', 600)
+  await ir(page, '#/denuncias', 1800)
+  await page.evaluate(() => document.querySelectorAll('#avisos .aviso-flutuante').forEach((x) => x.remove()))
+  await cartao(F.pk).locator('button', { hasText: 'Manter no Hall' }).click()
+  await page.waitForSelector('dialog[open]')
+  exigirOk(await fechar([F.pk]), 'outra pessoa decide a F')
+  await page.locator('dialog[open] button[type=submit]').click()
+  await page.waitForTimeout(2000)
+  const toasts = await page.locator('#avisos .aviso-flutuante').allTextContents()
+  ok(await page.locator('dialog[open]').count() === 0 && toasts.some((t) => /já foi decidida/.test(t) && /A lista foi atualizada/.test(t)),
+    'já decidida em outro lugar: o diálogo fecha e o toast diz "já foi decidida… A lista foi atualizada." (' + toasts.join(' | ').replace(/\s+/g, ' ') + ')')
+  ok(await aba(page).locator(`article.denuncia[data-id="${F.pk}"] button`, { hasText: 'Manter no Hall' }).count() === 0, '…e a lista refeita não mostra mais a F aberta')
+
+  // podeAssumir: false → sem "Senha provisória", "Zerar PIN" e "Ativar" (o "Papel" continua)
+  await page.route(/\/equipe\.php\?r=equipe(&|$)/, async (route) => {
+    const resp = await route.fetch()
+    const d = await resp.json()
+    for (const x of d.itens || []) if (!x.daConfig && !x.eu) { x.podeAssumir = false; x.temPin = true; x.ativo = false }
+    await route.fulfill({ response: resp, json: d })
+  })
+  await ir(page, '#/equipe', 2000)
+  const linhas = aba(page).locator('tbody tr', { has: page.locator('button', { hasText: 'Papel' }) })
+  const nLinhas = await linhas.count()
+  const proibidos = await aba(page).locator('tbody button', { hasText: /^(Senha provisória|Zerar PIN|Ativar)$/ }).count()
+  ok(nLinhas >= 1 && proibidos === 0, `Equipe: com podeAssumir = false, nada de "Senha provisória", "Zerar PIN" nem "Ativar" (${nLinhas} linha(s), ${proibidos} botão(ões))`)
+  await page.unroute(/\/equipe\.php\?r=equipe(&|$)/)
+
+  // a ficha da conta: o estado entra_na_proxima vira o chip "Entra em breve" (antes: o código cru)
+  const S = JSON.parse(readFileSync(`${BASE}/semente.json`, 'utf8'))
+  const id = S.contas['Camisa10'].id
+  const motivo = 'Entra no Hall público na próxima atualização (por volta das 14:00).'
+  await page.route(/\/admin\.php\?r=usuario&/, async (route) => {
+    const resp = await route.fetch()
+    const d = await resp.json()
+    const cs = (d.usuario && d.usuario.carreiras) || d.carreiras || []
+    if (cs[0]) cs[0].hall = { estado: 'entra_na_proxima', motivo }
+    await route.fulfill({ response: resp, json: d })
+  })
+  await ir(page, '#/usuarios?conta=' + id, 2200)
+  const chip = page.locator('#gaveta .chip', { hasText: 'Entra em breve' })
+  ok(await chip.count() >= 1 && await chip.first().getAttribute('title') === motivo && !/entra_na_proxima/.test(await page.textContent('#gaveta')),
+    'ficha: "Entra em breve" com a hora no title, nunca "entra_na_proxima" cru')
+  await page.unroute(/\/admin\.php\?r=usuario&/)
+  await page.keyboard.press('Escape')
+  await page.waitForTimeout(400)
+
+  // Tempo de jogo: o servidor guarda o "tudo" por até 10 min; o subtítulo diz de quando são os números (geradoEm)
+  await ir(page, '#/tempo?jan=tudo', 2200)
+  const subTempo = (await page.textContent('#sub-aba')).trim()
+  ok(/números das \d{2}:\d{2}/.test(subTempo), `Tempo de jogo: o subtítulo diz de quando são os números ("${subTempo}")`)
 })
 ok(page.erros.length === 0, 'computador: nenhum erro de JavaScript' + (page.erros.length ? ': ' + page.erros.slice(0, 3).join(' | ') : ''))
 

@@ -418,7 +418,8 @@
     const e = c.hall && c.hall.estado;
     const m = c.hall && c.hall.motivo;
     if (!e) return null;
-    const mapa = { no_hall: ['No Hall', 'ok'], revisao: ['Em revisão', 'alerta'], suspeita: ['Suspeita', 'alerta'], oculta: ['Oculta', ''], fora: ['Fora do Hall', 'tracejado'], privada: ['Privada', ''] };
+    // entra_na_proxima (rev3, §E.7): entra pelas regras de agora, ainda fora da fotografia; o title diz a hora
+    const mapa = { no_hall: ['No Hall', 'ok'], entra_na_proxima: ['Entra em breve', 'ok'], revisao: ['Em revisão', 'alerta'], suspeita: ['Suspeita', 'alerta'], oculta: ['Oculta', ''], fora: ['Fora do Hall', 'tracejado'], privada: ['Privada', ''] };
     const [t, cor] = mapa[e] || [e, ''];
     return LP.chip(t, cor, { title: m || '', semPonto: e === 'fora' });
   }

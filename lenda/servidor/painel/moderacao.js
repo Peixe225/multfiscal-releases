@@ -695,6 +695,7 @@
     const c = x.carreira || {};
     const n = x.abertasNaCarreira || 1;
     const ok = resultado === 'ok';
+    let jaDecidida = null;
     const r = await LP.dialogoMotivo({
       titulo: ok ? 'Manter ' + (c.jogador || 'a carreira') + ' no Hall' : 'Ocultar ' + (c.jogador || 'a carreira'),
       perigo: !ok,
@@ -707,9 +708,23 @@
       texto: ok
         ? 'Fecha ' + LP.plural(n, 'denúncia aberta', 'denúncias abertas') + ' desta carreira como "ok". Se as denúncias tinham escondido a carreira, ela volta ao Hall na próxima fotografia.'
         : 'A carreira sai do Hall na hora e ' + LP.plural(n, 'denúncia aberta é fechada', 'denúncias abertas são fechadas') + '. Dá para mostrar de novo no Hall público.',
-      executar: (v) => LP.adminPost({ acao: 'resolver_denuncia', id: x.id, resultado: resultado, motivo: v.motivo || undefined, avisar: v.avisar || undefined, avisoMotivo: v.avisar ? v.avisoMotivo : undefined }),
+      executar: async (v) => {
+        try {
+          return await LP.adminPost({ acao: 'resolver_denuncia', id: x.id, resultado: resultado, motivo: v.motivo || undefined, avisar: v.avisar || undefined, avisoMotivo: v.avisar ? v.avisoMotivo : undefined });
+        } catch (e) {
+          // rev3 (§E.7): outra pessoa (ou outra aba) decidiu antes e nada mudou: fecha o diálogo e mostra a lista de agora
+          if (e && e.status === 409 && e.codigo === 'ja_decidida') { jaDecidida = e; return {}; }
+          throw e;
+        }
+      },
     });
     if (!r) return;
+    if (jaDecidida) {
+      LP.avisar(LP.mensagem(jaDecidida).replace(/\s*Atualize a lista[^.]*\.?\s*$/, '') + ' A lista foi atualizada.', 'info', 7000);
+      LP.depoisDeAgir();
+      if (depois) depois();
+      return;
+    }
     LP.avisar((ok ? 'Carreira mantida' : 'Carreira ocultada') + ' · ' + LP.plural(r.denunciasFechadas || 0, 'denúncia fechada', 'denúncias fechadas') + '.');
     if (c.id) LP.marcarFeitos('carreira', [c.id]);
     LP.depoisDeAgir();

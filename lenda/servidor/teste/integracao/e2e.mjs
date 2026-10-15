@@ -685,19 +685,38 @@ await etapa('f2. carreiras de nota alta (93) vão para a revisão: o jogador vê
   ok(ra.status === 200 && ra.json?.carreira?.hall?.estado === 'revisao' && rb.status === 200 && rb.json?.carreira?.hall?.estado === 'revisao',
     `salvar nota 93: C.hall = revisao no salvar (${ra.status} ${JSON.stringify(ra.json?.carreira?.hall)} · ${rb.status})`)
   ok(sql(`SELECT GROUP_CONCAT(suspeita ORDER BY id) FROM carreiras WHERE carreira_id IN ('${estado.idRevA}', '${estado.idRevB}')`) === 'revisao,revisao', 'servidor: as duas com suspeita = revisao (fora do Hall até a conferência)')
-  const g = await A2.page.evaluate(async () => (await fetch('api/carreiras.php', { credentials: 'same-origin' })).json())
-  const c = (g.carreiras ?? g.itens ?? []).find((x) => x.id === estado.idRevA) ?? (g.carreiras ?? []).find((x) => x.jogador === 'ALTAVISTA')
-  ok(c?.hall?.estado === 'revisao' && /Em revisão: entra no Hall assim que for conferida/.test(c?.hall?.motivo ?? ''), `GET carreiras.php: hall {estado: revisao, motivo} (${JSON.stringify(c?.hall)})`)
+  // rev3 (§E.7 #15): a promessa "entra no Hall assim que for conferida" só vale para a carreira que, conferida, estaria
+  // entre as que a conta mostra. O A está no "Eu escolho" com as 3 já escolhidas (d1): a dele fica em revisão sem
+  // promessa. O B está no automático com 1 carreira: a dele entraria, com a promessa.
+  const carreiraDe = async (page, id) => {
+    const g = await page.evaluate(async () => (await fetch('api/carreiras.php', { credentials: 'same-origin' })).json())
+    return (g.carreiras ?? g.itens ?? []).find((x) => x.id === id) ?? null
+  }
+  const c = await carreiraDe(A2.page, estado.idRevA)
+  ok(c?.hall?.estado === 'revisao' && c?.hall?.motivo === 'Em revisão: a moderação confere as notas altas antes do Hall.',
+    `GET carreiras.php (A, "Eu escolho" com 3 escolhidas): hall {estado: revisao} sem prometer a entrada (${JSON.stringify(c?.hall)})`)
+  const cb = await carreiraDe(B.page, estado.idRevB)
+  ok(cb?.hall?.estado === 'revisao' && cb?.hall?.motivo === 'Em revisão: entra no Hall assim que for conferida.',
+    `GET carreiras.php (B, automático): hall {estado: revisao, motivo: "Em revisão: entra no Hall assim que for conferida."} (${JSON.stringify(cb?.hall)})`)
   const dlg = await minhasCarreiras(A2.page)
   const card = dlg.locator('.sc-card', { hasText: 'ALTAVISTA' })
   await card.waitFor({ timeout: 15000 })
   const tc = await card.innerText()
-  ok(/Em revisão/.test(tc) && /Em revisão: entra no Hall assim que for conferida/.test(tc), `Minhas carreiras (celular): selo "Em revisão" e a frase (${tc.replace(/\s+/g, ' ').slice(0, 140)})`)
+  ok(/Em revisão/.test(tc) && /Em revisão: a moderação confere as notas altas antes do Hall/.test(tc) && !/assim que for conferida/.test(tc),
+    `Minhas carreiras (celular, A): selo "Em revisão" e a frase sem a promessa (${tc.replace(/\s+/g, ' ').slice(-120)})`)
   await card.scrollIntoViewIfNeeded()
   await print(A2.page, 'v32-f2-minhas-carreiras-em-revisao')
   const w = await semRolagem(A2.page)
   ok(w[0] <= w[1], `celular: Minhas carreiras sem rolagem lateral (${w[0]} ≤ ${w[1]})`)
   await A2.page.keyboard.press('Escape')
+  const dlgB = await minhasCarreiras(B.page)
+  const cardB = dlgB.locator('.sc-card', { hasText: 'ALTAMIRA' })
+  await cardB.waitFor({ timeout: 15000 })
+  const tb = await cardB.innerText()
+  ok(/Em revisão/.test(tb) && /Em revisão: entra no Hall assim que for conferida/.test(tb), `Minhas carreiras (B): selo "Em revisão" e "Em revisão: entra no Hall assim que for conferida" (${tb.replace(/\s+/g, ' ').slice(-120)})`)
+  await cardB.scrollIntoViewIfNeeded()
+  await print(B.page, 'v32-f2-B-minhas-carreiras-em-revisao')
+  await B.page.keyboard.press('Escape')
 })
 
 await etapa('f3. painel: "Precisa de atenção" com a denúncia e as carreiras em revisão; números ao vivo', async () => {

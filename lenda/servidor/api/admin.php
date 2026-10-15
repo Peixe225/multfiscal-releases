@@ -253,7 +253,8 @@ function rotasGet(): never
             foreach (sql('SELECT tipo, COUNT(*) AS n FROM usuarios GROUP BY tipo') as $l) {
                 $porTipo[(string) $l['tipo']] = (int) $l['n'];
             }
-            $c = umaLinha("SELECT COUNT(*) AS total, COALESCE(SUM(suspeita IS NOT NULL), 0) AS suspeitas, COALESCE(SUM(oculta = 1), 0) AS ocultas,
+            // rev3: "suspeitas" = o mesmo do pulso e do filtro do Hall (as já escondidas pelo admin contam em "ocultas")
+            $c = umaLinha("SELECT COUNT(*) AS total, COALESCE(SUM(suspeita IS NOT NULL AND oculta = 0), 0) AS suspeitas, COALESCE(SUM(oculta = 1), 0) AS ocultas,
                 COALESCE(SUM(oculta = 2), 0) AS denunciadas, COALESCE(SUM(suspeita = 'revisao'), 0) AS revisao,
                 COALESCE(SUM(destaque = 1), 0) AS destaques FROM carreiras");
             $ind = ['pendente' => 0, 'valida' => 0, 'recusada' => 0];
