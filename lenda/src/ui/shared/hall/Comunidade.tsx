@@ -252,6 +252,8 @@ function ComTrofeus({ c, size = 22 }: { c: CarreiraComunidade; size?: number }) 
 }
 
 export const abrirComunidade = (id: string) => navigate('/resumo', { query: { id, de: 'comunidade' } })
+/** O perfil público do dono de uma carreira da comunidade (v3.3, só no site): #/jogador/<código>. */
+export const abrirPerfilPublico = (codigo: string) => navigate('/jogador', { query: { codigo } })
 
 export function SeloComunidade({ c }: { c: Pick<CarreiraComunidade, 'bonusOvr'> & Partial<Pick<CarreiraComunidade, 'destaque'>> }) {
   return (
@@ -309,7 +311,19 @@ export function LinhaComunidade({ c, rank, style }: { c: CarreiraComunidade; ran
             <SeloComunidade c={c} />
           </b>
           <small>
-            <span className="hl-com__dono">
+            <span
+              className={c.perfil ? 'hl-com__dono is-link' : 'hl-com__dono'}
+              title={c.perfil ? `Ver o perfil de ${c.apelido}` : undefined}
+              onClick={
+                c.perfil
+                  ? (e) => {
+                      // o apelido leva ao perfil público (v3.3); o resto da linha abre o resumo
+                      e.stopPropagation()
+                      abrirPerfilPublico(c.perfil!)
+                    }
+                  : undefined
+              }
+            >
               <Users size={11} aria-hidden /> {c.apelido}
             </span>
             <span className="hl-dot" />

@@ -14,6 +14,81 @@ if (isset($_SERVER['SCRIPT_FILENAME']) && realpath((string) $_SERVER['SCRIPT_FIL
 
 const CAMPOS_C = 'id, carreira_id, modo, jogador, numero, pais, posicao, nota, nota_v, pico_ovr, temporadas, gols, titulos,
     bolas_ouro, headline, como, salva_em, terminou_em, publica, oculta, suspeita, bonus_ovr, copas';
+/** Replay do Clássico (HallEntry.replay, CONTRATO-v33 §A): até 64 KB em JSON e 600 decisões. */
+const REPLAY_MAX_BYTES = 64 * 1024;
+const REPLAY_MAX_PICKS = 600;
+
+/** Os campos de C para o SELECT: com o banco da v3.3, também o tem_replay (C.temReplay). */
+function camposC(): string
+{
+    return CAMPOS_C . (esquemaV33() ? ', tem_replay' : '');
+}
+
+/**
+ * O replay de uma carreira do Clássico está no formato do contrato? {v:1, seed:[a0,a1], identity, pace, picks:[{id, kind,
+ * idx, pen, n}], bonusOvr, dados}. Chaves a mais são aceitas (e guardadas), mas o tamanho conta tudo. idx -1 = a opção não
+ * estava entre os cartões (o jogo grava assim); pen = null, "left" | "center" | "right" (texto curto) ou um número.
+ */
+function replayValido(mixed $r): bool
+{
+    if (!($r instanceof stdClass) || ($r->v ?? null) !== 1) {
+        return false;
+    }
+    $seed = $r->seed ?? null;
+    if (!is_array($seed) || count($seed) !== 2 || !array_is_list($seed)) {
+        return false;
+    }
+    foreach ($seed as $x) {
+        if (inteiroOuNulo($x, 0, 4294967295) === null) {
+            return false;
+        }
+    }
+    if (!(($r->identity ?? null) instanceof stdClass) || strlen(json($r->identity)) > 2048) {
+        return false;
+    }
+    if (!is_string($r->pace ?? null) || !preg_match('/^[a-z_-]{1,16}$/', $r->pace)) {
+        return false;
+    }
+    if (inteiroOuNulo($r->bonusOvr ?? null, 0, BONUS_OVR_MAX) === null) {
+        return false;
+    }
+    if (!is_string($r->dados ?? null) || $r->dados === '' || strlen($r->dados) > 64 || preg_match('/[\x00-\x1f\x7f]/', $r->dados)) {
+        return false;
+    }
+    $picks = $r->picks ?? null;
+    if (!is_array($picks) || !array_is_list($picks) || count($picks) > REPLAY_MAX_PICKS) {
+        return false;
+    }
+    foreach ($picks as $p) {
+        if (!($p instanceof stdClass) || !is_string($p->id ?? null) || $p->id === '' || strlen($p->id) > 80
+            || !is_string($p->kind ?? null) || !preg_match('/^[a-z0-9_-]{1,24}$/', $p->kind)
+            || inteiroOuNulo($p->idx ?? null, -1, 999) === null || inteiroOuNulo($p->n ?? null, 0, 999) === null) {
+            return false;
+        }
+        $pen = $p->pen ?? null;
+        if ($pen !== null && !(is_string($pen) && strlen($pen) <= 16) && inteiroOuNulo($pen, 0, 99) === null) {
+            return false;
+        }
+    }
+    return strlen(json($r)) <= REPLAY_MAX_BYTES;
+}
+
+/**
+ * Antes de guardar: replay fora do formato, grande demais ou numa carreira do Imersivo sai do HallEntry (a carreira é
+ * salva sem ele e fica com temReplay false; nunca é recusada por causa do replay). Devolve se ficou com replay.
+ */
+function arrumarReplay(stdClass $h): bool
+{
+    if (!property_exists($h, 'replay')) {
+        return false;
+    }
+    $modo = $h->mode ?? null;
+    if ($modo === 'immersive' || $modo === 'imersivo' || !replayValido($h->replay)) {
+        unset($h->replay);
+        return false;
+    }
+    return true;
+}
 /** Ordem do Hall (dentro da conta e no geral): nota, pico, Bolas de Ouro, títulos, gols, e a mais antiga. */
 const ORDEM_HALL = 'nota DESC, pico_ovr DESC, bolas_ouro DESC, titulos DESC, gols DESC, id ASC';
 const BONUS_OVR_MAX = 20;
@@ -45,6 +120,8 @@ function carreiraC(array $l, array $noHall = [], ?array $u = null): array
         'publica' => (int) ($l['publica'] ?? 0) === 1,
         'noHall' => in_array((int) $l['id'], $noHall, true),
         'bonusOvr' => (int) ($l['bonus_ovr'] ?? 0),
+        // v3.3: a carreira leva os dados do replay (só as do Clássico gravadas nesta versão): pode valer para desafio
+        'temReplay' => (int) ($l['tem_replay'] ?? 0) === 1,
     ];
     if ($u !== null) {
         $c['hall'] = hallDaCarreira($l, $noHall, $u);
@@ -182,12 +259,15 @@ function extrairCampos(stdClass $h): array
 
     $titulos = 0;
     $copas = 0;
+    $libertadores = 0;
     foreach ((array) (is_array(campo($s, 'trophies')) ? $s->trophies : []) as $t) {
         if ($t instanceof stdClass) {
             $n = inteiro(campo($t, 'count'), 0, 10000);
             $titulos += $n;
             if (campo($t, 'trophyId') === 'world-cup') {
                 $copas += $n;
+            } elseif (campo($t, 'trophyId') === 'libertadores') {
+                $libertadores += $n;
             }
         }
     }
@@ -243,6 +323,9 @@ function extrairCampos(stdClass $h): array
         'terminou_em' => $terminou,
         'clubes' => json($clubes),
         'copas' => min($copas, 65535),
+        // v3.3: as Libertadores (desafio As Taças do Rei) e se o HallEntry leva o replay (o arrumarReplay já conferiu)
+        'libertadores' => min($libertadores, 65535),
+        'tem_replay' => property_exists($h, 'replay') && ($modo === 'classico') && replayValido($h->replay) ? 1 : 0,
         'bonus_ovr' => is_int($bonus) || is_float($bonus) ? inteiro($bonus, 0, BONUS_OVR_MAX) : 0,
         'idade' => is_int($idade) || is_float($idade) ? inteiro($idade, 0, 999) : null,
         // o que o jogo mostra como texto no resumo da carreira de outra pessoa (para o filtro de palavrões)

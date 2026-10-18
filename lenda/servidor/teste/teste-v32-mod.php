@@ -190,7 +190,7 @@ checar('índices novos (tipo, acesso, usuario_vid, indicacoes_status, admin_log 
     && in_array('ix_usuarios_acesso', $idx('usuarios'), true) && in_array('ix_visitas_usuario_vid', $idx('visitas'), true)
     && in_array('ix_indicacoes_status', $idx('indicacoes'), true) && in_array('ix_admin_log_acao', $idx('admin_log'), true) && in_array('ix_admin_log_quem', $idx('admin_log'), true));
 checar('tabelas lixeira_carreiras e email_log', count(q("SHOW TABLES LIKE 'lixeira_carreiras'")) === 1 && count(q("SHOW TABLES LIKE 'email_log'")) === 1);
-checar('instalar gravou site_config._esquema = 32', (int) v("SELECT valor FROM site_config WHERE chave = '_esquema'") === 32);
+checar('instalar gravou site_config._esquema = 33 (v3.3)', (int) v("SELECT valor FROM site_config WHERE chave = '_esquema'") === 33);
 $r = $anon->pedir('POST', '/api/instalar.php', null, ['auth' => 'Bearer ' . $PAINEL_TOKEN]);
 checar('instalar de novo: nada a alterar', $r->status === 200 && ($r->json['alteracoes'] ?? null) === [], $r->resumo());
 checar('o _schema.sql segue as regras (sem comentário no fim da linha, sem FOREIGN KEY/CHECK/FULLTEXT, coluna nova NULL ou DEFAULT)', (static function (): bool {
@@ -926,6 +926,7 @@ conta(novoNav(), ['acao' => 'esqueci', 'email' => (string) v('SELECT email FROM 
 for ($i = 0; $i < 50 && (int) v("SELECT COUNT(*) FROM email_log WHERE tipo = 'esqueci'") === 0; $i++) {
     usleep(50_000);
 }
+q("DELETE FROM email_log WHERE tipo = 'verificacao'"); // v3.3: o cadastro manda o código de confirmação do e-mail; aqui contam os de senha
 $r = admGet('r=emails');
 checar('?r=emails: {resumo {envios24h, falhas24h, via, ultimoOkEm}, itens [{em, para, tipo, via, ok, detalhe}]}; o "Esqueci a senha" também vai (tipo esqueci)', $r->status === 200
     && ($r->json['resumo']['envios24h'] ?? 0) === 5 && ($r->json['resumo']['falhas24h'] ?? -1) === 0 && ($r->json['resumo']['via'] ?? '') === 'arquivo'
@@ -1235,8 +1236,8 @@ $navS22->conferir = false; // o 503 é a resposta esperada aqui (a conferência 
 $r = $navS22->pedir('GET', '/api/admin.php?r=usuarios');
 checar('admin numa tela que usa coluna nova → 503 instalar ("rode o instalar.php")', $r->status === 503 && $r->erro() === 'instalar' && str_contains((string) ($r->json['mensagem'] ?? ''), 'instalar.php'), $r->resumo());
 $r = $anon->pedir('POST', '/api/instalar.php', null, ['auth' => 'Bearer ' . $PAINEL_TOKEN]);
-checar('instalar → as colunas voltam e _esquema = 32; o admin volta', $r->status === 200 && count($r->json['alteracoes'] ?? []) === 3
-    && (int) v("SELECT valor FROM site_config WHERE chave = '_esquema'") === 32 && admGet('r=usuarios')->status === 200, $r->resumo());
+checar('instalar → as colunas voltam e _esquema = 33 (v3.3); o admin volta', $r->status === 200 && count($r->json['alteracoes'] ?? []) === 3
+    && (int) v("SELECT valor FROM site_config WHERE chave = '_esquema'") === 33 && admGet('r=usuarios')->status === 200, $r->resumo());
 
 // ══ 15. LGPD: o que é da conta sai com ela ══════════════════════════════════════════════════════
 
@@ -1253,6 +1254,7 @@ foreach (['jogador' => 'conta', 'painel' => 'admin'] as $quem => $via) {
     admPost(['acao' => 'enviar_redefinicao', 'id' => $uZ]);
     admGet('r=atencao&atualizar=1');
     $hashZ = quemEmailTeste($emailZ);
+    q("DELETE FROM email_log WHERE tipo = 'verificacao' AND para_hash = ?", [$hashZ]); // v3.3: o do código de confirmação do cadastro
     checar("($quem) antes: nota, aviso, lixeira e e-mail registrados", v('SELECT nota_admin FROM usuarios WHERE id = ?', [$uZ]) !== null
         && (int) v('SELECT COUNT(*) FROM lixeira_carreiras WHERE usuario_id = ?', [$uZ]) === 1 && (int) v('SELECT COUNT(*) FROM email_log WHERE para_hash = ?', [$hashZ]) === 1);
     if ($via === 'conta') {

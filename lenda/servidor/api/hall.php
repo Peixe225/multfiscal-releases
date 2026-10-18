@@ -4,7 +4,8 @@
  * (hall_foto), que é refeita no máximo a cada hall_intervalo_min (o primeiro pedido depois do prazo responde
  * com a anterior e refaz logo em seguida). Público, sem login; navegador e CDN guardam 5 min.
  *   GET  hall.php?pais=BOL&clube=<clubId>&pagina=1 → {atualizadoEm, proximaEm, total, pagina, porPagina, itens}
- *   GET  hall.php?id=<HallEntry.id>                → {carreira: HallEntry, apelido, posicao, destaque} (só se está na foto)
+ *   GET  hall.php?id=<HallEntry.id>                → {carreira: HallEntry, apelido, posicao, destaque, perfil} (só se está na foto)
+ * v3.3: cada item (e o ?id=) leva `perfil` = o código de convite da conta (o link #/jogador/CODIGO do perfil público).
  *   POST hall.php {"acao":"denunciar","id","motivo":"nome"|"trapaca"|"outro","texto"?} → {ok: true} (logado)
  * Contrato: servidor/CONTRATO-v3.md §4.
  */
@@ -60,7 +61,7 @@ if ($m === 'GET') {
     if (isset($_GET['id'])) {
         $id = lerIdHall($_GET['id']);
         // v3.2 (H12): o selo "Destaque" também no resumo aberto pelo link (só com o banco da v3.2, S22)
-        $l = umaLinha('SELECT f.id AS posicao, f.apelido, ' . (esquemaV32() ? 'f.destaque' : '0 AS destaque') . ', c.dados FROM hall_foto f
+        $l = umaLinha('SELECT f.id AS posicao, f.apelido, u.codigo_convite, ' . (esquemaV32() ? 'f.destaque' : '0 AS destaque') . ', c.dados FROM hall_foto f
             JOIN carreiras c ON c.id = f.carreira_pk JOIN usuarios u ON u.id = c.usuario_id
             WHERE f.carreira_id = ? AND ' . sqlCarreiraVisivel() . ' AND ' . LENDA_SQL_ATIVO . ' AND ' . sqlContaNoHall() . "
               AND (u.hall_publico = 'auto' OR (u.hall_publico = 'manual' AND c.publica = 1))", [$id]);
@@ -69,7 +70,8 @@ if ($m === 'GET') {
             erro(404, 'nao_encontrada', 'Essa carreira não está no Hall público.');
         }
         responderHall('{"carreira":' . $json . ',"apelido":' . json((string) $l['apelido']) . ',"posicao":' . (int) $l['posicao']
-            . ',"destaque":' . ((int) $l['destaque'] === 1 ? 'true' : 'false') . '}', $refazer);
+            . ',"destaque":' . ((int) $l['destaque'] === 1 ? 'true' : 'false') . ',"perfil":' . json($l['codigo_convite'] !== null ? (string) $l['codigo_convite'] : null)
+            . '}', $refazer);
     }
 
     $pais = $_GET['pais'] ?? '';
@@ -98,7 +100,8 @@ if ($m === 'GET') {
     }
     $w = $onde ? ' WHERE ' . implode(' AND ', $onde) : '';
     $total = $onde ? (int) umValor("SELECT COUNT(*) FROM $de$w", $params) : (int) umValor('SELECT COUNT(*) FROM hall_foto');
-    $linhas = sql("SELECT f.* FROM $de$w ORDER BY $ordem LIMIT " . HALL_POR_PAGINA . ' OFFSET ' . $offset, $params)->fetchAll();
+    $linhas = sql("SELECT f.*, u.codigo_convite AS perfil_codigo FROM $de LEFT JOIN usuarios u ON u.id = f.usuario_id$w ORDER BY $ordem LIMIT "
+        . HALL_POR_PAGINA . ' OFFSET ' . $offset, $params)->fetchAll();
     $itens = [];
     foreach ($linhas as $i => $l) {
         $itens[] = itemHall($l, $offset + $i + 1);

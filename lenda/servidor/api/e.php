@@ -21,12 +21,16 @@
  * último batimento (hb.m; sem modo = NULL, rev3) para visitas.modo_atual e o tempo dos batimentos "jogando" para
  * visitas.jogando_s e, por modo, para jogando_classico_s / jogando_imersivo_s / jogando_live_s (rev3) ("Na área" e
  * "Tempo de jogo" do painel). Sem essas colunas (instalar.php pendente) a visita é gravada sem elas.
+ *
+ * v3.3 (CONTRATO-v33 §A): a partida contada entra em partidas_dia (dia de Brasília); passou de partidas_dia_max no dia, ela
+ * não soma em partidas_conta. A que soma confere os desafios da conta (o mínimo de partidas pode ser o que faltava).
  */
 declare(strict_types=1);
 
 require __DIR__ . '/_lib.php';
 require __DIR__ . '/_bonus.php';
 require __DIR__ . '/_celular.php';
+require __DIR__ . '/_desafios.php';
 
 cabecalhos();
 
@@ -260,7 +264,7 @@ function sqlComV32(string $com, array $pCom, string $sem, array $pSem): void
     }
 }
 
-[$linhas, $vidSessao, $contou, $cruzouMinuto] = transacao(static function () use ($sid, $vid, $j, $ua, $bot, $uid, $t, $agora, $batimentos, $batimentosJogando, $jogando, $jogandoPorModo, $mudouModo, $modoAtual, $rotaAtual, $outras, $essenciais, $semCtx): array {
+[$linhas, $vidSessao, $contou, $cruzouMinuto, $somou] = transacao(static function () use ($sid, $vid, $j, $ua, $bot, $uid, $t, $agora, $batimentos, $batimentosJogando, $jogando, $jogandoPorModo, $mudouModo, $modoAtual, $rotaAtual, $outras, $essenciais, $semCtx): array {
     $v = umaLinha('SELECT vid, ultimo, usuario_id, bot, eventos, ativo_s FROM visitas WHERE sid = ? FOR UPDATE', [$sid]);
     // teto da sessão na vida toda (só as linhas comuns): passou de 3.000, o resto é descartado em silêncio
     $outras = array_slice($outras, 0, max(0, MAX_LINHAS_SESSAO - ($v === null ? 0 : (int) $v['eventos'])));
@@ -356,7 +360,9 @@ function sqlComV32(string $com, array $pCom, string $sem, array $pSem): void
     }
     // partida com a conta: conferida antes de gravar a leva, somada na mesma transação (nada se perde no meio)
     $contou = $uid !== null && $essenciais ? partidaPareada($vid, $essenciais, $t) : null;
-    if ($contou !== null) {
+    // v3.3: no dia (Brasília), só até partidas_dia_max somam na conta
+    $somou = $contou !== null && (!esquemaV33() || contarPartidaDia($uid, $t));
+    if ($somou) {
         sql('UPDATE usuarios SET partidas_conta = partidas_conta + 1 WHERE id = ?', [$uid]);
     }
     if ($linhas) {
@@ -377,13 +383,17 @@ function sqlComV32(string $com, array $pCom, string $sem, array $pSem): void
                 ON DUPLICATE KEY UPDATE n = n + VALUES(n), atualizado_em = VALUES(atualizado_em)', [$vid, $fins, $agora]);
         }
     }
-    return [$linhas, $vid, $contou, $cruzouMinuto];
+    return [$linhas, $vid, $contou, $cruzouMinuto, $somou];
 });
 
 if ($uid !== null && $contou === 'classico') {
     conferirIndicacao($uid, $vidSessao, true);
 } elseif ($uid !== null && $cruzouMinuto) {
     conferirIndicacao($uid, null, false); // só faz algo se houver uma indicação pendente (um SELECT pela chave única)
+}
+// v3.3: a partida que somou pode completar o mínimo de partidas de um desafio (só com desafio valendo)
+if ($uid !== null && $somou) {
+    avaliarDesafiosConta($uid);
 }
 // v3.2 (O6): aviso de pico de gente online, no máximo uma conferência a cada 10 min (só com o aviso ligado)
 avisarPicoTalvez();

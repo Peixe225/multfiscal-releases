@@ -48,6 +48,11 @@
 .sm-chip--bonus b { color: #fff1c4; }
 .sm-chip--com { background: rgba(108, 178, 255, .12); border-color: rgba(108, 178, 255, .35); color: #cfe6ff; }
 .sm-chip--com svg { width: 14px; height: 14px; }
+/* v3.3: "Carreira de <apelido>" leva ao perfil público do dono */
+.sm-chip--link { text-decoration: none; cursor: pointer; }
+.sm-chip--link b { text-decoration: underline; text-underline-offset: 2px; text-decoration-color: rgba(207, 230, 255, .45); }
+.sm-chip--link:hover { filter: brightness(1.15); }
+.sm-chip--link:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .sm-chip--pos { background: rgba(255, 94, 120, .14); border-color: rgba(255, 94, 120, .3); color: #ffc2cc; }
 .sm-kpis { display: grid; grid-template-columns: repeat(var(--n, 4), max-content); justify-content: start; gap: 30px; margin: 20px 0 0; }
 .sm-kpis div { min-width: 0; }

@@ -180,6 +180,31 @@
     papel_salvar: 'Salvou papel', papel_apagar: 'Apagou papel', recado_criar: 'Escreveu recado', recado_apagar: 'Apagou recado',
     backup: 'Baixou backup', backup_guardar: 'Guardou cópia', backup_restaurar: 'Restaurou cópia', backup_restaurar_recusado: 'Restauração recusada',
     copia_baixar: 'Baixou cópia do servidor',
+    // v3.3: confirmação do e-mail, desafios e Fale conosco
+    reenviar_verificacao: 'Reenviou a confirmação do e-mail', desafio_salvar: 'Salvou desafio', desafio_ativar: 'Ativou/desativou desafio',
+    candidato_verificar: 'Verificou candidato no jogo', candidato_recusar: 'Recusou candidato', desafio_vencedor: 'Declarou o vencedor',
+    desafio_reabrir: 'Reabriu desafio', suporte_status: 'Mudou a situação de mensagem', suporte_lote: 'Mensagens em lote',
+    suporte_responder: 'Respondeu mensagem',
+  };
+  // v3.3: Fale conosco (mensagens_suporte) e desafios (desafio_candidatos)
+  LP.NOMES_TIPO_SUPORTE = { duvida: 'Dúvida', ideia: 'Ideia', problema: 'Problema', recomendacao: 'Recomendação', outro: 'Outro assunto' };
+  LP.NOMES_STATUS_SUPORTE = { nova: 'Nova', lida: 'Lida', respondida: 'Respondida', arquivada: 'Arquivada' };
+  LP.NOMES_ESTADO_CANDIDATO = { pendente: 'Esperando verificação', verificada: 'Verificada no jogo', recusada: 'Recusada', vencedora: 'Vencedora' };
+  /** Pílula da mensagem: nova (ouro), lida, respondida (verde), arquivada (cinza tracejado). */
+  LP.chipStatusSuporte = function (st) {
+    const cor = st === 'nova' ? 'alerta' : st === 'respondida' ? 'ok' : st === 'arquivada' ? 'tracejado' : 'info';
+    return LP.chip(LP.NOMES_STATUS_SUPORTE[st] || st || '—', cor, { semPonto: st === 'arquivada' });
+  };
+  /** Pílula do candidato a desafio. */
+  LP.chipCandidato = function (st) {
+    const cor = st === 'vencedora' ? 'ouro' : st === 'verificada' ? 'ok' : st === 'recusada' ? 'perigo' : 'alerta';
+    return LP.chip(LP.NOMES_ESTADO_CANDIDATO[st] || st || '—', cor, { semPonto: st === 'vencedora' });
+  };
+  /** E-mail confirmado? (U.emailVerificado; undefined = servidor anterior à v3.3: nada) */
+  LP.chipEmailVerificado = function (v, curto) {
+    if (v === undefined || v === null) return null;
+    return v ? LP.chip(curto ? 'Confirmado' : 'E-mail confirmado', 'ok', { title: 'A pessoa digitou o código que o site mandou para o e-mail' })
+      : LP.chip(curto ? 'Não confirmado' : 'E-mail não confirmado', 'tracejado', { semPonto: true, title: 'Ainda não digitou o código de 6 dígitos que o site mandou' });
   };
   /** Em que passo da entrada a sessão do painel parou (Equipe → Sessões). */
   LP.NOMES_ETAPA = { pronto: 'dentro', senha: 'digitando a senha', pin: 'digitando o PIN', criar_pin: 'criando o PIN', trocar_senha: 'trocando a senha provisória' };
@@ -198,7 +223,7 @@
   let nomesPromessa = null;
   LP.nomes = function () {
     if (!nomesPromessa) {
-      nomesPromessa = fetch('nomes.json?v=3.2.0', { credentials: 'same-origin' })
+      nomesPromessa = fetch('nomes.json?v=3.3.0', { credentials: 'same-origin' })
         .then((r) => (r.ok ? r.json() : null))
         .catch(() => null)
         .then((j) => {
@@ -277,6 +302,9 @@
     tema: ['M12 3a9 9 0 1 0 9 9 7 7 0 0 1-9-9z'],
     mascara: ['M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z', 'M3 3l18 18'],
     info: ['M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z', 'M12 11v6', 'M12 7.5v.5'],
+    trofeu: ['M6 9H4a2 2 0 0 1 0-4h2', 'M18 9h2a2 2 0 0 0 0-4h-2', 'M6 3h12v7a6 6 0 0 1-12 0z', 'M12 16v3', 'M8 21h8'],
+    responder: ['M9 14 4 9l5-5', 'M4 9h10a6 6 0 0 1 6 6v5'],
+    arquivar: ['M3 4h18v4H3z', 'M5 8v12h14V8', 'M10 12h4'],
   };
   /** Ícone SVG (traço, 16px pelo CSS). */
   LP.icone = function (nome) {
@@ -1188,7 +1216,7 @@
   /**
    * Barra das ações em lote de uma lista. o: {itens (da página), marcados (Set de ids em texto), chave(item),
    * aoMudar() (redesenhar as caixas), acoes: [{rotulo(n), tipo, executar(ids, itens) → Promise}], nome: ['carreira',
-   * 'carreiras']}. Devolve {no, atualizar()}. Fica fixa no rodapé no celular (com a área segura do aparelho).
+   * 'carreiras'], rotuloMarcar(n) (opcional: o texto do "marcar os N sem alerta")}. Devolve {no, atualizar()}. Fica fixa no rodapé no celular (com a área segura do aparelho).
    */
   LP.barraLote = function (o) {
     const chave = o.chave || ((x) => String(x.id));
@@ -1205,7 +1233,8 @@
       const [um, varios, genero] = o.nome || ['item', 'itens', 'm'];
       const art = genero === 'f' ? 'as' : 'os';
       const marc = genero === 'f' ? ['marcada', 'marcadas'] : ['marcado', 'marcados'];
-      const btnSeguros = LP.botao('Marcar ' + art + ' ' + LP.inteiro(seguros.length) + ' sem alerta', () => {
+      // o.rotuloMarcar(n): o texto do "marcar todos" de uma lista sem sinais (mensagens: "Marcar as 12 desta página")
+      const btnSeguros = LP.botao(o.rotuloMarcar ? o.rotuloMarcar(seguros.length) : 'Marcar ' + art + ' ' + LP.inteiro(seguros.length) + ' sem alerta', () => {
         marcados.clear();
         seguros.forEach((x) => marcados.add(String(chave(x))));
         o.aoMudar();
@@ -1375,7 +1404,7 @@
   };
 
   // ── rota (hash): #/aba?chave=valor (+ conta=<id> ou carreira=<pk>: o painel lateral) ─────────
-  const PARAMS_GAVETA = ['conta', 'carreira'];
+  const PARAMS_GAVETA = ['conta', 'carreira', 'mensagem'];
   LP.PARAMS_GAVETA = PARAMS_GAVETA;
   LP.rota = function () {
     const bruto = location.hash.replace(/^#\/?/, '');
@@ -1433,6 +1462,8 @@
   LP.usuarioHash = (id) => LP.hashGaveta('conta', id);
   LP.abrirConta = (id) => { location.hash = LP.hashGaveta('conta', id); };
   LP.abrirCarreira = (pk) => { location.hash = LP.hashGaveta('carreira', pk); };
+  /** v3.3: a mensagem do Fale conosco no painel lateral (mensagem=<id>), por cima da aba atual. */
+  LP.abrirMensagem = (id) => { location.hash = LP.hashGaveta('mensagem', id); };
   /** Link para a ficha de uma conta (apelido), aberta no painel lateral. */
   LP.linkUsuario = function (u, extra) {
     if (!u || !u.id) return h('span', { class: 'texto-3' }, extra || 'conta excluída');

@@ -40,6 +40,8 @@ export interface CarreiraComunidade {
   terminouEm: string | null
   /** Escolhida pela moderação (v3.2, H12): selo "Destaque". Servidor antigo = false. */
   destaque: boolean
+  /** Código do perfil público do dono (v3.3: #/jogador/<código>); null/ausente = perfil fechado ou servidor antigo. */
+  perfil?: string | null
 }
 
 export interface PaginasComunidade {
@@ -57,7 +59,7 @@ export interface PaginasComunidade {
   erroMais?: boolean
 }
 
-export type CarreiraAberta = { status: 'carregando' } | { status: 'erro'; naoEncontrada: boolean } | { status: 'pronta'; entry: HallEntry; apelido: string; destaque?: boolean }
+export type CarreiraAberta = { status: 'carregando' } | { status: 'erro'; naoEncontrada: boolean } | { status: 'pronta'; entry: HallEntry; apelido: string; destaque?: boolean; perfil?: string | null }
 
 interface ComunidadeStore {
   /** O site tem Hall público (build do site). */

@@ -6,8 +6,11 @@
  * dados antigos: código de convite das contas e, das carreiras salvas antes, os clubes, as Copas, o bônus, o hash
  * do resumo e a plausibilidade (lidos do HallEntry guardado); a decisão de moderação das carreiras já escondidas
  * (carreiras_moderacao) e, na primeira vez, as partidas por aparelho (partidas_vid, a partir dos eventos). No fim, grava
- * site_config._esquema = 32 (v3.2): até lá, as rotas do jogo não usam as colunas e tabelas novas (subir os arquivos antes
+ * site_config._esquema = 33 (v3.3): até lá, as rotas do jogo não usam as colunas e tabelas novas (subir os arquivos antes
  * de rodar isto não quebra o jogo; o painel responde 503 instalar nas telas novas).
+ * v3.3 (CONTRATO-v33 §A): preenche carreiras.libertadores das carreiras antigas (do HallEntry guardado) e semeia os três
+ * desafios (As Taças do Rei, só as Copas e todas as conquistas) DESATIVADOS e sem prêmio; semente que já existe (pelo
+ * slug) nunca é mexida. O que preencheu vem em "v33": {libertadores, desafios}.
  * Responde a lista de tabelas do banco e o que preencheu; se a resposta disser "faltam" > 0, rode de novo.
  *   curl -X POST -H "Authorization: Bearer $TOKEN" https://oprojeto.online/lenda/api/instalar.php
  */
@@ -15,6 +18,7 @@ declare(strict_types=1);
 
 require __DIR__ . '/_lib.php';
 require __DIR__ . '/_carreiras.php';
+require __DIR__ . '/_desafios.php';
 
 cabecalhos();
 
@@ -141,11 +145,28 @@ if (!in_array('partidas_vid', $antes, true)) {
         GROUP BY e.vid
         ON DUPLICATE KEY UPDATE n = GREATEST(n, VALUES(n))")->rowCount();
 }
-// v3.2: o banco tem tudo do _schema.sql; as rotas passam a usar as colunas e tabelas novas (esquemaV32() no _lib.php)
+// v3.3: as Libertadores das carreiras antigas (as novas já entram com elas), lidas do HallEntry guardado; sem dados, 0
+$libertadores = 0;
+while (microtime(true) < $fim) {
+    $lote = sql('SELECT id, dados FROM carreiras WHERE libertadores IS NULL ORDER BY id LIMIT 200')->fetchAll();
+    if (!$lote) {
+        break;
+    }
+    foreach ($lote as $l) {
+        $json = is_string($l['dados']) ? @gzdecode($l['dados']) : false;
+        $h = is_string($json) ? json_decode($json, false, 512) : null;
+        sql('UPDATE carreiras SET libertadores = ? WHERE id = ?', [$h instanceof stdClass ? extrairCampos($h)['libertadores'] : 0, (int) $l['id']]);
+        $libertadores++;
+    }
+}
+// v3.3: os desafios de fábrica, desativados e sem prêmio (o admin escreve o prêmio e ativa no painel)
+$desafios = semearDesafios();
+// v3.3: o banco tem tudo do _schema.sql; as rotas passam a usar as colunas e tabelas novas (esquemaV32/V33() no _lib.php)
 gravarSiteConfig('_esquema', LENDA_ESQUEMA, 'instalar');
 esquecerSiteConfig();
-$faltam = (int) umValor('SELECT COUNT(*) FROM carreiras WHERE clubes IS NULL OR resumo_hash IS NULL')
+$faltam = (int) umValor('SELECT COUNT(*) FROM carreiras WHERE clubes IS NULL OR resumo_hash IS NULL OR libertadores IS NULL')
     + (int) umValor('SELECT COUNT(*) FROM usuarios WHERE codigo_convite IS NULL');
 responder(200, ['ok' => true, 'comandos' => count($comandos), 'alteracoes' => $alteracoes, 'tabelas' => $tabelas,
     'preenchidas' => ['convites' => $convites, 'carreiras' => $carreiras, 'resumos' => $resumos, 'moderacao' => $moderacao,
-        'partidasVid' => $partidasVid, 'faltam' => $faltam]]);
+        'partidasVid' => $partidasVid, 'faltam' => $faltam],
+    'v33' => ['libertadores' => $libertadores, 'desafios' => $desafios]]);

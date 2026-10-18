@@ -17,7 +17,7 @@ import { Campo, CampoSenha, CampoUf, Erro, useTecladoVirtual } from './campos'
 import { erroApelido, erroEmail, erroSenha, useConta } from './conta'
 import { conviteGuardado } from './indicacao'
 import { armazem, track } from './medicao'
-import { useSiteUi, type AbaConta } from './ui'
+import { abrirVerificarEmail, useSiteUi, type AbaConta } from './ui'
 import './site.css'
 
 type Tela = AbaConta | 'esqueci' | 'codigo'
@@ -63,6 +63,9 @@ export default function ConviteConta() {
   const pronto = (apelido: string, novo: boolean) => {
     fechar()
     toast.success(novo ? `Conta criada. Bem-vindo, ${apelido}!` : `Bem-vindo de volta, ${apelido}!`, salvarDepois ? 'Salvando a carreira na sua conta…' : 'Suas carreiras 90+ agora vão sozinhas para a sua conta.')
+    // v3.3: conta nova com o código a caminho — o diálogo de confirmar o e-mail (servidor antigo não manda o campo: nada abre)
+    const u = useConta.getState().usuario
+    if (novo && u && !u.emailVerificado) abrirVerificarEmail(true)
   }
 
   const titulo = convite ? (

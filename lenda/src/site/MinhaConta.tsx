@@ -6,28 +6,26 @@
  * abertura já rolada até "Convide amigos" (o atalho do menu, X3).
  */
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { FolderHeart, LogOut, Save, ShieldAlert, Trash } from 'lucide-react'
-import { navigate } from '@/store/app'
+import { Copy, ExternalLink, FolderHeart, LogOut, MailWarning, MessageSquareText, Save, ShieldAlert, Trash } from 'lucide-react'
+import { buildHash, navigate } from '@/store/app'
 import { Button, Modal, formatInt, toast } from '@/ui/primitives'
 import { mensagemDeErro } from './api'
 import { Campo, CampoSenha, CampoUf, Erro, nomeUf, useTecladoVirtual } from './campos'
 import { erroApelido, useConta, type AvisoConta, type Usuario } from './conta'
 import { track } from './medicao'
-import { abrirCarreiras, useSiteUi } from './ui'
+import { abrirCarreiras, abrirSuporte, useSiteUi } from './ui'
+import { linkPerfil } from './indicacao'
+import { FormVerificar } from './VerificarEmail'
+import { ContatoDireto } from './FaleConosco'
 import { lazySite } from '@/ui/shell/lazySite'
 import './site.css'
 
 /** O cartão de convites vem num pedaço à parte (sem rede, some sem derrubar a conta). */
 const ConvideAmigos = lazySite('ConvideAmigos', () => import('./ConvideAmigos'))
 
-const DIA = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'America/Sao_Paulo' })
-const DIA_HORA = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' })
-
-export function dataBr(iso: string | null | undefined, comHora = false): string {
-  if (!iso) return '—'
-  const d = new Date(iso)
-  return Number.isNaN(d.getTime()) ? '—' : (comHora ? DIA_HORA : DIA).format(d)
-}
+/** As datas ficam em ./datas (as telas novas usam sem puxar este diálogo); daqui continuam saindo para quem já importava. */
+export { dataBr } from './datas'
+import { dataBr } from './datas'
 
 /** "2 h 20 min", "45 min" */
 export function tempoJogado(min: number): string {
@@ -113,6 +111,18 @@ function Corpo({ u, aviso, excluirAberto, irPara }: { u: Usuario; aviso: AvisoCo
           </div>
         </div>
       )}
+      {!u.emailVerificado && (
+        <div className="sv-faixa" role="status">
+          <div className="sv-faixa__h">
+            <MailWarning aria-hidden="true" />
+            <div>
+              <b>Confirme o seu e-mail</b>
+              <span>Digite o código de 6 dígitos que mandamos para {u.email}. Confirmar é um dos requisitos para valer nos desafios.</span>
+            </div>
+          </div>
+          <FormVerificar email={u.email} jaVerificado={false} compacto />
+        </div>
+      )}
       <div className="sc-perfil__head">
         <span className="sc-avatar sc-avatar--lg" aria-hidden="true">
           {u.apelido.trim().charAt(0) || '?'}
@@ -178,12 +188,63 @@ function Corpo({ u, aviso, excluirAberto, irPara }: { u: Usuario; aviso: AvisoCo
       </h3>
       <ConvideAmigos />
 
+      <h3 className="sc-sec">Seu perfil público</h3>
+      <LinkPerfil u={u} />
+
       <h3 className="sc-sec">Seu perfil</h3>
       <FormPerfil u={u} />
+
+      <h3 className="sc-sec">Fale conosco</h3>
+      <div className="sc-btns" style={{ marginBottom: 8 }}>
+        <Button variant="ghost" size="md" icon={MessageSquareText} onClick={() => abrirSuporte()}>
+          Mandar dúvida, ideia ou problema
+        </Button>
+      </div>
+      <ContatoDireto compacto />
 
       <h3 className="sc-sec">Zona de perigo</h3>
       <Excluir aberto={excluirAberto} />
     </>
+  )
+}
+
+/** O link do perfil público (v3.3): …/lenda/?c=CÓDIGO#/jogador/CÓDIGO, com copiar e abrir. */
+function LinkPerfil({ u }: { u: Usuario }) {
+  const link = linkPerfil(u.codigoConvite)
+  if (!link || !u.codigoConvite) return <p className="sc-hint">O link do seu perfil aparece aqui assim que a conta tiver um código de convite.</p>
+  const copiar = async () => {
+    try {
+      await navigator.clipboard.writeText(link)
+      toast.success('Link do perfil copiado', 'Quem abrir vê as suas carreiras do Hall e ainda chega como seu convidado.')
+    } catch {
+      toast.info('Link do seu perfil', link)
+    }
+  }
+  return (
+    <div className="sv-perfil-link">
+      <p>
+        {u.hallPublico === 'nao'
+          ? 'Seu perfil está fechado: você escolheu não aparecer no Hall público (mude em “Minhas carreiras”). Quem abrir o link vê “perfil não encontrado”.'
+          : 'Mostra o seu apelido, as conquistas e as até 3 carreiras suas no Hall público. É o mesmo código do convite: quem chega por ele também conta como seu convidado.'}
+      </p>
+      <span className="lx-input">
+        <input readOnly value={link} aria-label="Link do seu perfil público" onFocus={(e) => e.currentTarget.select()} />
+      </span>
+      <div className="sc-btns">
+        <Button variant="primary" size="md" icon={Copy} onClick={() => void copiar()}>
+          Copiar o link
+        </Button>
+        <Button
+          variant="ghost"
+          size="md"
+          icon={ExternalLink}
+          href={buildHash('/jogador', { codigo: u.codigoConvite })}
+          onClick={() => useSiteUi.getState().fechar()}
+        >
+          Ver meu perfil
+        </Button>
+      </div>
+    </div>
   )
 }
 

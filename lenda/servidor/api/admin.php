@@ -9,6 +9,9 @@
  *        | "resolver_denuncia" | "recusar_indicacao" | "config" | "alerta_dispensar" | "alerta_reabrir" | "carreiras_lote"
  *        | "resolver_denuncias_lote" | "indicacoes_lote" | "nota" | "mudar_tipo" | "bloquear_hall" | "restaurar_carreira"
  *        | "liberar_reenvio" | "enviar_redefinicao" | "destacar_carreira" | "testar_aviso", ...}
+ * v3.3 (CONTRATO-v33 §A): GET ?r=desafios | desafio | suporte e POST desafio_salvar | desafio_ativar | candidato_verificar |
+ *        candidato_recusar | desafio_declarar_vencedor | desafio_reabrir | suporte_status | suporte_responder | suporte_lote |
+ *        reenviar_verificacao (em _desafios.php e _suporte.php); e-mail verificado na lista de contas.
  * Poderes: GET pede "ver" (exportar, relatório/tempo em CSV e segurança pedem o do mapa PODERES_ACAO do _admin.php);
  * cada POST pede o poder da ação no mesmo mapa (exigirAdminAcao). Tabela/coluna nova que ainda não existe (subiu os
  * arquivos e não rodou o instalar.php): 503 instalar.
@@ -22,6 +25,8 @@ require __DIR__ . '/_moderacao.php';
 require __DIR__ . '/_atencao.php';
 require __DIR__ . '/_relatorios.php';
 require __DIR__ . '/_celular.php';
+require __DIR__ . '/_desafios.php';
+require __DIR__ . '/_suporte.php';
 
 cabecalhos();
 
@@ -210,6 +215,11 @@ function contagensUsuarios(): array
             'sumido' => (int) $l['sumido'],
             'nota' => (int) $l['nota'],
             'sem' => ['time' => (int) $l['sem_time'], 'uf' => (int) $l['sem_uf']],
+            // v3.3: e-mail confirmado (sim) ou não
+            'verificado' => esquemaV33() ? (static function (): array {
+                $v = umaLinha('SELECT COALESCE(SUM(email_verificado_em IS NOT NULL), 0) AS sim, COALESCE(SUM(email_verificado_em IS NULL), 0) AS nao FROM usuarios');
+                return ['sim' => (int) $v['sim'], 'nao' => (int) $v['nao']];
+            })() : null,
         ];
     });
 }
@@ -350,6 +360,11 @@ function rotasGet(): never
             if (($_GET['nota'] ?? '') === '1') {
                 $onde[] = 'u.nota_admin IS NOT NULL';
             }
+            $verificado = qs('verificado', 1);
+            if ($verificado !== '' && esquemaV33()) {
+                // v3.3: e-mail confirmado (1) ou não (0)
+                $onde[] = $verificado === '1' ? 'u.email_verificado_em IS NOT NULL' : 'u.email_verificado_em IS NULL';
+            }
             $sem = qs('sem', 6);
             if ($sem === 'time') {
                 $onde[] = 'u.time_coracao IS NULL';
@@ -417,6 +432,7 @@ function rotasGet(): never
                     'tipoEm' => iso($l['tipo_em'] ?? null),
                     'hallBloqueado' => (int) ($l['hall_bloqueado'] ?? 0) === 1,
                     'temNota' => ($l['nota_admin'] ?? null) !== null,
+                    'emailVerificado' => ($l['email_verificado_em'] ?? null) !== null,
                 ];
             }
             responder(200, paginado($total, $pagina, $itens) + ['contagens' => contagensUsuarios()]);
@@ -430,7 +446,7 @@ function rotasGet(): never
                 return carreiraC($l, $noHall, $u) + ['pk' => (int) $l['id'], 'oculta' => (int) $l['oculta'],
                     'suspeita' => $l['suspeita'] !== null ? (string) $l['suspeita'] : null, 'copas' => (int) $l['copas'],
                     'destaque' => (int) $l['destaque'] === 1, 'moderacao' => moderacaoJson($l)];
-            }, sql('SELECT ' . CAMPOS_C . ', destaque, motivo_admin, moderada_em FROM carreiras WHERE usuario_id = ? ORDER BY salva_em DESC, id DESC', [$uid])->fetchAll());
+            }, sql('SELECT ' . camposC() . ', destaque, motivo_admin, moderada_em FROM carreiras WHERE usuario_id = ? ORDER BY salva_em DESC, id DESC', [$uid])->fetchAll());
             $conq = array_map(static fn(array $l): array => ['id' => (string) $l['conquista_id'], 'em' => iso($l['em'])],
                 sql('SELECT conquista_id, em FROM conquistas_usuario WHERE usuario_id = ? ORDER BY em', [$uid])->fetchAll());
             $feitas = array_map(static fn(array $l): array => [
@@ -515,6 +531,17 @@ function rotasGet(): never
                     'redefinicaoPendente' => $redef === null ? null : ['expiraEm' => iso($redef['expira_em']), 'tentativas' => (int) $redef['tentativas']],
                 ],
                 'lixeira' => $lixeira,
+                // v3.3: e-mail confirmado, as candidaturas aos desafios e as mensagens do Fale conosco da conta
+                'emailVerificadoEm' => iso($u['email_verificado_em'] ?? null),
+                'desafios' => esquemaV33() ? array_map(static fn(array $k): array => ['id' => (int) $k['id'], 'estado' => (string) $k['estado'],
+                    'em' => isoMs($k['em']), 'motivo' => $k['motivo'], 'carreiraPk' => $k['carreira_pk'] !== null ? (int) $k['carreira_pk'] : null,
+                    'jogador' => $k['jogador'], 'desafio' => ['id' => (int) $k['desafio_id'], 'slug' => (string) $k['slug'], 'titulo' => (string) $k['titulo']]],
+                    sql('SELECT k.*, d.slug, d.titulo FROM desafio_candidatos k JOIN desafios d ON d.id = k.desafio_id WHERE k.usuario_id = ? ORDER BY k.em DESC LIMIT 50',
+                        [$uid])->fetchAll()) : [],
+                'mensagens' => esquemaV33() ? array_map(static fn(array $m): array => ['id' => (int) $m['id'], 'protocolo' => (string) $m['protocolo'],
+                    'tipo' => (string) $m['tipo'], 'status' => (string) $m['status'], 'criadoEm' => iso($m['criado_em'])],
+                    sql('SELECT id, protocolo, tipo, status, criado_em FROM mensagens_suporte WHERE usuario_id = ? ORDER BY criado_em DESC, id DESC LIMIT 20',
+                        [$uid])->fetchAll()) : [],
             ]]);
 
         case 'hall':
@@ -552,17 +579,24 @@ function rotasGet(): never
             } else {
                 $id = lerIdNumero($_GET['id'] ?? null, 'Carreira');
             }
-            $l = umaLinha(SQL_CARREIRA_ADMIN . ', c.dados' . SQL_CARREIRA_ADMIN_DE . ' WHERE c.id = ?', [$id]);
+            $l = umaLinha(SQL_CARREIRA_ADMIN . ', c.dados' . (esquemaV33() ? ', c.tem_replay, c.libertadores' : '') . SQL_CARREIRA_ADMIN_DE . ' WHERE c.id = ?', [$id]);
             $json = $l !== null && is_string($l['dados']) ? @gzdecode($l['dados']) : false;
             if (!is_string($json) || $json === '') {
                 erro(404, 'nao_encontrada', 'Carreira não encontrada.');
             }
             unset($l['dados']);
+            // v3.3: o que a verificação no jogo (#/verificar) precisa: tem replay? de que desafios a carreira é candidata?
+            $v33 = esquemaV33() ? ['temReplay' => (int) ($l['tem_replay'] ?? 0) === 1, 'libertadores' => (int) ($l['libertadores'] ?? 0)] : [];
+            $cands = esquemaV33() ? array_map(static fn(array $k): array => ['id' => (int) $k['id'], 'estado' => (string) $k['estado'], 'em' => isoMs($k['em']),
+                'desafio' => ['id' => (int) $k['desafio_id'], 'slug' => (string) $k['slug'], 'titulo' => (string) $k['titulo']]],
+                sql('SELECT k.id, k.estado, k.em, k.desafio_id, d.slug, d.titulo FROM desafio_candidatos k JOIN desafios d ON d.id = k.desafio_id
+                    WHERE k.carreira_pk = ? ORDER BY k.em, k.id', [$id])->fetchAll()) : [];
             $den = array_map(static fn(array $d): array => ['id' => (int) $d['id'], 'motivo' => (string) $d['motivo'], 'texto' => $d['texto'],
                 'criadaEm' => iso($d['criada_em']), 'status' => (string) $d['status'], 'denunciante' => ['id' => (int) $d['usuario_id'],
                 'apelido' => (string) ($d['apelido'] ?? '')]],
                 sql('SELECT d.*, u.apelido FROM denuncias d LEFT JOIN usuarios u ON u.id = d.usuario_id WHERE d.carreira_pk = ? ORDER BY d.id DESC LIMIT 100', [$id])->fetchAll());
-            responderBruto(200, '{"meta":' . json(itensComSinais([$l])[0]) . ',"denuncias":' . json($den) . ',"carreira":' . $json . '}');
+            responderBruto(200, '{"meta":' . json(itensComSinais([$l])[0] + $v33) . ',"denuncias":' . json($den) . ',"candidatos":' . json($cands)
+                . ',"carreira":' . $json . '}');
 
         case 'denuncias':
             $st = qs('status', 10) ?: 'abertas';
@@ -925,6 +959,7 @@ function rotasGet(): never
             }
             responder(200, respostaSeguranca($pagina, qs('acao', 40) ?: null));
     }
+    rotasGetV33($r, $pagina); // v3.3: desafios e Fale conosco (_desafios.php, _suporte.php); responde se a rota é dela
     erro(400, 'rota', 'Rota desconhecida.');
 }
 
@@ -971,6 +1006,7 @@ function rotasPost(array $ADM, string $via): never
             $u = usuarioOu404(lerIdNumero($j['id'] ?? null));
             sql("UPDATE usuarios SET status = 'ativo', suspenso_ate = NULL, motivo_suspensao = NULL WHERE id = ?", [(int) $u['id']]);
             registrarAdmin('reativar', 'usuario:' . $u['id'], ['apelido' => (string) $u['apelido'], 'motivo' => lerMotivo($j['motivo'] ?? null, false)]);
+            avaliarDesafiosConta((int) $u['id']); // v3.3
             responder(200, ['ok' => true] + statusAdmin(usuarioOu404((int) $u['id'])));
 
         case 'deslogar':
@@ -1106,6 +1142,8 @@ function rotasPost(array $ADM, string $via): never
             $c = $r['carreira'];
             if ($acao !== 'mostrar_carreira') {
                 tirarDoHall($pk);
+            } else {
+                avaliarDesafiosConta((int) $c['usuario_id']); // v3.3: liberada, ela pode cumprir um desafio
             }
             if ($aviso !== null) {
                 avisarAutor((int) $c['usuario_id'], (string) $c['jogador'], $aviso);
@@ -1146,6 +1184,12 @@ function rotasPost(array $ADM, string $via): never
                 $fotos = array_map('intval', sql('SELECT id FROM hall_foto WHERE carreira_pk IN (' . marcas(count($feitos)) . ')', $feitos)->fetchAll(PDO::FETCH_COLUMN));
                 if ($fotos) {
                     tirarDoHallIds($fotos);
+                }
+            } elseif ($feitos && desafiosValendo()) {
+                // v3.3: liberadas, elas podem cumprir um desafio
+                foreach (array_unique(array_map('intval', sql('SELECT usuario_id FROM carreiras WHERE id IN (' . marcas(count($feitos)) . ')', $feitos)
+                    ->fetchAll(PDO::FETCH_COLUMN))) as $dono) {
+                    avaliarDesafiosConta($dono);
                 }
             }
             registrarAdmin('carreiras_lote', 'hall', ['operacao' => $op, 'feitos' => count($feitos), 'pulados' => rotuloPulados($pulados),
@@ -1265,6 +1309,8 @@ function rotasPost(array $ADM, string $via): never
             sql('UPDATE usuarios SET hall_bloqueado = ? WHERE id = ?', [$sim ? 1 : 0, (int) $u['id']]);
             if ($sim) {
                 tirarDoHall(null, (int) $u['id']); // sai na hora; voltar é na próxima fotografia
+            } else {
+                avaliarDesafiosConta((int) $u['id']); // v3.3: de volta ao Hall, pode cumprir um desafio
             }
             registrarAdmin('bloquear_hall', 'usuario:' . $u['id'], ['apelido' => (string) $u['apelido'], 'sim' => $sim, 'motivo' => $motivo]);
             responder(200, ['ok' => true, 'hallBloqueado' => $sim]);
@@ -1369,6 +1415,7 @@ function rotasPost(array $ADM, string $via): never
             registrarAdmin('config', 'config', $mudou);
             responder(200, ['ok' => true, 'valores' => siteConfigPainel(true)]);
     }
+    rotasPostV33($acao, $j); // v3.3: desafios, Fale conosco e reenviar a confirmação do e-mail; responde se a ação é dela
     erro(400, 'acao', 'Ação desconhecida.');
 }
 

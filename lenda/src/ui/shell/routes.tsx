@@ -17,8 +17,12 @@ function screen(load: Loader, named: string): LazyExoticComponent<ComponentType>
   })
 }
 
+const LANDING = screen(() => import('@/ui/shared/landing/LandingScreen'), 'LandingScreen')
+/** As telas só do site (v3.3): fora dele o roteador nem chega nelas (viram "/"), e o código não entra no bundle. */
+const SITE = import.meta.env.VITE_SITE === '1'
+
 export const SCREENS: Record<RoutePath, LazyExoticComponent<ComponentType>> = {
-  '/': screen(() => import('@/ui/shared/landing/LandingScreen'), 'LandingScreen'),
+  '/': LANDING,
   '/identidade': screen(() => import('@/ui/shared/identity/IdentityScreen'), 'IdentityScreen'),
   '/carreira': screen(() => import('@/ui/classic/cockpit/CareerScreen'), 'CareerScreen'),
   '/resumo': screen(() => import('@/ui/classic/summary/SummaryScreen'), 'SummaryScreen'),
@@ -28,6 +32,9 @@ export const SCREENS: Record<RoutePath, LazyExoticComponent<ComponentType>> = {
   '/kit': screen(() => import('./KitScreen'), 'KitScreen'),
   '/creditos': screen(() => import('@/ui/shared/credits/CreditsScreen'), 'CreditsScreen'),
   '/live': screen(() => import('@/ui/live/LiveScreen'), 'LiveScreen'),
+  '/desafios': SITE ? screen(() => import('@/site/DesafiosTela'), 'DesafiosTela') : LANDING,
+  '/jogador': SITE ? screen(() => import('@/site/PerfilPublico'), 'PerfilPublico') : LANDING,
+  '/verificar': SITE ? screen(() => import('@/site/VerificarTela'), 'VerificarTela') : LANDING,
 }
 
 export const AchievementsDialog = lazy(async () => {

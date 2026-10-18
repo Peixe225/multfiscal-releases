@@ -4,10 +4,12 @@
  *   GET  conquistas.php              → {conquistas: [{id, em}]}                       (logado)
  *   POST {"acao":"sincronizar","conquistas":[{id, em}]} → a união, com a data mais antiga (logado)
  *   GET  conquistas.php?raridade=1   → {jogadores, porConquista: {id: n}, atualizadoEm} (público, cache de 1 h)
+ * v3.3: depois de sincronizar, confere os desafios da conta (o de todas as conquistas, CONTRATO-v33 §A).
  */
 declare(strict_types=1);
 
 require __DIR__ . '/_lib.php';
+require __DIR__ . '/_desafios.php';
 
 cabecalhos();
 
@@ -128,5 +130,6 @@ if ($novas) {
                 . ' ON DUPLICATE KEY UPDATE em = LEAST(em, VALUES(em))', $params);
         }
     });
+    avaliarDesafiosConta($uid);
 }
 responder(200, ['conquistas' => conquistasDe($uid)]);

@@ -16,6 +16,7 @@ import { useData } from '@/store/data'
 import { Button, Crest, LivePill, MedalIcon, Modal, OvrPill, Segmented, cx, useReducedMotion } from '@/ui/primitives'
 import { useAchievementCatalog } from '@/ui/shell/achievementsRegistry'
 import { useShellSlots } from '@/ui/shell/slots'
+import { lazySite } from '@/ui/shell/lazySite'
 import { sfx } from '@/ui/shell/sfx'
 import { PACE_INFO, PACES, usePrefs } from '@/ui/shared/identity/prefs'
 import { shortDate } from '@/ui/shared/live/leagues'
@@ -24,6 +25,9 @@ import { Features } from './Features'
 import { HeroArt } from './HeroArt'
 import { LiveTicker } from './LiveTicker'
 import './landing.css'
+
+/** Só no site (v3.3): o destaque do desafio valendo ("As Taças do Rei"); sem desafio ativo, sem rede ou fora do site, nada. */
+const DestaqueDesafio = import.meta.env.VITE_SITE === '1' ? lazySite('DestaqueDesafio', () => import('@/site/DestaqueDesafio')) : null
 
 export function LandingNav() {
   // site: com o Modo Imersivo ainda em desenvolvimento, o público vê "Em breve" (sem link); o admin, "Teste"
@@ -313,6 +317,7 @@ export default function LandingScreen() {
                 <ArrowRight size={14} aria-hidden className="flex-none" />
               </motion.button>
             )}
+            {DestaqueDesafio && <DestaqueDesafio />}
           </div>
           <HeroArt />
         </div>

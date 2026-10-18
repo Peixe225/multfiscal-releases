@@ -3,13 +3,15 @@
  * LENDA · conta do jogador: cadastrar, entrar, sair, esqueci, redefinir, perfil, partidas, excluir.
  *   GET  conta.php                  → {usuario: U | null, regras, site}
  *   POST conta.php {"acao": "..."}  → ver servidor/CONTRATO.md e CONTRATO-v3.md §3; v3.2 (CONTRATO-v32 §A.7): U.tester,
- *        U.aviso e {"acao": "aviso_lido"}, site.avisos do público de quem pediu
+ *        U.aviso e {"acao": "aviso_lido"}, site.avisos do público de quem pediu; v3.3 (CONTRATO-v33 §A): U.emailVerificado,
+ *        o código mandado no cadastrar e {"acao": "verificar_email", "codigo"} / {"acao": "reenviar_verificacao"}
  */
 declare(strict_types=1);
 
 require __DIR__ . '/_lib.php';
 require __DIR__ . '/_contas.php';
 require __DIR__ . '/_bonus.php';
+require __DIR__ . '/_desafios.php';
 
 cabecalhos();
 
@@ -146,7 +148,56 @@ switch ($acao) {
             }
             throw $e;
         }
-        responder(201, ['usuario' => usuarioJson(buscarUsuario($uid))]);
+        $novo = buscarUsuario($uid);
+        if (esquemaV33() && cabeEmailVerificacao()) {
+            // v3.3: o código para confirmar o e-mail sai logo depois da resposta (quem cadastra não espera o envio); passou do
+            // teto do site, o jogador pede outro depois (reenviar_verificacao)
+            $codigo = gravarCodigoVerificacao($uid, $email);
+            terminarResposta(201, ['usuario' => usuarioJson($novo)]);
+            enviarEmail($email, 'LENDA: confirme o seu e-mail', corpoEmailVerificacao($apelido, $codigo), 'verificacao');
+            exit;
+        }
+        responder(201, ['usuario' => usuarioJson($novo)]);
+
+    case 'verificar_email':
+        // v3.3: o código de 6 dígitos que chegou no e-mail (24 h, 5 chutes por código, 10 tentativas a cada 10 min)
+        $u = exigirUsuario();
+        $uid = (int) $u['id'];
+        if (!esquemaV33()) {
+            erro(503, 'indisponivel', 'A confirmação do e-mail ainda não está disponível. Tente de novo daqui a pouco.');
+        }
+        limitar('verificar-email', 'u' . $uid, 10);
+        if (($u['email_verificado_em'] ?? null) === null) {
+            $cod = $j['codigo'] ?? null;
+            if (is_int($cod) && $cod >= 0 && $cod <= 999999) {
+                $cod = str_pad((string) $cod, 6, '0', STR_PAD_LEFT);
+            }
+            $cod = is_string($cod) ? trim($cod) : '';
+            if (!preg_match('/^\d{6}$/', $cod) || !confirmarEmail($uid, $cod)) {
+                erro(400, 'codigo_invalido', 'Código inválido ou vencido. Confira o e-mail ou peça um novo.');
+            }
+            avaliarDesafiosConta($uid); // o e-mail confirmado pode ser o que faltava para um desafio
+        }
+        responder(200, ['usuario' => usuarioJson(buscarUsuario($uid))]);
+
+    case 'reenviar_verificacao':
+        $u = exigirUsuario();
+        $uid = (int) $u['id'];
+        if (!esquemaV33()) {
+            erro(503, 'indisponivel', 'A confirmação do e-mail ainda não está disponível. Tente de novo daqui a pouco.');
+        }
+        if (($u['email_verificado_em'] ?? null) !== null) {
+            responder(200, ['ok' => true, 'jaVerificado' => true]);
+        }
+        limitar('reenviar-verif', 'u' . $uid, 3);
+        limitar('dia-reenviar-verif', 'u' . $uid, 10, 1, 86400);
+        if (!cabeEmailVerificacao()) {
+            erroLimite(); // o teto do site (a cota de envio da hospedagem)
+        }
+        $codigo = gravarCodigoVerificacao($uid, (string) $u['email']);
+        terminarResposta(200, ['ok' => true]);
+        enviarEmail((string) $u['email'], 'LENDA: confirme o seu e-mail', corpoEmailVerificacao((string) $u['apelido'], $codigo), 'verificacao');
+        exit;
 
     case 'entrar':
         $email = is_string($j['email'] ?? null) ? strtolower(trim($j['email'])) : '';
@@ -316,6 +367,7 @@ switch ($acao) {
             if ($hallNovo !== null) {
                 // sair do Hall é na hora (o que o modo novo não mostra sai da fotografia); entrar, na próxima fotografia
                 tirarDoHallForaDe($uid, idsNoHall($uid, $hallNovo));
+                avaliarDesafiosConta($uid); // v3.3: aparecer no Hall pode ser o que faltava para um desafio
             }
         }
         responder(200, ['usuario' => usuarioJson(buscarUsuario($uid))]);

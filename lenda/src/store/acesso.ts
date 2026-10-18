@@ -88,8 +88,11 @@ export function emTeste(s: Quem, publico: boolean, site = SITE): 'admin' | 'test
   return s.admin ? 'admin' : s.tester ? 'tester' : null
 }
 
-/** "#/resumo?id=…&de=admin": o admin abrindo uma carreira qualquer pelo painel (v3.2, X4). Para o público, nada muda. */
-export const rotaDeAdmin = (r: Pick<RouteState, 'path' | 'query'>) => r.path === '/resumo' && r.query.de === 'admin' && !!r.query.id
+/**
+ * "#/resumo?id=…&de=admin": o admin abrindo uma carreira qualquer pelo painel (v3.2, X4). Para o público, nada muda.
+ * "#/verificar?id=…" (v3.3): a verificação por replay de uma candidata a desafio, que o painel abre.
+ */
+export const rotaDeAdmin = (r: Pick<RouteState, 'path' | 'query'>) => (r.path === '/resumo' && r.query.de === 'admin' && !!r.query.id) || r.path === '/verificar'
 
 /**
  * Os avisos que a faixa do topo mostra agora: o `aviso` único de sempre e os da lista que ainda valem e são do público
@@ -147,7 +150,8 @@ export function portaoDaRota(r: Pick<RouteState, 'path' | 'query'>, s: Acesso, s
 export function rotaFechada(r: Pick<RouteState, 'path' | 'query'>, s: Acesso, site = SITE): boolean {
   if (!site || s.admin) return false
   if (s.manutencao) return true
-  return r.path === '/live' ? !podeLive(s) : rotaImersiva(r) ? !podeImersivo(s) : r.path === '/kit'
+  // #/kit e #/verificar (v3.3): só o admin, nunca a conta de testes
+  return r.path === '/live' ? !podeLive(s) : rotaImersiva(r) ? !podeImersivo(s) : r.path === '/kit' || r.path === '/verificar'
 }
 
 /** Pede ao site para conferir o admin (uma vez; o resultado fica no store). */

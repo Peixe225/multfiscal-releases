@@ -207,12 +207,39 @@ resposta disser `"faltam"` maior que 0, rode de novo (cada chamada trabalha no m
    conta → "Mandar código de troca de senha") e em Registro → E-mails ("Como saiu: SMTP da caixa"; uma falha mostra
    o passo e o código do servidor, nunca a senha). Config incompleta aparece na Saúde como problema grave.
 
+### 5d. Atualizar para a v3.3 (As Taças do Rei, e-mail verificado, Fale conosco, perfil público)
+
+1. Suba a pasta `servidor/api/` **inteira** (arquivos novos: `suporte.php`, `desafios.php`, `perfil.php`, `_desafios.php`,
+   `_suporte.php`; mudaram, entre outros, o `.htaccess`, o `_schema.sql` e o `instalar.php`), a pasta `servidor/painel/` e
+   o `privacidade.html`. Pelo `dist-site/`, o build já leva tudo.
+2. **Logo em seguida**, rode o `instalar.php` (passo 5) até `"faltam": 0`. Ele só acrescenta: `usuarios.email_verificado_em`,
+   as colunas `tem_replay`, `libertadores`, `primeira_em` e `fora_desafio` das carreiras, as tabelas `verificacoes_email`,
+   `partidas_dia`, `mensagens_suporte`, `desafios` e `desafio_candidatos`; preenche as Libertadores das carreiras antigas
+   (lidas do HallEntry guardado) e cria os três desafios de fábrica **desativados e sem prêmio** (`tacas-do-rei`,
+   `tacas-do-rei-copas` e `todas-as-conquistas`). A resposta traz `"v33": {"libertadores": N, "desafios": 3}` (na 2ª vez,
+   0 e 0). Entre o upload e o instalar, o jogo continua como na v3.2 (o Fale conosco e a confirmação do e-mail respondem
+   `503 indisponivel`; as abas novas do painel, `503 instalar`).
+3. As contas que já existem começam com o e-mail **não confirmado**; quem se cadastra recebe o código na hora (o
+   e-mail sai pelo `enviarEmail()` de sempre: com `email_modo => 'smtp'` ele vai pela caixa). Teto do site para esses
+   e-mails: 200 a cada 10 min e 2.000 por dia (acima disso o jogador pede outro depois).
+4. **Para ligar um desafio** (aba Desafios do painel): escreva o prêmio e confira o regulamento (o de fábrica fala dos
+   requisitos; mude à vontade), marque o início se não quiser que comece na hora, e ative. Ativar avalia na hora todas as
+   contas (as que já cumprem viram candidatas). A carreira só vale se entrou na conta depois do início.
+5. **Quem vence:** cada candidato pendente tem o botão "Verificar no jogo" (abre o `#/verificar` no jogo, que refaz a
+   carreira com o replay e manda o resultado). Só um candidato verificado, sem outro anterior esperando decisão, pode ser
+   declarado vencedor; o vencedor vê um aviso em Minha conta e aparece na página do desafio. Declarou por engano:
+   "Reabrir" (com o motivo). O limite de partidas por dia que contam fica em Configurações (`partidas_dia_max`, padrão 100).
+6. O e-mail de contato do Fale conosco é o `email_remetente` da config (`contato@oprojeto.online`). As respostas da aba
+   Mensagens saem por ele, com o registro no Registro → E-mails (tipo `suporte`).
+
 ### 6. Conferir
 
 ```sh
 curl -sS https://oprojeto.online/lenda/api/conta.php            # {"usuario":null,"regras":{...},"site":{...}}
 curl -sS https://oprojeto.online/lenda/api/hall.php | head -c 300   # {"atualizadoEm":"…","total":…,"itens":[…]}
 curl -sS "https://oprojeto.online/lenda/api/conquistas.php?raridade=1" | head -c 200
+curl -sS https://oprojeto.online/lenda/api/desafios.php        # {"desafios":[]} até ativar um desafio
+curl -sS https://oprojeto.online/lenda/api/suporte.php         # {"email":"contato@oprojeto.online","tipos":[…]}
 curl -sI https://oprojeto.online/lenda/api/_lib.php | head -1   # 403 (ou 404)
 curl -sI https://oprojeto.online/lenda/api/_palavras.php | head -1 # 403 (ou 404)
 curl -sI https://oprojeto.online/lenda/api/_schema.sql | head -1 # 403
@@ -319,6 +346,13 @@ no mesmo navegador.
   equipe, CSRF por `Origin` + JSON + `SameSite=Strict`, e o registro de toda entrada, falha, bloqueio, saída e recusa.
   A Saúde nunca mostra segredo, valor da config ou caminho de arquivo. As cópias ficam fora do `public_html`; a
   restauração só aceita um arquivo da lista (nada de caminho vindo do pedido) e nunca devolve senha da equipe.
+- v3.3 · Desafios: o prêmio é o texto que o admin escreve; os desafios nascem desativados. O servidor cria o candidato
+  sozinho (ao salvar/publicar, sincronizar conquistas, confirmar o e-mail, mudar o modo do Hall, contar uma partida e
+  quando o admin libera uma carreira ou ativa o desafio), só com o desafio ativo e no prazo; carreira sem replay, do
+  Imersivo, de antes do início ou salva num dia acima do limite de partidas não vale. "O primeiro" é o menor `em` (hora do
+  servidor com milésimos); a declaração do vencedor é uma transação com trava no desafio (duas ao mesmo tempo: uma só).
+  O código de confirmação do e-mail fica só como HMAC, preso à conta e ao e-mail (24 h, 5 chutes por código). O Fale
+  conosco guarda o e-mail só de quem não estava logado, tem isca para robôs e limites por IP (HMAC), por conta e do site.
 - Carreiras: até 128 KB comprimida, 20 MB por conta e um limite de KB salvos por conta e por IP a cada 10 min.
 - Nenhum aviso do PHP sai na resposta (`display_errors` desligado nas rotas; erro vira `500` em JSON genérico).
 - Limpeza leve (1% dos pedidos): tentativas velhas, sessões e códigos vencidos, medição com mais de 13 meses.
@@ -338,7 +372,8 @@ Precisa de `php` (8.1+, com `pdo_mysql` e `curl`) e do MariaDB instalados. O scr
 3. monta `/tmp/lenda-teste/public_html/lenda/{api,painel,privacidade.html}` (cópia, como na hospedagem) e sobe
    `php -S 127.0.0.1:8711` (com `display_errors` ligado de propósito);
 4. se houver Apache, sobe um na porta 8712 só para conferir as regras do `api/.htaccess`;
-5. roda `servidor/teste/teste.php` (e, dentro dele, `teste-v3.php`, `teste-v32-mod.php` e `teste-v32-acesso.php`):
+5. roda `servidor/teste/teste.php` (e, dentro dele, `teste-v3.php`, `teste-v32-mod.php`, `teste-v32-acesso.php`,
+   `teste-v32-integ.php`, `teste-v32-corr.php` e `teste-v33.php`):
    mais de 1.000 verificações por HTTP (curl) e no banco
    (PDO) — cadastro, entrar,
    sair, limites (429, inclusive os tetos do site inteiro e os diários), esqueci/redefinir com o código lido do
@@ -373,7 +408,14 @@ Precisa de `php` (8.1+, com `pdo_mysql` e `curl`) e do MariaDB instalados. O scr
    SMTP da caixa contra um servidor SMTP de mentira com STARTTLS de verdade (`teste/smtp-falso.php`, certificado sorteado
    na rodada: código que chega e troca a senha, senha da caixa errada, certificado que não confere, config incompleta,
    a senha nunca numa resposta), o `tipo` na ficha, o `destaque` no `hall.php?id=` e a linha "revisão" do "Precisa de
-   atenção";
+   atenção"; e a v3.3 (`teste-v33.php`, CONTRATO-v33 §A): o banco e os desafios de fábrica (instalar idempotente, as 87
+   conquistas iguais às do jogo), o e-mail verificado (código no cadastro, tentativas, vencido, preso ao e-mail, limites),
+   o Fale conosco (com e sem conta, isca, limites, as rotas do admin, responder por e-mail, "Precisa de atenção"), o
+   limite de partidas por dia, o replay (guardado, formato e tamanho conferidos), os desafios (quem vira candidato e quem
+   não: sem replay, Imersivo, sem e-mail, fora do Hall, fora do top 3, 29 partidas, limite diário, antes do início, depois
+   do fim; o lote ao ativar; todas as conquistas), a verificação, o vencedor (dois candidatos ao mesmo tempo: só o
+   primeiro `em` vence; quatro declarações ao mesmo tempo: uma só), reabrir, o perfil público (privado ou suspenso = 404),
+   a LGPD (mensagens, candidaturas, códigos), entradas estranhas (nenhum 500) e o banco sem o instalar da v3.3;
 6. com Chromium (`/opt/pw-browsers/...`, ou `LENDA_CHROMIUM`), roda também o teste do painel pelo navegador
    (`teste/painel/rodar.sh`: pilha própria na porta `LENDA_TESTE_PORTA + 6`, banco `<banco>_painel`);
    `LENDA_TESTE_SEM_NAVEGADOR=1` pula;

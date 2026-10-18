@@ -219,5 +219,7 @@ function itemHall(array $l, int $posicao): array
         'bonusOvr' => (int) $l['bonus_ovr'],
         'terminouEm' => iso($l['terminou_em']),
         'destaque' => (int) ($l['destaque'] ?? 0) === 1,
+        // v3.3: o código de convite da conta (perfil público #/jogador/CODIGO; o mesmo código do convite)
+        'perfil' => isset($l['perfil_codigo']) && is_string($l['perfil_codigo']) ? $l['perfil_codigo'] : null,
     ];
 }

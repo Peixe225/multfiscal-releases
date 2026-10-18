@@ -17,6 +17,8 @@ const semRede = () => {
 const ConviteConta = lazySite('ConviteConta', () => import('./ConviteConta'), { aoFalhar: semRede })
 const MinhaConta = lazySite('MinhaConta', () => import('./MinhaConta'), { aoFalhar: semRede })
 const MinhasCarreiras = lazySite('MinhasCarreiras', () => import('./MinhasCarreiras'), { aoFalhar: semRede })
+const FaleConosco = lazySite('FaleConosco', () => import('./FaleConosco'), { aoFalhar: semRede })
+const VerificarEmail = lazySite('VerificarEmail', () => import('./VerificarEmail'), { aoFalhar: semRede })
 
 /** Monta o diálogo na primeira abertura e o mantém (a animação de saída roda). `desmontar`: depois de uma falha. */
 function useMontado(aberto: boolean): [boolean, () => void] {
@@ -32,6 +34,8 @@ export default function SiteRoot() {
   const [conta, tirarConta] = useMontado(tipo === 'conta')
   const [perfil, tirarPerfil] = useMontado(tipo === 'perfil')
   const [carreiras, tirarCarreiras] = useMontado(tipo === 'carreiras')
+  const [suporte, tirarSuporte] = useMontado(tipo === 'suporte')
+  const [verificar, tirarVerificar] = useMontado(tipo === 'verificar')
 
   useEffect(() => {
     iniciarSite()
@@ -45,6 +49,7 @@ export default function SiteRoot() {
       precarregarSite('SalvarNaConta', () => import('./SalvarNaConta'))
       precarregarSite('ConvideAmigos', () => import('./ConvideAmigos'))
       precarregarSite('DenunciarCarreira', () => import('./DenunciarCarreira'))
+      precarregarSite('VerificarEmail', () => import('./VerificarEmail'))
     }, 2500)
     return () => window.clearTimeout(t)
   }, [])
@@ -56,6 +61,8 @@ export default function SiteRoot() {
       {conta && <ConviteConta aoFalhar={tirarConta} />}
       {perfil && <MinhaConta aoFalhar={tirarPerfil} />}
       {carreiras && <MinhasCarreiras aoFalhar={tirarCarreiras} />}
+      {suporte && <FaleConosco aoFalhar={tirarSuporte} />}
+      {verificar && <VerificarEmail aoFalhar={tirarVerificar} />}
     </>
   )
 }

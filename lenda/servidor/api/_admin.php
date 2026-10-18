@@ -87,6 +87,11 @@ const PODERES_ACAO = [
     // sistema
     'seguranca' => 'sistema', 'saude' => 'sistema', 'backup' => 'sistema', 'copias' => 'sistema', 'copia' => 'sistema',
     'backup_guardar' => 'sistema', 'backup_restaurar' => 'sistema',
+    // v3.3 (CONTRATO-v33 §A): Fale conosco e confirmação do e-mail = cuidar das contas; conferir candidato = moderar; criar,
+    // ativar, declarar vencedor e reabrir um desafio = configurações (o GET das listas pede "ver", como as outras)
+    'suporte_status' => 'usuarios', 'suporte_responder' => 'usuarios', 'suporte_lote' => 'usuarios', 'reenviar_verificacao' => 'usuarios',
+    'candidato_verificar' => 'moderar', 'candidato_recusar' => 'moderar',
+    'desafio_salvar' => 'config', 'desafio_ativar' => 'config', 'desafio_declarar_vencedor' => 'config', 'desafio_reabrir' => 'config',
 ];
 
 /** Ações do registro que são de acesso ao painel (bloco Segurança). */

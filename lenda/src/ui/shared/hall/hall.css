@@ -499,6 +499,9 @@
 .hl-row.is-com::before { content: ''; position: absolute; left: 0; top: 10px; bottom: 10px; width: 3px; border-radius: 3px; background: rgba(108, 178, 255, .7); }
 .hl-row.is-com:hover { background: rgba(108, 178, 255, .08); }
 .hl-com__dono { display: inline-flex; align-items: center; gap: 4px; color: #b9dbff; font-weight: 700; }
+/* v3.3: com perfil público, o apelido leva ao perfil (o resto da linha continua abrindo o resumo) */
+.hl-com__dono.is-link { cursor: pointer; text-decoration: underline; text-decoration-color: rgba(185, 219, 255, .4); text-underline-offset: 2px; }
+.hl-com__dono.is-link:hover { color: #e3f0ff; text-decoration-color: currentColor; }
 .hl-csk { display: grid; gap: 8px; padding: 4px 0; }
 .hl-csk__row { height: 54px; border-radius: 12px; background: linear-gradient(90deg, rgba(255, 255, 255, .03), rgba(255, 255, 255, .07), rgba(255, 255, 255, .03)); background-size: 200% 100%; animation: hl-sk 1.3s linear infinite; }
 @keyframes hl-sk { to { background-position: -200% 0; } }

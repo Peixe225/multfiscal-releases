@@ -14,6 +14,8 @@
 -- tabelas lixeira_carreiras e email_log. As contas, sessões, papéis e recados do painel ficam no bloco do fim.
 -- v3.2 rev3 (CONTRATO-v32 §E.7): visitas.jogando_classico_s, jogando_imersivo_s e jogando_live_s (tempo jogando por
 -- modo), lixeira_carreiras.resumo_hash (a cópia de uma carreira apagada em outra conta) e a tabela contas_excluidas.
+-- v3.3 (CONTRATO-v33 §A): usuarios.email_verificado_em, carreiras.tem_replay, libertadores, primeira_em e fora_desafio e as
+-- tabelas verificacoes_email, partidas_dia, mensagens_suporte, desafios e desafio_candidatos.
 
 CREATE TABLE IF NOT EXISTS usuarios (
   id            INT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -42,13 +44,15 @@ CREATE TABLE IF NOT EXISTS usuarios (
   nota_admin_por   VARCHAR(20)  CHARACTER SET ascii COLLATE ascii_bin NULL,
   aviso_conta      VARCHAR(300) NULL,
   aviso_conta_em   DATETIME     NULL,
+  email_verificado_em DATETIME  NULL,
   PRIMARY KEY (id),
   UNIQUE KEY uq_usuarios_email (email),
   UNIQUE KEY uq_usuarios_convite (codigo_convite),
   KEY ix_usuarios_criado (criado_em),
   KEY ix_usuarios_status (status, suspenso_ate),
   KEY ix_usuarios_tipo (tipo, criado_em),
-  KEY ix_usuarios_acesso (ultimo_acesso)
+  KEY ix_usuarios_acesso (ultimo_acesso),
+  KEY ix_usuarios_verificado (email_verificado_em)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS sessoes_login (
@@ -94,6 +98,10 @@ CREATE TABLE IF NOT EXISTS carreiras (
   motivo_admin VARCHAR(200)      NULL,
   moderada_em  DATETIME          NULL,
   destaque     TINYINT(1)        NOT NULL DEFAULT 0,
+  tem_replay   TINYINT(1)        NOT NULL DEFAULT 0,
+  libertadores SMALLINT UNSIGNED NULL,
+  primeira_em  DATETIME          NULL,
+  fora_desafio VARCHAR(20)       CHARACTER SET ascii COLLATE ascii_bin NULL,
   PRIMARY KEY (id),
   UNIQUE KEY uq_carreiras_usuario_carreira (usuario_id, carreira_id),
   KEY ix_carreiras_usuario_salva (usuario_id, salva_em),
@@ -103,7 +111,8 @@ CREATE TABLE IF NOT EXISTS carreiras (
   KEY ix_carreiras_oculta (oculta),
   KEY ix_carreiras_carreira (carreira_id),
   KEY ix_carreiras_resumo (resumo_hash),
-  KEY ix_carreiras_destaque (destaque)
+  KEY ix_carreiras_destaque (destaque),
+  KEY ix_carreiras_desafio (tem_replay, copas)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS visitantes_usuarios (
@@ -373,6 +382,102 @@ CREATE TABLE IF NOT EXISTS email_log (
   PRIMARY KEY (id),
   KEY ix_email_log_em (em),
   KEY ix_email_log_para (para_hash, em)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ── v3.3 ────────────────────────────────────────────────────────────────────────────────────────
+
+-- Código de 6 dígitos para confirmar o e-mail da conta (um por conta, vale 24 h). Só o HMAC do código fica no banco.
+CREATE TABLE IF NOT EXISTS verificacoes_email (
+  usuario_id  INT UNSIGNED     NOT NULL,
+  codigo_hash CHAR(64)         CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  expira_em   DATETIME         NOT NULL,
+  tentativas  TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  criado_em   DATETIME         NOT NULL,
+  PRIMARY KEY (usuario_id),
+  KEY ix_verificacoes_expira (expira_em)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Partidas com a conta por dia de Brasília (todas, também as que passaram do limite partidas_dia_max). Some em 40 dias.
+CREATE TABLE IF NOT EXISTS partidas_dia (
+  usuario_id INT UNSIGNED NOT NULL,
+  dia        DATE         NOT NULL,
+  n          INT UNSIGNED NOT NULL DEFAULT 0,
+  PRIMARY KEY (usuario_id, dia),
+  KEY ix_partidas_dia_dia (dia)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Fale conosco: dúvida, ideia, problema, recomendação ou outro. email só quando quem escreveu não estava logado.
+CREATE TABLE IF NOT EXISTS mensagens_suporte (
+  id            INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  protocolo     CHAR(8)      CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  usuario_id    INT UNSIGNED NULL,
+  email         VARCHAR(190) NULL,
+  tipo          VARCHAR(12)  CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  mensagem      TEXT         NOT NULL,
+  pagina        VARCHAR(120) NULL,
+  criado_em     DATETIME     NOT NULL,
+  status        VARCHAR(10)  CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'nova',
+  resposta      TEXT         NULL,
+  respondida_em DATETIME     NULL,
+  quem          VARCHAR(20)  CHARACTER SET ascii COLLATE ascii_bin NULL,
+  atualizada_em DATETIME     NULL,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_mensagens_protocolo (protocolo),
+  KEY ix_mensagens_status (status, criado_em),
+  KEY ix_mensagens_tipo (tipo, criado_em),
+  KEY ix_mensagens_usuario (usuario_id),
+  KEY ix_mensagens_email (email)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Desafios com prêmio (As Taças do Rei). criterio e requisitos em JSON. inicio NULL = começa quando for ativado.
+CREATE TABLE IF NOT EXISTS desafios (
+  id                   INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  slug                 VARCHAR(40)  CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  titulo               VARCHAR(80)  NOT NULL,
+  descricao            VARCHAR(400) NULL,
+  regulamento          TEXT         NULL,
+  premio               TEXT         NULL,
+  criterio             TEXT         NOT NULL,
+  requisitos           TEXT         NOT NULL,
+  ativo                TINYINT(1)   NOT NULL DEFAULT 0,
+  inicio               DATETIME     NULL,
+  fim                  DATETIME     NULL,
+  criado_em            DATETIME     NOT NULL,
+  vencedor_usuario_id  INT UNSIGNED NULL,
+  vencedor_carreira_pk INT UNSIGNED NULL,
+  vencido_em           DATETIME     NULL,
+  ordem                SMALLINT     NOT NULL DEFAULT 0,
+  atualizado_em        DATETIME     NULL,
+  vencedor_candidato   INT UNSIGNED NULL,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_desafios_slug (slug),
+  KEY ix_desafios_ativo (ativo, ordem),
+  KEY ix_desafios_vencedor (vencedor_usuario_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Quem cumpriu um desafio: em = hora do servidor (com milésimos) em que a conta cumpriu tudo; o primeiro é o menor em.
+-- chave = c<carreiras.id> (desafio de carreira) ou u<usuarios.id> (todas as conquistas): um candidato por carreira (ou conta).
+CREATE TABLE IF NOT EXISTS desafio_candidatos (
+  id           INT UNSIGNED      NOT NULL AUTO_INCREMENT,
+  desafio_id   INT UNSIGNED      NOT NULL,
+  chave        VARCHAR(16)       CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  carreira_pk  INT UNSIGNED      NULL,
+  carreira_id  VARCHAR(64)       CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL,
+  jogador      VARCHAR(40)       NULL,
+  copas        SMALLINT UNSIGNED NULL,
+  libertadores SMALLINT UNSIGNED NULL,
+  usuario_id   INT UNSIGNED      NOT NULL,
+  em           DATETIME(3)       NOT NULL,
+  estado       VARCHAR(10)       CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'pendente',
+  verificacao  TEXT              NULL,
+  motivo       VARCHAR(200)      NULL,
+  decidido_em  DATETIME          NULL,
+  quem         VARCHAR(20)       CHARACTER SET ascii COLLATE ascii_bin NULL,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_candidatos_chave (desafio_id, chave),
+  KEY ix_candidatos_desafio (desafio_id, estado, em),
+  KEY ix_candidatos_usuario (usuario_id),
+  KEY ix_candidatos_carreira (carreira_pk)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ── admin: contas, sessões, papéis, recados (CONTRATO-v32 §B) ──────────────────────────────────

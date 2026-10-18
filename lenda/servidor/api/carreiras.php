@@ -6,12 +6,15 @@
  *   POST {"acao":"salvar","carreira": HallEntry, "como":"auto"|"manual"} → {carreira: C}
  *   POST {"acao":"apagar","id": "<id>"}                                  → {ok: true}
  *   POST {"acao":"publicar","id": "<id>","sim": true|false}             → {carreira: C, hallPublico}
- * Contrato: servidor/CONTRATO.md e CONTRATO-v3.md §4.
+ * Contrato: servidor/CONTRATO.md e CONTRATO-v3.md §4. v3.3 (CONTRATO-v33 §A): C.temReplay; o HallEntry.replay é conferido
+ * (fora do formato ou grande demais: a carreira é salva sem ele); libertadores, primeira_em e fora_desafio (limite diário)
+ * gravados; salvar, publicar e apagar avaliam os desafios.
  */
 declare(strict_types=1);
 
 require __DIR__ . '/_lib.php';
 require __DIR__ . '/_hall.php';
+require __DIR__ . '/_desafios.php';
 
 cabecalhos();
 
@@ -34,7 +37,7 @@ function lerId(mixed $v): string
 function cDaConta(array $u, string $id, string $modoHall): ?array
 {
     $uid = (int) $u['id'];
-    $l = umaLinha('SELECT ' . CAMPOS_C . ' FROM carreiras WHERE usuario_id = ? AND carreira_id = ?', [$uid, $id]);
+    $l = umaLinha('SELECT ' . camposC() . ' FROM carreiras WHERE usuario_id = ? AND carreira_id = ?', [$uid, $id]);
     return $l === null ? null : carreiraC($l, idsNoHall($uid, $modoHall), ['hall_publico' => $modoHall] + $u);
 }
 
@@ -63,7 +66,7 @@ if ($m === 'GET') {
         }
         responderBruto(200, '{"carreira":' . $json . '}');
     }
-    $lista = sql('SELECT ' . CAMPOS_C . ' FROM carreiras WHERE usuario_id = ? ORDER BY salva_em DESC, id DESC', [$uid])->fetchAll();
+    $lista = sql('SELECT ' . camposC() . ' FROM carreiras WHERE usuario_id = ? ORDER BY salva_em DESC, id DESC', [$uid])->fetchAll();
     $noHall = idsNoHall($uid, $modoHall);
     responder(200, [
         'carreiras' => array_map(static fn(array $l): array => carreiraC($l, $noHall, $u), $lista),
@@ -88,6 +91,7 @@ if ($acao === 'salvar') {
     if ($como !== 'auto' && $como !== 'manual') {
         erro(400, 'como', 'Modo de salvar inválido.');
     }
+    arrumarReplay($h); // v3.3: replay fora do formato (ou do Imersivo) sai; a carreira entra sem ele
     $json = json($h);
     if (strlen($json) > MAX_CARREIRA_BYTES) {
         erro(413, 'grande', 'Carreira grande demais para salvar.');
@@ -102,7 +106,18 @@ if ($acao === 'salvar') {
     limitar('salvar-kb', 'u' . $uid, SALVAR_KB_CONTA, $kb);
     limitar('salvar-ip-kb', quemIp(), SALVAR_KB_IP, $kb);
     $agora = dt(time());
-    $mudouSuspeita = transacao(static function () use ($uid, $id, $como, $json, $f, $gz, $agora): bool {
+    // v3.3: salva num dia (Brasília) em que a conta passou do limite de partidas (hoje ou o dia em que ela terminou): não vale
+    // para desafio
+    $foraDesafio = null;
+    if (esquemaV33()) {
+        $dias = [diaBrasilia()];
+        $fimT = paraTempo($f['terminou_em']);
+        if ($fimT !== null && $fimT <= time()) {
+            $dias[] = diaBrasilia($fimT);
+        }
+        $foraDesafio = passouLimiteEm($uid, $dias) ? 'limite_diario' : null;
+    }
+    [$mudouSuspeita, $mudouDados] = transacao(static function () use ($uid, $id, $como, $json, $f, $gz, $agora, $foraDesafio): array {
         sql('SELECT id FROM usuarios WHERE id = ? FOR UPDATE', [$uid]); // uma gravação por conta de cada vez
         // v3.2: carreira apagada pela moderação não volta pelo aparelho (lixeira_carreiras; o admin pode liberar)
         if (esquemaV32() && umValor('SELECT 1 FROM lixeira_carreiras WHERE usuario_id = ? AND carreira_id = ?', [$uid, $id]) !== null) {
@@ -137,11 +152,22 @@ if ($acao === 'salvar') {
             [$uid, $id, $f['modo'], $f['jogador'], $f['numero'], $f['pais'], $f['posicao'], $f['nota'], $f['nota_v'], $f['pico_ovr'],
                 $f['temporadas'], $f['gols'], $f['titulos'], $f['bolas_ouro'], $f['headline'], $como, $gz, strlen($json),
                 $f['terminou_em'], $agora, $suspeita, $f['clubes'], $f['copas'], $f['bonus_ovr'], $f['resumo_hash'], $oculta]);
-        return $antes !== null && $antes['suspeita'] === null && $suspeita !== null;
+        if (esquemaV33()) {
+            // v3.3: o replay e as Libertadores mudam com a carreira; a hora em que ela entrou na conta e a marca do limite
+            // diário ficam as da primeira vez
+            sql('UPDATE carreiras SET tem_replay = ?, libertadores = ?, primeira_em = COALESCE(primeira_em, ?), fora_desafio = COALESCE(fora_desafio, ?)
+                WHERE usuario_id = ? AND carreira_id = ?', [$f['tem_replay'], $f['libertadores'], $agora, $foraDesafio, $uid, $id]);
+        }
+        return [$antes !== null && $antes['suspeita'] === null && $suspeita !== null, $antes !== null && !$mesma];
     });
+    $pkSalva = (int) umValor('SELECT id FROM carreiras WHERE usuario_id = ? AND carreira_id = ?', [$uid, $id]);
     if ($mudouSuspeita) {
-        tirarDoHall((int) umValor('SELECT id FROM carreiras WHERE usuario_id = ? AND carreira_id = ?', [$uid, $id]));
+        tirarDoHall($pkSalva);
     }
+    if ($mudouDados) {
+        candidatosCarreiraMudou($pkSalva); // v3.3: a verificação de antes não vale para o conteúdo novo
+    }
+    avaliarDesafiosConta($uid);
     responder(200, ['carreira' => cDaConta($u, $id, $modoHall)]);
 }
 
@@ -156,6 +182,8 @@ if ($acao === 'apagar') {
             sql('DELETE FROM denuncias WHERE carreira_pk = ?', [(int) $pk]);
             sql('DELETE FROM carreiras WHERE id = ?', [(int) $pk]);
         });
+        candidatosCarreiraApagada((int) $pk); // v3.3: o candidato dela sai da disputa
+        avaliarDesafiosConta($uid); // outra carreira pode ter entrado no lugar dela entre as 3 do perfil
     }
     responder(200, ['ok' => true]);
 }
@@ -204,6 +232,7 @@ if ($acao === 'publicar') {
     if (!$sim) {
         tirarDoHall($pk); // sair do Hall é na hora; entrar, na próxima fotografia
     }
+    avaliarDesafiosConta($uid); // v3.3: publicar pode ser o que faltava para um desafio
     responder(200, ['carreira' => cDaConta($u, $id, $modoNovo), 'hallPublico' => $modoNovo]);
 }
 

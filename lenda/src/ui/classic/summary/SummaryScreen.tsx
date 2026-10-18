@@ -16,7 +16,7 @@ import { ArrowLeft, ArrowRight, ChartLine, Crown, ExternalLink, EyeOff, Flag as 
 import type { CareerSummary } from '@/engine/types'
 import { LEGENDS } from '@/engine/career/summary'
 import { clubArticle } from '@/engine/career/util'
-import { navigate, useApp } from '@/store/app'
+import { buildHash, navigate, useApp } from '@/store/app'
 import { pedirAdmin, useAcesso } from '@/store/acesso'
 import { useCareer, type HallEntry } from '@/store/career'
 import { useComunidade } from '@/store/comunidade'
@@ -153,6 +153,10 @@ function ResumoComunidade({ id }: { id: string }) {
   const aberta = useComunidade((s) => s.abertas[id])
   // o selo "Destaque" (H12) vem na lista do Hall: a página que o jogador já abriu diz
   const destaque = useComunidade((s) => Object.values(s.filtros).some((pg) => pg.itens.some((c) => c.id === id && c.destaque)))
+  const perfilDaLista = useComunidade((s) => {
+    for (const pg of Object.values(s.filtros)) for (const c of pg.itens) if (c.id === id && c.perfil) return c.perfil
+    return null
+  })
   useEffect(() => {
     if (abrir) abrir(id)
   }, [abrir, id])
@@ -198,7 +202,9 @@ function ResumoComunidade({ id }: { id: string }) {
     )
   }
   const h = aberta.entry
-  return <SummaryBody career={h.career} summary={h.summary} live={false} saved={false} immersive={h.mode === 'immersive'} comunidade={{ id: h.id, apelido: aberta.apelido, destaque: destaque || aberta.destaque === true }} />
+  // o perfil do dono (v3.3): o que o hall.php?id= mandou, ou o da lista do Hall que o jogador já abriu
+  const perfil = aberta.perfil ?? perfilDaLista
+  return <SummaryBody career={h.career} summary={h.summary} live={false} saved={false} immersive={h.mode === 'immersive'} comunidade={{ id: h.id, apelido: aberta.apelido, destaque: destaque || aberta.destaque === true, perfil }} />
 }
 
 function ResumoDaqui({ id }: { id: string | undefined }) {
@@ -330,7 +336,7 @@ const SummaryBody = memo(function SummaryBody({
   naConta?: boolean
   immersive?: boolean
   /** Carreira de outro jogador (Hall público): sem salvar, sem bônus de compartilhar, com "Denunciar". */
-  comunidade?: { id: string; apelido: string; destaque?: boolean }
+  comunidade?: { id: string; apelido: string; destaque?: boolean; perfil?: string | null }
   /** "Abrir no jogo" do painel: a carreira de qualquer conta, com o estado dela na moderação (sem salvar nem denunciar). */
   admin?: MetaAdmin
 }) {
@@ -462,11 +468,16 @@ const SummaryBody = memo(function SummaryBody({
                 <b className="num">+{career.bonusOvr}</b> de bônus
               </span>
             )}
-            {(comunidade || admin) && (
-              <span className="sm-chip sm-chip--com">
-                <Users aria-hidden="true" /> Carreira de <b>{comunidade?.apelido ?? admin?.apelido}</b>
-              </span>
-            )}
+            {(comunidade || admin) &&
+              (comunidade?.perfil ? (
+                <a className="sm-chip sm-chip--com sm-chip--link" href={buildHash('/jogador', { codigo: comunidade.perfil })} title={`Ver o perfil de ${comunidade.apelido}`}>
+                  <Users aria-hidden="true" /> Carreira de <b>{comunidade.apelido}</b>
+                </a>
+              ) : (
+                <span className="sm-chip sm-chip--com">
+                  <Users aria-hidden="true" /> Carreira de <b>{comunidade?.apelido ?? admin?.apelido}</b>
+                </span>
+              ))}
             {(comunidade?.destaque || admin?.destaque) && (
               <span className="sm-chip sm-chip--destaque" title="Escolhida pela moderação como destaque do Hall da comunidade">
                 <Star aria-hidden="true" /> Destaque

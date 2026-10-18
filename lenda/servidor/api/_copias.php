@@ -18,8 +18,9 @@
  * Entra: contas, carreiras (dados em base64), conquistas, indicações, bônus, denúncias, decisões de moderação,
  * partidas por aparelho, vínculo aparelho-conta, a config do site (sem o estado interno), a lixeira (com a cópia, em
  * base64, desde a rev3; os backups de antes vêm sem ela), as marcas das contas excluídas, o registro do admin (90 dias),
- * a equipe (sem senha nem PIN), os papéis e os recados; com medicao=1, as visitas e os eventos dos últimos 30 dias. Fica
- * de fora: sessões, códigos de troca de senha, tentativas e o arquivo de config.
+ * a equipe (sem senha nem PIN), os papéis e os recados; com medicao=1, as visitas e os eventos dos últimos 30 dias. v3.3:
+ * os desafios, os candidatos e as mensagens do Fale conosco. Fica de fora: sessões, códigos de troca de senha e de
+ * confirmação do e-mail, partidas por dia, tentativas e o arquivo de config.
  *
  * Cópias no servidor: numa pasta FORA do public_html, ao lado do arquivo de config (lenda-copias/) ou em backup_pasta
  * (config). No máximo 10; uma diária (a primeira carga do painel no dia). Restaurar: só um arquivo dessa pasta (o nome
@@ -41,7 +42,8 @@ const COPIA_MAX_LINHA = 32 * 1024 * 1024;     // um registro (carreira em base64
 const COPIA_PEDACO = 256 * 1024;              // cada membro gzip
 /** Tabelas que a restauração "substituir" apaga e regrava (as outras só completam o que falta). */
 const COPIA_SUBSTITUIVEIS = ['usuarios', 'carreiras', 'conquistas_usuario', 'indicacoes', 'bonus', 'denuncias', 'carreiras_moderacao',
-    'partidas_vid', 'visitantes_usuarios', 'site_config', 'lixeira_carreiras', 'admin_papeis', 'admin_recados'];
+    'partidas_vid', 'visitantes_usuarios', 'site_config', 'lixeira_carreiras', 'admin_papeis', 'admin_recados', 'desafios', 'desafio_candidatos',
+    'mensagens_suporte'];
 const COPIA_SO_COMPLETAR = ['admin_log', 'admin_contas', 'visitas', 'eventos', 'contas_excluidas'];
 /** Colunas binárias que vão em base64 (as únicas aceitas no "binarios" do arquivo). */
 const COPIA_BINARIOS = ['carreiras' => ['dados'], 'lixeira_carreiras' => ['dados']];
@@ -78,6 +80,10 @@ function backupTabelas(bool $medicao): array
         ['admin_contas', ['id'], null, ['senha_hash', 'pin_hash'], 1000],
         ['admin_papeis', ['chave'], null, [], 1000],
         ['admin_recados', ['id'], null, [], 1000],
+        // v3.3
+        ['desafios', ['id'], null, [], 200],
+        ['desafio_candidatos', ['id'], null, [], 1000],
+        ['mensagens_suporte', ['id'], null, [], 500],
     ];
     if ($medicao) {
         $l[] = ['visitas', ['sid'], ['inicio >= ?', [dt($t - 30 * 86400)]], [], 1000];
@@ -663,6 +669,12 @@ function restaurarCopia(string $caminho, string $modo): array
             if ($t === 'usuarios' && isset($excluidas[(int) ($r['id'] ?? 0)])) {
                 $puladas++;
                 return;
+            }
+            if ($t === 'desafios' && isset($r['vencedor_usuario_id']) && isset($excluidas[(int) $r['vencedor_usuario_id']])) {
+                // v3.3: o desafio volta vencido, sem dizer por quem (a conta do vencedor foi excluída depois da cópia)
+                $r['vencedor_usuario_id'] = null;
+                $r['vencedor_carreira_pk'] = null;
+                $r['vencedor_candidato'] = null;
             }
             if ($t === 'site_config' && str_starts_with((string) ($r['chave'] ?? '_'), '_')) {
                 return;

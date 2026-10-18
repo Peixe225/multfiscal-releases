@@ -119,11 +119,11 @@
   LP.abas.conquistas = { titulo: 'Conquistas', sub: '', montar: montarConquistas, recarregar: () => carregarConquistas() };
 
   // ═══ Configurações ═══════════════════════════════════════════════════════════════════════════
-  const CHAVES = ['manutencao', 'cadastro_aberto', 'imersivo_publico', 'live_publica', 'aviso', 'avisos', 'regras', 'bonus', 'hall_intervalo_min', 'hall_revisao_nota', 'aviso_celular'];
+  const CHAVES = ['manutencao', 'cadastro_aberto', 'imersivo_publico', 'live_publica', 'aviso', 'avisos', 'regras', 'bonus', 'hall_intervalo_min', 'hall_revisao_nota', 'aviso_celular', 'partidas_dia_max'];
   const NOMES_CHAVE = {
     manutencao: 'Manutenção', cadastro_aberto: 'Cadastro aberto', imersivo_publico: 'Modo Imersivo público', live_publica: 'Live pública',
     aviso: 'Aviso no topo', avisos: 'Avisos no jogo', regras: 'Convite de conta', bonus: 'Bônus de OVR', hall_intervalo_min: 'Intervalo do Hall',
-    hall_revisao_nota: 'Revisão do Hall', aviso_celular: 'Aviso no celular',
+    hall_revisao_nota: 'Revisão do Hall', aviso_celular: 'Aviso no celular', partidas_dia_max: 'Partidas por dia',
   };
   const PARTES_CFG = [['site', 'Site'], ['conta', 'Minha conta'], ['backup', 'Backup']];
   const cfg = { parte: 'site', valores: null, padroes: {}, atualizados: {}, celular: {}, form: null, raiz: null, corpo: null, barra: null, erros: {}, itens: {}, rascunhoAviso: '', pedido: 0 };
@@ -190,6 +190,7 @@
     if (chave === 'aviso') return '"' + v.texto + '" (' + v.tipo + ')';
     if (chave === 'avisos') return Array.isArray(v) && v.length ? LP.plural(v.length, 'aviso', 'avisos') : 'nenhum';
     if (chave === 'aviso_celular') return (v.denuncia ? 'denúncia nova' : 'sem denúncia') + ' · ' + (v.picoOnline ? 'pico de ' + v.picoOnline + ' online' : 'sem pico');
+    if (chave === 'partidas_dia_max') return LP.plural(v, 'partida', 'partidas') + ' por dia';
     return String(v);
   }
 
@@ -424,13 +425,31 @@
     cfg.itens.aviso_celular = itemCel;
     const celular = cartao('Aviso no celular', 'ntfy ou Telegram', [itemCel]);
 
+    // v3.3: limite de partidas por dia que contam na conta (e para os desafios); só com o servidor da v3.3
+    let partidasDia = null;
+    if ('partidas_dia_max' in cfg.valores) {
+      const txtLimite = h('p', { class: 'texto-2' });
+      const textoLimite = () => {
+        const v = cfg.form.partidas_dia_max;
+        txtLimite.textContent = Number.isInteger(v) && v >= 10 ? 'Cada conta soma até ' + LP.plural(v, 'partida', 'partidas') + ' por dia (Brasília) em "partidas com a conta"; as de depois não somam, e carreira salva num dia em que a conta passou do limite não vale para desafio.' : '';
+      };
+      const itemLimite = h('div', { class: 'config-item coluna', 'data-chave': 'partidas_dia_max' },
+        h('div', null, h('span', { class: 'rotulo-item' }, 'Partidas por dia que contam na conta'), meta('partidas_dia_max')),
+        campoNumero('partidas_dia_max', 'Limite por conta e por dia', 10, 10000, 'partidas', textoLimite), txtLimite,
+        h('p', { class: 'ajuda' }, 'Um freio contra robô e contra jogar sem parar para cumprir os requisitos dos desafios. O resto da medição (visitas, tempo de jogo) segue igual.'),
+        h('p', null, h('a', { href: '#/desafios', class: 'botao-fantasma botao-pequeno' }, 'Ver os desafios')));
+      cfg.itens.partidas_dia_max = itemLimite;
+      textoLimite();
+      partidasDia = cartao('Desafios', 'partidas por dia', [itemLimite]);
+    }
+
     cfg.barra = h('div', { class: 'barra-salvar', hidden: true, role: 'region', 'aria-label': 'Alterações não salvas' },
       h('span', { class: 'texto-2', id: 'cfg-resumo' }),
       h('div', { class: 'botoes' },
         LP.botao('Descartar', descartar, { tipo: 'fantasma' }),
         LP.botao('Salvar', salvar, { tipo: 'ouro', icone: 'check' })));
 
-    LP.trocar(cfg.corpo, h('div', { class: 'config-grade' }, site, admin, aviso, regras, bonus, hall, celular), cfg.barra);
+    LP.trocar(cfg.corpo, h('div', { class: 'config-grade' }, site, admin, aviso, regras, bonus, hall, partidasDia, celular), cfg.barra);
     atualizarBarra();
   }
 
@@ -449,6 +468,7 @@
     if (f.aviso && (!f.aviso.texto || f.aviso.texto.length > 200)) e.aviso = 'Escreva o texto do aviso (1 a 200 caracteres) ou desligue o aviso.';
     if (Array.isArray(f.avisos) && f.avisos.some((a) => !String(a.texto || '').trim() || String(a.texto).length > 200)) e.avisos = 'Cada aviso precisa de um texto de 1 a 200 caracteres (ou apague o vazio).';
     if (f.aviso_celular && !int(f.aviso_celular.picoOnline, 0, 100000)) e['aviso_celular.picoOnline'] = 'De 0 (desligado) a 100.000.';
+    if ('partidas_dia_max' in cfg.valores && !int(f.partidas_dia_max, 10, 10000)) e.partidas_dia_max = 'De 10 a 10.000 partidas.';
     return e;
   }
   function atualizarBarra() {
@@ -494,6 +514,7 @@
     if (!v.imersivo_publico && f.imersivo_publico) riscos.push('Abrir o Modo Imersivo para todo mundo (hoje ele é "Em desenvolvimento").');
     if (!v.live_publica && f.live_publica) riscos.push('Mostrar a Live interativa para todo mundo (hoje só a equipe vê).');
     if (m.includes('hall_revisao_nota') && f.hall_revisao_nota >= 101) riscos.push('Desligar a revisão: carreiras com nota altíssima entram direto no Hall.');
+    if (m.includes('partidas_dia_max') && f.partidas_dia_max < v.partidas_dia_max) riscos.push('Baixar o limite de partidas por dia: quem passar do novo limite hoje deixa de somar partidas e as carreiras salvas hoje por essas contas ficam fora dos desafios.');
     const linhas = h('ul', { class: 'texto-2' }, m.map((k) => h('li', null, h('b', null, NOMES_CHAVE[k] + ': '), textoValor(k, v[k]) + ' → ' + textoValor(k, f[k]))));
     const r = await LP.dialogo({
       titulo: riscos.length ? 'Atenção: mudanças que todo mundo vê' : 'Salvar ' + LP.plural(m.length, 'alteração', 'alterações') + '?',

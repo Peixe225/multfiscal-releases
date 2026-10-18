@@ -176,7 +176,7 @@ function phpComLib(string $codigo): mixed
     return $j;
 }
 
-const CAMPOS_ITEM_HALL = ['apelido', 'bolasOuro', 'bonusOvr', 'clubes', 'copas', 'destaque', 'gols', 'headline', 'id', 'jogador', 'nota', 'numero', 'pais',
+const CAMPOS_ITEM_HALL = ['apelido', 'bolasOuro', 'bonusOvr', 'clubes', 'copas', 'destaque', 'gols', 'headline', 'id', 'jogador', 'nota', 'numero', 'pais', 'perfil',
     'picoOvr', 'posicao', 'posicaoCampo', 'posicaoGeral', 'temporadas', 'terminouEm', 'titulos'];
 
 // ══ v3.1 instalar.php num banco da v2 ════════════════════════════════════════════════════════════
@@ -1483,7 +1483,7 @@ $chavesU = array_keys($it[0] ?? []);
 sort($chavesU);
 checar('usuarios: paginado {total, pagina, porPagina 50, itens}', $r->status === 200 && ($r->json['total'] ?? 0) === 4 && ($r->json['porPagina'] ?? 0) === 50
     && ($r->json['pagina'] ?? 0) === 1, $r->resumo());
-checar('usuarios: item com os campos do contrato', $chavesU === ['apelido', 'bonusDisponiveis', 'carreiras', 'criadoEm', 'email', 'hallBloqueado', 'id', 'indicacoes',
+checar('usuarios: item com os campos do contrato', $chavesU === ['apelido', 'bonusDisponiveis', 'carreiras', 'criadoEm', 'email', 'emailVerificado', 'hallBloqueado', 'id', 'indicacoes',
     'melhorNota', 'origem', 'partidas', 'status', 'temNota', 'tempoJogadoMin', 'tipo', 'tipoEm', 'ultimoAcesso'], implode(',', $chavesU)); // v3.2: tipo, tipoEm, hallBloqueado, temNota
 checar('usuarios: padrão = mais recentes primeiro', array_column($it, 'id') === [$uidU3, $uidU2, $uidU1, $uidU4], json_encode(array_column($it, 'id')));
 $porId = array_column($it, null, 'id');

@@ -10,21 +10,23 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'self'; object-src 'none'">
 <title>LENDA · Painel</title>
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="painel.css?v=3.2.0">
+<link rel="stylesheet" href="painel.css?v=3.3.0">
 <!-- Aparência e modo discreto antes do primeiro desenho (sem defer de propósito; a CSP não deixa script embutido). -->
-<script src="tema.js?v=3.2.0"></script>
+<script src="tema.js?v=3.3.0"></script>
 <!-- Ordem importa: o núcleo primeiro, o painel.js (que liga tudo) por último. -->
-<script src="nucleo.js?v=3.2.0" defer></script>
-<script src="visao.js?v=3.2.0" defer></script>
-<script src="area.js?v=3.2.0" defer></script>
-<script src="usuarios.js?v=3.2.0" defer></script>
-<script src="moderacao.js?v=3.2.0" defer></script>
-<script src="indicacoes.js?v=3.2.0" defer></script>
-<script src="relatorios.js?v=3.2.0" defer></script>
-<script src="registro.js?v=3.2.0" defer></script>
-<script src="equipe.js?v=3.2.0" defer></script>
-<script src="sistema.js?v=3.2.0" defer></script>
-<script src="painel.js?v=3.2.0" defer></script>
+<script src="nucleo.js?v=3.3.0" defer></script>
+<script src="visao.js?v=3.3.0" defer></script>
+<script src="area.js?v=3.3.0" defer></script>
+<script src="usuarios.js?v=3.3.0" defer></script>
+<script src="mensagens.js?v=3.3.0" defer></script>
+<script src="moderacao.js?v=3.3.0" defer></script>
+<script src="indicacoes.js?v=3.3.0" defer></script>
+<script src="desafios.js?v=3.3.0" defer></script>
+<script src="relatorios.js?v=3.3.0" defer></script>
+<script src="registro.js?v=3.3.0" defer></script>
+<script src="equipe.js?v=3.3.0" defer></script>
+<script src="sistema.js?v=3.3.0" defer></script>
+<script src="painel.js?v=3.3.0" defer></script>
 </head>
 <body>
 
@@ -276,9 +278,11 @@
     <!-- As outras abas são montadas pelo JavaScript (sempre com textContent, nunca HTML vindo do servidor) -->
     <section id="aba-area" class="aba" hidden></section>
     <section id="aba-usuarios" class="aba" hidden></section>
+    <section id="aba-mensagens" class="aba" hidden></section>
     <section id="aba-hall" class="aba" hidden></section>
     <section id="aba-denuncias" class="aba" hidden></section>
     <section id="aba-indicacoes" class="aba" hidden></section>
+    <section id="aba-desafios" class="aba" hidden></section>
     <section id="aba-conquistas" class="aba" hidden></section>
     <section id="aba-relatorios" class="aba" hidden></section>
     <section id="aba-tempo" class="aba" hidden></section>
@@ -289,7 +293,7 @@
     <section id="aba-testes" class="aba" hidden></section>
   </div>
 
-  <!-- Painel lateral: ficha da conta ou da carreira (aberta pelo hash: conta= / carreira=) -->
+  <!-- Painel lateral: ficha da conta, da carreira ou da mensagem (aberta pelo hash: conta= / carreira= / mensagem=) -->
   <aside id="gaveta" class="gaveta" hidden role="dialog" aria-modal="false"></aside>
   <div id="dica" class="dica" role="tooltip" hidden></div>
 </div>

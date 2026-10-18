@@ -247,8 +247,9 @@ function conferirResposta(Resposta $r, string $caminho): void
     if (str_contains($caminho, '/api/') && !str_contains($caminho, '_lib.php') && !str_contains($caminho, '/api/_') && $r->status !== 204 && $r->status > 0
         && !str_contains($caminho, 'r=exportar')) {
         $chave = $caminho . $r->status;
-        // hall.php (GET 200) e a raridade das conquistas são públicos e ficam em cache; o resto, no-store
-        $publica = $r->status === 200 && preg_match('#/api/(hall\.php(\?|$)|conquistas\.php\?raridade=1)#', $caminho) === 1
+        // hall.php (GET 200), a raridade das conquistas, os desafios (sem ?eu=1) e o perfil público são públicos e ficam em
+        // cache (v3.3); o resto, no-store
+        $publica = $r->status === 200 && preg_match('#/api/(hall\.php(\?|$)|conquistas\.php\?raridade=1|desafios\.php(?!\?eu=1)|perfil\.php\?)#', $caminho) === 1
             && !in_array('POST', $GLOBALS['METODO_ATUAL'] ?? [], true);
         $cacheOk = $publica ? str_starts_with($r->cab1('cache-control'), 'public, max-age=') : $r->cab1('cache-control') === 'no-store';
         $ok = str_starts_with($r->cab1('content-type'), 'application/json')
@@ -372,7 +373,7 @@ function cEsperado(stdClass $h, string $como): array
 }
 
 const CAMPOS_C = ['bolasOuro', 'bonusOvr', 'como', 'gols', 'hall', 'headline', 'id', 'jogador', 'modo', 'noHall', 'nota', 'notaV', 'numero', 'pais',
-    'picoOvr', 'posicao', 'publica', 'salvaEm', 'temporadas', 'terminouEm', 'titulos']; // v3.2 (CONTRATO-v32 §A, X2): hall
+    'picoOvr', 'posicao', 'publica', 'salvaEm', 'temReplay', 'temporadas', 'terminouEm', 'titulos']; // v3.2 (CONTRATO-v32 §A, X2): hall; v3.3: temReplay
 
 function conferirC(string $nome, mixed $c, array $esperado): void
 {
@@ -1844,6 +1845,7 @@ require __DIR__ . '/teste-v32-mod.php'; // v3.2: moderação, jogadores, Hall, a
 require __DIR__ . '/teste-v32-acesso.php'; // v3.2: acesso ao painel, equipe, Saúde, backup e cópias (CONTRATO-v32 §B)
 require __DIR__ . '/teste-v32-integ.php'; // v3.2: o que a integração acrescentou (CONTRATO-v32 §E: SMTP, tipo na ficha, destaque no hall.php?id=)
 require __DIR__ . '/teste-v32-corr.php'; // v3.2 rev3: correções confirmadas do servidor (CONTRATO-v32 §E.7)
+require __DIR__ . '/teste-v33.php'; // v3.3: e-mail verificado, Fale conosco, limite diário, replay, desafios e perfil público (CONTRATO-v33 §A)
 
 // ══ 9. .htaccess no Apache ═══════════════════════════════════════════════════════════════════════
 
@@ -1858,12 +1860,21 @@ if ($URL_APACHE !== '') {
     }
     $r = $ap->pedir('GET', '/api/');
     checar('sem listagem da pasta', $r->status === 403, "HTTP $r->status");
-    foreach (['e.php', 'conta.php', 'carreiras.php', 'painel.php', 'instalar.php', 'lendas.php', 'hall.php', 'conquistas.php', 'bonus.php', 'admin.php'] as $arq) {
+    foreach (['e.php', 'conta.php', 'carreiras.php', 'painel.php', 'instalar.php', 'lendas.php', 'hall.php', 'conquistas.php', 'bonus.php', 'admin.php',
+        'suporte.php', 'desafios.php', 'perfil.php', '_desafios.php', '_suporte.php'] as $arq) {
+        if (str_starts_with($arq, '_')) {
+            $r = $ap->pedir('GET', "/api/$arq");
+            checar("$arq negado (v3.3)", $r->status === 403, "HTTP $r->status");
+            continue;
+        }
         $r = $ap->pedir('GET', "/api/$arq");
         checar("$arq liberado", $r->status === 200, "HTTP $r->status");
     }
-    checar('rotas com Cache-Control: no-store (conta, bonus, admin)', $ap->pedir('GET', '/api/conta.php')->cab1('cache-control') === 'no-store'
-        && $ap->pedir('GET', '/api/bonus.php')->cab1('cache-control') === 'no-store' && $ap->pedir('GET', '/api/admin.php')->cab1('cache-control') === 'no-store');
+    checar('rotas com Cache-Control: no-store (conta, bonus, admin, suporte)', $ap->pedir('GET', '/api/conta.php')->cab1('cache-control') === 'no-store'
+        && $ap->pedir('GET', '/api/bonus.php')->cab1('cache-control') === 'no-store' && $ap->pedir('GET', '/api/admin.php')->cab1('cache-control') === 'no-store'
+        && $ap->pedir('GET', '/api/suporte.php')->cab1('cache-control') === 'no-store');
+    checar('desafios.php e perfil.php ficam com o cache deles (v3.3)', $ap->pedir('GET', '/api/desafios.php')->cab1('cache-control') !== 'no-store'
+        && $ap->pedir('GET', '/api/perfil.php')->cab1('cache-control') !== 'no-store');
     checar('lendas.php, hall.php e conquistas.php ficam com o cache deles', $ap->pedir('GET', '/api/lendas.php')->cab1('cache-control') !== 'no-store'
         && $ap->pedir('GET', '/api/hall.php')->cab1('cache-control') !== 'no-store' && $ap->pedir('GET', '/api/conquistas.php')->cab1('cache-control') !== 'no-store');
     $r = $ap->pedir('GET', '/api/eco.cgi', null, ['auth' => 'Bearer abc123']);

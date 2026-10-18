@@ -69,13 +69,16 @@ const naLive = () => useLiveSession.getState().on || useApp.getState().route.pat
 /**
  * A tela de agora para a medição ("Na área" do painel, CONTRATO-v32 §A.4): a rota do jogo ou, com um diálogo de tela
  * cheia aberto por cima, o dele — Minha conta ("/conta"), Minhas carreiras ("/conta/carreiras"), entrar/criar conta
- * ("/conta/entrar") e Conquistas ("/conquistas").
+ * ("/conta/entrar"), Conquistas ("/conquistas") e, na v3.3, "Fale conosco" ("/fale-conosco") e a confirmação do e-mail
+ * ("/conta/verificar").
  */
 export function telaAtual(): string {
   const d = useSiteUi.getState().dialogo
   if (d?.tipo === 'perfil') return '/conta'
   if (d?.tipo === 'carreiras') return '/conta/carreiras'
   if (d?.tipo === 'conta') return '/conta/entrar'
+  if (d?.tipo === 'suporte') return '/fale-conosco'
+  if (d?.tipo === 'verificar') return '/conta/verificar'
   if (useApp.getState().dialog === 'achievements') return '/conquistas'
   return useApp.getState().route.path
 }

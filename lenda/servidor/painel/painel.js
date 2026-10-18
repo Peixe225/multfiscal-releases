@@ -10,14 +10,17 @@
   const $ = LP.$;
 
   // Ordem fixa das abas (a mesma em toda tela). tecla: atalho; poder: o que o papel precisa para abrir (sem ele, a
-  // aba aparece com cadeado e a tela explica).
+  // aba aparece com cadeado e a tela explica). v3.3: Mensagens (Fale conosco) e Desafios entram sem tecla, para as de
+  // sempre não mudarem de número.
   const D = {
     visao: ['M3 3v18h18', 'M7 15l4-4 3 3 5-6'],
     area: ['M12 21s-7-6.5-7-12a7 7 0 0 1 14 0c0 5.5-7 12-7 12z', 'M12 7a2 2 0 1 0 0 4 2 2 0 0 0 0-4z'],
     usuarios: ['M9 4a4 4 0 1 0 0 8 4 4 0 0 0 0-8z', 'M2 21a7 7 0 0 1 14 0', 'M16 4a4 4 0 0 1 0 8', 'M22 21a7 7 0 0 0-5-6.7'],
+    mensagens: ['M4 5h16v11H9l-5 4z', 'M8 9.5h8', 'M8 12.5h5'],
     hall: ['M6 9H4a2 2 0 0 1 0-4h2', 'M18 9h2a2 2 0 0 0 0-4h-2', 'M6 3h12v7a6 6 0 0 1-12 0z', 'M12 16v3', 'M8 21h8'],
     denuncias: ['M4 22V4a1 1 0 0 1 1-1h11l-2 4 2 4H5'],
     indicacoes: ['M20 12v9H4v-9', 'M2 7h20v5H2z', 'M12 21V7', 'M12 7H8a2.5 2.5 0 0 1 0-5c3 0 4 5 4 5z', 'M12 7h4a2.5 2.5 0 0 0 0-5c-3 0-4 5-4 5z'],
+    desafios: ['M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z', 'M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10z', 'M12 11a1 1 0 1 0 0 2 1 1 0 0 0 0-2z'],
     conquistas: ['M12 3a6 6 0 1 0 0 12 6 6 0 0 0 0-12z', 'm8.5 14-1.5 8 5-3 5 3-1.5-8'],
     relatorios: ['M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z', 'M14 3v6h6', 'M8 17v-3', 'M12 17v-6', 'M16 17v-4'],
     tempo: ['M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z', 'M12 7v5l3 2'],
@@ -31,9 +34,11 @@
     { id: 'visao', titulo: 'Visão geral', tecla: '1' },
     { id: 'area', titulo: 'Na área', tecla: '2' },
     { id: 'usuarios', titulo: 'Usuários', tecla: '3' },
+    { id: 'mensagens', titulo: 'Mensagens' },
     { id: 'hall', titulo: 'Hall público', tecla: '4' },
     { id: 'denuncias', titulo: 'Denúncias', tecla: '5' },
     { id: 'indicacoes', titulo: 'Indicações e bônus', tecla: '6' },
+    { id: 'desafios', titulo: 'Desafios' },
     { id: 'conquistas', titulo: 'Conquistas', tecla: '7' },
     { id: 'relatorios', titulo: 'Relatórios', tecla: '8' },
     { id: 'tempo', titulo: 'Tempo de jogo', tecla: '9' },
@@ -137,17 +142,20 @@
   }
 
   // ── pulso: online, números de ação, alertas, filas, equipe, recados (15 s) ──────────────────
+  // curto: o rótulo no celular (4 colunas × 2 linhas)
   const NUMEROS = [
-    { k: 'online', rotulo: 'Online agora', href: '#/area', cor: 'ok', title: 'Abas do jogo abertas no último minuto · abre Na área' },
-    { k: 'jogando', rotulo: 'Jogando agora', href: '#/area?ver=jogando', title: 'Com uma partida em andamento' },
-    { k: 'denunciasAbertas', rotulo: 'Denúncias abertas', href: '#/hall?filtro=denunciadas', title: 'Abre Hall público · denunciadas' },
-    { k: 'suspeitas', rotulo: 'Suspeitas', href: '#/hall?filtro=suspeitas', title: 'Carreiras suspeitas fora do Hall, esperando você' },
-    { k: 'indicacoesPendentes', rotulo: 'Indicações pendentes', href: '#/indicacoes?status=pendente', title: 'O amigo ainda não terminou a 1ª carreira' },
-    { k: 'contasHoje', rotulo: 'Contas hoje', href: '#/usuarios', title: 'Contas criadas hoje (Brasília)' },
+    { k: 'online', rotulo: 'Online agora', curto: 'Online', href: '#/area', cor: 'ok', title: 'Abas do jogo abertas no último minuto · abre Na área' },
+    { k: 'jogando', rotulo: 'Jogando agora', curto: 'Jogando', href: '#/area?ver=jogando', title: 'Com uma partida em andamento' },
+    { k: 'denunciasAbertas', rotulo: 'Denúncias abertas', curto: 'Denúncias', href: '#/hall?filtro=denunciadas', title: 'Abre Hall público · denunciadas' },
+    { k: 'suspeitas', rotulo: 'Suspeitas', curto: 'Suspeitas', href: '#/hall?filtro=suspeitas', title: 'Carreiras suspeitas fora do Hall, esperando você' },
+    { k: 'indicacoesPendentes', rotulo: 'Indicações pendentes', curto: 'Indicações', href: '#/indicacoes?status=pendente', title: 'O amigo ainda não terminou a 1ª carreira' },
+    { k: 'mensagensNovas', rotulo: 'Mensagens novas', curto: 'Mensagens', href: '#/mensagens?status=nova', title: 'Fale conosco: mensagens que ninguém abriu ainda' },
+    { k: 'candidatosPendentes', rotulo: 'Candidatos a desafio', curto: 'Candidatos', href: '#/desafios', title: 'Carreiras que cumpriram um desafio e esperam a verificação no jogo (ou o vencedor)' },
+    { k: 'contasHoje', rotulo: 'Contas hoje', curto: 'Contas hoje', href: '#/usuarios', title: 'Contas criadas hoje (Brasília)' },
   ];
   function montarNumeros() {
     LP.trocar($('numeros-acao'), NUMEROS.map((n) => h('a', { href: n.href, class: 'numero-acao', id: 'na-' + n.k, title: n.title },
-      h('b', { class: 'numero-acao-valor', id: 'nav-' + n.k }, '–'), h('span', null, n.rotulo))));
+      h('b', { class: 'numero-acao-valor', id: 'nav-' + n.k }, '–'), h('span', { class: 'na-longo' }, n.rotulo), h('span', { class: 'na-curto' }, n.curto))));
   }
   function desenharPulso(a) {
     LP.agora = a;
@@ -155,14 +163,15 @@
     $('lat-jogando').textContent = LP.num(a.jogando || 0);
     if (LP.desenharAgoraVisao) LP.desenharAgoraVisao(a);
     const ac = a.acao || {};
-    const val = { online: a.online, jogando: a.jogando, denunciasAbertas: ac.denunciasAbertas, suspeitas: ac.suspeitas, indicacoesPendentes: ac.indicacoesPendentes, contasHoje: ac.contasHoje };
+    const val = { online: a.online, jogando: a.jogando, denunciasAbertas: ac.denunciasAbertas, suspeitas: ac.suspeitas, indicacoesPendentes: ac.indicacoesPendentes, contasHoje: ac.contasHoje,
+      mensagensNovas: ac.mensagensNovas, candidatosPendentes: ac.candidatosPendentes };
     NUMEROS.forEach((n) => {
       const v = val[n.k];
       LP.mudarTexto($('nav-' + n.k), v === undefined || v === null ? '–' : LP.num(v));
       const caixa = $('na-' + n.k);
       if (!caixa) return;
       caixa.classList.toggle('na-ok', n.k === 'online');
-      caixa.classList.toggle('na-alerta', (n.k === 'denunciasAbertas' && v > 0 && !ac.ocultasPorDenuncia) || ((n.k === 'suspeitas' || n.k === 'indicacoesPendentes') && v > 0));
+      caixa.classList.toggle('na-alerta', (n.k === 'denunciasAbertas' && v > 0 && !ac.ocultasPorDenuncia) || ((n.k === 'suspeitas' || n.k === 'indicacoesPendentes' || n.k === 'mensagensNovas' || n.k === 'candidatosPendentes') && v > 0));
       caixa.classList.toggle('na-perigo', n.k === 'denunciasAbertas' && (ac.ocultasPorDenuncia || 0) > 0);
     });
     if (ac.ocultasPorDenuncia) $('na-denunciasAbertas').title = LP.plural(ac.ocultasPorDenuncia, 'carreira escondida', 'carreiras escondidas') + ' por denúncias esperando a sua decisão · abre Hall público';
@@ -175,6 +184,8 @@
     contador('hall', hallN, ac.ocultasPorDenuncia ? 'perigo' : 'alerta', 'denúncias abertas + carreiras escondidas por denúncia');
     contador('denuncias', ac.denunciasAbertas || 0, 'perigo', 'denúncias abertas');
     contador('indicacoes', ac.indicacoesPendentes || 0, 'alerta', 'indicações pendentes');
+    contador('mensagens', ac.mensagensNovas || 0, 'alerta', LP.plural(ac.mensagensNovas || 0, 'mensagem nova', 'mensagens novas') + ' no Fale conosco');
+    contador('desafios', ac.candidatosPendentes || 0, 'alerta', LP.plural(ac.candidatosPendentes || 0, 'candidato esperando decisão', 'candidatos esperando decisão'));
     tituloDocumento();
     // equipe no painel agora (S13): a faixa só com 2+ pessoas
     desenharFaixas();
@@ -264,6 +275,8 @@
         return '#/registro';
       case 'config': return f === 'conta' || f === 'backup' ? '#/config?parte=' + f : '#/config';
       case 'saude': return '#/saude';
+      case 'mensagens': return /^(nova|lida|respondida|arquivada)$/.test(f || '') ? '#/mensagens?status=' + f : '#/mensagens';
+      case 'desafios': return l.id && /^\d+$/.test(String(l.id)) ? '#/desafios?id=' + l.id : '#/desafios';
       case 'usuarios': return '#/usuarios';
       default: return '#/' + ((l && l.aba) || 'visao');
     }
@@ -702,6 +715,8 @@
       if (!aberta || aberta.tipo !== 'conta' || aberta.id !== String(q.conta)) LP.abrirFichaConta(q.conta);
     } else if (q.carreira && LP.abrirFichaCarreira) {
       if (!aberta || aberta.tipo !== 'carreira' || aberta.id !== String(q.carreira)) LP.abrirFichaCarreira(q.carreira);
+    } else if (q.mensagem && LP.abrirFichaMensagem) {
+      if (!aberta || aberta.tipo !== 'mensagem' || aberta.id !== String(q.mensagem)) LP.abrirFichaMensagem(q.mensagem);
     } else if (aberta) {
       LP.gaveta.esconder();
     }
@@ -758,7 +773,7 @@
       titulo: 'Sair sem salvar?',
       perigo: true,
       botao: 'Descartar alterações',
-      texto: 'Há alterações não salvas nas Configurações. Se sair agora, elas se perdem.',
+      texto: (atual.textoSair && atual.textoSair()) || 'Há alterações não salvas nas Configurações. Se sair agora, elas se perdem.',
     });
     if (ok && atual.sair) atual.sair();
     return !!ok;
@@ -787,7 +802,7 @@
     renderizar();
   });
   window.addEventListener('beforeunload', (e) => {
-    if (estado.logado && LP.configSujo && LP.configSujo()) { e.preventDefault(); e.returnValue = ''; }
+    if (estado.logado && ((LP.configSujo && LP.configSujo()) || (LP.desafioSujo && LP.desafioSujo()))) { e.preventDefault(); e.returnValue = ''; }
   });
 
   // ── atalhos ─────────────────────────────────────────────────────────────────────────────────

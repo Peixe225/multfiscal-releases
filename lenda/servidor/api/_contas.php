@@ -50,6 +50,8 @@ function usuarioJson(array $u): array
         'tester' => ($u['tipo'] ?? 'jogador') === 'tester',
         // v3.2: aviso da moderação para o dono (o jogo mostra uma vez; conta.php aviso_lido apaga)
         'aviso' => ($u['aviso_conta'] ?? null) !== null ? ['texto' => (string) $u['aviso_conta'], 'em' => iso($u['aviso_conta_em'] ?? null)] : null,
+        // v3.3: o e-mail da conta foi confirmado com o código (desafios pedem; contas antigas começam sem)
+        'emailVerificado' => ($u['email_verificado_em'] ?? null) !== null,
         'estatisticas' => [
             // o contador do aparelho (inclui as de antes do cadastro) ou as contadas com a conta: nada de contar os
             // eventos da vida inteira a cada abertura do jogo
@@ -130,6 +132,16 @@ function excluirUsuario(int $uid): void
         // os caches do painel que podem citar a conta (alertas com o apelido, grupos de aparelho, o ranking do Tempo de
         // jogo e as últimas contas/carreiras da Visão geral) são refeitos
         sql("DELETE FROM site_config WHERE chave IN ('_atencao', '_multicontas') OR chave LIKE '\\_tempo:%' OR chave LIKE '\\_painel:%'");
+        if (esquemaV33()) {
+            // v3.3: as mensagens do Fale conosco (as da conta e as que a pessoa mandou sem entrar, com o mesmo e-mail), as
+            // candidaturas aos desafios, o código de confirmação do e-mail e as partidas por dia. Desafio que ela venceu
+            // continua vencido, sem dizer por quem.
+            sql('DELETE FROM mensagens_suporte WHERE usuario_id = ? OR (usuario_id IS NULL AND email = ?)', [$uid, strtolower((string) $u['email'])]);
+            sql('DELETE FROM desafio_candidatos WHERE usuario_id = ?', [$uid]);
+            sql('UPDATE desafios SET vencedor_usuario_id = NULL, vencedor_carreira_pk = NULL, vencedor_candidato = NULL WHERE vencedor_usuario_id = ?', [$uid]);
+            sql('DELETE FROM verificacoes_email WHERE usuario_id = ?', [$uid]);
+            sql('DELETE FROM partidas_dia WHERE usuario_id = ?', [$uid]);
+        }
         sql('DELETE FROM carreiras WHERE usuario_id = ?', [$uid]);
         sql('DELETE FROM sessoes_login WHERE usuario_id = ?', [$uid]);
         sql('DELETE FROM visitantes_usuarios WHERE usuario_id = ?', [$uid]);
@@ -155,7 +167,8 @@ function excluirUsuario(int $uid): void
 
 /** Ações do registro cujos detalhes citam a conta pelo id (usuario / indicador / indicado), com outro alvo. */
 const ACOES_LOG_COM_CONTA = ['ocultar_carreira', 'mostrar_carreira', 'apagar_carreira', 'destacar_carreira', 'restaurar_carreira',
-    'resolver_denuncia', 'recusar_indicacao'];
+    'resolver_denuncia', 'recusar_indicacao', 'candidato_verificar', 'candidato_recusar', 'desafio_vencedor', 'desafio_reabrir', 'suporte_status',
+    'suporte_responder']; // v3.3: desafios (alvo desafio:<id>) e Fale conosco (alvo suporte:<id>)
 
 /**
  * LGPD, no excluirUsuario(): as linhas do registro do admin que falam da conta ficam só com a ação, a data e o id
@@ -234,6 +247,84 @@ function corpoEmailRedefinicao(string $apelido, string $codigo, bool $pelaEquipe
         . "Ele vale por 30 minutos. Digite o código no jogo, na tela \"Esqueci a senha\".\n\n"
         . "Se não foi você que pediu, é só ignorar este e-mail: sua senha continua a mesma.\n\n"
         . "— LENDA · https://oprojeto.online/lenda/\n";
+}
+
+// ── confirmação do e-mail (v3.3, CONTRATO-v33 §A) ────────────────────────────────────────────────
+
+const VERIFICACAO_S = 86400;          // o código vale 24 h
+const VERIFICACAO_TENTATIVAS = 5;     // chutes por código (depois, só um novo)
+
+/** HMAC do código, preso à conta e ao e-mail de agora (trocar o e-mail invalida o código). */
+function hashVerificacao(int $uid, string $email, string $codigo): string
+{
+    return hash_hmac('sha256', 'verif|' . $uid . '|' . strtolower($email) . '|' . $codigo, segredo());
+}
+
+/** Código novo de 6 dígitos para confirmar o e-mail (o anterior deixa de valer). Devolve o código (para o e-mail). */
+function gravarCodigoVerificacao(int $uid, string $email): string
+{
+    $codigo = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+    $t = time();
+    sql('INSERT INTO verificacoes_email (usuario_id, codigo_hash, expira_em, tentativas, criado_em) VALUES (?, ?, ?, 0, ?)
+        ON DUPLICATE KEY UPDATE codigo_hash = VALUES(codigo_hash), expira_em = VALUES(expira_em), tentativas = 0, criado_em = VALUES(criado_em)',
+        [$uid, hashVerificacao($uid, $email, $codigo), dt($t + VERIFICACAO_S), dt($t)]);
+    return $codigo;
+}
+
+function corpoEmailVerificacao(string $apelido, string $codigo): string
+{
+    return "Olá, {$apelido}!\n\n"
+        . "Seu código para confirmar o e-mail da sua conta no LENDA é:\n\n"
+        . "    {$codigo}\n\n"
+        . "Ele vale por 24 horas. Digite o código no jogo, em Minha conta.\n\n"
+        . "Se não foi você que criou a conta, é só ignorar este e-mail.\n\n"
+        . "— LENDA · https://oprojeto.online/lenda/\n";
+}
+
+/**
+ * Os tetos do site para os e-mails de confirmação (a cota de envio da hospedagem): 200 a cada 10 min e 2.000 por dia.
+ * Soma um e diz se ainda cabe.
+ */
+function cabeEmailVerificacao(): bool
+{
+    $n10 = somarLimite('verif-todos', 'todos');
+    $nDia = somarLimite('dia-verif-todos', 'todos', 1, 86400);
+    return $n10 <= 200 && $nDia <= 2000;
+}
+
+/** Grava um código novo e manda o e-mail agora (admin). Devolve se o servidor de envio aceitou. */
+function mandarCodigoVerificacao(array $u, string $tipo = 'verificacao'): bool
+{
+    $codigo = gravarCodigoVerificacao((int) $u['id'], (string) $u['email']);
+    return enviarEmail((string) $u['email'], 'LENDA: confirme o seu e-mail', corpoEmailVerificacao((string) $u['apelido'], $codigo), $tipo);
+}
+
+/**
+ * Confere o código e marca o e-mail como confirmado (true; já confirmado também é true). Código errado gasta uma das 5
+ * tentativas dele; vencido, gasto ou de outro e-mail: false.
+ */
+function confirmarEmail(int $uid, string $codigo): bool
+{
+    return transacao(static function () use ($uid, $codigo): bool {
+        $u = umaLinha('SELECT id, email, email_verificado_em FROM usuarios WHERE id = ? FOR UPDATE', [$uid]);
+        if ($u === null) {
+            return false;
+        }
+        if ($u['email_verificado_em'] !== null) {
+            return true;
+        }
+        $r = umaLinha('SELECT codigo_hash, expira_em, tentativas FROM verificacoes_email WHERE usuario_id = ? FOR UPDATE', [$uid]);
+        if ($r === null || (paraTempo($r['expira_em']) ?? 0) < time() || (int) $r['tentativas'] >= VERIFICACAO_TENTATIVAS) {
+            return false;
+        }
+        if (!hash_equals((string) $r['codigo_hash'], hashVerificacao($uid, (string) $u['email'], $codigo))) {
+            sql('UPDATE verificacoes_email SET tentativas = tentativas + 1 WHERE usuario_id = ?', [$uid]);
+            return false;
+        }
+        sql('UPDATE usuarios SET email_verificado_em = ? WHERE id = ?', [dt(time()), $uid]);
+        sql('DELETE FROM verificacoes_email WHERE usuario_id = ?', [$uid]);
+        return true;
+    });
 }
 
 /** Status em vigor ('ativo' | 'suspenso'): suspensão com data vencida conta como ativo. */

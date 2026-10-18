@@ -53,6 +53,11 @@ export interface Usuario {
   tester: boolean
   /** Aviso da moderação para o dono (v3.2, H11): Minha conta mostra uma vez e manda "aviso_lido". */
   aviso: AvisoConta | null
+  /**
+   * E-mail confirmado com o código de 6 dígitos (v3.3, CONTRATO-v33). Requisito dos desafios. Servidor antigo (sem o
+   * campo) = true: ninguém leva o aviso de "confirme o e-mail" de um servidor que nem manda o código.
+   */
+  emailVerificado: boolean
 }
 
 export interface AvisoConta {
@@ -131,6 +136,7 @@ export function normalizarUsuario(x: unknown): Usuario | null {
     codigoConvite: typeof u.codigoConvite === 'string' && /^[A-Za-z0-9]{4,16}$/.test(u.codigoConvite) ? u.codigoConvite : null,
     tester: u.tester === true,
     aviso: normalizarAvisoConta(u.aviso),
+    emailVerificado: u.emailVerificado !== false,
     estatisticas: {
       partidas: num(e.partidas),
       carreirasSalvas: num(e.carreirasSalvas),
@@ -199,6 +205,10 @@ interface ContaStore {
   excluir(senha: string): Promise<void>
   /** O jogador viu o aviso da moderação (H11): some daqui na hora e do servidor quando ele responder. */
   avisoLido(): Promise<void>
+  /** v3.3: confirma o e-mail com o código de 6 dígitos (lança ErroApi codigo_invalido / limite). */
+  verificarEmail(codigo: string): Promise<Usuario>
+  /** v3.3: manda outro código (3 a cada 10 min, 10 por dia). `true` = já estava confirmado (a conta é relida). */
+  reenviarVerificacao(): Promise<boolean>
 }
 
 const ls = armazem(() => (typeof window !== 'undefined' ? window.localStorage : undefined))
@@ -387,6 +397,25 @@ export const useConta = create<ContaStore>()((set, get) => {
       lembrar(null)
       set({ usuario: null, lembrado: null })
       get().adiarConvite()
+    },
+
+    async verificarEmail(codigo) {
+      const u = comUsuario(await api('conta.php', { corpo: { acao: 'verificar_email', codigo: codigo.replace(/\D/g, '').slice(0, 6) } }))
+      lembrar(u)
+      // o servidor antigo não manda o campo: quem acabou de confirmar está confirmado
+      const certo = { ...u, emailVerificado: true }
+      set({ usuario: certo, lembrado: u.apelido })
+      return certo
+    },
+
+    async reenviarVerificacao() {
+      const r = await api<{ ok?: unknown; jaVerificado?: unknown }>('conta.php', { corpo: { acao: 'reenviar_verificacao' } })
+      if (r?.jaVerificado === true) {
+        const u = get().usuario
+        if (u && !u.emailVerificado) set({ usuario: { ...u, emailVerificado: true } })
+        return true
+      }
+      return false
     },
 
     async avisoLido() {

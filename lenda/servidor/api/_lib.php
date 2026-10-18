@@ -583,6 +583,18 @@ function limpezaTalvez(): void
     } catch (Throwable $e) {
         error_log('LENDA limpeza v3.2: ' . $e->getMessage());
     }
+    if (!esquemaV33()) {
+        return;
+    }
+    try {
+        // v3.3: códigos de confirmação de e-mail vencidos, partidas por dia com mais de 40 dias e mensagens do Fale
+        // conosco com mais de 12 meses (privacidade.html)
+        sql('DELETE FROM verificacoes_email WHERE expira_em < ? LIMIT 5000', [dt($t)]);
+        sql('DELETE FROM partidas_dia WHERE dia < ? LIMIT 5000', [gmdate('Y-m-d', $t - 40 * 86400)]);
+        sql('DELETE FROM mensagens_suporte WHERE criado_em < ? LIMIT 1000', [dt($t - 365 * 86400)]);
+    } catch (Throwable $e) {
+        error_log('LENDA limpeza v3.3: ' . $e->getMessage());
+    }
 }
 
 // ── cookies e sessão do jogador ──────────────────────────────────────────────────────────────────
@@ -1235,9 +1247,12 @@ function lerApelido(mixed $v, bool $reservados = true): string
 // ── configuração do site (tabela site_config; o banco manda, o arquivo de config dá o padrão) ───
 
 const LENDA_CONFIG_CHAVES = ['regras', 'imersivo_publico', 'live_publica', 'aviso', 'manutencao', 'bonus', 'hall_intervalo_min',
-    'cadastro_aberto', 'hall_revisao_nota', 'avisos', 'aviso_celular'];
-/** Versão do banco que o instalar.php grava em site_config._esquema (o código novo só usa coluna/tabela nova com ela). */
-const LENDA_ESQUEMA = 32;
+    'cadastro_aberto', 'hall_revisao_nota', 'avisos', 'aviso_celular', 'partidas_dia_max'];
+/**
+ * Versão do banco que o instalar.php grava em site_config._esquema (o código novo só usa coluna/tabela nova com ela):
+ * 32 = v3.2 (esquemaV32), 33 = v3.3 (esquemaV33: e-mail verificado, Fale conosco, desafios, replay, limite diário).
+ */
+const LENDA_ESQUEMA = 33;
 const LENDA_AVISOS_MAX = 5;
 
 /** Padrões de cada chave (o `regras` vem do arquivo de config). */
@@ -1261,6 +1276,9 @@ function configPadrao(): array
         'avisos' => [],
         // v3.2: aviso no celular (ntfy/Telegram do arquivo de config) para denúncia nova e pico de gente online
         'aviso_celular' => ['denuncia' => false, 'picoOnline' => 0],
+        // v3.3: partidas por dia (Brasília) que contam na conta; as de depois não somam e a carreira salva no dia não vale
+        // para desafio (CONTRATO-v33 §A)
+        'partidas_dia_max' => 100,
     ];
 }
 
@@ -1405,6 +1423,12 @@ function normalizarConfig(string $chave, mixed $v): mixed
                 $ruim('Aviso no celular: picoOnline de 0 (desligado) a 100.000 pessoas online.');
             }
             return ['denuncia' => $v['denuncia'], 'picoOnline' => $pico];
+        case 'partidas_dia_max':
+            $m = $int($v, 10, 10000);
+            if ($m === null) {
+                $ruim('Partidas por dia que contam na conta: de 10 a 10.000.');
+            }
+            return $m;
     }
     $ruim('Chave de configuração desconhecida: ' . mb_substr($chave, 0, 40) . '.');
 }
@@ -1453,7 +1477,13 @@ function siteConfig(bool $recarregar = false): array
 /** O banco já tem as colunas e tabelas da v3.2 (o instalar.php rodou)? Lido junto com a config (sem consulta a mais). */
 function esquemaV32(): bool
 {
-    return (int) (siteConfig()['_esquema'] ?? 0) >= LENDA_ESQUEMA;
+    return (int) (siteConfig()['_esquema'] ?? 0) >= 32;
+}
+
+/** O instalar.php da v3.3 já rodou (e-mail verificado, Fale conosco, desafios, replay e limite diário)? */
+function esquemaV33(): bool
+{
+    return (int) (siteConfig()['_esquema'] ?? 0) >= 33;
 }
 
 /** A config sem o estado interno (chaves com _), para o painel. */

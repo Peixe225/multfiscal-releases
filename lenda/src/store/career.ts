@@ -14,6 +14,8 @@
 import { create } from 'zustand'
 import type { CareerEngine, RevealScript } from '@/engine/api'
 import type { CareerState, CareerSummary, GameData, GameMode, Pace, PlayerIdentity } from '@/engine/types'
+import { escolhaDoReplay, novoReplay, type CareerReplay } from '@/engine/replay'
+import { DADOS_VERSAO } from '@/data/versao'
 // só a constante (score.ts é leve); o motor de legado inteiro vem por import dinâmico
 import { LEGACY_VERSION } from '@/engine/legacy/score'
 import { kv, KV_KEYS } from './persist'
@@ -41,6 +43,12 @@ export interface HallEntry {
    * nota que o Hall mostra.
    */
   legacy?: { score: number; raw: number; at: string; v?: number }
+  /**
+   * (v3.3) Replay da carreira do Clássico (src/engine/replay.ts): semente, identidade da criação, ritmo, bônus, as
+   * escolhas e a versão dos dados — o admin joga de novo e confere (#/verificar). Sem ele: carreira de antes da v3.3,
+   * do Imersivo, do motor de exemplo ou que começou numa versão e terminou em outra.
+   */
+  replay?: CareerReplay
 }
 
 type LegacyRecord = NonNullable<HallEntry['legacy']>
@@ -179,19 +187,40 @@ interface CareerStore {
   setEngine(engine: CareerEngine, kind?: EngineKind): void
 }
 
+/** O par [a0, a1] de cada semente sorteada nesta janela (o replay guarda os dois números, não o texto). */
+const paresDeSemente = new Map<string, [number, number]>()
+
 /** Semente nova de carreira (o id da carreira é `career-<semente>` no motor real). */
 export const randomSeed = () => {
   try {
     const a = new Uint32Array(2)
     crypto.getRandomValues(a)
-    return `${a[0].toString(36)}${a[1].toString(36)}`
+    const seed = `${a[0].toString(36)}${a[1].toString(36)}`
+    if (paresDeSemente.size > 50) paresDeSemente.clear()
+    paresDeSemente.set(seed, [a[0], a[1]])
+    return seed
   } catch {
     return Math.random().toString(36).slice(2, 12)
   }
 }
 
-const stripWorld = (s: CareerState): Omit<CareerState, 'world'> => {
-  const { world: _w, ...rest } = s
+/**
+ * A escolha entra no replay do estado novo (o anterior fica como estava: a revelação anima a partir dele). Começou com
+ * outra versão dos dados (deploy no meio da carreira): o replay fica marcado com as duas, e a verificação avisa.
+ */
+function comEscolha(anterior: CareerState, novo: CareerState, optionId: string): void {
+  const r = anterior.replay
+  if (!r || !anterior.pendingDecision) {
+    if (novo.replay) delete novo.replay
+    return
+  }
+  const dados = r.dados === DADOS_VERSAO || r.dados.endsWith(`>${DADOS_VERSAO}`) ? r.dados : `${r.dados}>${DADOS_VERSAO}`
+  novo.replay = { ...r, dados, picks: [...r.picks, escolhaDoReplay(anterior.pendingDecision, optionId)] }
+}
+
+/** O estado como vai no HallEntry: sem o mundo e sem o replay (que vai ao lado, em HallEntry.replay). */
+const paraHall = (s: CareerState): Omit<CareerState, 'world'> => {
+  const { world: _w, replay: _r, ...rest } = s
   return rest
 }
 
@@ -275,10 +304,11 @@ export const useCareer = create<CareerStore>()((set, get) => {
       mode: state.mode,
       summary,
       retiredReason: state.retiredReason,
-      career: stripWorld(state),
+      career: paraHall(state),
       engine: kind,
       legacy,
     }
+    if (state.replay && kind === 'real') entry.replay = state.replay
     // corte do Hall: saem as de menor Nota de Legado (a nota de uma run não depende das outras; as
     // gravadas com pesos antigos são recalculadas antes de comparar)
     if (get().isFixture) {
@@ -376,6 +406,11 @@ export const useCareer = create<CareerStore>()((set, get) => {
         const seed = opts.seed ?? randomSeed()
         // sem bônus, a chamada é a de sempre (o motor nem vê o parâmetro)
         const state = opts.bonusOvr ? engine.newCareer(data, identity, pace, seed, { bonusOvr: opts.bonusOvr }) : engine.newCareer(data, identity, pace, seed)
+        // o replay (v3.3): só do motor real — a identidade e o bônus como o motor os deixou (refazer dá o mesmo)
+        if (get().engineKind === 'real' && state.mode === 'classic') {
+          const replay = novoReplay(seed, state.identity, pace, state.bonusOvr ?? 0, paresDeSemente.get(seed))
+          if (replay) state.replay = replay
+        }
         set({ state, reveal: null, previous: null, isFixture: false, busy: false, lastUnlocked: [] })
         await persistCurrent()
         return state
@@ -394,6 +429,7 @@ export const useCareer = create<CareerStore>()((set, get) => {
         // yield a frame so the UI can show the pressed/busy state before a heavy simulation
         await new Promise((r) => requestAnimationFrame(() => setTimeout(r, 0)))
         const { state, reveal } = engine.choose(data, cur, optionId)
+        comEscolha(cur, state, optionId)
         // the unlocks belong to the season just played (the new state), not the one before it
         const unlocked = get().unlockAchievements(reveal.achievements ?? [], state)
         set({ state, reveal, previous: cur, busy: false, lastUnlocked: unlocked })

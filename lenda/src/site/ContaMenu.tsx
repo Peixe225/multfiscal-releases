@@ -1,9 +1,12 @@
 /**
  * Bloco de conta no topo do Menu (só no site): "Entrar / Criar conta" ou o apelido com Minha conta, o atalho
  * "Convide amigos" (com a promessa do bônus de OVR), Minhas carreiras, Salvar a última carreira, Sair e Excluir conta.
+ * v3.3: "Desafios" (só com um desafio valendo) e "Fale conosco" (sempre), com ou sem conta.
  */
-import { useState, type ComponentType } from 'react'
-import { ArrowRight, ChevronRight, CloudUpload, FolderHeart, LogIn, LogOut, Trash, UserPlus, type LucideProps } from 'lucide-react'
+import { useEffect, useState, type ComponentType } from 'react'
+import { ArrowRight, ChevronRight, CloudUpload, FolderHeart, LogIn, LogOut, MessageSquareText, Swords, Trash, UserPlus, type LucideProps } from 'lucide-react'
+import { navigate } from '@/store/app'
+import { criterioEmFrase, temDesafioAtivo, useDesafios, valendo } from './desafios'
 import { toast } from '@/ui/primitives'
 import { mensagemDeErro } from './api'
 import { escolherUltima, hallComUltima, idsNaConta, lerUltima, useCarreiras } from './carreiras'
@@ -11,7 +14,7 @@ import { useConta } from './conta'
 import { track } from './medicao'
 import { salvarManual } from './salvar'
 import { useAcesso } from '@/store/acesso'
-import { abrirCarreiras, abrirConta, abrirConvideAmigos, abrirPerfil } from './ui'
+import { abrirCarreiras, abrirConta, abrirConvideAmigos, abrirPerfil, abrirSuporte } from './ui'
 import { promessaIndicacao, useBonus } from './bonus'
 import './site.css'
 
@@ -27,6 +30,41 @@ function Linha({ icon: Ico, titulo, sub, onClick, tom, carregando }: { icon: Com
       </span>
       <ChevronRight className="sc-row__chev" aria-hidden="true" />
     </button>
+  )
+}
+
+/** v3.3: "Desafios" (só com um valendo) e "Fale conosco", no fim do bloco, com ou sem conta. */
+function LinhasV33({ fechar }: { fechar: () => void }) {
+  const ativo = useDesafios(temDesafioAtivo)
+  const d = useDesafios((s) => s.lista.find((x) => valendo(x)) ?? null)
+  // o menu abriu: a lista vem (do cache de 60 s, quase sempre)
+  useEffect(() => {
+    void useDesafios.getState().carregar()
+  }, [])
+  return (
+    <div className="sc-menu__grid">
+      {ativo && d && (
+        <Linha
+          icon={Swords}
+          tom="cta"
+          titulo={d.titulo}
+          sub={`Desafio valendo: ${criterioEmFrase(d.criterio)}`}
+          onClick={() => {
+            fechar()
+            navigate('/desafios')
+          }}
+        />
+      )}
+      <Linha
+        icon={MessageSquareText}
+        titulo="Fale conosco"
+        sub="Dúvida, ideia, problema ou recomendação"
+        onClick={() => {
+          fechar()
+          abrirSuporte()
+        }}
+      />
+    </div>
   )
 }
 
@@ -51,6 +89,7 @@ export default function ContaMenu({ fechar }: { fechar: () => void }) {
             abrirConta({ modo: 'manual' })
           }}
         />
+        <LinhasV33 fechar={fechar} />
       </div>
     )
   }
@@ -157,6 +196,7 @@ export default function ContaMenu({ fechar }: { fechar: () => void }) {
           }}
         />
       </div>
+      <LinhasV33 fechar={fechar} />
     </div>
   )
 }

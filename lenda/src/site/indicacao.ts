@@ -7,6 +7,7 @@
  *   capturarConvite(location.search, ls)   // na abertura do site (depois da medição ler os utm)
  *   conviteGuardado(ls)                     // o código para mandar no cadastro (ou null)
  *   linkConvite(codigo)                     // https://oprojeto.online/lenda/?c=ABCD2345
+ *   linkPerfil(codigo)                      // https://oprojeto.online/lenda/?c=ABCD2345#/jogador/ABCD2345 (v3.3)
  */
 import type { Armazem } from './medicao'
 
@@ -59,6 +60,16 @@ export function enderecoDoJogo(): string {
 
 export function linkConvite(codigo: string | null | undefined, base = enderecoDoJogo()): string {
   return codigoValido(codigo) ? `${base}?c=${encodeURIComponent(codigo)}` : base
+}
+
+/**
+ * O link do perfil público (v3.3): `…/lenda/?c=<código>#/jogador/<código>` — o mesmo código do convite, então quem abre
+ * o perfil de alguém também chega como convidado dele.
+ */
+export function linkPerfil(codigo: string | null | undefined, base = enderecoDoJogo()): string | null {
+  if (!codigoValido(codigo)) return null
+  const c = encodeURIComponent(codigo)
+  return `${base}?c=${c}#/jogador/${c}`
 }
 
 /** Tira o `?c=` da barra de endereço (o resto da URL e o #/rota ficam). */

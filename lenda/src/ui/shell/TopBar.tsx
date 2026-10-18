@@ -28,6 +28,9 @@ const SUB: Partial<Record<RoutePath, string>> = {
   '/kit': 'DESIGN KIT',
   '/creditos': 'CRÉDITOS',
   '/live': 'LIVE INTERATIVA',
+  '/desafios': 'DESAFIOS',
+  '/jogador': 'PERFIL',
+  '/verificar': 'VERIFICAÇÃO',
 }
 
 const PACE_LABEL = { intensa: 'Ritmo Intenso', normal: 'Ritmo Normal', expressa: 'Ritmo Expresso' } as const

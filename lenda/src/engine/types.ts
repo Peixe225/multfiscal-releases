@@ -726,6 +726,11 @@ export interface CareerState {
    * inteira. Ausente = sem bônus (a carreira é idêntica à de sempre).
    */
   bonusOvr?: number
+  /**
+   * (v3.3, só o store do Clássico escreve) O replay da carreira: semente, identidade da criação, ritmo, bônus e as
+   * escolhas, para jogá-la de novo e conferir (src/engine/replay.ts). O motor nunca lê: só copia junto com o estado.
+   */
+  replay?: import('./replay').CareerReplay
 }
 
 /** Resumo final (tela "Ver resumo" e card compartilhável). */

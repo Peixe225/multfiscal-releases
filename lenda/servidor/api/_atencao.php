@@ -60,7 +60,7 @@ function cacheCurto(string $nome, int $ttl, callable $calc): mixed
 function esquecerCachesAdmin(bool $atencaoTambem = true): void
 {
     if (apcuLigado()) {
-        foreach (['pulso', 'contagens_usuarios'] as $n) {
+        foreach (['pulso', 'pulso33', 'contagens_usuarios'] as $n) {
             @apcu_delete(chaveCacheAdmin($n));
         }
     }
@@ -364,6 +364,26 @@ function calcularAlertas(): array
         return $n < 5 ? [] : [alerta('emails_falhando', 'grave', plural($n, 'e-mail falhou', 'e-mails falharam') . ' em 24 h', $n, null,
             ['aba' => 'registro', 'filtro' => 'emails'], false)];
     });
+    regraAlerta($a, static function () use ($dia): array {
+        // v3.3: mensagens do Fale conosco ainda novas (ninguém leu) há mais de 24 h
+        if (!esquemaV33()) {
+            return [];
+        }
+        $d = umaLinha("SELECT COUNT(*) AS n, MIN(criado_em) AS m FROM mensagens_suporte WHERE status = 'nova' AND criado_em < ?", [$dia]);
+        $n = (int) ($d['n'] ?? 0);
+        return $n === 0 ? [] : [alerta('suporte_parado', 'acao', plural($n, 'mensagem nova', 'mensagens novas') . ' no Fale conosco há mais de 24 h',
+            $n, iso($d['m']), ['aba' => 'mensagens', 'filtro' => 'nova'], false)];
+    });
+    regraAlerta($a, static function (): array {
+        // v3.3: candidatos a desafio esperando a conferência no jogo (ou o vencedor)
+        if (!esquemaV33()) {
+            return [];
+        }
+        $d = umaLinha("SELECT COUNT(*) AS n, MIN(em) AS m FROM desafio_candidatos WHERE estado IN ('pendente', 'verificada')");
+        $n = (int) ($d['n'] ?? 0);
+        return $n === 0 ? [] : [alerta('candidatos', 'acao', plural($n, 'candidato a desafio espera', 'candidatos a desafio esperam') . ' a sua decisão',
+            $n, iso(substr((string) $d['m'], 0, 19) ?: null), ['aba' => 'desafios'], false)];
+    });
     $ordem = ['grave' => 0, 'acao' => 1, 'leve' => 2];
     usort($a, static fn(array $x, array $y): int => $ordem[$x['nivel']] <=> $ordem[$y['nivel']]);
     return $a;
@@ -539,7 +559,17 @@ function pulsoAdmin(): array
             ],
         ];
     });
-    return ['acao' => $p['acao'], 'alertas' => alertasDoCache(), 'filas' => $p['filas']];
+    $v33 = cacheCurto('pulso33', 5, static function (): array {
+        // v3.3: mensagens novas do Fale conosco e candidatos a desafio esperando decisão (0 sem o instalar.php da v3.3)
+        if (!esquemaV33()) {
+            return ['acao' => ['mensagensNovas' => 0, 'candidatosPendentes' => 0], 'filas' => ['mensagens' => md5('')]];
+        }
+        $l = umaLinha("SELECT (SELECT COUNT(*) FROM mensagens_suporte WHERE status = 'nova') AS msg,
+            (SELECT COUNT(*) FROM desafio_candidatos WHERE estado IN ('pendente', 'verificada')) AS cand");
+        return ['acao' => ['mensagensNovas' => (int) $l['msg'], 'candidatosPendentes' => (int) $l['cand']],
+            'filas' => ['mensagens' => md5(implode(',', sql("SELECT id FROM mensagens_suporte WHERE status = 'nova' ORDER BY id DESC LIMIT 100")->fetchAll(PDO::FETCH_COLUMN)))]];
+    });
+    return ['acao' => $p['acao'] + $v33['acao'], 'alertas' => alertasDoCache(), 'filas' => $p['filas'] + $v33['filas']];
 }
 
 /** Contas `teste` e `oficial` (até 500): os números do painel sem "incluir robôs/testes" deixam as visitas delas de fora. */

@@ -8,8 +8,14 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 
-export type RoutePath = '/' | '/identidade' | '/carreira' | '/resumo' | '/ligas' | '/hall' | '/imersivo' | '/kit' | '/creditos' | '/live'
-export const ROUTES: readonly RoutePath[] = ['/', '/identidade', '/carreira', '/resumo', '/ligas', '/hall', '/imersivo', '/kit', '/creditos', '/live']
+export type RoutePath = '/' | '/identidade' | '/carreira' | '/resumo' | '/ligas' | '/hall' | '/imersivo' | '/kit' | '/creditos' | '/live' | '/desafios' | '/jogador' | '/verificar'
+/**
+ * Só no site público (VITE_SITE=1, v3.3): #/desafios (As Taças do Rei), #/jogador/<código> (perfil público) e
+ * #/verificar?id=<carreira> (verificação por replay, só o admin). Fora do site viram "/" como qualquer rota desconhecida.
+ */
+export const SITE_ROUTES: readonly RoutePath[] = ['/desafios', '/jogador', '/verificar']
+export const BASE_ROUTES: readonly RoutePath[] = ['/', '/identidade', '/carreira', '/resumo', '/ligas', '/hall', '/imersivo', '/kit', '/creditos', '/live']
+export const ROUTES: readonly RoutePath[] = import.meta.env.VITE_SITE === '1' ? [...BASE_ROUTES, ...SITE_ROUTES] : BASE_ROUTES
 
 export type DialogId = 'achievements' | 'settings' | 'menu' | null
 
@@ -63,18 +69,40 @@ interface AppStore {
   _setRoute(r: RouteState): void
 }
 
-const ORDER: Record<RoutePath, number> = { '/': 0, '/identidade': 1, '/carreira': 2, '/resumo': 3, '/ligas': 4, '/hall': 5, '/imersivo': 6, '/kit': 7, '/creditos': 8, '/live': 9 }
+const ORDER: Record<RoutePath, number> = { '/': 0, '/identidade': 1, '/carreira': 2, '/resumo': 3, '/ligas': 4, '/hall': 5, '/imersivo': 6, '/kit': 7, '/creditos': 8, '/live': 9, '/desafios': 10, '/jogador': 11, '/verificar': 12 }
 
-export function parseHash(hash: string = typeof location !== 'undefined' ? location.hash : ''): RouteState {
+/** O código de convite que vai no perfil público (#/jogador/<código>): 4 a 16 letras e números, como o do convite. */
+export const CODIGO_PERFIL_RE = /^[A-Za-z0-9]{4,16}$/
+
+export function parseHash(hash: string = typeof location !== 'undefined' ? location.hash : '', routes: readonly RoutePath[] = ROUTES): RouteState {
   const raw = hash.replace(/^#/, '') || '/'
-  const [p, q = ''] = raw.split('?')
-  const path = (ROUTES as readonly string[]).includes(p) ? (p as RoutePath) : p === '' ? '/' : ('/' as RoutePath)
+  const [p0, q = ''] = raw.split('?')
   const query: Record<string, string> = {}
   for (const [k, v] of new URLSearchParams(q)) query[k] = v
+  // #/jogador/<código> (perfil público): o código vira query.codigo
+  let p = p0
+  const perfil = /^\/jogador\/([^/]+)\/?$/.exec(p0)
+  if (perfil && routes.includes('/jogador')) {
+    p = '/jogador'
+    let codigo = perfil[1]
+    try {
+      codigo = decodeURIComponent(codigo)
+    } catch {
+      /* fica como veio */
+    }
+    query.codigo = codigo
+  }
+  const path = (routes as readonly string[]).includes(p) ? (p as RoutePath) : p === '' ? '/' : ('/' as RoutePath)
   return { path, query }
 }
 
 export function buildHash(path: RoutePath, query?: Record<string, string | number | undefined>): string {
+  // o perfil público fica no endereço curto, como o link que o jogador compartilha: #/jogador/<código>
+  if (path === '/jogador' && query?.codigo != null) {
+    const { codigo, ...resto } = query
+    const qs = new URLSearchParams(Object.entries(resto).filter(([, v]) => v != null).map(([k, v]) => [k, String(v)])).toString()
+    return `#/jogador/${encodeURIComponent(String(codigo))}${qs ? `?${qs}` : ''}`
+  }
   const qs = query ? new URLSearchParams(Object.entries(query).filter(([, v]) => v != null).map(([k, v]) => [k, String(v)])).toString() : ''
   return `#${path}${qs ? `?${qs}` : ''}`
 }

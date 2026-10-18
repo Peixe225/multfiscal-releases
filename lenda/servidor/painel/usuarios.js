@@ -1,7 +1,8 @@
 /* LENDA · painel — Usuários: lista com busca ao vivo, filtros com contagem, ordem pelos cabeçalhos, páginas e CSV
  * (admin.php?r=usuarios); e a ficha de cada conta no painel lateral (?r=usuario, aberta pelo hash conta=<id> em
  * qualquer aba), com as ações de moderação (suspender, reativar, deslogar, renomear, tipo de conta, anotação interna,
- * tirar do Hall, código de troca de senha, bônus, excluir). */
+ * tirar do Hall, código de troca de senha, bônus, excluir). v3.3: e-mail confirmado (filtro, coluna, "Reenviar a
+ * confirmação") e, na ficha, as candidaturas aos desafios e as mensagens do Fale conosco da conta. */
 'use strict';
 
 (function () {
@@ -22,7 +23,7 @@
     { rotulo: 'Várias contas / spam', aviso: 'repetida' }, { rotulo: 'Pedido do jogador', aviso: 'pedido' }, { rotulo: 'Outro', aviso: 'outro', vazio: true },
   ];
   // os filtros que a API aceita (P1-12): um valor por dimensão
-  const FILTROS = ['status', 'tipo', 'hall', 'convite', 'denunciado', 'sumido', 'nota', 'sem'];
+  const FILTROS = ['status', 'tipo', 'hall', 'convite', 'denunciado', 'sumido', 'nota', 'sem', 'verificado'];
 
   // ═══ lista ═════════════════════════════════════════════════════════════════════════════════
   const lista = { q: '', f: {}, ordem: 'recentes', pagina: 1, corpo: null, filtros: null, busca: null, selOrdem: null, temDados: false, contagens: null, ultima: null };
@@ -82,12 +83,14 @@
     const tp = c.tipo || {};
     const hl = c.hall || {};
     const sem = c.sem || {};
+    const vf = c.verificado || {};
     const algum = Object.keys(lista.f).length > 0;
     const ja = lista.filtros.querySelectorAll('.chip-filtro');
     if (ja.length) {
       const n = {
         'status=ativo': st.ativo, 'status=suspenso': st.suspenso, 'hall=bloqueado': hl.bloqueado, 'hall=nao': hl.nao, 'denunciado=1': c.denunciado,
         'convite=1': c.convite, 'sumido=30': c.sumido, 'nota=1': c.nota, 'sem=time': sem.time, 'sem=uf': sem.uf,
+        'verificado=1': vf.sim, 'verificado=0': vf.nao,
       };
       TIPOS.forEach((t) => { n['tipo=' + t] = tp[t]; });
       ja.forEach((b) => {
@@ -102,6 +105,8 @@
     LP.trocar(lista.filtros, todos,
       chipFiltro('Ativos', 'status', 'ativo', st.ativo),
       chipFiltro('Suspensos', 'status', 'suspenso', st.suspenso),
+      chipFiltro('E-mail confirmado', 'verificado', '1', vf.sim, 'Digitaram o código de 6 dígitos que o site mandou'),
+      chipFiltro('E-mail não confirmado', 'verificado', '0', vf.nao, 'Ainda não confirmaram (as contas de antes da v3.3 começam assim)'),
       TIPOS.filter((t) => t !== 'jogador').map((t) => chipFiltro(LP.NOMES_TIPO_CONTA[t] + 's', 'tipo', t, tp[t], LP.AJUDA_TIPO_CONTA[t])),
       chipFiltro('Fora do Hall', 'hall', 'bloqueado', hl.bloqueado, 'Tiradas do Hall público pela moderação'),
       chipFiltro('Não aparecem no Hall', 'hall', 'nao', hl.nao, 'O próprio jogador escolheu não aparecer'),
@@ -162,6 +167,8 @@
       return;
     }
     const ordem = { chave: lista.ordem, dir: 'desc' };
+    // a coluna do e-mail confirmado só com o servidor da v3.3 (o item traz emailVerificado)
+    const temVerificado = itens.some((u) => typeof u.emailVerificado === 'boolean');
     const tabela = LP.lista({
       itens: itens,
       aoClicar: (u) => LP.abrirConta(u.id),
@@ -171,6 +178,7 @@
       colunas: [
         { rotulo: 'Usuário', principal: true, classe: 'celula-larga', celula: celulaUsuario },
         { rotulo: 'Situação', classe: 'situacao', celula: (u) => h('span', { class: 'chips' }, LP.chipStatus(u.status), u.hallBloqueado ? LP.chip('fora do Hall', 'tracejado', { semPonto: true }) : null) },
+        temVerificado ? { rotulo: 'E-mail', classe: 'situacao', celula: (u) => LP.chipEmailVerificado(u.emailVerificado, true) } : null,
         { rotulo: 'Criada', ordenar: 'recentes', celula: (u) => LP.quando(u.criadoEm) },
         { rotulo: 'Último acesso', ordenar: 'acesso', celula: (u) => LP.quando(u.ultimoAcesso) },
         { rotulo: 'Partidas', num: true, ordenar: 'partidas', celula: (u) => LP.inteiro(u.partidas) },
@@ -180,7 +188,10 @@
         { rotulo: 'Origem', celula: (u) => LP.origemCurta(u.origem) },
         { rotulo: 'Indicações', num: true, celula: (u) => LP.inteiro(u.indicacoes) },
         { rotulo: 'Bônus', num: true, celula: (u) => (u.bonusDisponiveis ? LP.chip('+' + u.bonusDisponiveis, 'ouro', { semPonto: true, title: 'Bônus que dá para usar agora' }) : '—') },
-        { rotulo: 'Ações', acoes: true, celula: (u) => (LP.pode('usuarios') ? LP.botao('Anotar', (ev, b) => { anotarDialogo(u, b); }, { tipo: 'fantasma', pequeno: true, icone: 'nota', compacto: true, title: u.temNota ? 'Ver ou mudar a anotação interna' : 'Escrever uma anotação interna' }) : null) },
+        { rotulo: 'Ações', acoes: true, celula: (u) => (LP.pode('usuarios') ? [
+          LP.botao('Anotar', (ev, b) => { anotarDialogo(u, b); }, { tipo: 'fantasma', pequeno: true, icone: 'nota', compacto: true, title: u.temNota ? 'Ver ou mudar a anotação interna' : 'Escrever uma anotação interna' }),
+          u.emailVerificado === false && u.status !== 'suspenso' ? LP.botao('Reenviar confirmação', (ev, b) => reenviarVerificacao(u, b), { tipo: 'fantasma', pequeno: true, icone: 'envelope', compacto: true, gerundio: 'Mandando…', title: 'Manda um código novo de confirmação para o e-mail da conta' }) : null,
+        ] : null) },
       ],
     });
     LP.trocar(lista.corpo, tabela, LP.paginacao(total, d.pagina || lista.pagina, d.porPagina || 50, (p) => { lista.pagina = p; carregar(); window.scrollTo(0, 0); }));
@@ -311,10 +322,11 @@
     const codigo = u.codigoConvite ? h('span', { class: 'chips' }, h('span', { class: 'mono' }, u.codigoConvite),
       LP.botao('', (ev, b) => LP.copiar(location.origin + location.pathname.replace(/painel\/.*$/, '') + '?c=' + u.codigoConvite, b), { tipo: 'fantasma', pequeno: true, icone: 'copiar', rotulo: 'Copiar o link de convite', title: 'Copiar o link de convite' })) : '—';
     const perfil = h('section', { class: 'cartao perfil' },
-      h('div', { class: 'perfil-nome' }, h('h2', null, u.apelido), LP.chipStatus(u.status, u.suspensoAte), LP.chipTipo(u.tipo),
+      h('div', { class: 'perfil-nome' }, h('h2', null, u.apelido), LP.chipStatus(u.status, u.suspensoAte), LP.chipTipo(u.tipo), LP.chipEmailVerificado(u.emailVerificado),
         u.hallBloqueado ? LP.chip('Fora do Hall (moderação)', 'tracejado', { semPonto: true }) : LP.chip('Hall: ' + (LP.NOMES_HALL_PUBLICO[u.hallPublico] || u.hallPublico || '—'), 'info', { semPonto: true, title: 'Como as carreiras desta conta entram no Hall público (escolha do jogador)' })),
       h('dl', { class: 'perfil-dados' },
         LP.dado('E-mail', LP.email(u.email), { largo: true }),
+        typeof u.emailVerificado === 'boolean' ? LP.dado('E-mail confirmado', u.emailVerificado ? (u.emailVerificadoEm ? LP.dataHoraAno(u.emailVerificadoEm) : 'sim') : 'ainda não') : null,
         LP.dado('ID', '#' + u.id),
         LP.dado('Criada em', LP.dataHoraAno(u.criadoEm)),
         LP.dado('Último acesso', s.ultimoAcesso ? LP.quando(s.ultimoAcesso) : '—'),
@@ -336,6 +348,7 @@
       acoes.push(suspenso ? LP.botao('Reativar', () => reativar(u), { tipo: 'ok', icone: 'reativar' }) : LP.botao('Suspender', () => suspender(u), { tipo: 'perigo', icone: 'bloquear' }));
       acoes.push(LP.botao('Deslogar' + (sessoes.length ? ' (' + sessoes.length + ')' : ''), () => deslogar(u, sessoes.length), { tipo: 'fantasma', icone: 'sair', title: 'Encerra as sessões de login em todos os aparelhos' }));
       acoes.push(LP.botao('Mandar código de troca de senha', (ev, b) => mandarCodigo(u, b), { tipo: 'fantasma', icone: 'envelope', gerundio: 'Mandando…', title: 'Manda o código de 6 dígitos (vale 30 min) para o e-mail da conta. Ninguém vê o código.' }));
+      if (u.emailVerificado === false) acoes.push(LP.botao('Reenviar a confirmação do e-mail', (ev, b) => reenviarVerificacao(u, b), { tipo: 'fantasma', icone: 'envelope', gerundio: 'Mandando…', title: 'Manda um código novo de confirmação (vale 24 h; o anterior deixa de valer). Ninguém da equipe vê o código.' }));
     }
     if (LP.pode('moderar')) {
       acoes.push(LP.botao('Renomear', () => renomear(u), { tipo: 'fantasma', icone: 'lapis' }));
@@ -405,6 +418,8 @@
     LP.trocar(det.corpo, perfil, cAcoes, numeros, modos, cTipo, cNota,
       secaoCarreiras(u),
       secaoLixeira(u),
+      secaoDesafios(u),
+      secaoMensagens(u),
       secaoBonus(u, cfgBonus, faltam),
       secaoIndicacoes(u, cfgBonus),
       secaoAcesso(u, sessoes),
@@ -607,7 +622,57 @@
     }) : h('p', { class: 'texto-3' }, 'Nenhum evento ligado à conta.');
   }
 
+  /** v3.3: as candidaturas da conta aos desafios (o servidor manda até 50, as mais novas primeiro). */
+  function secaoDesafios(u) {
+    const ks = Array.isArray(u.desafios) ? u.desafios : [];
+    if (!ks.length) return null;
+    return cartao('u-desafios', 'Desafios', LP.plural(ks.length, 'candidatura', 'candidaturas'), null, LP.lista({
+      itens: ks,
+      aoClicar: (k) => { location.hash = '#/desafios?id=' + k.desafio.id; },
+      rotuloLinha: (k) => 'Abrir o desafio ' + k.desafio.titulo,
+      colunas: [
+        { rotulo: 'Desafio', principal: true, celula: (k) => h('a', { href: '#/desafios?id=' + k.desafio.id, class: 'link-discreto' }, k.desafio.titulo) },
+        { rotulo: 'Carreira', celula: (k) => (k.carreiraPk ? LP.linkCarreira(k.carreiraPk, k.jogador || 'carreira #' + k.carreiraPk) : k.jogador || '—') },
+        { rotulo: 'Estado', classe: 'situacao', celula: (k) => LP.chipCandidato(k.estado) },
+        { rotulo: 'Cumpriu', celula: (k) => LP.quando(k.em) },
+        { rotulo: 'Motivo', classe: 'quebra', celula: (k) => (k.motivo ? h('span', { class: 'texto-3' }, k.motivo) : '—') },
+      ],
+    }));
+  }
+  /** v3.3: as mensagens que a conta mandou pelo Fale conosco (até 20). */
+  function secaoMensagens(u) {
+    const ms = Array.isArray(u.mensagens) ? u.mensagens : [];
+    if (!ms.length) return null;
+    const abrir = (m) => { location.hash = LP.hash('mensagens', { status: 'todas', q: m.protocolo, mensagem: m.id }); };
+    return secundario('Fale conosco', LP.plural(ms.length, 'mensagem', 'mensagens'), LP.lista({
+      itens: ms,
+      aoClicar: abrir,
+      rotuloLinha: (m) => 'Abrir a mensagem ' + m.protocolo,
+      colunas: [
+        { rotulo: 'Protocolo', principal: true, celula: (m) => h('span', { class: 'mono' }, m.protocolo) },
+        { rotulo: 'Assunto', celula: (m) => LP.NOMES_TIPO_SUPORTE[m.tipo] || m.tipo },
+        { rotulo: 'Situação', classe: 'situacao', celula: (m) => LP.chipStatusSuporte(m.status) },
+        { rotulo: 'Recebida', celula: (m) => LP.quando(m.criadoEm) },
+      ],
+    }), ms.some((m) => m.status === 'nova'));
+  }
+
   // ── ações ──────────────────────────────────────────────────────────────────────────────────
+  /** v3.3: manda um código novo de confirmação do e-mail (3 por conta a cada 10 min; o servidor diz para onde foi). O
+   * botão fica travado ("Mandando…") pelo LP.botao enquanto o pedido não volta. */
+  async function reenviarVerificacao(u) {
+    if (u.status === 'suspenso') { LP.avisar('A conta está suspensa: reative antes de mandar a confirmação.', 'erro'); return; }
+    if (!LP.confirmar('Mandar um código novo de confirmação para ' + LP.mascarar(u.email) + '? Vale 24 h e o anterior deixa de valer. Ninguém da equipe vê o código.')) return;
+    try {
+      const r = await LP.adminPost({ acao: 'reenviar_verificacao', id: u.id });
+      if (r.enviado) LP.avisar('Confirmação mandada para ' + (r.para || LP.mascarar(u.email)) + ' (aceita pelo servidor de e-mail; pode cair no spam). Vale 24 h.');
+      else LP.avisar('O servidor não aceitou o e-mail para ' + (r.para || LP.mascarar(u.email)) + '. Veja Registro → E-mails.', 'erro');
+      depois();
+    } catch (e) {
+      if (e && e.status === 409 && e.codigo === 'ja_verificado') { LP.avisar('O e-mail de @' + u.apelido + ' já está confirmado.', 'info'); depois(); return; }
+      LP.avisarErro(e);
+    }
+  }
   async function suspender(u) {
     const r = await LP.dialogo({
       titulo: 'Suspender @' + u.apelido,
@@ -738,7 +803,8 @@
         h('li', null, 'a conta e o login em todos os aparelhos;'),
         h('li', null, 'as carreiras salvas e o lugar no Hall público;'),
         h('li', null, 'as conquistas, os bônus e as indicações feitas;'),
-        h('li', null, 'as denúncias feitas, a anotação interna e a lixeira dela.')),
+        h('li', null, 'as denúncias feitas, a anotação interna e a lixeira dela;'),
+        h('li', null, 'as mensagens do Fale conosco e as candidaturas aos desafios (um desafio que ela venceu continua vencido, sem o nome).')),
       h('p', { class: 'faixa faixa-perigo' }, 'Não dá para desfazer. As visitas ficam, sem ligação com ninguém.'));
     const r = await LP.dialogo({
       titulo: 'Excluir a conta de @' + u.apelido,

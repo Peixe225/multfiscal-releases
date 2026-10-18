@@ -6,6 +6,8 @@
  *   abrirConta({ modo: 'manual', depois: { salvar: id } })  // "Salvar na minha conta" sem conta
  *   abrirCarreiras('aparelho')
  *   abrirConvideAmigos()                                 // Minha conta, rolada até "Convide amigos"
+ *   abrirSuporte()                                       // "Fale conosco" (v3.3)
+ *   abrirVerificarEmail(true)                            // o código de 6 dígitos, logo depois do cadastro (v3.3)
  */
 import { create } from 'zustand'
 
@@ -19,6 +21,10 @@ export type DialogoSite =
   | { tipo: 'conta'; modo: 'convite' | 'manual'; aba?: AbaConta; depois?: { salvar: string } }
   | { tipo: 'perfil'; excluir?: boolean; secao?: SecaoPerfil }
   | { tipo: 'carreiras'; aba?: AbaCarreiras }
+  /** v3.3: "Fale conosco" (dúvida, ideia, problema, recomendação). `tipo` já marcado, se veio de um atalho. */
+  | { tipo: 'suporte'; assunto?: 'duvida' | 'ideia' | 'problema' | 'recomendacao' | 'outro' }
+  /** v3.3: confirmar o e-mail com o código de 6 dígitos (depois do cadastro, ou pela faixa de Minha conta). */
+  | { tipo: 'verificar'; depoisDoCadastro?: boolean }
 
 interface SiteUi {
   dialogo: DialogoSite | null
@@ -38,3 +44,5 @@ export const abrirPerfil = (excluir = false) => useSiteUi.getState().abrir({ tip
 /** Minha conta já rolada até "Convide amigos" (link, progresso e bônus das indicações). */
 export const abrirConvideAmigos = () => useSiteUi.getState().abrir({ tipo: 'perfil', secao: 'convite' })
 export const abrirCarreiras = (aba?: AbaCarreiras) => useSiteUi.getState().abrir({ tipo: 'carreiras', aba })
+export const abrirSuporte = (assunto?: Extract<DialogoSite, { tipo: 'suporte' }>['assunto']) => useSiteUi.getState().abrir({ tipo: 'suporte', assunto })
+export const abrirVerificarEmail = (depoisDoCadastro = false) => useSiteUi.getState().abrir({ tipo: 'verificar', depoisDoCadastro })

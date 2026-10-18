@@ -17,6 +17,9 @@
     email: 'e-mail', encerradas: 'encerradas', conta: 'tipo de conta', copia: 'cópia', arquivo: 'arquivo', modo: 'modo', gravadas: 'gravadas',
     puladas: 'puladas', medicao: 'medição', total: 'total', ms: 'ms', poder: 'poder', acao: 'ação', indicador: 'indicador', bonusTirado: 'bônus tirado',
     recusadas: 'recusadas', bonusTirados: 'bônus tirados', ativo: 'ativo', nome: 'nome', sorteada: 'senha sorteada',
+    // v3.3: desafios e Fale conosco
+    slug: 'desafio', novo: 'novo', campos: 'campos', candidatosNovos: 'candidatos novos', candidato: 'candidato', carreira: 'carreira',
+    ok: 'bateu', status: 'situação',
   };
   const ACOES_SEGURANCA = ['painel_falha', 'painel_limite', 'painel_pin_errado', 'painel_pin_travado', 'negado', 'minha_senha_falha', 'painel_entrar',
     'painel_sair', 'minha_senha', 'sair_todos', 'pin_definido', 'senha_trocada', 'sessao_encerrar', 'criar_conta', 'etapa_expirou'];
@@ -64,7 +67,7 @@
   const NOMES_CONFIG = {
     manutencao: 'Manutenção', cadastro_aberto: 'Cadastro aberto', imersivo_publico: 'Imersivo público', live_publica: 'Live pública',
     aviso: 'Aviso no topo', avisos: 'Avisos no jogo', regras: 'Convite de conta', bonus: 'Bônus de OVR', hall_intervalo_min: 'Intervalo do Hall',
-    hall_revisao_nota: 'Revisão do Hall', aviso_celular: 'Aviso no celular', hall: 'Hall',
+    hall_revisao_nota: 'Revisão do Hall', aviso_celular: 'Aviso no celular', hall: 'Hall', partidas_dia_max: 'Partidas por dia',
   };
   function detalhes(x) {
     const d = x.detalhes && typeof x.detalhes === 'object' ? x.detalhes : {};
@@ -83,6 +86,12 @@
     if (m) return LP.linkCarreira(Number(m[1]), 'carreira #' + m[1]);
     m = /^indicacao:(\d+)$/.exec(s);
     if (m) return 'indicação #' + m[1];
+    // v3.3: desafio:<id> abre o desafio; suporte:<id> abre a mensagem (por cima das Mensagens); suporte = um lote
+    m = /^desafio:(\d+)$/.exec(s);
+    if (m) return h('a', { href: '#/desafios?id=' + m[1], class: 'link-discreto' }, 'desafio #' + m[1]);
+    m = /^suporte:(\d+)$/.exec(s);
+    if (m) return h('a', { href: LP.hash('mensagens', { status: 'todas', mensagem: m[1] }), class: 'link-discreto' }, 'mensagem #' + m[1]);
+    if (s === 'suporte') return h('a', { href: '#/mensagens', class: 'link-discreto' }, 'mensagens (lote)');
     m = /^admin:(\d+)$/.exec(s);
     if (m) return h('a', { href: '#/equipe', class: 'link-discreto' }, 'equipe #' + m[1]);
     if (/^alerta:/.test(s)) return h('span', { class: 'texto-3' }, 'alerta');
@@ -267,8 +276,8 @@
       const itens = Array.isArray(d.itens) ? d.itens : [];
       LP.subAba('O que o servidor tentou mandar (guardado por 90 dias, com o endereço mascarado)');
       if (reg.buscaEmail) reg.buscaEmail.estado(reg.f.email ? LP.plural(d.total || 0, 'encontrado', 'encontrados') : '');
-      if (!itens.length) { LP.trocar(reg.corpo, LP.estadoVazio(reg.f.email ? 'Nenhum envio para esse e-mail' : 'Nenhum e-mail ainda', 'Os códigos de troca de senha aparecem aqui.')); return; }
-      const TIPOS = { esqueci: 'Esqueci a senha', admin_redef: 'Código mandado pela equipe', outro: 'Outro' };
+      if (!itens.length) { LP.trocar(reg.corpo, LP.estadoVazio(reg.f.email ? 'Nenhum envio para esse e-mail' : 'Nenhum e-mail ainda', 'Os códigos de troca de senha, as confirmações de e-mail e as respostas do Fale conosco aparecem aqui.')); return; }
+      const TIPOS = { esqueci: 'Esqueci a senha', admin_redef: 'Código mandado pela equipe', verificacao: 'Confirmação do e-mail', admin_verif: 'Confirmação mandada pela equipe', suporte: 'Resposta do Fale conosco', outro: 'Outro' };
       LP.trocar(reg.corpo, LP.lista({
         itens: itens,
         colunas: [

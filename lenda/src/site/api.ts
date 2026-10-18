@@ -40,6 +40,11 @@ const PADRAO: Record<string, string> = {
   ja_denunciou: 'Você já denunciou essa carreira. Obrigado!',
   apagada: 'Esta carreira foi removida pela moderação.',
   hall_bloqueado: 'Sua conta não pode publicar no Hall público.',
+  // v3.3
+  codigo_invalido: 'Código errado ou vencido. Confira o e-mail ou peça outro código.',
+  tipo: 'Escolha o assunto da mensagem.',
+  mensagem_curta: 'Escreva um pouco mais: a mensagem precisa ter pelo menos 10 letras.',
+  mensagem_longa: 'A mensagem pode ter no máximo 2000 letras.',
 }
 
 export class ErroApi extends Error {
