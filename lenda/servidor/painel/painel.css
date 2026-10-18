@@ -1021,6 +1021,8 @@ dl { margin: 0; }
 @container (max-width: 720px) {
   .lista.cartoes .msg-trecho { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
   .lista.cartoes .celula-msg { max-width: none; }
+  .lista.cartoes .celula-msg .chips { justify-content: flex-start; }
+  .lista.cartoes td.de-celula { grid-column: 1 / -1; }
 }
 
 /* ── Desafios ── */
@@ -1058,7 +1060,11 @@ dl { margin: 0; }
 .verificacao-ok { border-color: var(--ok-borda); }
 .verificacao-nao { border-color: var(--perigo-borda); }
 .verificacao ul { margin: 0; padding-left: 18px; }
-.lista tbody tr.linha-diferente td { color: var(--perigo-texto); font-weight: 650; }
+.tabela-verif { width: 100%; border-collapse: collapse; font-size: 13.5px; font-variant-numeric: tabular-nums; }
+.tabela-verif th { text-align: left; color: var(--texto-3); font-size: 11.5px; font-weight: 650; text-transform: uppercase; letter-spacing: 0.04em; padding: 4px 6px; border-bottom: 1px solid var(--borda); }
+.tabela-verif td { padding: 4px 6px; border-bottom: 1px solid var(--borda); }
+.tabela-verif .num { text-align: right; }
+.tabela-verif tr.diferente td { color: var(--perigo-texto); font-weight: 700; background: var(--perigo-fundo); }
 .previa-desafio { display: grid; gap: 8px; border: 1px dashed var(--ouro-borda); border-radius: 12px; padding: 12px 14px; background: var(--fundo-2); }
 .previa-desafio p { margin: 0; overflow-wrap: anywhere; }
 .campo-data { align-items: center; }

@@ -358,16 +358,16 @@
     const difs = Array.isArray(det.diferencas) ? det.diferencas : [];
     const g = det.guardado && typeof det.guardado === 'object' ? det.guardado : null;
     const r = det.refeito && typeof det.refeito === 'object' ? det.refeito : null;
-    const tabela = g && r ? LP.lista({
-      itens: NUMEROS.filter((n) => n in g || n in r).map((n) => ({ id: n, g: g[n], r: r[n], dif: g[n] !== r[n] })),
-      classeLinha: (x) => (x.dif ? 'linha-diferente' : null),
-      colunas: [
-        { rotulo: 'Número', principal: true, celula: (x) => ROTULO_CAMPO[x.id] || x.id },
-        { rotulo: 'Guardado', num: true, celula: (x) => (x.g === null || x.g === undefined ? '—' : LP.inteiro(x.g)) },
-        { rotulo: 'Refeito no jogo', num: true, celula: (x) => (x.r === null || x.r === undefined ? '—' : LP.inteiro(x.r)) },
-        { rotulo: '', celula: (x) => (x.dif ? LP.chip('diferente', 'perigo', { semPonto: true }) : h('span', { class: 'texto-3' }, 'igual')) },
-      ],
-    }) : null;
+    // tabela simples (não vira cartões no celular): os 9 números, a linha diferente em vermelho
+    const fmt = (x) => (x === null || x === undefined ? '—' : LP.inteiro(x));
+    const tabela = g && r ? h('table', { class: 'tabela-verif' },
+      h('thead', null, h('tr', null, h('th', { scope: 'col' }, 'Número'), h('th', { scope: 'col', class: 'num' }, 'Guardado'), h('th', { scope: 'col', class: 'num' }, 'Refeito no jogo'))),
+      h('tbody', null, NUMEROS.filter((k) => k in g || k in r).map((k) => {
+        const dif = g[k] !== r[k];
+        return h('tr', { class: dif ? 'diferente' : null },
+          h('td', null, dif ? h('span', { class: 'fora-da-tela' }, 'Diferente: ') : null, ROTULO_CAMPO[k] || k, dif ? h('span', { 'aria-hidden': 'true' }, ' ≠') : null),
+          h('td', { class: 'num' }, fmt(g[k])), h('td', { class: 'num' }, fmt(r[k])));
+      }))) : null;
     const outras = difs.filter((d) => !NUMEROS.includes(d.campo));
     const avisos = Array.isArray(det.avisos) ? det.avisos.filter((a) => typeof a === 'string') : [];
     const dados = det.dadosCarreira && det.dadosJogo && det.dadosCarreira !== det.dadosJogo

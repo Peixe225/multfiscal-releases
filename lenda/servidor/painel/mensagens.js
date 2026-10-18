@@ -182,7 +182,7 @@
       selecao: comLote ? { marcados: msg.marcados, aoMudar: () => lote.atualizar() } : null,
       colunas: [
         { rotulo: 'Mensagem', principal: true, classe: 'celula-larga', celula: celulaMensagem },
-        { rotulo: 'De', celula: celulaDe },
+        { rotulo: 'De', classe: 'de-celula', celula: celulaDe },
         { rotulo: 'Tela', celula: (x) => (x.pagina ? h('span', { class: 'mono texto-3' }, x.pagina) : '—') },
         { rotulo: 'Recebida', celula: (x) => LP.quando(x.criadoEm) },
         { rotulo: 'Situação', classe: 'situacao', celula: celulaSituacao },
