@@ -733,7 +733,8 @@ $r = admPost(['acao' => 'ocultar_carreira', 'id' => pkCarreira('h2', $uidH), 'mo
 $U = $navH->pedir('GET', '/api/conta.php')->json['usuario'] ?? [];
 checar('ocultar com avisar → U.aviso {texto padrão, em} (sem o motivo escrito pelo admin)', $r->status === 200
     && str_starts_with((string) ($U['aviso']['texto'] ?? ''), 'Uma carreira sua (') && str_contains((string) ($U['aviso']['texto'] ?? ''), 'nome ofensivo')
-    && !str_contains((string) ($U['aviso']['texto'] ?? ''), 'Palavrão') && preg_match($RE_ISO, (string) ($U['aviso']['em'] ?? '')) === 1, json_encode($U['aviso'] ?? null));
+    && !str_contains((string) ($U['aviso']['texto'] ?? ''), 'Palavrão') && preg_match($RE_ISO, (string) ($U['aviso']['em'] ?? '')) === 1
+    && ($U['aviso']['tipo'] ?? 'moderacao') === 'moderacao', json_encode($U['aviso'] ?? null));
 checar('…a ficha do admin mostra o aviso pendente', is_array(admGet('r=usuario&id=' . $uidH)->json['usuario']['avisoPendente'] ?? null));
 $r = $navH->pedir('POST', '/api/conta.php', ['acao' => 'aviso_lido']);
 checar('aviso_lido → some (mostrado uma vez)', $r->status === 200 && nulo($navH->pedir('GET', '/api/conta.php')->json['usuario'] ?? [], 'aviso'), $r->resumo());

@@ -6,9 +6,13 @@
  *   POST {"acao":"salvar","carreira": HallEntry, "como":"auto"|"manual"} → {carreira: C}
  *   POST {"acao":"apagar","id": "<id>"}                                  → {ok: true}
  *   POST {"acao":"publicar","id": "<id>","sim": true|false}             → {carreira: C, hallPublico}
+ *   POST {"acao":"semente"}                                             → {semente: [a0, a1] | null, id, motivo, hoje, max}
  * Contrato: servidor/CONTRATO.md e CONTRATO-v3.md §4. v3.3 (CONTRATO-v33 §A): C.temReplay; o HallEntry.replay é conferido
  * (fora do formato ou grande demais: a carreira é salva sem ele); libertadores, primeira_em e fora_desafio (limite diário)
- * gravados; salvar, publicar e apagar avaliam os desafios.
+ * gravados; salvar, publicar e apagar avaliam os desafios. §E: a semente da carreira do Clássico é sorteada aqui (acao
+ * semente, uma por início, até o limite de partidas do dia) e o salvar guarda quando ela saiu para a conta (semente_em: sem
+ * ela, a carreira não vale para desafio); salvar de novo com outro replay é outra carreira (primeira_em e a hora do candidato
+ * recomeçam) e todo conteúdo novo reconfere os candidatos dela.
  */
 declare(strict_types=1);
 
@@ -78,6 +82,15 @@ if ($m === 'GET') {
 
 $acao = is_string($corpo->acao ?? null) ? $corpo->acao : '';
 
+if ($acao === 'semente') {
+    // §E: a semente da carreira do Clássico que começa agora, sorteada pelo servidor (só a carreira com ela vale para desafio)
+    if (!esquemaV33()) {
+        erro(503, 'indisponivel', 'Ainda não disponível: a carreira começa com a semente do aparelho.');
+    }
+    limitar('semente', 'u' . $uid, 60);
+    responder(200, emitirSemente($uid));
+}
+
 if ($acao === 'salvar') {
     $h = $corpo->carreira ?? null;
     if (!($h instanceof stdClass) || !($h->identity ?? null) instanceof stdClass || !($h->summary ?? null) instanceof stdClass) {
@@ -106,6 +119,10 @@ if ($acao === 'salvar') {
     limitar('salvar-kb', 'u' . $uid, SALVAR_KB_CONTA, $kb);
     limitar('salvar-ip-kb', quemIp(), SALVAR_KB_IP, $kb);
     $agora = dt(time());
+    // §E: quando a semente desta carreira saiu do servidor para a conta (null = não saiu: começou sem a conta, com a semente
+    // do aparelho, ou passou do limite do dia) e o replay que chega agora (para saber se é outra carreira com o mesmo id)
+    $sementeEm = sementeEmitidaEm($uid, sementeDoReplay($h));
+    $replayNovo = property_exists($h, 'replay') ? json($h->replay) : null;
     // v3.3: salva num dia (Brasília) em que a conta passou do limite de partidas (hoje ou o dia em que ela terminou): não vale
     // para desafio
     $foraDesafio = null;
@@ -117,7 +134,7 @@ if ($acao === 'salvar') {
         }
         $foraDesafio = passouLimiteEm($uid, $dias) ? 'limite_diario' : null;
     }
-    [$mudouSuspeita, $mudouDados] = transacao(static function () use ($uid, $id, $como, $json, $f, $gz, $agora, $foraDesafio): array {
+    [$mudouSuspeita, $mudouDados, $mudouReplay] = transacao(static function () use ($uid, $id, $como, $json, $f, $gz, $agora, $foraDesafio, $sementeEm, $replayNovo): array {
         sql('SELECT id FROM usuarios WHERE id = ? FOR UPDATE', [$uid]); // uma gravação por conta de cada vez
         // v3.2: carreira apagada pela moderação não volta pelo aparelho (lixeira_carreiras; o admin pode liberar)
         if (esquemaV32() && umValor('SELECT 1 FROM lixeira_carreiras WHERE usuario_id = ? AND carreira_id = ?', [$uid, $id]) !== null) {
@@ -133,7 +150,15 @@ if ($acao === 'salvar') {
         }
         // Plausibilidade: conferida quando a carreira entra ou quando qualquer coisa nela muda (números, nomes, textos).
         // Salvar de novo exatamente a mesma carreira mantém a decisão anterior (inclusive a do admin, que liberou).
-        $mesma = $antes !== null && $antes['clubes'] !== null && is_string($antes['dados']) && @gzdecode($antes['dados']) === $json;
+        $jsonAntes = $antes !== null && is_string($antes['dados']) ? @gzdecode($antes['dados']) : false;
+        $mesma = $antes !== null && $antes['clubes'] !== null && $jsonAntes === $json;
+        // §E: o replay de antes era outro (outras escolhas, outra semente, ou não havia)? Então é outra carreira com o mesmo id
+        $mudouReplay = false;
+        if ($antes !== null && !$mesma) {
+            $hAntes = is_string($jsonAntes) ? json_decode($jsonAntes, false, 512) : null;
+            $replayAntes = $hAntes instanceof stdClass && property_exists($hAntes, 'replay') ? json($hAntes->replay) : null;
+            $mudouReplay = $replayAntes !== $replayNovo;
+        }
         $suspeita = $mesma ? $antes['suspeita'] : plausibilidade($f, $uid, $id);
         // carreira que entra agora: se ela (ou o mesmo resumo com outro id) já foi escondida antes, volta escondida
         $oculta = $antes === null ? moderacaoHerdada($uid, $id, $f['resumo_hash']) : 0;
@@ -154,18 +179,24 @@ if ($acao === 'salvar') {
                 $f['terminou_em'], $agora, $suspeita, $f['clubes'], $f['copas'], $f['bonus_ovr'], $f['resumo_hash'], $oculta]);
         if (esquemaV33()) {
             // v3.3: o replay e as Libertadores mudam com a carreira; a hora em que ela entrou na conta e a marca do limite
-            // diário ficam as da primeira vez
-            sql('UPDATE carreiras SET tem_replay = ?, libertadores = ?, primeira_em = COALESCE(primeira_em, ?), fora_desafio = COALESCE(fora_desafio, ?)
-                WHERE usuario_id = ? AND carreira_id = ?', [$f['tem_replay'], $f['libertadores'], $agora, $foraDesafio, $uid, $id]);
+            // diário ficam as da primeira vez. §E: com outro replay é outra carreira: a hora de entrada recomeça e a da semente é
+            // a do replay novo; com o mesmo replay, a hora da semente fica (a linha de sementes_carreira some em 40 dias)
+            $novoReplay = $mudouReplay ? 1 : 0;
+            sql('UPDATE carreiras SET tem_replay = ?, libertadores = ?, primeira_em = IF(? = 1, ?, COALESCE(primeira_em, ?)),
+                fora_desafio = COALESCE(fora_desafio, ?), semente_em = IF(? = 1, ?, COALESCE(?, semente_em))
+                WHERE usuario_id = ? AND carreira_id = ?', [$f['tem_replay'], $f['libertadores'], $novoReplay, $agora, $agora, $foraDesafio,
+                $novoReplay, $sementeEm, $sementeEm, $uid, $id]);
         }
-        return [$antes !== null && $antes['suspeita'] === null && $suspeita !== null, $antes !== null && !$mesma];
+        return [$antes !== null && $antes['suspeita'] === null && $suspeita !== null, $antes !== null && !$mesma, $mudouReplay];
     });
     $pkSalva = (int) umValor('SELECT id FROM carreiras WHERE usuario_id = ? AND carreira_id = ?', [$uid, $id]);
     if ($mudouSuspeita) {
         tirarDoHall($pkSalva);
     }
     if ($mudouDados) {
-        candidatosCarreiraMudou($pkSalva); // v3.3: a verificação de antes não vale para o conteúdo novo
+        // v3.3: a verificação de antes não vale para o conteúdo novo. §E: e cada candidato dela é conferido de novo com o que
+        // ficou guardado (outro replay: a hora do candidato recomeça)
+        candidatosCarreiraMudou($pkSalva, $mudouReplay);
     }
     avaliarDesafiosConta($uid);
     responder(200, ['carreira' => cDaConta($u, $id, $modoHall)]);

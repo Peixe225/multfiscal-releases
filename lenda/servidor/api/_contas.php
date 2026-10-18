@@ -49,7 +49,9 @@ function usuarioJson(array $u): array
         // v3.2: tester abre o Imersivo e a Live (com o selo "Teste"), sem o painel nem o #/kit
         'tester' => ($u['tipo'] ?? 'jogador') === 'tester',
         // v3.2: aviso da moderação para o dono (o jogo mostra uma vez; conta.php aviso_lido apaga)
-        'aviso' => ($u['aviso_conta'] ?? null) !== null ? ['texto' => (string) $u['aviso_conta'], 'em' => iso($u['aviso_conta_em'] ?? null)] : null,
+        // v3.3: tipo 'desafio' = o recado de quem venceu um desafio (avisoVencedor); o resto é da moderação
+        'aviso' => ($u['aviso_conta'] ?? null) !== null ? ['texto' => (string) $u['aviso_conta'], 'em' => iso($u['aviso_conta_em'] ?? null),
+            'tipo' => str_starts_with((string) $u['aviso_conta'], LENDA_AVISO_VENCEDOR) ? 'desafio' : 'moderacao'] : null,
         // v3.3: o e-mail da conta foi confirmado com o código (desafios pedem; contas antigas começam sem)
         'emailVerificado' => ($u['email_verificado_em'] ?? null) !== null,
         'estatisticas' => [
@@ -141,6 +143,8 @@ function excluirUsuario(int $uid): void
             sql('UPDATE desafios SET vencedor_usuario_id = NULL, vencedor_carreira_pk = NULL, vencedor_candidato = NULL WHERE vencedor_usuario_id = ?', [$uid]);
             sql('DELETE FROM verificacoes_email WHERE usuario_id = ?', [$uid]);
             sql('DELETE FROM partidas_dia WHERE usuario_id = ?', [$uid]);
+            // §E: as sementes de carreira sorteadas para a conta
+            sql('DELETE FROM sementes_carreira WHERE usuario_id = ?', [$uid]);
         }
         sql('DELETE FROM carreiras WHERE usuario_id = ?', [$uid]);
         sql('DELETE FROM sessoes_login WHERE usuario_id = ?', [$uid]);
@@ -282,14 +286,87 @@ function corpoEmailVerificacao(string $apelido, string $codigo): string
 }
 
 /**
- * Os tetos do site para os e-mails de confirmação (a cota de envio da hospedagem): 200 a cada 10 min e 2.000 por dia.
- * Soma um e diz se ainda cabe.
+ * §E: os tetos do site para os e-mails de confirmação (a cota de envio da hospedagem: 200 a cada 10 min e 2.000 por dia, no
+ * total), repartidos em baldes para que um punhado de IPs cadastrando contas descartáveis não deixe ninguém sem código.
+ * [ação do limite, máximo em 10 min, máximo no dia (0 = sem)]:
+ *   · cadastro (o e-mail que sai sozinho no cadastro): 120 e 1.200 no site, 15 a cada 10 min por IP (HMAC diário, nunca o
+ *     IP) e 20 a cada 10 min por domínio do e-mail (fora os grandes provedores: o domínio de uma vítima não recebe uma
+ *     enxurrada em nome do site);
+ *   · pedido (o "Reenviar código" de uma conta nova): 40 e 400, mais 10 a cada 10 min por IP;
+ *   · jogador (o "Reenviar código" de quem já jogou: EMAIL_VERIF_JOGADOR partidas com a conta): outros 40 e 400, que as
+ *     contas recém-criadas não gastam (quando ele enche, ainda tenta o de pedido).
+ * O painel avisa no "Precisa de atenção" quando um balde passa de 80% (alertaCotaEmails).
  */
-function cabeEmailVerificacao(): bool
+const EMAIL_VERIF_BALDES = ['cadastro' => ['verif-cad', 120, 1200], 'pedido' => ['verif-ped', 40, 400], 'jogador' => ['verif-jog', 40, 400]];
+const EMAIL_VERIF_IP_CADASTRO = 15;
+const EMAIL_VERIF_IP_PEDIDO = 10;
+const EMAIL_VERIF_DOMINIO = 20;
+const EMAIL_VERIF_JOGADOR = 5;
+/** Provedores grandes (muita gente de verdade): sem o teto por domínio. */
+const EMAIL_DOMINIOS_GRANDES = ['gmail.com', 'googlemail.com', 'hotmail.com', 'hotmail.com.br', 'outlook.com', 'outlook.com.br', 'live.com', 'msn.com',
+    'yahoo.com', 'yahoo.com.br', 'icloud.com', 'me.com', 'uol.com.br', 'bol.com.br', 'terra.com.br', 'ig.com.br', 'globo.com', 'globomail.com',
+    'proton.me', 'protonmail.com'];
+
+/** Cabe mais um em todos os baldes [[ação, quem, máx. 10 min, máx. no dia]]? Se couber, soma um em cada (senão, em nenhum). */
+function cabeNosBaldes(array $baldes): bool
 {
-    $n10 = somarLimite('verif-todos', 'todos');
-    $nDia = somarLimite('dia-verif-todos', 'todos', 1, 86400);
-    return $n10 <= 200 && $nDia <= 2000;
+    foreach ($baldes as [$acao, $quem, $max10, $maxDia]) {
+        if (lerLimite($acao, $quem) >= $max10 || ($maxDia > 0 && lerLimite('dia-' . $acao, $quem, 86400) >= $maxDia)) {
+            return false;
+        }
+    }
+    foreach ($baldes as [$acao, $quem, , $maxDia]) {
+        somarLimite($acao, $quem);
+        if ($maxDia > 0) {
+            somarLimite('dia-' . $acao, $quem, 1, 86400);
+        }
+    }
+    return true;
+}
+
+/** O balde do site [ação, 'todos', máx. 10 min, máx. no dia]. */
+function baldeEmailVerif(string $tipo): array
+{
+    [$acao, $m10, $mDia] = EMAIL_VERIF_BALDES[$tipo];
+    return [$acao, 'todos', $m10, $mDia];
+}
+
+/** O e-mail automático do cadastro cabe (site, IP, domínio)? Se couber, conta. */
+function cabeEmailCadastro(string $email): bool
+{
+    $baldes = [baldeEmailVerif('cadastro'), ['verif-cad-ip', quemIp(), EMAIL_VERIF_IP_CADASTRO, 0]];
+    $dominio = strtolower((string) substr((string) strrchr($email, '@'), 1));
+    if ($dominio !== '' && !in_array($dominio, EMAIL_DOMINIOS_GRANDES, true)) {
+        $baldes[] = ['verif-cad-dom', substr(hash('sha256', 'dominio|' . $dominio), 0, 32), EMAIL_VERIF_DOMINIO, 0];
+    }
+    return cabeNosBaldes($baldes);
+}
+
+/** O "Reenviar código" da conta $u cabe? Quem já jogou tem o balde próprio; o pedido também conta por IP. Se couber, conta. */
+function cabeEmailPedido(array $u): bool
+{
+    if ((int) ($u['partidas_conta'] ?? 0) >= EMAIL_VERIF_JOGADOR && cabeNosBaldes([baldeEmailVerif('jogador')])) {
+        return true;
+    }
+    return cabeNosBaldes([baldeEmailVerif('pedido'), ['verif-ped-ip', quemIp(), EMAIL_VERIF_IP_PEDIDO, 0]]);
+}
+
+/**
+ * Os baldes do site perto do fim (>= 80% em 10 min ou no dia), para o "Precisa de atenção": [{tipo, n10, max10, nDia,
+ * maxDia, cheio}].
+ */
+function cotaEmailsVerif(): array
+{
+    $out = [];
+    foreach (array_keys(EMAIL_VERIF_BALDES) as $tipo) {
+        [$acao, , $m10, $mDia] = baldeEmailVerif($tipo);
+        $n10 = lerLimite($acao, 'todos');
+        $nDia = lerLimite('dia-' . $acao, 'todos', 86400);
+        if ($n10 * 5 >= $m10 * 4 || $nDia * 5 >= $mDia * 4) {
+            $out[] = ['tipo' => $tipo, 'n10' => $n10, 'max10' => $m10, 'nDia' => $nDia, 'maxDia' => $mDia, 'cheio' => $n10 >= $m10 || $nDia >= $mDia];
+        }
+    }
+    return $out;
 }
 
 /** Grava um código novo e manda o e-mail agora (admin). Devolve se o servidor de envio aceitou. */

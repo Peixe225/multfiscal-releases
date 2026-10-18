@@ -101,6 +101,13 @@ export async function semearV33() {
   exigir(await admin({ acao: 'desafio_ativar', id: dCopas, ativo: true }), 200, 'ativar as 3 Copas')
   // o início é a hora da ativação: as carreiras salvas no mesmo segundo podiam empatar com ele
   await new Promise((r) => setTimeout(r, 1100))
+  // CONTRATO-v33 §E: só vale para desafio a carreira começada com uma semente que o servidor sorteou para a conta. O replay
+  // real das filas tem a semente da gravação: fica como sorteada agora para cada uma das contas que salvam carreira aqui
+  {
+    const f = JSON.parse(readFileSync(FILA, 'utf8'))[0]
+    const semente = f.a0.toString(36) + f.a1.toString(36)
+    for (const j of [A, B, C, semCodigo]) sql(`INSERT IGNORE INTO sementes_carreira (usuario_id, semente, dia, emitida_em) VALUES (${j.id}, '${semente}', UTC_DATE(), UTC_TIMESTAMP(3))`)
+  }
 
   // ── carreiras: A (3 Copas + 2 Lib.) antes de B (o mesmo), C só com 3 Copas, Sem Código (e-mail não confirmado) ──
   const pkA = await salvarCarreira(A, hallEntry('career-v33-painel-a', 'PRIMEIRO', 3, 2, true))

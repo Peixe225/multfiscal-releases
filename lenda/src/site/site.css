@@ -229,6 +229,9 @@
 .sc-avisoconta b { display: block; font-size: 13.5px; color: var(--text); }
 .sc-avisoconta p { margin: 3px 0 0; font-size: 13px; line-height: 1.45; color: var(--text-2); overflow-wrap: anywhere; }
 .sc-avisoconta small { display: block; margin-top: 4px; font-size: 11.5px; color: var(--text-3); }
+/* v3.3: o recado de quem venceu um desafio (U.aviso.tipo = desafio) é uma vitória: ouro, com a coroa */
+.sc-avisoconta.is-desafio { background: rgba(255, 214, 110, .1); border-color: rgba(255, 214, 110, .4); }
+.sc-avisoconta.is-desafio > svg { color: #ffd66e; }
 .sc-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: #ffb648; box-shadow: 0 0 0 3px rgba(255, 182, 72, .2); }
 .sc-sec--alvo { scroll-margin-top: 12px; }
 .sc-sec--alvo:focus { outline: none; }

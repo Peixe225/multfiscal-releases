@@ -2,13 +2,17 @@
 // aparelhos ao mesmo tempo. Pilha: bash subir.sh (porta 8752; antes, npm run build:site). Uso: node e2e.mjs
 // v3.2: o painel novo (conta Dono, PIN, sessões, motivo, lote, atenção, lixeira, equipe, backup) e o que o jogo mostra
 // disso (Em revisão, Fora do Hall, aviso da moderação, Convide amigos, tester, Abrir no jogo).
+// v3.3 (etapas g): e-mail confirmado com o código do cadastro, Fale conosco com e sem conta (e a resposta do painel),
+// desafio de teste criado e ativado no painel, uma carreira REAL de fila jogada pela tela que cumpre o critério e vira
+// candidata, "Verificar no jogo" que bate, HallEntry adulterada pela API (sem replay: não vira candidata; com replay e
+// taças a mais: reprovada pela verificação), limite de partidas por dia, vencedor declarado, perfil público.
 // As carreiras são jogadas pela tela (ritmo Expresso, sempre a 1ª opção) com sementes fixas: as mesmas sementes
 // dão as mesmas carreiras (a 1004 é um goleiro boliviano que passa pelo Cruzeiro; a 1011 e a 1001 passam de 90).
 //   C = visitante sem conta · A = Ian (cria conta depois de 5 partidas, joga, salva, convida, compartilha)
 //   B = amigo convidado pelo link ?c= · A2 = segundo aparelho do Ian · ADM = painel do admin
 import { readFileSync, writeFileSync } from 'node:fs'
 import { gunzipSync } from 'node:zlib'
-import { lancar, aparelho, jogarCarreira, ultimaTerminada, lerKv, sql, esperarSql, admin, ok, resultado, sleep, URL0, ORIGEM, PRINTS, env, BASE } from './lib.mjs'
+import { lancar, aparelho, jogarCarreira, jogarFila, codigoDoEmail, emailsPara, ultimaTerminada, lerKv, sql, esperarSql, admin, ok, resultado, sleep, URL0, ORIGEM, PRINTS, env, BASE } from './lib.mjs'
 
 const T0 = Date.now()
 const browser = await lancar()
@@ -26,7 +30,10 @@ async function etapa(nome, fn) {
     await fn()
   } catch (e) {
     ok(false, `${nome}: erro ${String(e?.message ?? e).split('\n')[0]}`)
-    for (const a of aparelhos) await print(a.page, `ERRO-${nome.replace(/\W+/g, '_').slice(0, 30)}-${a.nome}`)
+    for (const a of aparelhos) {
+      await print(a.page, `ERRO-${nome.replace(/\W+/g, '_').slice(0, 30)}-${a.nome}`)
+      console.log(`      [${a.nome}] ${a.page.url()}`) // onde cada aparelho estava quando a etapa falhou
+    }
   }
   writeFileSync(`${BASE}/estado.json`, JSON.stringify(estado, null, 2))
 }
@@ -126,9 +133,28 @@ await etapa('b1. A joga a 5ª partida e cria a conta pelo convite', async () => 
   await print(page, 'b1-A-convite-conta')
   await preencherConta(page, d, [['Apelido', 'Ian Cruzeiro'], ['E-mail', EMAIL_A], ['Senha', SENHA, true]])
   await d.getByRole('checkbox').first().check()
+  const t0email = Date.now() - 2000
   await d.getByRole('button', { name: 'Criar conta', exact: true }).click()
-  await page.waitForFunction(() => !document.querySelector('[role="dialog"].sc-modal'), null, { timeout: 20000 })
+  // v3.3: conta nova → "Confirme seu e-mail" com o código de 6 dígitos que o servidor mandou (lido do arquivo do teste)
+  const dv = page.locator('[role="dialog"].sc-modal', { hasText: 'Confirme seu e-mail' })
+  await dv.waitFor({ timeout: 20000 })
   estado.idA = idUsuario(EMAIL_A)
+  ok(sql(`SELECT IFNULL(email_verificado_em, 'nulo') FROM usuarios WHERE id=${estado.idA}`) === 'nulo', 'v3.3: depois do cadastro abre "Confirme seu e-mail" e a conta começa sem o e-mail confirmado')
+  const codigoA = await codigoDoEmail(EMAIL_A, t0email)
+  ok(/^\d{6}$/.test(codigoA ?? '') && sql(`SELECT COUNT(*) FROM email_log WHERE tipo = 'verificacao'`) === '1', `v3.3: o cadastro mandou o código pelo enviarEmail (arquivo do teste e email_log tipo verificacao) (${codigoA})`)
+  await print(page, 'g0-A-confirme-seu-email')
+  const errosAntesCodigo = A.erros.length
+  await dv.getByLabel('Código de 6 dígitos').fill(codigoA === '000000' ? '111111' : '000000')
+  await dv.getByRole('button', { name: 'Confirmar e-mail' }).click()
+  await dv.locator('.sc-err').waitFor({ timeout: 10000 })
+  ok(/código/i.test(await dv.locator('.sc-err').innerText()), `v3.3: código errado → erro em pt-BR ("${(await dv.locator('.sc-err').innerText()).trim()}")`)
+  A.erros.splice(errosAntesCodigo, A.erros.length - errosAntesCodigo, ...A.erros.slice(errosAntesCodigo).filter((x) => !/status of 400/.test(x)))
+  await dv.getByLabel('Código de 6 dígitos').fill(codigoA ?? '')
+  await dv.getByRole('button', { name: 'Confirmar e-mail' }).click()
+  await page.getByText('E-mail confirmado', { exact: true }).first().waitFor({ timeout: 15000 })
+  ok(sql(`SELECT email_verificado_em IS NOT NULL FROM usuarios WHERE id=${estado.idA}`) === '1', 'v3.3: código certo → e-mail confirmado no banco (email_verificado_em)')
+  ok((await page.evaluate(async () => (await (await fetch('api/conta.php', { credentials: 'same-origin' })).json()).usuario?.emailVerificado)) === true, 'v3.3: conta.php → U.emailVerificado = true')
+  await page.waitForFunction(() => !document.querySelector('[role="dialog"].sc-modal'), null, { timeout: 20000 })
   ok(/^\d+$/.test(estado.idA), `conta do A criada (id ${estado.idA})`)
   ok(sql(`SELECT partidas FROM usuarios WHERE id=${estado.idA}`) === '5', 'servidor: partidas do aparelho = 5')
   ok(sql(`SELECT partidas_conta FROM usuarios WHERE id=${estado.idA}`) === '0', 'servidor: 0 partidas com a conta (a do cadastro foi antes)')
@@ -194,8 +220,13 @@ await etapa('c1. B abre o link ?c= e cria a conta', async () => {
   await d.getByRole('checkbox').first().check()
   await print(page, 'c1-B-cadastro-convite')
   await d.getByRole('button', { name: 'Criar conta', exact: true }).click()
+  // v3.3: o B deixa a confirmação do e-mail para depois (confirma na etapa g, pela faixa de Minha conta)
+  const dv = page.locator('[role="dialog"].sc-modal', { hasText: 'Confirme seu e-mail' })
+  await dv.waitFor({ timeout: 20000 })
+  await dv.getByRole('button', { name: 'Depois', exact: true }).click()
   await page.waitForFunction(() => !document.querySelector('[role="dialog"].sc-modal'), null, { timeout: 20000 })
   estado.idB = idUsuario(EMAIL_B)
+  ok(sql(`SELECT IFNULL(email_verificado_em, 'nulo') FROM usuarios WHERE id=${estado.idB}`) === 'nulo' && (await codigoDoEmail(EMAIL_B)) !== null, 'v3.3: B fecha o "Confirme seu e-mail" com "Depois" (o código já foi para o e-mail; a conta segue sem confirmar)')
   ok(sql(`SELECT status FROM indicacoes WHERE indicado_id=${estado.idB} AND indicador_id=${estado.idA}`) === 'pendente', 'indicação A → B pendente')
 })
 
@@ -542,7 +573,7 @@ await etapa('d2. painel: entra com a senha de sempre (cria o Dono) e força "Atu
   await painel.waitForSelector('.faixa-ouro >> text=Cadastre o seu PIN', { timeout: 10000 })
   ok(true, 'faixa "Cadastre o seu PIN" na conta Dono sem PIN')
   await painel.waitForFunction(() => /atualizado às/.test(document.getElementById('selo-atualizado')?.textContent ?? ''), null, { timeout: 25000 })
-  ok((await painel.locator('#numeros-acao .numero-acao').count()) === 6, 'pulso: selo "atualizado às" e os 6 números de ação')
+  ok((await painel.locator('#numeros-acao .numero-acao').count()) === 8, 'pulso: selo "atualizado às" e os 8 números de ação (v3.3: + Mensagens novas e Candidatos a desafio)')
   await print(painel, 'v32-d2-painel-visao')
   await irP('#/hall', 1800)
   await limparAvisos()
@@ -1188,7 +1219,7 @@ await etapa('f10. celular: o painel sem rolagem lateral em todas as abas; a sess
   const CEL = await novoPainel('ADM-celular', { viewport: { width: 390, height: 844 }, celular: true })
   await entrarPainel(CEL.page, { senha: env.PAINEL_SENHA, pin: PIN_DONO })
   await CEL.page.waitForSelector('#tela-painel:not([hidden])', { timeout: 15000 })
-  const ABAS = ['visao', 'area', 'usuarios', 'hall', 'denuncias', 'indicacoes', 'conquistas', 'relatorios', 'tempo', 'registro', 'saude', 'equipe', 'config', 'testes']
+  const ABAS = ['visao', 'area', 'usuarios', 'mensagens', 'hall', 'denuncias', 'indicacoes', 'desafios', 'conquistas', 'relatorios', 'tempo', 'registro', 'saude', 'equipe', 'config', 'testes']
   const largas = []
   for (const a of ABAS) {
     await irP(`#/${a}`, 1500, CEL.page)
@@ -1196,7 +1227,7 @@ await etapa('f10. celular: o painel sem rolagem lateral em todas as abas; a sess
     if (w[0] > w[1]) largas.push(`${a} ${w[0]}>${w[1]}`)
     if (['visao', 'hall', 'usuarios', 'registro', 'config'].includes(a)) await print(CEL.page, `v32-f10-celular-${a}`)
   }
-  ok(largas.length === 0, `celular: nenhuma das 14 abas rola para o lado${largas.length ? ` (${largas.join(', ')})` : ''}`)
+  ok(largas.length === 0, `celular: nenhuma das ${ABAS.length} abas rola para o lado${largas.length ? ` (${largas.join(', ')})` : ''}`)
   await irP(`#/usuarios?conta=${estado.idB}`, 1800, CEL.page)
   ok((await CEL.page.evaluate(() => document.getElementById('gaveta').getBoundingClientRect().width)) >= 389, 'celular: a ficha ocupa a tela toda')
   await print(CEL.page, 'v32-f10-celular-ficha')
@@ -1229,6 +1260,519 @@ await etapa('f11. aparência: tema claro (e de volta ao original)', async () => 
   await painel.keyboard.press('t')
   await painel.keyboard.press('t')
   ok((await painel.getAttribute('html', 'data-tema')) === null, 'T de novo: Alto contraste → Original')
+})
+
+// ───────────────────────── g. v3.3: Fale conosco, desafios, verificação por replay, perfil público ─────────────────────────
+// Uma carreira REAL de fila (scripts/gravar/filas/classico.json, v-otima-04: Normal, brasileiro centroavante, 12
+// decisões) jogada pela tela com a semente da fila: 1 Copa do Mundo e 2 Libertadores. O desafio de teste pede isso.
+const FILA = JSON.parse(readFileSync(new URL('../../../scripts/gravar/filas/classico.json', import.meta.url), 'utf8')).find((f) => f.nome === 'v-otima-04')
+const EMAIL_R = `rei${Date.now()}@exemplo.com`
+const EMAIL_VIS = `visitante${Date.now()}@exemplo.com`
+const APELIDO_R = 'Rei do Teste'
+const PREMIO = 'Camisa oficial do LENDA autografada (prêmio de teste)'
+const TITULO_D = 'Taças do Rei (teste)'
+const desafiosApi = async (q = '') => (await fetch(`${URL0}api/desafios.php${q}`)).json()
+const meuDesafio = (page) => page.evaluate(async () => (await (await fetch('api/desafios.php?eu=1', { credentials: 'same-origin' })).json()).desafios ?? [])
+const tacas = (h, id) => (h?.summary?.trophies ?? []).find((t) => t.trophyId === id)?.count ?? 0
+const salvarPelaApi = (page, h) =>
+  page.evaluate(async (h) => {
+    const r = await fetch('api/carreiras.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify({ acao: 'salvar', carreira: h, como: 'manual' }) })
+    return { status: r.status, json: await r.json().catch(() => null) }
+  }, h)
+/**
+ * HallEntry com taças a mais: +1 Copa do Mundo e +2 Libertadores sobre o que a carreira teve (cumpre o critério do
+ * desafio de teste e sempre difere do que o replay refaz); o replay continua o da carreira de verdade.
+ */
+function comTacasAMais(h) {
+  const x = structuredClone(h)
+  const c = tacas(h, 'world-cup') + 1
+  const l = tacas(h, 'libertadores') + 2
+  x.summary.trophies = (x.summary.trophies ?? []).filter((t) => t.trophyId !== 'world-cup' && t.trophyId !== 'libertadores')
+  x.summary.trophies.push({ trophyId: 'world-cup', count: c, seasons: [2034, 2038, 2042].slice(0, c) }, { trophyId: 'libertadores', count: l, seasons: [2029, 2031, 2033, 2035, 2037].slice(0, l) })
+  return x
+}
+const pkDe = (carreiraId, uid) => sql(`SELECT id FROM carreiras WHERE carreira_id='${carreiraId}' AND usuario_id=${uid}`)
+
+await etapa('g1. v3.3: os 3 desafios de fábrica nascem desativados e não aparecem para o público', async () => {
+  const r = await desafiosApi()
+  ok(Array.isArray(r.desafios) && r.desafios.length === 0, `desafios.php: lista vazia (${JSON.stringify(r).slice(0, 120)})`)
+  ok(sql("SELECT GROUP_CONCAT(CONCAT(slug, ':', ativo, ':', premio = '') ORDER BY ordem) FROM desafios") === 'tacas-do-rei:0:1,tacas-do-rei-copas:0:1,todas-as-conquistas:0:1',
+    'banco: tacas-do-rei, tacas-do-rei-copas e todas-as-conquistas desativados e com o prêmio vazio')
+  ok(sql("SELECT CONCAT_WS('|', criterio, requisitos) FROM desafios WHERE slug='tacas-do-rei'") === '{"copas":3,"libertadores":2}|{"partidasMin":30,"emailVerificado":true,"publicadoNoHall":true,"top3Perfil":true}',
+    'tacas-do-rei: 3 Copas + 2 Libertadores, 30 partidas, e-mail confirmado, no Hall e entre as 3 do perfil')
+  const { page } = C
+  await page.goto(`${URL0}#/`)
+  await page.reload()
+  await page.waitForSelector('.ld-modes', { timeout: 30000 })
+  await sleep(4500) // o destaque só é pedido depois de a tela pintar (1,8 s + ocioso)
+  ok((await page.locator('.sv-destaque').count()) === 0, 'tela inicial: sem o destaque de desafio')
+  const m = await menu(page)
+  await m.getByRole('button', { name: /Fale conosco/ }).waitFor({ timeout: 10000 }) // as linhas da v3.3 chegam num pedaço à parte
+  await sleep(500)
+  ok((await m.locator('.sc-row--cta', { hasText: 'Desafio valendo' }).count()) === 0 && (await m.getByRole('button', { name: /Fale conosco/ }).count()) === 1, 'menu: sem a linha de desafio, com "Fale conosco"')
+  await fecharMenu(page)
+  await page.goto(`${URL0}#/desafios`)
+  await esperarTexto(page, 'Nenhum desafio valendo agora', 20000)
+  ok(true, '#/desafios: "Nenhum desafio valendo agora"')
+  await print(page, 'g1-C-desafios-vazio')
+})
+
+await etapa('g2. v3.3: Fale conosco sem conta (C) e com conta (A)', async () => {
+  const { page } = C
+  await page.goto(`${URL0}#/hall`)
+  await page.locator('.hl-filtros').waitFor({ timeout: 20000 })
+  const m = await menu(page)
+  await m.getByRole('button', { name: /Fale conosco/ }).click()
+  const d = page.getByRole('dialog', { name: 'Fale conosco' })
+  await d.waitFor({ timeout: 10000 })
+  ok(await d.locator('a[href="mailto:contato@oprojeto.online"]').isVisible(), 'Fale conosco: o e-mail contato@oprojeto.online aparece')
+  await d.locator('.sv-tipo', { hasText: 'Ideia' }).click()
+  await d.locator('textarea').fill('Coloquem a Série C do Brasileirão, por favor! <b>obrigado</b>')
+  await d.getByRole('button', { name: 'Enviar mensagem' }).click()
+  ok(await d.getByText('Confira o seu e-mail').first().isVisible().catch(() => false), 'sem conta: o e-mail é obrigatório (erro no campo, nada enviado)')
+  await d.getByLabel('Seu e-mail').fill(EMAIL_VIS)
+  await print(page, 'g2-C-fale-conosco')
+  await d.getByRole('button', { name: 'Enviar mensagem' }).click()
+  await d.getByText('Mensagem enviada').first().waitFor({ timeout: 15000 })
+  estado.protC = (await d.locator('.sv-protocolo').innerText()).trim()
+  const lc = sql(`SELECT CONCAT_WS('|', tipo, IFNULL(usuario_id, '-'), email, pagina, status) FROM mensagens_suporte WHERE protocolo='${estado.protC}'`)
+  ok(lc === `ideia|-|${EMAIL_VIS}|/hall|nova`, `sem conta: gravada com o e-mail deixado e a tela de onde veio (${estado.protC}: ${lc})`)
+  await print(page, 'g2-C-fale-conosco-enviada')
+  await page.keyboard.press('Escape')
+  // com conta: Minha conta → "Mandar dúvida, ideia ou problema" (o e-mail é o da conta)
+  const { page: pa } = A
+  await pa.goto(`${URL0}#/`)
+  await pa.waitForSelector('.ld-modes', { timeout: 30000 })
+  const ma = await menu(pa)
+  await ma.getByText(/Minha conta/).first().click()
+  const mc = pa.getByRole('dialog', { name: 'Minha conta' })
+  await mc.waitFor({ timeout: 15000 })
+  await mc.getByRole('button', { name: 'Mandar dúvida, ideia ou problema' }).click()
+  const da = pa.getByRole('dialog', { name: 'Fale conosco' })
+  await da.waitFor({ timeout: 10000 })
+  ok((await da.getByLabel('Seu e-mail').count()) === 0, 'com conta: o formulário não pede o e-mail')
+  await da.locator('.sv-tipo', { hasText: 'Dúvida' }).click()
+  await da.locator('textarea').fill('Como faço para a minha carreira aparecer no meu perfil público?')
+  await da.getByRole('button', { name: 'Enviar mensagem' }).click()
+  await da.getByText('Mensagem enviada').first().waitFor({ timeout: 15000 })
+  estado.protA = (await da.locator('.sv-protocolo').innerText()).trim()
+  const la = sql(`SELECT CONCAT_WS('|', tipo, usuario_id, IFNULL(email, '-'), status) FROM mensagens_suporte WHERE protocolo='${estado.protA}'`)
+  ok(la === `duvida|${estado.idA}|-|nova`, `com conta: gravada na conta do A, sem e-mail na linha (${la})`)
+  await print(pa, 'g2-A-fale-conosco-enviada')
+  await pa.keyboard.press('Escape')
+})
+
+await etapa('g3. v3.3: painel → Mensagens: as duas chegam; abrir marca como lida; responder manda o e-mail', async () => {
+  await irP('#/visao', 800)
+  await painel.waitForFunction(() => Number((document.getElementById('nav-mensagensNovas')?.textContent ?? '').trim()) >= 2, null, { timeout: 30000 }).catch(() => {})
+  ok(Number((await painel.textContent('#nav-mensagensNovas')).trim()) >= 2, `pulso: "Mensagens novas" = ${(await painel.textContent('#nav-mensagensNovas')).trim()}`)
+  await irP('#/mensagens', 2000)
+  await abaP().locator('tbody tr').first().waitFor({ timeout: 10000 })
+  const lista = await abaP().locator('tbody').innerText()
+  ok(lista.includes(estado.protC) && lista.includes(estado.protA) && /Ian Cruzeiro/.test(lista), 'Mensagens: a do visitante (sem conta) e a do A (com o apelido)')
+  ok((await abaP().locator('tbody b', { hasText: /^obrigado$/ }).count()) === 0, 'o HTML do jogador aparece como texto')
+  await print(painel, 'g3-painel-mensagens')
+  const idC = sql(`SELECT id FROM mensagens_suporte WHERE protocolo='${estado.protC}'`)
+  await abaP().locator(`tbody tr[data-id="${idC}"]`).click()
+  await painel.waitForSelector('#gaveta:not([hidden]) .msg-texto', { timeout: 10000 })
+  ok((await esperarSql(`SELECT status FROM mensagens_suporte WHERE id=${idC}`, (x) => x === 'lida')) === 'lida', 'abrir a mensagem nova marca como lida')
+  const antes = emailsPara(EMAIL_VIS).length
+  await painel.fill('#gaveta textarea', 'Oi! Anotamos a sua ideia da Série C. Obrigado por jogar o LENDA.')
+  await painel.locator('#gaveta button', { hasText: 'Responder por e-mail' }).click()
+  await painel.waitForSelector('dialog[open] .previa-email', { timeout: 10000 })
+  ok((await painel.textContent('dialog[open] .previa-email')).includes(estado.protC), 'prévia do e-mail com o protocolo e a mensagem citada')
+  await print(painel, 'g3-painel-resposta-previa')
+  await limparAvisos()
+  await confirmar()
+  ok(await avisoPainel(/Resposta mandada/), 'resposta mandada (toast)')
+  const r = await esperarSql(`SELECT CONCAT_WS('|', status, resposta LIKE '%Série C%', respondida_em IS NOT NULL) FROM mensagens_suporte WHERE id=${idC}`, (x) => x.startsWith('respondida'))
+  ok(r === 'respondida|1|1', `no banco: respondida, com a resposta guardada (${r})`)
+  const em = emailsPara(EMAIL_VIS)
+  ok(em.length === antes + 1 && em[0].txt.includes('Série C') && em[0].txt.includes(estado.protC), 'o e-mail foi para o endereço que o visitante deixou, com a resposta e o protocolo')
+  ok(sql("SELECT COUNT(*) FROM email_log WHERE tipo='suporte'") === '1' && !sql("SELECT detalhes FROM admin_log WHERE acao='suporte_responder' ORDER BY id DESC LIMIT 1").includes('Série C'), 'email_log tipo suporte; o Registro sem o texto da resposta')
+  await painel.keyboard.press('Escape')
+})
+
+await etapa('g4. v3.3: painel → Desafios: cria o desafio de teste (1 Copa + 2 Libertadores, 2 partidas) e ativa', async () => {
+  await irP('#/desafios', 2000)
+  ok((await abaP().locator('article.cartao-desafio').count()) === 3, 'Desafios: os 3 de fábrica (desativados)')
+  await irP('#/desafios?parte=novo', 1800)
+  await painel.fill('#dz-titulo', TITULO_D)
+  ok((await painel.inputValue('#dz-slug')) === 'tacas-do-rei-teste', 'o endereço sai do título (tacas-do-rei-teste)')
+  await painel.fill('#dz-descricao', 'O primeiro a terminar uma carreira com 1 Copa do Mundo e 2 Libertadores (desafio de teste).')
+  await painel.fill('#dz-copas', '1')
+  await painel.fill('#dz-libertadores', '2')
+  await painel.fill('#dz-partidasMin', '2')
+  await painel.fill('#dz-premio', PREMIO)
+  await sleep(400)
+  ok(/1 Copa do Mundo/.test(await painel.textContent('.previa-desafio')) && /2 Libertadores/.test(await painel.textContent('.previa-desafio')), 'prévia com o critério')
+  await print(painel, 'g4-painel-desafio-novo')
+  await abaP().locator('.barra-salvar button', { hasText: 'Criar desafio' }).click()
+  await dialogo().waitFor()
+  await limparAvisos()
+  await confirmar()
+  ok(await avisoPainel(/criado/), 'desafio criado (toast)')
+  await sleep(1200)
+  estado.idDesafio = sql("SELECT id FROM desafios WHERE slug='tacas-do-rei-teste'")
+  const l = sql(`SELECT CONCAT_WS('|', ativo, criterio, requisitos, premio, regulamento LIKE '1. Vale a primeira conta%') FROM desafios WHERE id=${estado.idDesafio}`)
+  ok(l === `0|{"copas":1,"libertadores":2}|{"partidasMin":2,"emailVerificado":true,"publicadoNoHall":true,"top3Perfil":true}|${PREMIO}|1`, `no banco: desativado, o critério, os requisitos, o prêmio (texto do admin) e o regulamento de partida (${l})`)
+  ok((await desafiosApi()).desafios.length === 0, 'desativado: o público ainda não vê')
+  await irP('#/desafios', 2000)
+  await abaP().locator(`article.cartao-desafio[data-id="${estado.idDesafio}"] button`, { hasText: 'Ativar' }).click()
+  await dialogo().waitFor()
+  ok(/começa agora/.test(await dialogo().textContent()), 'ativar: avisa que começa agora')
+  await limparAvisos()
+  await confirmar()
+  ok(await avisoPainel(/ativado/), 'ativado (toast)')
+  ok(sql(`SELECT CONCAT(ativo, IF(inicio IS NULL, '-', '+')) FROM desafios WHERE id=${estado.idDesafio}`) === '1+', 'no banco: ativo, com o início gravado na ativação')
+  const pub = (await desafiosApi()).desafios
+  ok(pub.length === 1 && pub[0].slug === 'tacas-do-rei-teste' && pub[0].premio === PREMIO && pub[0].vencedor === null && pub[0].ativo === true, `desafios.php: só o de teste (os 3 de fábrica continuam fora) (${pub.map((x) => x.slug).join(',')})`)
+  await print(painel, 'g4-painel-desafios-ativo')
+})
+
+const V = await novo('V', { partidas: 0 })
+await etapa('g5. v3.3: público com desafio valendo: destaque, menu e #/desafios (regras, prêmio, regulamento)', async () => {
+  const { page } = V
+  await page.goto(`${URL0}#/`)
+  await page.waitForSelector('.sv-destaque', { timeout: 30000 })
+  const t = await page.locator('.sv-destaque').innerText()
+  ok(t.includes(TITULO_D) && t.includes(PREMIO), `tela inicial: o destaque com o título e o prêmio (${t.replace(/\s+/g, ' ').slice(0, 140)})`)
+  await print(page, 'g5-V-destaque')
+  const m = await menu(page)
+  ok(await m.locator('.sc-row--cta', { hasText: TITULO_D }).waitFor({ timeout: 10000 }).then(() => true, () => false), 'menu: a linha do desafio valendo')
+  await fecharMenu(page)
+  await page.locator('.sv-destaque').click()
+  await page.waitForSelector('.sv-desafio', { timeout: 15000 })
+  const card = await page.locator('.sv-desafio').first().innerText()
+  ok(/Valendo/.test(card) && card.includes(PREMIO) && card.includes('1 Copa do Mundo e 2 Libertadores numa mesma carreira'), '#/desafios: selo "Valendo", prêmio e critério')
+  ok(card.includes('2 partidas jogadas com a conta') && /e-mail confirmado/.test(card) && /Hall das Lendas/.test(card) && /3 do seu perfil/.test(card), '#/desafios sem conta: os 4 requisitos')
+  await page.locator('.sv-regul summary').click()
+  ok((await page.locator('.sv-regul__t').innerText()).includes('Vale a primeira conta'), 'regulamento (o de partida que o servidor escreveu) abre')
+  ok(await page.getByRole('button', { name: 'Criar conta para participar' }).isVisible(), '"Criar conta para participar"')
+  await print(page, 'g5-V-desafios', { fullPage: true })
+})
+
+const R = await novo('R', { partidas: 0 })
+await etapa('g6. v3.3: R cria a conta pelo desafio ("Depois" no código) e joga pela tela a carreira real da fila', async () => {
+  const { page } = R
+  await page.goto(`${URL0}#/desafios`)
+  await page.getByRole('button', { name: 'Criar conta para participar' }).click()
+  const d = page.locator('[role="dialog"].sc-modal')
+  await d.waitFor()
+  await preencherConta(page, d, [['Apelido', APELIDO_R], ['E-mail', EMAIL_R], ['Senha', SENHA, true]])
+  await d.getByRole('checkbox').first().check()
+  await d.getByRole('button', { name: 'Criar conta', exact: true }).click()
+  const dv = page.locator('[role="dialog"].sc-modal', { hasText: 'Confirme seu e-mail' })
+  await dv.waitFor({ timeout: 20000 })
+  await dv.getByRole('button', { name: 'Depois', exact: true }).click()
+  await page.waitForFunction(() => !document.querySelector('[role="dialog"].sc-modal'), null, { timeout: 20000 })
+  estado.idR = idUsuario(EMAIL_R)
+  estado.codigoR = sql(`SELECT codigo_convite FROM usuarios WHERE id=${estado.idR}`)
+  ok(/^\d+$/.test(estado.idR), `conta do R criada (${estado.idR}), e-mail ainda sem confirmar`)
+  // 1ª partida com a conta (uma carreira qualquer, a 1ª opção sempre)
+  const r1 = await jogarCarreira(page, { semente: [2001, 333], nacao: 'Brasil', sobrenome: 'REIZINHO' })
+  ok(r1.fim, `R: 1ª carreira até o fim (${Math.round(r1.ms / 1000)} s)`)
+  ok((await esperarSql(`SELECT partidas_conta FROM usuarios WHERE id=${estado.idR}`, (x) => x === '1', 30000)) === '1', 'servidor: 1 partida com a conta')
+  await sleep(1000)
+  estado.hallQ = await ultimaTerminada(page)
+  ok(!!estado.hallQ?.replay && estado.hallQ.replay.seed[0] === 2001 && estado.hallQ.replay.seed[1] === 333, 'a carreira jogada pela tela tem o replay com a semente [a0, a1]')
+  // a carreira REAL da fila, pelos cliques (o mesmo cartão de cada decisão)
+  const r2 = await jogarFila(page, FILA, { nacao: 'Brasil' })
+  ok(r2.fim && r2.escolhas === FILA.picks.length, `R: a carreira da fila ${FILA.nome} jogada pela tela até o fim (${r2.escolhas} de ${FILA.picks.length} escolhas, ${Math.round(r2.ms / 1000)} s)`)
+  await sleep(1200)
+  const h = await ultimaTerminada(page)
+  estado.hallG = h
+  const sem36 = `career-${FILA.a0.toString(36)}${FILA.a1.toString(36)}`
+  ok(h.id === sem36 && h.replay?.seed?.[0] === FILA.a0 && h.replay?.seed?.[1] === FILA.a1, `HallEntry career-<semente da fila> com o replay da semente (${h.id})`)
+  ok(JSON.stringify(h.replay.picks.map((p) => [p.id, p.idx, p.n])) === JSON.stringify(FILA.picks.map((p) => [p.id, p.idx, p.n])), 'o replay gravado tem as mesmas escolhas da fila (id, cartão e nº de opções)')
+  ok(tacas(h, 'world-cup') === 1 && tacas(h, 'libertadores') === 2 && h.summary.peakOvr === 86, `a carreira cumpre o critério: ${tacas(h, 'world-cup')} Copa, ${tacas(h, 'libertadores')} Libertadores, pico ${h.summary.peakOvr}`)
+  ok((await esperarSql(`SELECT partidas_conta FROM usuarios WHERE id=${estado.idR}`, (x) => x === '2', 30000)) === '2', 'servidor: 2 partidas com a conta (o mínimo do desafio de teste)')
+  await print(page, 'g6-R-fim-da-fila')
+  await page.locator('.ck-end').getByRole('button', { name: 'Salvar na minha conta' }).click()
+  await esperarTexto(page, 'Salva na sua conta', 20000)
+  estado.pkG = pkDe(h.id, estado.idR)
+  const l = sql(`SELECT CONCAT_WS('|', tem_replay, copas, libertadores, IFNULL(fora_desafio, '-'), primeira_em >= (SELECT inicio FROM desafios WHERE id=${estado.idDesafio})) FROM carreiras WHERE id=${estado.pkG}`)
+  ok(l === '1|1|2|-|1', `servidor: tem_replay, 1 Copa, 2 Libertadores, dentro do limite do dia, salva depois do início (${l})`)
+  ok(sql(`SELECT COUNT(*) FROM desafio_candidatos WHERE usuario_id=${estado.idR}`) === '0', 'sem o e-mail confirmado: ainda não é candidato')
+})
+
+await etapa('g7. v3.3: checklist em #/desafios (falta o e-mail) → "Confirmar" com o código → candidato "Em verificação"', async () => {
+  const { page } = R
+  await page.goto(`${URL0}#/desafios`)
+  await page.reload()
+  await page.locator('.sv-item.is-falta', { hasText: 'E-mail da conta confirmado' }).waitFor({ timeout: 20000 })
+  const t = await page.locator('.sv-desafio').first().innerText()
+  ok(t.includes(FILA.identity.surname) && /Partidas com a conta: 2 de 2/.test(t), `checklist: a carreira ${FILA.identity.surname} cumpre o critério e 2 de 2 partidas`)
+  ok((await page.locator('.sv-desafio .sv-item.is-ok').count()) >= 4 && (await page.locator('.sv-cand-meu').count()) === 0, 'checklist: critério, partidas, Hall e perfil ok; falta só o e-mail; sem candidatura')
+  await print(page, 'g7-R-checklist-falta-email', { fullPage: true })
+  const t0 = Date.now() - 1000
+  await page.locator('.sv-item.is-falta', { hasText: 'E-mail da conta confirmado' }).getByRole('button', { name: 'Confirmar' }).click()
+  const dv = page.locator('[role="dialog"].sc-modal', { hasText: 'Confirme seu e-mail' })
+  await dv.waitFor({ timeout: 10000 })
+  const codigo = await codigoDoEmail(EMAIL_R, 0)
+  ok(/^\d{6}$/.test(codigo ?? ''), `o código do cadastro, lido do e-mail (${codigo})`)
+  await dv.getByLabel('Código de 6 dígitos').fill(codigo ?? '')
+  await dv.getByRole('button', { name: 'Confirmar e-mail' }).click()
+  await page.getByText('E-mail confirmado', { exact: true }).first().waitFor({ timeout: 15000 })
+  ok(true, 'toast "E-mail confirmado"')
+  const k = await esperarSql(`SELECT CONCAT_WS('|', id, estado, carreira_pk) FROM desafio_candidatos WHERE desafio_id=${estado.idDesafio} AND usuario_id=${estado.idR}`, (x) => x !== '', 15000)
+  const [kid, kest, kpk] = k.split('|')
+  estado.candG = kid
+  ok(kest === 'pendente' && kpk === estado.pkG, `confirmar o e-mail avaliou a conta: candidato pendente da carreira ${FILA.identity.surname} (${k})`)
+  ok(/\.\d{3}$/.test(sql(`SELECT em FROM desafio_candidatos WHERE id=${kid}`)) && Date.now() - t0 < 120000, 'o "em" do candidato (hora do servidor) tem milésimos')
+  // o checklist vem de novo sozinho depois de confirmar (sem recarregar a tela)
+  await page.locator('.sv-cand-meu.is-pendente').waitFor({ timeout: 15000 })
+  ok(/Em verificação/.test(await page.locator('.sv-cand-meu').innerText()), 'checklist: "Em verificação" logo depois de confirmar, sem recarregar')
+  await print(page, 'g7-R-em-verificacao', { fullPage: true })
+})
+
+await etapa('g8. v3.3: HallEntry adulterada pela API: sem replay não vira candidata; com replay e taças a mais vira (e vai ser reprovada)', async () => {
+  const { page } = R
+  // (a) a carreira da fila com outro id e sem o replay
+  const a = structuredClone(estado.hallG)
+  a.id = `career-forjada-sem-replay-${Date.now()}`
+  if (a.career) a.career.id = a.id
+  a.summary.e2e = a.id
+  delete a.replay
+  const ra = await salvarPelaApi(page, a)
+  const pkA = pkDe(a.id, estado.idR)
+  ok(ra.status === 200 && ra.json?.carreira?.temReplay === false && sql(`SELECT CONCAT_WS('|', tem_replay, copas, libertadores) FROM carreiras WHERE id=${pkA}`) === '0|1|2', `sem replay: salva (C.temReplay = false), 1 Copa e 2 Libertadores no resumo (${ra.status})`)
+  ok(sql(`SELECT COUNT(*) FROM desafio_candidatos WHERE carreira_pk=${pkA}`) === '0', 'sem replay: não vira candidata')
+  const eu = (await meuDesafio(page)).find((x) => x.slug === 'tacas-do-rei-teste')?.eu
+  const ca = eu?.carreirasQueCumprem?.find((c) => c.carreiraId === a.id)
+  ok(ca?.vale === false && ca?.motivo === 'sem_replay' && /replay/.test(ca?.motivoTexto ?? ''), `desafios.php?eu=1: a forjada aparece com motivo sem_replay (${JSON.stringify(ca)})`)
+  // (b) a 1ª carreira do R (de verdade, com o replay dela) com 1 Copa e 2 Libertadores a mais no resumo
+  const b = comTacasAMais(estado.hallQ)
+  const rb = await salvarPelaApi(page, b)
+  estado.pkF = pkDe(b.id, estado.idR)
+  const esperadoF = `1|${tacas(b, 'world-cup')}|${tacas(b, 'libertadores')}|-`
+  ok(rb.status === 200 && sql(`SELECT CONCAT_WS('|', tem_replay, copas, libertadores, IFNULL(suspeita, '-')) FROM carreiras WHERE id=${estado.pkF}`) === esperadoF, `com replay e taças a mais: o servidor não refaz a carreira, salva com o replay (${rb.status}, ${esperadoF})`)
+  const kf = await esperarSql(`SELECT CONCAT_WS('|', id, estado) FROM desafio_candidatos WHERE carreira_pk=${estado.pkF}`, (x) => x !== '', 15000)
+  estado.candF = kf.split('|')[0]
+  ok(kf.endsWith('|pendente'), `…e vira candidata pendente, depois da verdadeira (${kf}) — quem decide é a verificação pelo jogo`)
+  ok(sql(`SELECT id FROM desafio_candidatos WHERE desafio_id=${estado.idDesafio} AND estado IN ('pendente','verificada') ORDER BY em, id LIMIT 1`) === estado.candG, 'o primeiro (menor "em") é o candidato da carreira de verdade')
+})
+
+await etapa('g9. v3.3: painel → "Verificar no jogo": a de verdade bate; a adulterada não bate e é recusada', async () => {
+  await irP(`#/desafios?id=${estado.idDesafio}`, 2000)
+  const cG = abaP().locator(`article.candidato[data-id="${estado.candG}"]`)
+  await cG.waitFor({ timeout: 15000 })
+  ok((await abaP().locator('article.candidato').count()) === 2 && (await cG.getAttribute('class')).includes('primeiro'), 'painel: 2 candidatos na ordem do "em", a de verdade marcada como a primeira')
+  const href = await cG.locator('a', { hasText: 'Verificar no jogo' }).getAttribute('href')
+  ok(href === `/lenda/#/verificar?id=${estado.pkG}&candidato=${estado.candG}`, `"Verificar no jogo" → ${href}`)
+  await abaP().locator('article.candidato').first().scrollIntoViewIfNeeded().catch(() => {})
+  await print(painel, 'g9-painel-candidatos-pendentes')
+  const [aba] = await Promise.all([ADM.ctx.waitForEvent('page'), cG.locator('a', { hasText: 'Verificar no jogo' }).click()])
+  await aba.waitForFunction(() => /Bateu|Não bateu|Não dá/.test(document.querySelector('.sv-veredito')?.textContent ?? ''), null, { timeout: 120000 })
+  ok(/Bateu/.test(await aba.locator('.sv-veredito').innerText()) && !/Não bateu/.test(await aba.locator('.sv-veredito').innerText()), `jogo (#/verificar): "${(await aba.locator('.sv-veredito').innerText()).replace(/\s+/g, ' ').slice(0, 80)}"`)
+  await aba.getByText('Registrado no painel').first().waitFor({ timeout: 20000 })
+  ok((await aba.locator('.sv-tr.is-dif').count()) === 0, 'tabela guardado × refeito: nenhum número diferente')
+  await print(aba, 'g9-jogo-verificar-bateu', { fullPage: true })
+  await aba.close()
+  ok(sql(`SELECT CONCAT_WS('|', estado, JSON_EXTRACT(verificacao, '$.ok')) FROM desafio_candidatos WHERE id=${estado.candG}`) === 'verificada|true', 'banco: a de verdade "verificada" (verificacao.ok = true)')
+  // a adulterada
+  await irP(`#/desafios?id=${estado.idDesafio}`, 2000)
+  const cF = abaP().locator(`article.candidato[data-id="${estado.candF}"]`)
+  await cF.waitFor({ timeout: 15000 })
+  const [aba2] = await Promise.all([ADM.ctx.waitForEvent('page'), cF.locator('a', { hasText: 'Verificar no jogo' }).click()])
+  await aba2.waitForFunction(() => /Bateu|Não bateu|Não dá/.test(document.querySelector('.sv-veredito')?.textContent ?? ''), null, { timeout: 120000 })
+  ok(/Não bateu/.test(await aba2.locator('.sv-veredito').innerText()), 'jogo: a adulterada "Não bateu"')
+  ok((await aba2.locator('.sv-tr.is-dif', { hasText: 'Copas do Mundo' }).count()) === 1 && (await aba2.locator('.sv-tr.is-dif', { hasText: 'Libertadores' }).count()) === 1, 'tabela: as linhas de Copas do Mundo e Libertadores marcadas')
+  ok(sql(`SELECT estado FROM desafio_candidatos WHERE id=${estado.candF}`) === 'pendente', 'não bateu: nada é mandado sem o clique do admin')
+  await print(aba2, 'g9-jogo-verificar-nao-bateu', { fullPage: true })
+  await aba2.getByRole('button', { name: /Registrar: não bateu/ }).click()
+  await aba2.getByText(/candidato foi recusado/).first().waitFor({ timeout: 20000 })
+  await aba2.close()
+  const kr = sql(`SELECT CONCAT_WS('|', estado, motivo) FROM desafio_candidatos WHERE id=${estado.candF}`)
+  ok(kr.startsWith('recusada|') && /Copas do Mundo/.test(kr), `banco: recusada com o motivo do que não bateu (${kr})`)
+  // o painel volta atualizado (a aba do jogo registrou)
+  await irP('#/visao', 600)
+  await irP(`#/desafios?id=${estado.idDesafio}`, 2200)
+  ok((await abaP().locator(`article.candidato[data-id="${estado.candG}"]`).innerText()).match(/Bateu/) && (await abaP().locator(`article.candidato[data-id="${estado.candF}"]`).innerText()).match(/Não bateu/), 'painel: "Bateu" na de verdade e "Não bateu" na adulterada')
+  await abaP().locator('article.candidato').first().scrollIntoViewIfNeeded().catch(() => {})
+  await print(painel, 'g9-painel-candidatos-verificados')
+  const { page } = R
+  await page.goto(`${URL0}#/desafios`)
+  await page.reload()
+  await page.locator('.sv-cand-meu.is-verificada').waitFor({ timeout: 20000 })
+  ok(true, 'R: o checklist mostra "Verificada" (a melhor candidatura da conta)')
+})
+
+await etapa('g10. v3.3: limite de partidas por dia (Configurações): passou do limite, a partida não soma e a carreira não vale', async () => {
+  await irP('#/config', 2000)
+  await painel.waitForSelector('#cfg-partidas_dia_max', { timeout: 10000 })
+  ok((await painel.inputValue('#cfg-partidas_dia_max')) === '100', 'Configurações: "Partidas por dia que contam" = 100 (o padrão)')
+  await painel.fill('#cfg-partidas_dia_max', '10')
+  await limparAvisos()
+  await painel.locator('.barra-salvar button', { hasText: 'Salvar' }).click()
+  await dialogo().waitFor()
+  await confirmar()
+  ok(await avisoPainel(/Configurações salvas/), 'partidas_dia_max = 10 salvo pelo painel')
+  ok(sql("SELECT valor FROM site_config WHERE chave='partidas_dia_max'") === '10', 'banco: partidas_dia_max = 10')
+  // o R já jogou as 10 de hoje (o contador do dia de Brasília, como se fossem partidas de antes)
+  sql(`INSERT INTO partidas_dia (usuario_id, dia, n) VALUES (${estado.idR}, DATE(UTC_TIMESTAMP() - INTERVAL 3 HOUR), 10) ON DUPLICATE KEY UPDATE n = 10`)
+  const { page } = R
+  const r = await jogarCarreira(page, { semente: [2003, 333], nacao: 'Brasil', sobrenome: 'PASSOU' })
+  ok(r.fim, `R: a 11ª partida do dia jogada pela tela (${Math.round(r.ms / 1000)} s)`)
+  const n = await esperarSql(`SELECT n FROM partidas_dia WHERE usuario_id=${estado.idR} AND dia = DATE(UTC_TIMESTAMP() - INTERVAL 3 HOUR)`, (x) => x === '11', 30000)
+  ok(n === '11' && sql(`SELECT partidas_conta FROM usuarios WHERE id=${estado.idR}`) === '2', `a partida conta no dia (${n}) mas não soma na conta (partidas_conta continua 2)`)
+  await sleep(1000)
+  const c = comTacasAMais(await ultimaTerminada(page))
+  const rc = await salvarPelaApi(page, c)
+  const pkC = pkDe(c.id, estado.idR)
+  ok(rc.status === 200 && sql(`SELECT IFNULL(fora_desafio, '-') FROM carreiras WHERE id=${pkC}`) === 'limite_diario' && sql(`SELECT COUNT(*) FROM desafio_candidatos WHERE carreira_pk=${pkC}`) === '0',
+    'carreira salva num dia acima do limite (mesmo cumprindo o critério): fora_desafio = limite_diario e não vira candidata')
+  const eu = (await meuDesafio(page)).find((x) => x.slug === 'tacas-do-rei-teste')?.eu
+  const cc = eu?.carreirasQueCumprem?.find((x) => x.carreiraId === c.id)
+  ok(cc?.motivo === 'limite_diario' && eu?.partidasHoje === 11 && eu?.partidasDiaMax === 10, `?eu=1: motivo limite_diario, hoje 11 de 10 (${JSON.stringify({ m: cc?.motivo, h: eu?.partidasHoje, x: eu?.partidasDiaMax })})`)
+  await page.goto(`${URL0}#/desafios`)
+  await page.reload()
+  await page.locator('.sv-cumpre').waitFor({ timeout: 20000 })
+  const t = await page.locator('.sv-desafio').first().innerText()
+  ok(/valem até 10 por dia \(hoje: 11\)/.test(t) && /passou do limite de partidas por dia/.test(t), 'checklist: "valem até 10 por dia (hoje: 11)" e o motivo na carreira')
+  await print(page, 'g10-R-limite-diario', { fullPage: true })
+  const v = await admin({ acao: 'config', valores: { partidas_dia_max: 100 } })
+  ok(v.status === 200 && sql("SELECT valor FROM site_config WHERE chave='partidas_dia_max'") === '100', 'partidas_dia_max de volta a 100')
+})
+
+await etapa('g11. v3.3: declarar o vencedor (confirmação forte) → o jogo mostra o vencedor; o destaque some', async () => {
+  await irP(`#/desafios?id=${estado.idDesafio}`, 2000)
+  await abaP().locator(`article.candidato[data-id="${estado.candG}"] button`, { hasText: 'Declarar vencedor' }).click()
+  await dialogo().waitFor()
+  const btn = dialogo().locator('button[type="submit"]')
+  ok(/Verificado no jogo/.test(await dialogo().textContent()) && (await btn.isDisabled()), 'diálogo: confere tudo e só libera com o apelido digitado')
+  await dialogo().locator('.confirmar-digitando input').fill(APELIDO_R)
+  await print(painel, 'g11-painel-declarar')
+  await limparAvisos()
+  await btn.click()
+  ok(await avisoPainel(/é o vencedor/), 'vencedor declarado (toast)')
+  const d = sql(`SELECT CONCAT_WS('|', vencedor_usuario_id, vencedor_candidato, vencido_em IS NOT NULL) FROM desafios WHERE id=${estado.idDesafio}`)
+  ok(d === `${estado.idR}|${estado.candG}|1` && sql(`SELECT estado FROM desafio_candidatos WHERE id=${estado.candG}`) === 'vencedora', `banco: o desafio com o vencedor e o candidato "vencedora" (${d})`)
+  ok(sql(`SELECT aviso_conta FROM usuarios WHERE id=${estado.idR}`).startsWith(`Parabéns! Você venceu o desafio “${TITULO_D}”`), 'a conta do R recebe o recado de vencedor')
+  ok(sql(`SELECT COUNT(*) FROM admin_log WHERE acao='desafio_vencedor' AND alvo='desafio:${estado.idDesafio}'`) === '1', 'registro: desafio_vencedor')
+  await sleep(1200)
+  await print(painel, 'g11-painel-vencedor')
+  // o jogador: o recado é de vitória (não "aviso da moderação")
+  const { page } = R
+  await page.goto(`${URL0}#/`)
+  await page.reload()
+  await page.waitForSelector('.ld-modes', { timeout: 30000 })
+  ok(await page.getByText('Você venceu um desafio!', { exact: true }).first().waitFor({ timeout: 15000 }).then(() => true, () => false), 'R: o lembrete "Você venceu um desafio!" ao abrir o jogo')
+  await print(page, 'g11-R-lembrete-vencedor')
+  const m = await menu(page)
+  // a parte da conta no menu chega num pedaço à parte
+  ok(await m.getByText('Minha conta · você venceu um desafio!').first().waitFor({ timeout: 10000 }).then(() => true, () => false) && !/aviso da moderação/.test(await m.innerText()), 'menu do R: "Minha conta · você venceu um desafio!" (e não "aviso da moderação")')
+  await m.getByText(/Minha conta/).first().click()
+  const mc = page.getByRole('dialog', { name: 'Minha conta' })
+  await mc.waitFor({ timeout: 15000 })
+  await mc.locator('.sc-avisoconta.is-desafio').waitFor({ timeout: 10000 })
+  ok(/Você venceu um desafio!/.test(await mc.locator('.sc-avisoconta').innerText()) && !/Aviso da moderação/.test(await mc.innerText()), 'Minha conta: "Você venceu um desafio!" (e não "Aviso da moderação")')
+  await print(page, 'g11-R-minha-conta-vencedor')
+  await page.keyboard.press('Escape')
+  // o público (aparelho novo: sem o cache de 60 s da lista)
+  const W = await novo('W', { partidas: 0, viewport: { width: 390, height: 844 }, celular: true })
+  await W.page.goto(`${URL0}#/`)
+  await W.page.waitForSelector('.ld-modes', { timeout: 30000 })
+  await sleep(4500)
+  ok((await W.page.locator('.sv-destaque').count()) === 0, 'público: com vencedor, o destaque some da tela inicial')
+  await W.page.goto(`${URL0}#/desafios`)
+  await W.page.locator('.sv-vencedor').waitFor({ timeout: 20000 })
+  const t = await W.page.locator('.sv-desafio').first().innerText()
+  ok(/Tem vencedor/.test(t) && (await W.page.locator('.sv-vencedor a', { hasText: APELIDO_R }).count()) === 1 && t.includes(FILA.identity.surname), `#/desafios: "Tem vencedor", ${APELIDO_R} (link ao perfil) com ${FILA.identity.surname}`)
+  const w = await semRolagem(W.page)
+  ok(w[0] <= w[1], `celular: #/desafios sem rolagem lateral (${w[0]} ≤ ${w[1]})`)
+  await print(W.page, 'g11-W-desafios-vencedor', { fullPage: true })
+  await W.page.locator('.sv-vencedor a', { hasText: APELIDO_R }).click()
+  await W.page.waitForSelector('.sv-perfil', { timeout: 20000 })
+  ok(W.page.url().endsWith(`#/jogador/${estado.codigoR}`) && /Venceu:/.test(await W.page.locator('.sv-vencidos').innerText()), 'o apelido do vencedor abre o perfil, com "Venceu: …"')
+  ok((await desafiosApi()).desafios[0]?.vencedor?.apelido === APELIDO_R, 'desafios.php: vencedor com o apelido')
+})
+
+await etapa('g12. v3.3: perfil público pelo link do código (quem abre chega como convidado) e o apelido no Hall leva ao perfil', async () => {
+  const h = await admin({ acao: 'atualizar_hall' })
+  ok(h.status === 200, 'atualizar o Hall (a fotografia que o perfil mostra)')
+  const { page } = R
+  await page.goto(`${URL0}#/`)
+  await page.waitForSelector('.ld-modes', { timeout: 30000 })
+  const m = await menu(page)
+  await m.getByText(/Minha conta/).first().click()
+  const mc = page.getByRole('dialog', { name: 'Minha conta' })
+  await mc.waitFor({ timeout: 15000 })
+  const link = await mc.getByLabel('Link do seu perfil público').inputValue()
+  ok(link === `${URL0}?c=${estado.codigoR}#/jogador/${estado.codigoR}`, `Minha conta: o link do perfil (${link})`)
+  await mc.getByRole('button', { name: 'Copiar o link' }).click()
+  ok((await page.evaluate(() => navigator.clipboard.readText())) === link, '"Copiar o link" copia o link do perfil')
+  await page.keyboard.press('Escape')
+  const P = await novo('P', { partidas: 0, viewport: { width: 390, height: 844 }, celular: true })
+  await P.page.goto(link)
+  await P.page.waitForSelector('.sv-perfil h1', { timeout: 20000 })
+  ok((await P.page.locator('.sv-perfil h1').innerText()).trim() === APELIDO_R, 'perfil público: o apelido')
+  const nc = await P.page.locator('.sv-carreira').count()
+  const pfApi = await (await fetch(`${URL0}api/perfil.php?c=${estado.codigoR}`)).json()
+  ok(nc >= 1 && nc <= 3 && nc === pfApi.carreiras.length, `perfil: as carreiras do Hall do R (até 3; ${nc})`)
+  ok((await P.page.evaluate(() => JSON.parse(localStorage.getItem('lenda:convite') || 'null')?.codigo)) === estado.codigoR, 'quem abre o perfil chega como convidado (o código fica guardado)')
+  const w = await semRolagem(P.page)
+  ok(w[0] <= w[1], 'celular: perfil sem rolagem lateral')
+  await print(P.page, 'g12-P-perfil-publico', { fullPage: true })
+  await P.page.locator('.sv-carreira').first().click()
+  await P.page.locator('.sm-chip--com').waitFor({ timeout: 20000 })
+  ok(P.page.url().includes('de=comunidade') && (await P.page.locator('a.sm-chip--link').getAttribute('href')) === `#/jogador/${estado.codigoR}`, 'a carreira abre o resumo da comunidade; "Carreira de Rei do Teste" leva ao perfil')
+  await P.page.goto(`${URL0}#/hall?seg=comunidade`)
+  const dono = P.page.locator('.hl-com__dono.is-link', { hasText: APELIDO_R }).first()
+  await dono.waitFor({ timeout: 20000 })
+  await dono.click()
+  await P.page.waitForSelector('.sv-perfil h1', { timeout: 15000 })
+  ok(P.page.url().endsWith(`#/jogador/${estado.codigoR}`), 'Hall da comunidade: o apelido abre o perfil')
+  const pf = await (await fetch(`${URL0}api/perfil.php?c=${estado.codigoR}`)).json()
+  ok(pf.apelido === APELIDO_R && pf.desafiosVencidos?.includes('tacas-do-rei-teste') && pf.carreiras.length >= 1, `perfil.php: apelido, carreiras e desafiosVencidos (${JSON.stringify(pf.desafiosVencidos)})`)
+  // perfil fechado (o B põe o Hall em "Não mostrar") = 404 no servidor e "Perfil não encontrado" no jogo
+  const codigoB = sql(`SELECT codigo_convite FROM usuarios WHERE id=${estado.idB}`)
+  const st = await B.page.evaluate(async () => (await fetch('api/conta.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify({ acao: 'perfil', hallPublico: 'nao' }) })).status)
+  const r404 = await fetch(`${URL0}api/perfil.php?c=${codigoB}`)
+  ok(st === 200 && r404.status === 404, `perfil de quem fechou o Hall → 404 (${r404.status})`)
+  await P.page.goto(`${URL0}#/jogador/${codigoB}`)
+  await esperarTexto(P.page, 'Perfil não encontrado', 15000)
+  ok(true, 'jogo: "Perfil não encontrado"')
+  P.erros.splice(0, P.erros.length, ...P.erros.filter((x) => !/status of 404/.test(x)))
+  await B.page.evaluate(async () => fetch('api/conta.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify({ acao: 'perfil', hallPublico: 'auto' }) }))
+})
+
+await etapa('g13. v3.3: painel → Usuários "e-mail não confirmado": reenviar a confirmação ao B; o B confirma pela faixa de Minha conta', async () => {
+  await irP('#/usuarios?verificado=0', 2000)
+  await abaP().locator('tbody tr').first().waitFor({ timeout: 10000 })
+  const linhas = await abaP().locator('tbody tr').allInnerTexts()
+  ok(linhas.length === 1 && /Bruno Moderado/.test(linhas[0]), `filtro "E-mail não confirmado": só o B (${linhas.length})`)
+  await print(painel, 'g13-painel-usuarios-nao-confirmados')
+  const antes = emailsPara(EMAIL_B).length
+  await limparAvisos()
+  await abaP().locator('tbody tr', { hasText: 'Bruno Moderado' }).locator('button[title^="Manda um código novo de confirmação"]').click()
+  ok(await avisoPainel(/Confirmação mandada/), 'reenviar a confirmação (toast com o e-mail mascarado)')
+  ok(emailsPara(EMAIL_B).length === antes + 1 && sql("SELECT COUNT(*) FROM email_log WHERE tipo='admin_verif'") === '1', 'um e-mail novo para o B (email_log tipo admin_verif)')
+  const { page } = B
+  await page.goto(`${URL0}#/`)
+  await page.waitForSelector('.ld-modes', { timeout: 30000 })
+  const m = await menu(page)
+  await m.getByText(/Minha conta/).first().click()
+  const mc = page.getByRole('dialog', { name: 'Minha conta' })
+  await mc.waitFor({ timeout: 15000 })
+  await mc.locator('.sv-faixa').waitFor({ timeout: 10000 })
+  await print(page, 'g13-B-faixa-confirmar')
+  const codigo = await codigoDoEmail(EMAIL_B)
+  await mc.locator('.sv-faixa').getByLabel('Código de 6 dígitos').fill(codigo ?? '')
+  await mc.locator('.sv-faixa').getByRole('button', { name: 'Confirmar e-mail' }).click()
+  await mc.locator('.sv-faixa').waitFor({ state: 'detached', timeout: 15000 })
+  ok(sql(`SELECT email_verificado_em IS NOT NULL FROM usuarios WHERE id=${estado.idB}`) === '1', 'B confirmou com o código novo (o do cadastro deixou de valer) e a faixa some')
+  await page.keyboard.press('Escape')
+})
+
+await etapa('g14. v3.3: o Registro mostra as ações novas em pt-BR', async () => {
+  await irP('#/registro', 2200)
+  await abaP().locator('tbody tr').first().waitFor({ timeout: 10000 })
+  const reg = await abaP().locator('tbody').textContent()
+  const nomes = await painel.evaluate(() => ['desafio_salvar', 'desafio_ativar', 'candidato_verificar', 'desafio_vencedor', 'suporte_responder', 'suporte_status', 'reenviar_verificacao'].map((a) => window.LP?.NOMES_ACAO_LOG?.[a] ?? a))
+  const faltam = nomes.filter((n) => !reg.includes(n))
+  ok(faltam.length === 0 && !/desafio_salvar|candidato_verificar|suporte_responder/.test(reg), `Registro: ${nomes.join(' · ')}${faltam.length ? ` (faltam: ${faltam.join(', ')})` : ''}`)
+  await print(painel, 'g14-painel-registro')
 })
 
 // ───────────────────────── fim ─────────────────────────

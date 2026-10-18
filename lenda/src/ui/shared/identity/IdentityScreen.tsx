@@ -9,7 +9,8 @@ import { AnimatePresence, motion } from 'motion/react'
 import { ArrowLeft, ArrowRight, Check, Minus, Plus, RotateCcw, Save, Sparkles, X, type LucideProps } from 'lucide-react'
 import type { Pace, PlayerIdentity } from '@/engine/types'
 import { navigate, useApp } from '@/store/app'
-import { randomSeed, selectHasActiveCareer, useCareer } from '@/store/career'
+import { selectHasActiveCareer, useCareer } from '@/store/career'
+import { sementeDaCarreira } from '@/store/sementeCarreira'
 import { FalhaBonus, useBonusCarreira } from '@/store/bonusCarreira'
 import { selectHasImmersiveCareer, useImmersive } from '@/store/immersive'
 import { useData } from '@/store/data'
@@ -82,9 +83,11 @@ export default function IdentityScreen() {
   }, [immersive, carregarBonus])
   const bonus = oferta && usarBonus ? oferta.valor : 0
   const [comecando, setComecando] = useState(false)
+  // §E: esperando a semente do servidor (no máximo 2,5 s)
+  const [sorteando, setSorteando] = useState(false)
   // o "usar" do bônus ficou sem resposta: a carreira espera o jogador decidir (a semente fica, para repetir igual)
   const [falhaBonus, setFalhaBonus] = useState<{ seed: string; valor: number } | null>(null)
-  const busy = (immersive ? immBusy : classicBusy) || comecando
+  const busy = (immersive ? immBusy : classicBusy) || comecando || sorteando
   const hasClassic = useCareer(selectHasActiveCareer)
   const hasImmersive = useImmersive(selectHasImmersiveCareer)
   const hasActive = immersive ? hasImmersive : hasClassic
@@ -176,8 +179,15 @@ export default function IdentityScreen() {
         navigate('/imersivo', { replace: true })
         return
       }
-      // bônus de OVR (site): marca no servidor como usado NESTA carreira (o id sai da semente) e passa ao motor
-      const seed = randomSeed()
+      // §E: a semente sorteada pelo servidor (site, com a conta: só ela vale para desafio); sem resposta em 2,5 s, a do
+      // aparelho. Bônus de OVR (site): marca no servidor como usado NESTA carreira (o id sai da semente) e passa ao motor
+      setSorteando(true)
+      let seed: string
+      try {
+        seed = await sementeDaCarreira()
+      } finally {
+        setSorteando(false)
+      }
       let bonusOvr = 0
       const b = useBonusCarreira.getState()
       if (b.oferta && b.usar && b.consumir) {
@@ -237,7 +247,7 @@ export default function IdentityScreen() {
     setFalhaBonus(null)
     try {
       // outra semente: a carreira de antes pode ter ficado com o bônus marcado no servidor
-      await comecarClassico(randomSeed(), 0)
+      await comecarClassico(await sementeDaCarreira(), 0)
       toast.info('Carreira sem o bônus', 'Se o bônus sumir da sua conta sem ter sido usado, fale com o suporte: contato@oprojeto.online.')
     } catch (err) {
       console.error(err)

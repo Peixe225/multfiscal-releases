@@ -209,6 +209,13 @@ resposta disser `"faltam"` maior que 0, rode de novo (cada chamada trabalha no m
 
 ### 5d. Atualizar para a v3.3 (As Taças do Rei, e-mail verificado, Fale conosco, perfil público)
 
+> **Correções da v3.3 (CONTRATO-v33 §E):** o `instalar.php` acrescenta também `carreiras.semente_em` e a tabela
+> `sementes_carreira` (a semente de cada carreira do Clássico começada com a conta é sorteada pelo servidor; só a carreira
+> com ela vale para desafio). Quem já rodou o instalar da v3.3 antes destas correções roda de novo (só acrescenta). O
+> `dist-site/` passa a levar `dados/<versão>.json` (os dados do jogo desta versão, para a verificação por replay refazer
+> as carreiras de versões antigas): suba por cima e **nunca apague a pasta `dados/` do servidor** — as versões dos deploys
+> de antes ficam lá.
+
 1. Suba a pasta `servidor/api/` **inteira** (arquivos novos: `suporte.php`, `desafios.php`, `perfil.php`, `_desafios.php`,
    `_suporte.php`; mudaram, entre outros, o `.htaccess`, o `_schema.sql` e o `instalar.php`), a pasta `servidor/painel/` e
    o `privacidade.html`. Pelo `dist-site/`, o build já leva tudo.
@@ -221,7 +228,9 @@ resposta disser `"faltam"` maior que 0, rode de novo (cada chamada trabalha no m
    `503 indisponivel`; as abas novas do painel, `503 instalar`).
 3. As contas que já existem começam com o e-mail **não confirmado**; quem se cadastra recebe o código na hora (o
    e-mail sai pelo `enviarEmail()` de sempre: com `email_modo => 'smtp'` ele vai pela caixa). Teto do site para esses
-   e-mails: 200 a cada 10 min e 2.000 por dia (acima disso o jogador pede outro depois).
+   e-mails: 200 a cada 10 min e 2.000 por dia, repartido em baldes (CONTRATO-v33 §E.8): o do cadastro (120 e 1.200, 15
+   por IP e 20 por domínio a cada 10 min), o do "Reenviar código" (40 e 400) e o do "Reenviar código" de quem já jogou
+   (40 e 400); acima disso o jogador pede outro depois, e o "Precisa de atenção" avisa quando um balde passa de 80%.
 4. **Para ligar um desafio** (aba Desafios do painel): escreva o prêmio e confira o regulamento (o de fábrica fala dos
    requisitos; mude à vontade), marque o início se não quiser que comece na hora, e ative. Ativar avalia na hora todas as
    contas (as que já cumprem viram candidatas). A carreira só vale se entrou na conta depois do início.
@@ -415,7 +424,11 @@ Precisa de `php` (8.1+, com `pdo_mysql` e `curl`) e do MariaDB instalados. O scr
    não: sem replay, Imersivo, sem e-mail, fora do Hall, fora do top 3, 29 partidas, limite diário, antes do início, depois
    do fim; o lote ao ativar; todas as conquistas), a verificação, o vencedor (dois candidatos ao mesmo tempo: só o
    primeiro `em` vence; quatro declarações ao mesmo tempo: uma só), reabrir, o perfil público (privado ou suspenso = 404),
-   a LGPD (mensagens, candidaturas, códigos), entradas estranhas (nenhum 500) e o banco sem o instalar da v3.3;
+   a LGPD (mensagens, candidaturas, códigos), entradas estranhas (nenhum 500) e o banco sem o instalar da v3.3; e as
+   correções da v3.3 (`teste-v33-corr.php`, CONTRATO-v33 §E): o candidato conferido de novo (salvar sem cumprir, outro
+   replay, verificar e declarar com a carreira de agora, critério mudado, requisitos na hora de declarar), a contagem de
+   taças fora do formato, o bônus do replay, a semente sorteada pelo servidor (limite do dia, LGPD), o desafio de todas
+   as conquistas sem prova, os baldes dos e-mails de confirmação e o `em` real do lote ao ativar;
 6. com Chromium (`/opt/pw-browsers/...`, ou `LENDA_CHROMIUM`), roda também o teste do painel pelo navegador
    (`teste/painel/rodar.sh`: pilha própria na porta `LENDA_TESTE_PORTA + 6`, banco `<banco>_painel`);
    `LENDA_TESTE_SEM_NAVEGADOR=1` pula;
@@ -435,7 +448,7 @@ LENDA_INTEG_BASE=/tmp/lenda-integracao PORTA=8752 LENDA_INTEG_SOCK=/run/mysqld/m
 cd servidor/teste/integracao
 LENDA_INTEG_BASE=/tmp/lenda-integracao node e2e.mjs          # jogo e painel de ponta a ponta, vários aparelhos
 LENDA_INTEG_BASE=/tmp/lenda-integracao node carga-painel.mjs 50   # 50 jogadores com o painel aberto pulsando
-LENDA_INTEG_SOCK=/run/mysqld/mysqld.sock PORTA=8824 bash atualizar.sh   # deploy por cima do que está no ar
+LENDA_INTEG_SOCK=/run/mysqld/mysqld.sock PORTA=8824 LENDA_ATUALIZAR_REF=<commit publicado> bash atualizar.sh   # deploy por cima do que está no ar
 ```
 
 - `subir.sh`: o `dist-site/` + o servidor PHP + um banco novo (`LENDA_INTEG_SOCK` = socket do MariaDB).
@@ -444,13 +457,23 @@ LENDA_INTEG_SOCK=/run/mysqld/mysqld.sock PORTA=8824 bash atualizar.sh   # deploy
   "Precisa de atenção", liberar em lote, suspender e ocultar com motivo, "Fora do Hall: …" e o aviso da moderação no
   jogo, "Em revisão" das notas altas, Convide amigos, Abrir no jogo como admin, lixeira, nota interna, tester,
   configurações, CSV de contas e de relatório, Registro e Segurança, backup baixado e restaurado, moderadora sem poder
-  de excluir, sessão revogada, tema claro, celular sem rolagem lateral em todas as abas).
+  de excluir, sessão revogada, tema claro, celular sem rolagem lateral em todas as abas). v3.3 (etapas `g`): o código
+  do cadastro lido do e-mail do modo arquivo (confirmar no diálogo, "Depois", o "Confirmar" do desafio, a faixa de
+  Minha conta, o reenviar do painel), Fale conosco com e sem conta e a resposta do painel por e-mail, desafio de teste
+  criado e ativado no painel (os 3 de fábrica continuam fora do público), uma carreira REAL de fila
+  (`scripts/gravar/filas/classico.json`, `v-otima-04`) jogada pela tela com a semente dela (`jogarFila` do `lib.mjs`)
+  que cumpre o critério e vira candidata, "Verificar no jogo" que bate, HallEntry adulterada pela API (sem replay: não
+  vira candidata; com replay e taças a mais: "Não bateu" e recusada), limite de partidas por dia, vencedor declarado
+  (o jogo mostra; o recado do vencedor em Minha conta) e o perfil público pelo link do código.
 - `carga-painel.mjs`: o `carga.mjs` (N jogadores ao mesmo tempo) com um navegador no painel, pulsando e passeando pelas
   abas: nenhum 5xx, o pulso rápido durante a carga e quanto cada pulso custa no banco (consultas e linhas lidas, antes
   e depois da carga).
-- `atualizar.sh`: sobe o `servidor/` de um commit (`LENDA_ATUALIZAR_REF`, padrão `HEAD` = o publicado), cria dados pela
-  API dele, põe os arquivos novos por cima e roda o `instalar.php` duas vezes: nenhuma linha antiga some nem muda, a
-  2ª vez não altera nada, a sessão do jogador continua e o painel novo lê tudo.
+- `atualizar.sh`: sobe o `servidor/` de um commit (`LENDA_ATUALIZAR_REF`, padrão `HEAD`: passe o commit que está
+  publicado), cria dados pela API dele, põe os arquivos novos por cima e roda o `instalar.php` duas vezes: nenhuma linha
+  antiga some nem muda (só o número do `_esquema`), a 2ª vez não altera nada, a sessão do jogador continua e o painel
+  novo lê tudo. Saindo da v3.2 (`_esquema` 32), a sessão do painel continua; para a v3.3, confere também as contas de
+  antes sem o e-mail confirmado, as Libertadores lidas das carreiras guardadas, os desafios de fábrica desativados, o
+  Fale conosco e o perfil público da conta de antes.
 
 Medido aqui (MariaDB 10.11, `php -S`, 4 CPUs): fotografia de 6.000 carreiras (de 8.000, 2.000 contas) em ~0,6 s
 (leitura ~80 ms, troca ~0,5 s); `hall.php` sem filtro, por país, por clube, os dois juntos e a última página em

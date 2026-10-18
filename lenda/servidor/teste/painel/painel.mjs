@@ -30,7 +30,8 @@ process.on('uncaughtException', async (e) => {
   process.exit(1)
 })
 
-const ABAS = ['visao', 'area', 'usuarios', 'hall', 'denuncias', 'indicacoes', 'conquistas', 'relatorios', 'tempo', 'registro', 'saude', 'equipe', 'config', 'testes']
+// v3.3: Mensagens (Fale conosco) depois de Usuários e Desafios depois de Indicações (sem tecla: as de sempre não mudam)
+const ABAS = ['visao', 'area', 'usuarios', 'mensagens', 'hall', 'denuncias', 'indicacoes', 'desafios', 'conquistas', 'relatorios', 'tempo', 'registro', 'saude', 'equipe', 'config', 'testes']
 const PRINTS_EXTRAS = ['hall?filtro=suspeitas', 'hall?filtro=denunciadas', 'hall?filtro=lixeira', 'indicacoes?status=aparelho', 'indicacoes?status=bonus',
   'registro?parte=seguranca', 'registro?parte=emails', 'registro?parte=jogadores', 'config?parte=conta', 'config?parte=backup', 'equipe?parte=papeis', 'equipe?parte=recados']
 
@@ -151,7 +152,7 @@ await page.waitForSelector('#tela-painel:not([hidden])', { timeout: 15000 })
 ok(true, 'entrada: a senha do arquivo (sem e-mail) entra na conta Dono')
 await page.waitForFunction(() => /atualizado às/.test(document.getElementById('selo-atualizado').textContent), null, { timeout: 20000 })
 ok(true, 'pulso: o selo "atualizado às HH:MM:SS" aparece')
-ok(await page.locator('#numeros-acao .numero-acao').count() === 6, 'números de ação: os 6 (online, jogando, denúncias, suspeitas, indicações, contas hoje)')
+ok(await page.locator('#numeros-acao .numero-acao').count() === 8, 'números de ação: os 8 (online, jogando, denúncias, suspeitas, indicações, mensagens novas, candidatos a desafio, contas hoje)')
 ok(/^\d+$/.test((await page.textContent('#nav-denunciasAbertas')).trim()), 'números de ação: denúncias abertas com número')
 ok(await page.locator('#na-denunciasAbertas.na-perigo').count() === 1, 'números de ação: denúncias em vermelho quando há carreira escondida por denúncia')
 await page.waitForSelector('#atencao:not([hidden])')
@@ -166,7 +167,7 @@ ok(await page.locator('#campanhas .barra-linha').count() > 0, 'Visão geral: cam
 ok(await page.locator('#ladrilhos-contas .ladrilho-resumo').count() === 3, 'Visão geral: ativas em 7 e 30 dias e nunca jogaram (P1-11)')
 ok(await page.locator('#visao-base a.ladrilho').count() === 8, 'Visão geral: saúde da base com 8 números clicáveis (A10)')
 ok(await page.locator('#visao-resposta .ladrilho').count() === 6, 'Visão geral: tempo de resposta de denúncias e indicações (H14/A8)')
-ok((await page.locator('.abas a[data-aba]').evaluateAll((as) => as.map((a) => a.dataset.aba))).join(',') === ABAS.join(','), 'navegação: as 14 abas na ordem fixa')
+ok((await page.locator('.abas a[data-aba]').evaluateAll((as) => as.map((a) => a.dataset.aba))).join(',') === ABAS.join(','), 'navegação: as 16 abas na ordem fixa (v3.3: Mensagens e Desafios)')
 await ir(page, '#/nao-existe')
 ok(await page.locator('#aba-visao:not([hidden])').count() === 1, 'navegação: aba desconhecida cai na Visão geral')
 ok(await page.getAttribute('.abas a[data-aba="visao"]', 'aria-current') === 'page', 'navegação: aria-current na aba aberta')
@@ -479,7 +480,7 @@ await ctx.close()
   await digitarPin(p3, '#pin-caixas', '729153')
   await p3.waitForSelector('#tela-painel:not([hidden])', { timeout: 10000 })
   const colunas = await p3.evaluate(() => getComputedStyle(document.getElementById('numeros-acao')).gridTemplateColumns.split(' ').length)
-  ok(colunas === 3, 'celular: números de ação em grade de 3 colunas')
+  ok(colunas === 4, 'celular: números de ação em grade de 4 colunas (8 números em 2 linhas, rótulo curto)')
   for (const a of ABAS) {
     await ir(p3, '#/' + a, 1200)
     await semRolagemLateral(p3, a)

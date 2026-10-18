@@ -20,12 +20,12 @@
  *                Dez escudos, Nômade, Cidadão do mundo);
  *   sulamericano um clube de um país sul-americano onde ainda não jogou (De Ushuaia a Darién);
  *   fiel         fica sempre no mesmo clube (Um clube só, Lenda do clube, Ídolo);
- *   europeu      campeão de liga em cada uma das cinco grandes (Dono da Europa).
+ *   europeu      campeão de liga em cada uma das cinco grandes (Dono da Europa);
+ *   artilheiro   o clube onde ele é muito melhor que o time (a faixa de gols mais alta), numa liga forte (gols, médias).
  */
 import type { CareerEngine } from '../../src/engine/api'
 import { careerEngine } from '../../src/engine/career/default'
 import { ACHIEVEMENTS } from '../../src/engine/career/achievements'
-import { mem } from '../../src/engine/career/memory'
 import { predictRole } from '../../src/engine/career/player'
 import { clubConfed, clubStrength, indexData, nationStrength } from '../../src/engine/career/util'
 import type { EffectSpec, OptionSpec } from '../../src/engine/career/events/types'
@@ -33,7 +33,7 @@ import { evaluateRun } from '../../src/engine/legacy'
 import { rng } from '../../src/engine/rng'
 import type { CareerState, Decision, GameData, Pace, PlayerIdentity, Position, SquadRole } from '../../src/engine/types'
 
-export type Politica = 'aleatoria' | 'gananciosa' | 'cacador' | 'oraculo' | 'mochileiro' | 'sulamericano' | 'fiel' | 'europeu'
+export type Politica = 'aleatoria' | 'gananciosa' | 'cacador' | 'oraculo' | 'mochileiro' | 'sulamericano' | 'fiel' | 'europeu' | 'artilheiro'
 
 export interface Config {
   /** A semente como o navegador sorteia (crypto.getRandomValues(new Uint32Array(2))). */
@@ -175,6 +175,13 @@ function valorAlvo(data: GameData, s: CareerState, clubId: string | undefined, f
   const confeds = new Set(s.seasons.map((r) => r.confed))
   const cf = clubConfed(data, club)
   if (pol === 'fiel') return (ficar ? 100 : 0) + base
+  if (pol === 'artilheiro') {
+    // a taxa de gols do motor sobe com a folga do jogador sobre o time (≥10, ≥6, ≥3, ≥−2…), titular, em liga forte
+    const folga = s.ovr - forca
+    const faixa = folga >= 10 ? 1.1 : folga >= 6 ? 0.85 : folga >= 3 ? 0.65 : folga >= -2 ? 0.5 : folga >= -5 ? 0.3 : 0.1
+    const lg = idx.league.get(club.leagueId)
+    return faixa * 100 * (0.7 + 0.3 * (lg?.coefficient ?? 0.5)) * (0.85 + 0.06 * (club.prestige ?? 2))
+  }
   if (pol === 'mochileiro') return (jogou.has(club.id) ? -100 : 100) + (paises.has(club.country) ? 0 : 6) + (confeds.has(cf) ? 0 : 10) + base
   if (pol === 'sulamericano') {
     const paisesSul = new Set(s.seasons.filter((r) => r.confed === 'CONMEBOL').map((r) => r.country))
@@ -187,7 +194,7 @@ function valorAlvo(data: GameData, s: CareerState, clubId: string | undefined, f
   return (alvo ? 40 : BIG5.has(club.country) ? 5 : -20) + forca * 0.6 + PAPEL[papel]
 }
 
-const ALVO = new Set<Politica>(['mochileiro', 'sulamericano', 'fiel', 'europeu'])
+const ALVO = new Set<Politica>(['mochileiro', 'sulamericano', 'fiel', 'europeu', 'artilheiro'])
 
 function valorOpcao(data: GameData, s: CareerState, d: Decision, optId: string, p: Plano): number {
   const specs = (d.context?.specs ?? {}) as Record<string, OptionSpec>
@@ -329,6 +336,5 @@ export function jogar(data: GameData, cfg: Config, guardarPicks = false): Result
     ms: Math.round(performance.now() - t0),
   }
   if (guardarPicks) res.picks = picks
-  void mem
   return res
 }

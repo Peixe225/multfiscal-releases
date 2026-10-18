@@ -129,6 +129,9 @@ function hallEntry(string $id, array $m = []): stdClass
 function salvarC(Navegador $n, stdClass $h, string $como = 'manual', bool $liberar = true): Resposta
 {
     resetarLimitesCurtos();
+    if (function_exists('v33AntesDeSalvar')) {
+        v33AntesDeSalvar($n, $h); // v3.3 §E (teste-v33.php): a semente do replay como sorteada pelo servidor para a conta
+    }
     $r = $n->pedir('POST', '/api/carreiras.php', ['acao' => 'salvar', 'carreira' => $h, 'como' => $como]);
     if ($liberar && $r->status === 200) {
         q("UPDATE carreiras SET suspeita = NULL WHERE carreira_id = ? AND suspeita = 'revisao'", [(string) $h->id]);

@@ -431,7 +431,7 @@
       const txtLimite = h('p', { class: 'texto-2' });
       const textoLimite = () => {
         const v = cfg.form.partidas_dia_max;
-        txtLimite.textContent = Number.isInteger(v) && v >= 10 ? 'Cada conta soma até ' + LP.plural(v, 'partida', 'partidas') + ' por dia (Brasília) em "partidas com a conta"; as de depois não somam, e carreira salva num dia em que a conta passou do limite não vale para desafio.' : '';
+        txtLimite.textContent = Number.isInteger(v) && v >= 10 ? 'Cada conta soma até ' + LP.plural(v, 'partida', 'partidas') + ' por dia (Brasília) em "partidas com a conta" e ganha até ' + LP.plural(v, 'semente sorteada', 'sementes sorteadas') + ' pelo servidor (só a carreira começada com uma delas vale para desafio); as de depois não somam, e carreira salva num dia em que a conta passou do limite não vale para desafio.' : '';
       };
       const itemLimite = h('div', { class: 'config-item coluna', 'data-chave': 'partidas_dia_max' },
         h('div', null, h('span', { class: 'rotulo-item' }, 'Partidas por dia que contam na conta'), meta('partidas_dia_max')),

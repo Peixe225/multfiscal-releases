@@ -1,14 +1,16 @@
 /**
- * Liga o bônus de OVR e o compartilhar do jogo à conta (src/store/bonusCarreira.ts e src/store/compartilhar.ts),
- * e guarda o código de convite de quem trouxe o visitante (?c=).
+ * Liga o bônus de OVR e o compartilhar do jogo à conta (src/store/bonusCarreira.ts e src/store/compartilhar.ts), a
+ * semente da carreira sorteada pelo servidor (src/store/sementeCarreira.ts, CONTRATO-v33 §E) e guarda o código de convite
+ * de quem trouxe o visitante (?c=).
  *
  *   iniciarPontes()   // uma vez (vigias)
  */
 import { ArrowRight } from 'lucide-react'
 import { FalhaBonus, useBonusCarreira } from '@/store/bonusCarreira'
 import { pontes } from '@/store/compartilhar'
+import { ESPERA_SEMENTE_MS, useSementeCarreira } from '@/store/sementeCarreira'
 import { toast } from '@/ui/primitives'
-import { ErroApi, valeTentar } from './api'
+import { api, ErroApi, valeTentar } from './api'
 import { proximoBonus, ROTULO_ORIGEM, textoFaltam, useBonus, usarBonus } from './bonus'
 import { aoEntrar, useConta } from './conta'
 import { capturarConvite, enderecoDoJogo, limparConviteDaUrl, linkConvite } from './indicacao'
@@ -62,6 +64,28 @@ function pendente(): { carreiraId: string; em: number } | null {
 
 let avisouSemConta = false
 
+/** §E: [a0, a1] da resposta do servidor (dois inteiros de 32 bits) ou null. */
+export function parDaResposta(x: unknown): [number, number] | null {
+  const ok = (v: unknown): v is number => typeof v === 'number' && Number.isInteger(v) && v >= 0 && v < 0x1_0000_0000
+  return Array.isArray(x) && x.length === 2 && ok(x[0]) && ok(x[1]) ? [x[0], x[1]] : null
+}
+
+/**
+ * §E: pede ao servidor a semente da carreira do Clássico que começa agora (POST carreiras.php {acao: "semente"}). Sem conta:
+ * null sem pedir nada. Sessão caída: o aviso de sempre. Sem rede, servidor antigo, limite do dia: null (a carreira começa com
+ * a semente do aparelho e não vale para desafio).
+ */
+export async function pedirSementeCarreira(): Promise<[number, number] | null> {
+  if (!useConta.getState().usuario) return null
+  try {
+    const r = await api<{ semente?: unknown }>('carreiras.php', { corpo: { acao: 'semente' }, tempo: ESPERA_SEMENTE_MS })
+    return parDaResposta(r?.semente)
+  } catch (err) {
+    if (err instanceof ErroApi && err.status === 401) useConta.getState().sessaoExpirou()
+    return null
+  }
+}
+
 let iniciado = false
 export function iniciarPontes() {
   if (iniciado || typeof window === 'undefined') return
@@ -69,6 +93,9 @@ export function iniciarPontes() {
 
   // ?c=<codigo>: guarda por 30 dias (vai no cadastro) e tira da barra de endereço
   if (capturarConvite(location.search, ls)) limparConviteDaUrl()
+
+  // §E: a semente da carreira do Clássico sai do servidor quando há conta (só ela vale para desafio)
+  useSementeCarreira.setState({ pedir: pedirSementeCarreira })
 
   useBonusCarreira.setState({
     carregar: () => {

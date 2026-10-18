@@ -365,4 +365,532 @@ destaque, sem faixa de e-mail (U sem `emailVerificado` = confirmado), perfil "n�
 
 ## §C Painel
 
+Implementado: o item 8 inteiro (abas Mensagens e Desafios; e-mail confirmado em Usuários; `partidas_dia_max` nas
+Configurações), no padrão das outras abas: pulso, "Precisa de atenção", toasts, ficha no painel lateral, diálogo com
+motivo, confirmação digitada, lote, fila ao vivo, temas, modo discreto, celular sem rolagem lateral e CSP sem nada
+embutido (texto do servidor só por `textContent`). O painel foi feito direto contra a pilha real: as rotas do §A já
+existiam quando ele começou, então o mock não foi preciso.
+
+### C.1 Arquivos
+
+- Novos: `painel/mensagens.js` (aba Mensagens e a ficha da mensagem), `painel/desafios.js` (lista, desafio com os
+  candidatos, editor e as decisões), `teste/painel/semente-v33.mjs` (a semente da v3.3) e `teste/painel/v33.mjs` (o teste
+  do navegador), este rodado pelo `teste/painel/rodar.sh` depois do `correcoes.mjs`.
+- Mudados: `painel/index.html` (os dois scripts, as duas seções e `?v=3.3.0` em todos os arquivos), `nucleo.js` (nomes das
+  10 ações novas no `NOMES_ACAO_LOG`, `NOMES_TIPO_SUPORTE`, `NOMES_STATUS_SUPORTE`, `NOMES_ESTADO_CANDIDATO`, as pílulas
+  `chipStatusSuporte`/`chipCandidato`/`chipEmailVerificado`, três ícones, `mensagem=` no painel lateral, `rotuloMarcar` na
+  barra de lote e o conserto do clique em lista dentro de `<details>`, C.8), `painel.js` (abas, números, pílulas, links do
+  "Precisa de atenção", `mensagem=`, "Sair sem salvar?" de qualquer aba), `usuarios.js`, `sistema.js`, `registro.js`,
+  `painel.css` (bloco "v3.3" no fim); `teste/painel/painel.mjs` (16 abas, 8 números, 4 colunas no celular) e `rodar.sh`.
+
+### C.2 Abas, pulso e "Precisa de atenção"
+
+- Ordem fixa: Visão geral, Na área, Usuários, **Mensagens**, Hall público, Denúncias, Indicações e bônus, **Desafios**,
+  Conquistas, Relatórios, Tempo de jogo, Registro, Saúde, Equipe, Configurações, Testes. As duas novas não têm tecla: 1–9 e
+  0 continuam nas mesmas abas de antes.
+- Números de ação: 8 (os 6 de antes + **Mensagens novas** = `acao.mensagensNovas` → `#/mensagens?status=nova` e
+  **Candidatos a desafio** = `acao.candidatosPendentes` → `#/desafios`), em ouro quando passam de 0. Uma linha de 8 a partir
+  de 1280 px; 4 × 2 abaixo disso; no celular, 4 × 2 com o rótulo curto ("Mensagens", "Candidatos").
+- Pílulas da lateral: Mensagens = novas, Desafios = candidatos pendentes ou verificados (as duas em ouro, do pulso de 15 s).
+- "Precisa de atenção": `suporte_parado` (`{aba:"mensagens", filtro:"nova"}`) → `#/mensagens?status=nova`; `candidatos`
+  (`{aba:"desafios"}`) → `#/desafios` (com `id`, `#/desafios?id=`).
+
+### C.3 Mensagens (`#/mensagens`)
+
+- Lista do `?r=suporte`: abre nas **novas**; filtros por situação (Novas, Lidas, Respondidas, Arquivadas, Todas, com as
+  `contagens`) e por assunto (com `novasPorTipo` nas novas), busca ao vivo (texto, apelido, protocolo, e-mail inteiro,
+  `#id`), páginas, tudo no hash (`status=todas|lida|…`, `tipo=`, `q=`, `pagina=`). Colunas: a mensagem (assunto, protocolo
+  e o começo do texto; as novas em negrito), de quem (o apelido leva à ficha da conta; "sem conta" com o e-mail que a pessoa
+  deixou; e-mail mascarado no modo discreto), tela do jogo, quando, situação. O e-mail de contato (`contato`) aparece no
+  topo com "Copiar".
+- Lote (poder `usuarios`): "Marcar como lida", "Arquivar", "Voltar para nova" (`suporte_lote`), com o resumo dos pulados.
+- Fila ao vivo: com o filtro das novas na página 1, o `filas.mensagens` do pulso traz a nova sozinha (ou o aviso "N
+  mensagens novas — clique para ver" se a pessoa estiver no meio de algo), como nas Denúncias.
+- Ficha no painel lateral (`mensagem=<id>`, em qualquer aba; Esc fecha): assunto, situação, de quem, e-mail (com
+  "mostrar" e "copiar"), quando, tela, protocolo, quem mexeu por último, o texto inteiro (quebras de linha mantidas) e a
+  resposta já mandada. **Abrir uma nova marca como lida** (`suporte_status`, só com o poder `usuarios`), com a faixa "Era
+  nova: ficou como lida ao abrir · Voltar para nova". **Responder**: três respostas prontas (só o começo do texto), campo
+  de até 4.000, e o diálogo com a **prévia do e-mail** como a pessoa vai receber (olá com o apelido, a resposta, a
+  assinatura e a mensagem original citada com o protocolo) antes de mandar `suporte_responder`. Saiu: toast com o e-mail
+  mascarado e a mensagem fica respondida; não saiu (`enviado: false`): toast de erro, a resposta continua no campo e a ficha
+  mostra "Resposta guardada (o e-mail não saiu)". O rascunho da resposta fica na memória da aba (fechar a ficha não perde).
+  Situação: Marcar como lida, Voltar para nova, Arquivar / Desarquivar; "Ver no Registro" e "Ficha da conta". Sem o poder
+  `usuarios` (Moderador, Leitor): só lê, sem lote, e abrir não marca nada.
+
+### C.4 Desafios (`#/desafios`)
+
+- **Lista**: ladrilhos (valendo agora, candidatos esperando, partidas por dia que contam → Configurações, conquistas no
+  jogo) e um cartão por desafio: situação (Valendo, Começa em…, Desativado, Encerrado, Tem vencedor), endereço, descrição,
+  o que vale ("3 Copas do Mundo + 2 Libertadores numa carreira do Clássico" / "Todas as 87 conquistas na conta"),
+  requisitos em pílulas, o **prêmio = o texto do admin** (vazio: "o jogo mostra 'O prêmio deste desafio será anunciado
+  aqui'"), o prazo, as contagens de candidatos e o vencedor; botões "Ver N candidatos" (em ouro quando há), "Editar",
+  "Ativar"/"Desativar". No cabeçalho, "Criar desafio" e "Ver no jogo" (`../#/desafios`).
+- **Ativar/Desativar** (`desafio_ativar`): diálogo com a lista do que vai valer, o aviso de prêmio ou regulamento vazio e de
+  que, sem início, ele começa agora (carreira salva antes não vale); o toast diz quantos candidatos nasceram.
+- **Desafio** (`#/desafios?id=N[&estado=]`): a ficha inteira (regulamento abre e fecha), o cartão do vencedor (conta,
+  carreira, hora em que cumpriu, quando foi declarado; conta excluída = "excluída (LGPD)") e os **candidatos na ordem do
+  `em`**, com filtro por estado e contagens: posição, a marca "O primeiro que ainda conta" (`primeiro`), a conta (tipo,
+  suspensa, e-mail não confirmado, partidas), a carreira (jogador → ficha da carreira, Copas, Libertadores, nota, com/sem
+  replay, apagada), a hora com milésimos em Brasília, quem decidiu, e a **verificação**: "Bateu" / "Não bateu" com o motivo,
+  a tabela guardado × refeito dos 9 números com a linha diferente marcada, as outras diferenças (semente, taças, seleção,
+  replay), os avisos e o aviso de versão dos dados diferente. Botões: **"Verificar no jogo"** (o `links.verificar`, em outra
+  aba; em ouro no pendente, "Verificar de novo" depois), "Abrir a carreira" (`links.resumo`), "Recusar" (motivo
+  obrigatório que o jogador vê, com chips), **"Declarar vencedor"** (só verificado, só o primeiro, poder `config`) e, com
+  vencedor, "Reabrir (tirar o vencedor)" com motivo. A lista se refaz sozinha quando o painel volta a ficar visível (a pessoa
+  verificou na aba do jogo) e quando o número de candidatos do pulso muda.
+- **Declarar vencedor**: confirmação forte — o diálogo confere (verificado no jogo, o primeiro, conta ativa, e-mail
+  confirmado, carreira na conta), explica o que acontece (o jogo mostra para todos, ninguém mais vira candidato, o aviso
+  em Minha conta) e o botão só libera com o **apelido digitado**.
+- **Editor** (`#/desafios?id=N&parte=editar`, `#/desafios?parte=novo`): título, endereço (sai do título no novo; não muda
+  depois), descrição, critério (Taças numa carreira: Copas e Libertadores de 0 a 30, pelo menos uma; ou Todas as
+  conquistas; travado com vencedor), requisitos (partidas mínimas e os três sim/não; os dois de carreira somem no de
+  conquistas), prêmio (texto livre até 2.000), regulamento (até 20.000; vazio no novo = o servidor escreve o de partida),
+  início e fim (dia em Brasília, com "Limpar"), ordem, e a **prévia** do cartão. Barra "N alterações não salvas: …" com
+  Descartar/Salvar; o erro de cada campo aparece depois de mexer nele (ou ao tentar salvar) e o do servidor vai para o campo
+  certo (`slug_em_uso` → endereço, `vencido` → critério). O diálogo de salvar avisa quando o desafio está valendo (o servidor
+  reavalia), quando o início é antecipado, quando um requisito afrouxa e quando o prêmio muda num desafio ativo. Sair com
+  alteração pede "Sair sem salvar?".
+
+### C.5 Usuários
+
+- Filtros "E-mail confirmado" / "E-mail não confirmado" (`verificado=1|0`, com `contagens.verificado`), a coluna
+  **E-mail** (Confirmado / Não confirmado; só aparece com o servidor da v3.3) e, nas não confirmadas, o botão compacto
+  "Reenviar confirmação".
+- Ficha: a pílula do e-mail, "E-mail confirmado" com a data, a ação **"Reenviar a confirmação do e-mail"**
+  (`reenviar_verificacao`: confirm com o e-mail mascarado, toast com o `para`; `409 ja_verificado` vira aviso), o cartão
+  **Desafios** (as candidaturas, `desafios`: desafio → `#/desafios?id=`, carreira → ficha, estado, hora, motivo) e o bloco
+  **Fale conosco** (`mensagens`: protocolo → a mensagem aberta por cima das Mensagens). O diálogo de excluir a conta cita as
+  mensagens e as candidaturas.
+
+### C.6 Configurações e Registro
+
+- Configurações → cartão **Desafios**: "Partidas por dia que contam na conta" (`partidas_dia_max`, de 10 a 10.000, com o
+  texto do que acontece e o link para os desafios), só quando o servidor manda a chave. Baixar o limite entra nos avisos do
+  diálogo de salvar.
+- Registro: nome em pt-BR das 10 ações novas; alvo `desafio:<id>` → o desafio, `suporte:<id>` → a mensagem, `suporte`
+  (lote) → Mensagens; os detalhes novos com nome (desafio, campos, candidatos novos, candidato, carreira, bateu,
+  situação); E-mails com os tipos `verificacao`, `admin_verif` e `suporte`; `partidas_dia_max` com nome nas mudanças de
+  configuração.
+
+### C.7 Testes e prints
+
+- `teste/painel/v33.mjs` (pelo `rodar.sh`, na mesma pilha, depois do `painel.mjs` e do `correcoes.mjs`): a semente
+  (`semente-v33.mjs`) cadastra contas de verdade, manda 8 mensagens pelo `suporte.php` (com e sem conta, duas com mais de
+  24 h, uma com HTML), ativa os dois desafios das Taças com um prêmio de teste e salva carreiras reais (amostra v33) com 3
+  Copas, 2 Libertadores e o replay real da fila gravada, que viram candidatas sozinhas. O teste confere, pelo navegador:
+  números e pílulas do pulso, os dois alertas novos, as abas sem tecla, filtros e contagens, o HTML do jogador como texto, a
+  ficha (lida ao abrir, voltar para nova, resposta pronta, prévia, e-mail no arquivo e no `email_log`, Registro sem o texto
+  nem o e-mail), lote, fila ao vivo, e-mail confirmado (filtro, coluna, reenviar com `email_log` e registro, candidaturas e
+  mensagens na ficha), `partidas_dia_max` (fora da faixa, salvar, baixar com aviso), desafios (ativar com os avisos,
+  candidatos na ordem do `em`, milésimos, bateu/não bateu com a linha marcada, os links do jogo, "Declarar" travado no que não
+  é o primeiro, recusar com motivo obrigatório, declarar com o apelido digitado e o aviso na conta, reabrir), editor (criar
+  com o regulamento de partida, editar mandando só o prêmio — o início fica igual —, início vazio barrado num ativo, "Sair
+  sem salvar?", endereço repetido), Registro, CSP, nenhum erro de JavaScript, o papel Moderador (lê, não responde, não marca
+  como lida, não cria nem declara, verifica no jogo) e o celular (sem rolagem lateral nas 9 telas novas, botões de 40 px,
+  ficha em tela cheia). Também a corrida que apareceu no desenvolvimento: a recarga do desafio pedida pelo pulso que chega
+  depois de abrir o editor não desenha por cima dele (o teste atrasa a resposta de propósito). O `v33.mjs` zera o contador
+  de entradas no painel do IP de teste (a pilha já entrou muitas vezes no `painel.mjs` e no `correcoes.mjs`) e a conta Dono
+  entra uma vez só (a sessão é reaproveitada nos outros aparelhos).
+- Resultado (pilha real, `bash servidor/teste/painel/rodar.sh`, banco `lenda_v33_painel`, porta 8920): **PAINEL: PASSOU**
+  — `painel.mjs` 129 ok, `correcoes.mjs` 72 ok, `v33.mjs` 132 ok, nenhuma falha, nenhum erro de PHP. Prints (1440 e 390,
+  revisados; as telas novas também nos temas Claro e Alto contraste) com `LENDA_PRINTS`: as abas em `<pasta>/` e as telas da
+  v3.3 em `<pasta>/v33/` (mensagens, todas, desafios, os dois desafios com candidatos, editor, novo, não confirmados, ficha
+  da mensagem, diálogo da resposta, ficha da conta com as candidaturas, partidas por dia, diálogo do vencedor).
+
+### C.8 Diferenças em relação ao contrato da rodada
+
+1. Sem mock: as rotas reais do §A já existiam; tudo foi feito e testado contra a pilha real (`lenda_v33_painel`, porta
+   8920).
+2. "Número de novas no pulso" virou também um número de ação (e o de candidatos): 8 números em vez de 6.
+3. Abrir uma mensagem nova a marca como lida (um `suporte_status` por abertura, só com o poder `usuarios`).
+4. Não há rota de uma mensagem só: a ficha busca `?r=suporte&q=<protocolo>` (ou `q=#<id>` vindo do endereço) e acha a linha
+   pelo id.
+5. Desafio de todas as conquistas: não há carreira para refazer no jogo, então o candidato pendente tem "Conferi as
+   conquistas", que manda `candidato_verificar {id, resultado: {ok: true, detalhes: {v: 1, manual: true, conquistas: true}}}`
+   (a ficha mostra "Conferido pela equipe"); sem isso esse desafio nunca teria um verificado para declarar.
+6. O editor manda só os campos que mudaram (assim o início gravado na ativação, com hora, nunca é trocado pelo 00:00 do
+   dia sem querer) e não deixa esvaziar o início de um desafio ativo.
+7. "Declarar vencedor" fica travado quando o candidato verificado não é o `primeiro` (o servidor responderia `409
+   ha_anterior`).
+8. Conserto geral no `nucleo.js`: numa lista dentro de `<details>` (blocos recolhíveis da ficha da conta) o clique na linha
+   era ignorado; agora só um controle da própria linha (link, botão, caixa) impede abrir.
+9. Pedido opcional ao servidor (não bloqueia nada): `GET admin.php?r=suporte&id=` (uma mensagem só) deixaria a ficha
+   independente da busca do item 4.
+
 ## §R Raridade
+
+Estudo feito com o motor e os dados reais do Modo Clássico, fora do navegador: **35.613 carreiras** (31.923 sorteadas
+e 3.690 de um experimento condicional), ~22 h de CPU. Relatório completo (tabelas por política, seleção, ritmo,
+posição, bônus, a tabela das 87 conquistas e o método): `v33-raridade.md`, entregue fora do repositório. Nada em
+`src/` mudou.
+
+### R.1 Arquivos e como repetir
+
+- `scripts/estudos/raridade-motor.ts`: importa o motor real (`src/engine/career/default`, `src/engine/world`) e
+  joga uma carreira com a semente do navegador (`a0.toString(36) + a1.toString(36)`), a identidade, o ritmo e uma
+  política de escolha; devolve Copas, Libertadores, campeões de cada Copa do mundo simulado, conquistas, nota etc.
+  Políticas: `aleatoria`, `gananciosa` (o clube mais forte onde joga; nos eventos, o maior valor esperado pelas chances
+  do cartão), `cacador` (a gananciosa + clube sul-americano na Libertadores até ter 2, seleção sempre), `oraculo`
+  (prova cada opção antes de escolher) e as de alvo (`mochileiro`, `sulamericano`, `fiel`, `europeu`, `artilheiro`).
+- `scripts/estudos/raridade.mjs`: empacota o motor com o rolldown numa pasta temporária, reparte em workers, grava uma
+  linha JSON por carreira (retoma de onde parou) e analisa:
+  `node scripts/estudos/raridade.mjs simular --plano padrao,alvos,alvos2,extra,bonus,oraculo,sementes --saida <pasta> --workers 4`,
+  depois `--plano condicional`, `analisar` e `tabela-conquistas`. `--n 100` roda 10% (~35 min). A pasta de saída fica
+  fora do repositório; nada disso entra no site.
+
+### R.2 Números (sem bônus de OVR, salvo onde dito)
+
+| | Carreiras | 3+ Copas | 2+ Libertadores | 2 Copas + 2 Lib. | 3 Copas + 2 Lib. |
+|---|---:|---:|---:|---:|---:|
+| Todas as políticas | 27.123 | 6 (1 em 4.500) | 12,6% | 26 (1 em 1.040) | 0 |
+| Aleatória | 5.240 | 0 | 2,7% | 0 | 0 |
+| Caçador (o jogador dedicado) | 13.240 | 2 | 22,0% | 23 | 0 |
+| Argentino caçador (o melhor plano) | 6.560 | 2 (1 em 3.300) | 22,8% | 19 (1 em 345) | 0 |
+| Espanhol guloso (o melhor para "só Copas") | 3.610 | 2 (1 em 1.800) | 0,7% | 0 | 0 |
+| Caçador com +2 / +5 de bônus | 2.000 | 2 | 34% | 13 | **2** (1 em 1.000) |
+
+- **A Copa é o gargalo.** No mundo do jogo a Espanha ganha 18,7% das Copas, a França 13,4%, a Inglaterra 11,1%, a
+  Argentina 10,1% e o Brasil 6,2%; o jogador só soma um pouco à força da seleção e precisa ser convocado (o
+  argentino caçador não vai a nenhuma Copa em 54% das carreiras). As Copas ganhas caem aos 23 (20%), 27 (38%), 31
+  (30%), 35 (10%) e 39 anos (2%); aos 19 (2030), nenhuma.
+- **3 Copas + 2 Libertadores** (a marca do Pelé): nenhuma sem bônus. Estimativa para o melhor plano: P(3 Copas)
+  (1 em 2.600 a 3.300) × P(2 Libertadores | 2+ Copas) (0,41) ≈ **1 em 6.000 a 8.000 carreiras**.
+- Ritmo e posição quase não mudam a chance por carreira; o Expressa é ~3× mais rápido que o Intenso, então é o que o
+  jogador dedicado usa. Bônus de +5 dobra a chance de 1 Copa e multiplica por 3–4 a de 2. O oráculo tem ~3× a chance
+  do caçador nas coisas raras.
+- O mundo vem da semente só no começo: as mesmas sementes com políticas diferentes dão o mesmo campeão em 100% das
+  Copas de 2030, 93% de 2034, 49% de 2038 e 6–18% das seguintes.
+
+### R.3 Quantas carreiras e quanto tempo
+
+Média = 1/p carreiras (metade consegue até 0,69/p; 90% até 2,3/p). Tempo por carreira (das gravações de
+`scripts/gravar`): Expressa ~1 min pulando as animações, ~2,5 min com elas. 100 carreiras por dia é o teto que conta
+(≈ 1h40 por dia no Expressa). Melhor plano, sem bônus, um jogador sozinho:
+
+| Critério | 1 carreira em | Dias a 100/dia | Dias a 50/dia |
+|---|---:|---:|---:|
+| 2 Copas + 2 Libertadores | 345 (220–530) | 3,5 | 7 |
+| 2 Copas + 3 Libertadores | 1.312 (550–3.000) | 13 | 26 |
+| 3 Copas | 1.800–3.300 | 18–33 | 36–66 |
+| 3 Copas + 2 Libertadores | ~6.000–8.000 | 60–80 | 120–160 |
+
+É uma corrida: com J jogadores dedicados, o primeiro acerto sai em ~1/J desse tempo. O requisito de 30 partidas não
+pesa. **Entre as 3 do perfil:** quem jogou 1.000 carreiras tem a 3ª maior nota por volta de 90, e a carreira de 2 Copas
++ 2 Libertadores tem nota mediana 83; no modo automático ela muitas vezes fica de fora (o jogador precisa do "Eu
+escolho").
+
+### R.4 As 87 conquistas
+
+**Não dá para ter as 87.** "Nômade" (clubes das 6 confederações) é impossível: os clubes que se pode assinar são os
+das 52 ligas simuladas, de 5 confederações (não há liga da Oceania; Auckland FC e Wellington Phoenix jogam a liga
+australiana, AFC). Em 31.923 carreiras o máximo foi 5. Outras 7 não saíram nenhuma vez (Só o Pelé, De Ushuaia a
+Darién, Mochileiro, Além do Rei, Fora da curva, Máquina de gols, Reescreveu a história; o mais perto: 7 países
+sul-americanos, 23 clubes, 3 Copas, 1.030 gols, 0,886 gol por jogo, 5 recordes). Na conta, um jogador junta 70
+conquistas em ~230–1.460 carreiras, **72 em ~580–2.190**, 75 em ~2.700–4.300 e 78 em ~13.000; o teto prático é 78–79.
+
+### R.5 Riscos (para quem cuida do §A e do §B)
+
+1. **A semente é escolhida no navegador** (`randomSeed()` com o `crypto.getRandomValues` da página, que se troca pelo
+   console). O motor é público e determinístico: quem souber programar acha, por fora, uma carreira que cumpre o
+   critério (~12 min de um núcleo para 2 Copas + 2 Libertadores, ~45 min para 2 + 3, 4–5 h para 3 + 2), joga com a
+   semente fixada e a verificação por replay **bate**. Recomendação: **semente emitida pelo servidor** (no início da
+   carreira logada; guardada com a conta e a hora; uma por início, dentro do limite do dia) e só vale para desafio a
+   carreira cujo `replay.seed` foi emitido para aquela conta, uma vez, antes do início. Sem isso, nenhum critério é
+   seguro para prêmio.
+2. Mesmo com a semente do servidor, dá para "voltar no tempo" (copiar o IndexedDB, ou provar as opções por fora): ~3×
+   mais rápido (o oráculo). O limite de 100 por dia por conta segura isso; várias contas multiplicam o limite.
+3. Bônus de OVR: o regulamento deve dizer se carreira com bônus vale (o estudo recomenda que valha: vem de compartilhar
+   e indicar, e cada conta tem poucos).
+4. As duas carreiras de 3 Copas + 2 Libertadores achadas (com bônus) ficaram só nos arquivos do estudo, fora do
+   repositório: com a semente do navegador, elas bastariam para "vencer". Servem de teste do `#/verificar` depois.
+
+### R.6 Recomendação de critério (difícil, mas 1 a 3 semanas para um jogador dedicado)
+
+- **Principal "As Taças do Rei": `{copas: 2, libertadores: 3}`** — cinco taças, como as 3 + 2 do Pelé, trocando uma
+  Copa por uma Libertadores porque a Copa é o gargalo: ~13 dias no teto, ~4 semanas a 50 por dia.
+- **Secundário: `{copas: 2, libertadores: 2}`** — ~3,5 dias no teto, ~1 semana a 50 por dia; está contido no
+  principal, então sai primeiro e anima a corrida.
+- `{copas: 3, libertadores: 2}` (o da rodada) fica como desafio lendário (2–3 meses para um jogador; 1–2 semanas com
+  5–10 disputando). `{copas: 3}` sozinho é mais difícil que o principal recomendado: se for usado, como principal.
+- **Não ativar `todas-as-conquistas`** (ninguém ganha). Para um desafio de coleção de 1–3 semanas, "o primeiro a 72
+  conquistas" — precisa de um critério novo no servidor (`{conquistas: n}`), que hoje não existe.
+- Os desafios nascem desativados com os critérios da rodada; o admin troca o critério e o título no painel
+  (`desafio_salvar`) antes de ativar.
+
+### R.7 Diferenças em relação ao contrato da rodada
+
+1. O estudo mediu, além das políticas pedidas (aleatória e gananciosa), o caçador (o plano das Taças do Rei), o
+   oráculo, o bônus de OVR, políticas de alvo para as conquistas e um experimento de sementes; e chegou a 35.613
+   carreiras (o pedido era 20 mil).
+2. A recomendação muda o critério da rodada (3 + 2 e 3 Copas): com os números medidos, eles levam de 1 a 3 meses
+   para um jogador dedicado, não 1 a 3 semanas.
+
+## §I Integração (conferência das seções, desencontros consertados e testes de ponta a ponta)
+
+Feito depois que os quatro agentes pararam: conferi a §A, a §B, a §C e a §R entre si e contra o contrato da rodada
+(rotas, ações, campos, poderes, links), consertei os desencontros no lado certo e rodei tudo contra a pilha real.
+
+### I.1 Desencontros consertados
+
+| o quê | onde estava errado | o que mudou |
+|---|---|---|
+| O recado do vencedor ("Parabéns! Você venceu o desafio “…”", §A.7) chegava no jogo como **"Aviso da moderação"** (ícone de alerta), no menu como "Minha conta · 1 aviso da moderação" e no lembrete como "Um aviso sobre o Hall público — a moderação deixou um recado" | entre §A e §B: o `aviso_conta` (v3.2) é o mesmo campo para os dois recados e o jogo só conhecia o da moderação | §A: `U.aviso` ganha `tipo: "desafio" \| "moderacao"` (`_contas.php`; `desafio` = começa com `LENDA_AVISO_VENCEDOR`, a constante nova do `_lib.php` que o `avisoVencedor()` usa). §B: `AvisoConta.tipo` (`conta.ts`; servidor sem o campo decide pelo começo do texto); Minha conta mostra "Você venceu um desafio!" em ouro com a coroa (`.sc-avisoconta.is-desafio`), o menu "Minha conta · você venceu um desafio!" e o lembrete é um toast de ouro "Você venceu um desafio!". O da moderação fica como era |
+| Confirmar o e-mail pelo "Confirmar" do checklist de `#/desafios`: o servidor avalia a conta na hora e a candidatura nasce (§A.3), mas o checklist do jogo só marcava o e-mail e continuava sem "Em verificação" até recarregar a tela | §B (`desafios.ts`) | quando a conta logada passa a `emailVerificado` com o checklist já carregado, o jogo pede o `?eu=1` de novo (teste novo no `v33.test.ts`; no e2e, "Em verificação" aparece sem recarregar) |
+| Regulamento de partida de um desafio de 1 Copa: "…uma carreira com **1 Copas do Mundo**…" | §A (`regulamentoPadrao`) | "1 Copa do Mundo" (o painel e o jogo já faziam o singular) |
+| `#/desafios` de um desafio que já tem vencedor (e não tem fim): o prazo dizia "sem data para acabar: vale até alguém vencer" | §B (`DesafiosTela.tsx`) | com vencedor, essa frase sai (o cartão do vencedor já diz quando) |
+
+Conferido e igual nos dois lados (sem mudança): o `links.verificar` do `?r=desafio` (`/lenda/#/verificar?id=PK&candidato=ID`)
+é o que a rota do jogo lê e o que o "Verificar no jogo" do painel abre (na mesma origem, com a sessão do painel); o
+`?r=carreira` (meta.temReplay, candidatos) que a `#/verificar` lê; `candidato_verificar {id | carreira, resultado}`;
+o `desafios.php` (lista, `encerrado`, vencedor e vencedor excluído) e o `?eu=1` aninhado em `eu` com `motivoTexto`; o
+`perfil` nos itens do `hall.php` e do `hall.php?id=`; o `perfil.php` (404 = "Perfil não encontrado"); o `suporte.php`
+(tipos, limites, isca, `pagina`); `verificar_email`/`reenviar_verificacao` (mensagens em pt-BR do `codigo_invalido` e do
+`429`); `partidas_dia_max` nas Configurações; os nomes pt-BR das 10 ações novas do registro (`NOMES_ACAO_LOG`); as 87
+conquistas iguais nos dois lados; os 3 de fábrica desativados e com prêmio vazio. Nada no código, nos textos ou nos
+testes diz o que o prêmio é: é o texto livre do admin.
+
+### I.2 Testes acrescentados ou mudados
+
+- `teste/integracao/e2e.mjs` — as etapas antigas que a v3.3 muda: o cadastro do A (b1) abre "Confirme seu e-mail" e o A
+  confirma com o código lido do e-mail do modo arquivo (código errado antes: erro em pt-BR); o B (c1) fecha com
+  "Depois"; o pulso tem 8 números (d2) e o celular passa pelas 16 abas (f10). Etapas novas **g1–g14** (ver I.3).
+- `teste/integracao/lib.mjs` — `jogarFila(page, fila)`: joga pela tela uma carreira REAL de `scripts/gravar/filas/`
+  (a semente fixada como no `jogarCarreira`, a identidade e o ritmo da fila e o mesmo cartão `#ck-opt-<idx>` em cada
+  decisão; cada clique espera o replay do estado ter as escolhas anteriores, para nunca clicar duas vezes na mesma
+  decisão); `emailsPara()` e `codigoDoEmail()` (os e-mails do modo arquivo e o código de 6 dígitos).
+- `teste/integracao/atualizar.php` — sabe de que versão parte (`_esquema` de antes; o publicado é a v3.2): espera o
+  `_esquema` desta árvore, aceita só a troca do número do `_esquema` em `site_config`, espera a sessão do painel da v3.2
+  continuar valendo (a da v3 deixa de valer, como antes) e manda o motivo no `ocultar_carreira` (a v3.2 pede). Para a
+  v3.3 confere também: contas de antes sem o e-mail confirmado (`U.emailVerificado: false`), as Libertadores preenchidas
+  nas carreiras guardadas (sem replay e sem `primeira_em`: não valem para desafio), os 3 desafios de fábrica desativados
+  e com prêmio vazio, `desafios.php` vazio, Fale conosco e o perfil público da conta de antes.
+- `teste/teste-v33.php` (+1: `U.aviso.tipo = "desafio"` do vencedor) e `teste/teste-v32-mod.php` (o aviso da moderação
+  continua `tipo: "moderacao"`); `src/site/v33.test.ts` (+1: o tipo do aviso, com e sem o campo do servidor) e
+  `src/site/v32.test.ts` (o `normalizarAvisoConta` devolve o `tipo`).
+- `LEIAME.md` (integração): as etapas da v3.3 do `e2e.mjs` e o `LENDA_ATUALIZAR_REF` com o commit publicado.
+
+### I.3 O que o e2e confere da v3.3 (etapas g, pela tela, com vários aparelhos)
+
+- **g1** os 3 desafios de fábrica desativados (critério, requisitos, prêmio vazio no banco); `desafios.php` vazio; sem
+  destaque na tela inicial, sem linha no menu; `#/desafios` "Nenhum desafio valendo agora".
+- **g2–g3** Fale conosco sem conta (o e-mail é obrigatório; grava o e-mail e a tela de onde veio) e com conta (pela Minha
+  conta; sem e-mail na linha); no painel, "Mensagens novas" no pulso, as duas na lista (HTML como texto), abrir marca como
+  lida, prévia do e-mail com o protocolo, a resposta sai pelo `enviarEmail` para o e-mail que o visitante deixou
+  (arquivo do teste + `email_log` tipo `suporte`; o Registro sem o texto).
+- **g4–g5** o desafio de teste criado no editor do painel (1 Copa + 2 Libertadores, 2 partidas, prêmio de teste),
+  desativado (o público não vê), ativado com o aviso "começa agora"; o público vê só ele (os 3 de fábrica continuam fora):
+  destaque com o prêmio, linha no menu, `#/desafios` com selo, critério, os 4 requisitos e o regulamento de partida.
+- **g6** o jogador R cria a conta pelo "Criar conta para participar" ("Depois" no código), joga uma carreira qualquer
+  e a fila real `v-otima-04` pelos cliques (12 de 12 escolhas): HallEntry `career-<semente>`, o replay com as mesmas
+  escolhas da fila, 1 Copa e 2 Libertadores; salva pelo botão (`tem_replay`, dentro do limite, depois do início); sem o
+  e-mail confirmado ainda não é candidato.
+- **g7** o checklist mostra o que falta (só o e-mail); "Confirmar" com o código do e-mail → a candidatura nasce no
+  servidor (`em` com milésimos) e o checklist mostra "Em verificação" sem recarregar.
+- **g8** HallEntry adulterada pela API: a carreira da fila com outro id e sem o replay é salva (`temReplay: false`) e
+  não vira candidata (`?eu=1`: `sem_replay` com a frase); outra carreira de verdade, com o replay dela e +1 Copa e
+  +2 Libertadores no resumo, vira candidata pendente depois da verdadeira.
+- **g9** no painel, os 2 candidatos na ordem do `em` (a verdadeira marcada como a primeira); "Verificar no jogo" abre o
+  `#/verificar` em outra aba: a verdadeira "Bateu" e é registrada sozinha (`verificada`, `verificacao.ok = true`); a
+  adulterada "Não bateu" com as linhas de Copas e Libertadores marcadas, nada é mandado sem o clique, e o "Registrar: não
+  bateu" a recusa com o motivo; o painel mostra "Bateu"/"Não bateu"; o jogador vê "Verificada".
+- **g10** `partidas_dia_max = 10` pelas Configurações; com 10 partidas no dia, a 11ª (jogada pela tela) conta no dia mas
+  não soma em `partidas_conta`; a carreira salva nesse dia, mesmo cumprindo o critério, fica `limite_diario` e não vira
+  candidata; o checklist diz "valem até 10 por dia (hoje: 11)" e o motivo.
+- **g11** "Declarar vencedor" com a confirmação forte (o apelido digitado): banco, `aviso_conta` e o registro; o R vê o
+  lembrete de ouro "Você venceu um desafio!", o menu e a Minha conta de vitória (não "aviso da moderação"); o público
+  (aparelho novo) não vê mais o destaque e vê "Tem vencedor" com o apelido (link ao perfil, "Venceu: …"); celular sem
+  rolagem lateral.
+- **g12** o link do perfil em Minha conta (copiar); aberto no celular de outra pessoa: apelido, as carreiras do Hall,
+  quem abre fica com o código de convite; a carreira abre o resumo da comunidade e "Carreira de …" volta ao perfil; o
+  apelido no Hall da comunidade abre o perfil; `perfil.php` com `desafiosVencidos`; perfil de quem fechou o Hall = 404
+  e "Perfil não encontrado".
+- **g13** Usuários com o filtro "E-mail não confirmado" (só o B), "Reenviar confirmação" (e-mail novo, `admin_verif`), e
+  o B confirma com o código novo pela faixa de Minha conta.
+- **g14** o Registro com as ações novas em pt-BR.
+
+### I.4 Resultados (rodada final, com todos os arquivos desta árvore)
+
+Pilha: o MariaDB compartilhado (`/run/mysqld/mysqld.sock`), bases em `/srv/lenda-v33-integ*` (755), portas 8930–8938,
+bancos `lenda_v33_integ*` (apagados no fim).
+
+- `servidor/teste/rodar.sh` **completo** (com as cargas, o Apache/.htaccess e o teste do painel pelo navegador):
+  **PASSOU — 1542 verificações** (a v3.3: 148) e **PAINEL: PASSOU** — `painel.mjs` 129 ok, `correcoes.mjs` 72 ok,
+  `v33.mjs` 132 ok, nenhuma falha, log do PHP limpo.
+- `npx tsc --noEmit -p .`: limpo. `npx vitest run`: **570 ok** (2 pulados, como antes), 47 arquivos.
+- `npm run build:site`: ok, 765 arquivos (20,8 MB).
+- `teste/integracao/e2e.mjs` inteiro (v3 + v3.2 + as etapas g da v3.3), contra o `dist-site/` desta árvore:
+  **PASSOU — 346 verificações, 0 falhas** (~14 min), nenhum erro de console, nenhum 5xx, nenhuma violação de CSP, log do PHP vazio.
+- `teste/integracao/atualizar.sh` com `LENDA_ATUALIZAR_REF=80a8d2a` (o v3.2 publicado): **PASSOU — 25 verificações**
+  (`_esquema` 32 → 33; nenhuma das 53 linhas de antes mudou; o instalar não altera nada na 2ª vez; a sessão do jogador e a
+  do painel continuam).
+- Rodadas que falharam antes (o que era): no e2e, só o teste — as linhas da v3.3 no menu e a parte da conta chegam num
+  pedaço à parte (o teste contava cedo demais) e o `getByText('E-mail confirmado')` pegava primeiro o regulamento
+  escondido no `<details>` fechado; e o checklist sem "Em verificação" depois de confirmar o e-mail, que era do produto
+  (I.1). No `atualizar.sh`, o `ocultar_carreira` sem motivo, que a v3.2 recusa (teste).
+- Intermitente, fora da v3.3: numa das cinco rodadas inteiras do e2e, a aba do B parou na tela de identidade depois do
+  `#/kit` da etapa f7 (v3.2, tester) e não seguiu mais as navegações (a f7 e a g13, que usa a mesma aba, falharam). Não se
+  repetiu nas outras quatro rodadas nem em três voltas de uma sonda com a mesma sequência (entrar, `#/identidade`,
+  recarregar, Imersivo do tester, `#/kit` → "Página não encontrada"). O `etapa()` do e2e agora registra o endereço de cada
+  aparelho quando uma etapa falha, para a próxima vez dizer onde a aba estava.
+- Prints revisados (1366/1440 e 390): `scratchpad/v33-prints/integ/e2e/` (`g*`: código do cadastro, Fale conosco,
+  Mensagens e a prévia da resposta, editor e lista de Desafios, destaque e `#/desafios`, a fila no fim, checklist antes
+  e depois de confirmar, `#/verificar` que bate e que não bate, candidatos no painel, limite diário, declarar,
+  vencedor no painel, lembrete e Minha conta do vencedor, `#/desafios` com vencedor no celular, perfil público no
+  celular, Usuários não confirmados, faixa de Minha conta, Registro) e `scratchpad/v33-prints/integ/painel/` (as abas do
+  painel em 1440 e 390, pelo `rodar.sh`).
+
+### I.5 Pendências (para o dono decidir antes de ativar um desafio com prêmio)
+
+1. **Semente escolhida no aparelho (R.5) — bloqueia prêmio.** A verificação por replay prova que a carreira é a que o
+   motor dá para aquela semente e aquelas escolhas, mas a semente sai do `crypto.getRandomValues` da página, que se troca
+   pelo console. Com o motor público, quem programa acha por fora uma carreira que cumpre o critério e joga com a semente
+   fixada: a verificação **bate**. Não é desencontro entre as seções (o contrato da rodada não pedia), então não foi
+   feito nesta rodada. Recomendação da §R: semente emitida pelo servidor no início da carreira logada (guardada com a
+   conta e a hora, uma por início, dentro do limite do dia) e só vale para desafio a carreira cujo `replay.seed` foi
+   emitido para aquela conta antes do início. Até lá, os desafios devem ficar desativados (é como nascem).
+2. **"Todas as conquistas" é impossível hoje (R.4):** a "Nômade" pede clubes das 6 confederações e o jogo só tem ligas
+   de 5. Não ativar `todas-as-conquistas` (ou mudar a conquista, ou criar um critério `{conquistas: n}`).
+3. **Critérios (R.6):** 3 Copas + 2 Libertadores leva de 2 a 3 meses para um jogador dedicado; para 1 a 3 semanas, a §R
+   recomenda `{copas: 2, libertadores: 3}` (principal) e `{copas: 2, libertadores: 2}` (secundário). O admin troca no
+   editor do painel antes de ativar; o regulamento deve dizer se carreira com bônus de OVR vale.
+4. Opcional (C.8 #9): `GET admin.php?r=suporte&id=` (a ficha da mensagem hoje acha a linha pela busca).
+5. Deploy (não feito aqui): subir `api/`, `painel/` e o `dist-site/` como de costume e rodar o `instalar.php` (só
+   acrescenta; testado por cima do v3.2 publicado, I.4). Sem commit, push nem deploy nesta rodada.
+
+## §E Correções (achados confirmados da revisão de fraude e de uso)
+
+Uma linha por achado: a causa, o que mudou e o teste que falhava antes. Testes novos: `servidor/teste/teste-v33-corr.php`
+(incluído pelo `teste.php` depois do `teste-v33.php`), `src/store/v33corr.test.ts` e `src/site/v33corr.test.ts`; nos
+testes antigos, só o que o contrato mudou (abaixo, E.4).
+
+### E.1 Tabela
+
+| # | achado | causa | correção | teste (falhava antes) |
+|---|---|---|---|---|
+| 1 | Candidato "foto": o forjado segura o "primeiro" e vence com a carreira de verdade (0 Copas) num desafio de 1 + 2 | o candidato nascia com a foto (Copas, Libertadores, `em`) e nada conferia de novo: o salvar só voltava `verificada`→`pendente`, o `candidato_verificar` e o `desafio_declarar_vencedor` não liam a carreira guardada nem o critério | `motivoCandidato()` (`_desafios.php`) confere o candidato com a linha de AGORA de `carreiras` e o critério de AGORA (e os requisitos e o Hall): no salvar com conteúdo novo (`candidatosCarreiraMudou`, em qualquer desafio sem vencedor), a cada `avaliarDesafiosConta`, no `candidato_verificar` (bateu mas não cumpre → `recusada`, "Bateu no replay, mas não vale: …") e no declarar, na mesma transação (`409 nao_cumpre` com `motivo` e `recusado`). Motivo da carreira (`DESAFIO_MOTIVOS_CARREIRA`) → recusado pelo sistema; se voltar a cumprir, volta a `pendente` com a hora de então (`garantirCandidato`; a recusa da equipe nunca muda). Salvar de novo com **outro replay** (o mesmo id, outras escolhas) é outra carreira: o `em` do candidato e o `primeira_em` recomeçam. A foto (Copas, Libertadores, jogador) acompanha a carreira | `teste-v33-corr.php` E.1 |
+| 2 | Contagem de taça com `count` negativo: o servidor grava 3 Copas, o replay refaz 1 e a verificação bate | `extrairCampos` cortava cada `count` em [0, 10.000] e somava; o `numerosDoResumo` somava cru (−2 cancelava +2); a `#/verificar` não comparava com os números do servidor | servidor: contagem de taça ou prêmio que não é inteiro de 0 a 10.000 (negativa, fração, texto, item que não é objeto) deixa a carreira suspeita (`dados`), e suspeita (menos a `revisao`) não vale para desafio (motivo `suspeita`). Jogo: `contagem()` lê como o servidor, `contagensInvalidas()` vira a diferença `contagem`, e a verificação recebe os números que o servidor gravou (`servidor`, do `meta` do `?r=carreira`) e acusa `servidor` quando diferem dos da carreira guardada | `teste-v33-corr.php` E.4; `src/store/v33corr.test.ts` §E.4 |
+| 3 | `replay.bonusOvr` sem conferência: +10 de OVR sem bônus nenhum, verificação batendo | o servidor só lia `career.bonusOvr` (e só ele ia contra a tabela `bonus`); o motor refazia com o do replay | servidor: `bonus_ovr` = o maior entre `career.bonusOvr` e `replay.bonusOvr`, e os dois têm de ser iguais e no formato (senão `bonus`); o bônus continua conferido contra a tabela `bonus` (usado nesta carreira, com o mesmo valor). `BONUS_OVR_MAX` = 10, o do motor (o painel e o bônus dão até +10; replay com mais sai do HallEntry). Jogo: diferença `bonus` quando o do replay ≠ o da carreira ≠ o do servidor | `teste-v33-corr.php` E.5; `src/store/v33corr.test.ts` §E.5 |
+| 4 | Limite de 100 partidas/dia só para quem joga logado: gera carreiras deslogado e entra só para salvar | a carreira salva não tinha ligação com um início contado pelo servidor | **semente sorteada pelo servidor** (a recomendação da R.5 #1/I.5 #1): `POST carreiras.php {acao:"semente"}` → `{semente:[a0,a1] \| null, id:"career-…", motivo: null \| "limite_diario", hoje, max}`, uma por início, até `partidas_dia_max` por dia de Brasília (`sementes_carreira`, 40 dias); o jogo pede ao começar a carreira do Clássico com a conta (`src/store/sementeCarreira.ts` + `src/site/pontes.ts`; espera até 2,5 s, sem resposta usa a do aparelho). O salvar grava `carreiras.semente_em` = quando a semente (o texto do replay) saiu para a conta; sem ela, motivo `sem_semente`; sorteada antes do começo do desafio, `antes_do_inicio` | `teste-v33-corr.php` E.6; `src/store/v33corr.test.ts` §E.6; `src/site/v33corr.test.ts` §E.6 |
+| 5 | "Todas as conquistas" decidido pelo que o aparelho manda, com "Conferi as conquistas" que não confere nada | as conquistas vêm só do cliente, sem prova | o desafio de critério `todasConquistas` não pode ser ativado (`desafio_ativar` e `desafio_salvar` de um ativo → `409 sem_prova`), nem verificado com "bateu" nem ter vencedor (`409 sem_prova`); o painel tira o "Conferi as conquistas", trava o "Ativar" com o porquê e avisa no candidato. Recusar continua valendo | `teste-v33-corr.php` E.7 |
+| 6 | Poucos IPs cadastrando contas esgotam a cota global de e-mails: ninguém recebe o código nem consegue reenviar | um teto único (`verif-todos`) para o e-mail automático do cadastro e para o "Reenviar código" | baldes (`_contas.php`): cadastro 120/10 min e 1.200/dia no site, 15/10 min por IP (HMAC) e 20/10 min por domínio (fora os grandes provedores); "Reenviar código" 40 e 400 (+10/10 min por IP); "Reenviar código" de quem já jogou (5+ partidas) outros 40 e 400. Total = a cota de antes. "Precisa de atenção": `emails_cota` (≥ 80% `acao`, cheio `grave`) | `teste-v33-corr.php` E.8 |
+| 7 | Ativar com início no passado: todos nascem no mesmo instante, na ordem do id da conta | `avaliarDesafioTodos` percorria por `usuario_id` e o `em` era o `agoraMs()` da iteração | no lote, as contas vão na ordem da carreira mais antiga e o `em` é a hora real conhecida: a maior entre `primeira_em`, a confirmação do e-mail (quando pedida) e o início do desafio (`emReal`) | `teste-v33-corr.php` E.9 |
+| 8 | (= 2, lente de uso) `[{count:3},{count:-2}]` numa carreira real: candidata, verificada e vencedora | igual ao 2 | igual ao 2 | `src/store/v33corr.test.ts` §E.4 (a fila real `v-otima-04`) |
+| 9 | (= 3, lente de uso) bônus apagado do career, +10 no replay | igual ao 3 | igual ao 3 | `src/store/v33corr.test.ts` §E.5 |
+| 10 | Candidato "foto" ao salvar de novo (A) e ao mudar o critério de um desafio valendo (B) | igual ao 1; e o `desafio_salvar` não mexia nos candidatos que já existiam | (A) igual ao 1; (B) mudar critério, requisitos ou prazo confere todos os pendentes/verificados (`reavaliarCandidatosDesafio`: "O desafio mudou: …"; a resposta traz `candidatosRecusados`); voltar a regra faz o recusado pelo sistema voltar | `teste-v33-corr.php` E.1 e E.2 |
+| 11 | Requisitos só no nascimento: Hall fechado depois, perfil 404 e vencedor declarado | o declarar só olhava conta suspensa/excluída e carreira existente | o declarar roda as mesmas regras (`motivoCandidato`: requisitos, Hall, top 3) → `409 nao_cumpre` (sem recusar: é da conta, a hora fica). O `?eu=1` traz `candidato.vale`, `motivoAgora` e `motivoAgoraTexto` (a tela mostra "Não vale agora" com a frase); o painel, `K.valeAgora {ok, motivo, texto}` e o "Declarar vencedor" travado com o motivo | `teste-v33-corr.php` E.3; `src/site/v33corr.test.ts` §E.3 |
+| 12 | `#/verificar` com os dados de hoje: toda carreira antiga "não bate" depois de uma atualização dos dados | não havia os dados de cada versão; a diferença de versão só virava aviso e a tela oferecia recusar | o build publica `dados/<DADOS_VERSAO>.json` (`scripts/build-site.mjs`; o deploy só acrescenta — não apague a pasta); a `#/verificar` refaz com a versão da carreira (conferida pelo hash do nome; `dadosParaVerificar`). Sem ela, a diferença só nos números refeitos é **inconclusiva** (`Verificacao.conclusao`): nada é mandado e a tela não oferece "Registrar: não bateu"; as diferenças que não dependem dos dados (semente, contagem, bônus, números do servidor) continuam "não bateu" | `src/store/v33corr.test.ts` §E.10 |
+| 13 | Checklist verde com carreira que não vale (sem replay etc.) | os itens usavam qualquer carreira de `carreirasQueCumprem` | `carreirasQueContam()` (`desafios.ts`): só as que valem ou só esperam o Hall deixam o critério, o Hall e o top 3 verdes; a que não vale põe o motivo no item do critério (`CarreiraQueCumpre.motivoCodigo`) | `src/site/v33corr.test.ts` §E.11 |
+| 14 | (= 4, lente de uso) a carreira salva não tinha ligação com as partidas contadas | igual ao 4 | igual ao 4: o limite do dia vale para as sementes (100 carreiras que contam por dia, como diz a R.3) | `teste-v33-corr.php` E.6 |
+
+### E.2 Contrato que mudou (em relação às §A e §B)
+
+- **§A.2 Banco:** `carreiras.semente_em DATETIME(3) NULL` e a tabela `sementes_carreira(id, usuario_id, semente, dia, emitida_em,
+  UNIQUE(usuario_id, semente))`. Quem rodou o instalar da v3.3 antes destas correções roda de novo (só acrescenta).
+  Backup: as sementes ficam de fora (como os códigos e as partidas por dia). LGPD: excluir a conta apaga as dela; somem em
+  40 dias (a carreira guarda `semente_em`).
+- **§A.3:** o teto dos e-mails de confirmação vira os baldes do E.1 #6.
+- **§A.6:** `BONUS_OVR_MAX` 20 → 10 (replay com `bonusOvr` > 10 sai do HallEntry). Plausibilidade: `bonus` também quando
+  `career.bonusOvr` ≠ `replay.bonusOvr`; `dados` também com contagem de taça/prêmio fora de 0 a 10.000.
+- **§A.7:** "Carreira que vale" ganha a semente sorteada pelo servidor para a conta depois do início (`sem_semente`,
+  `antes_do_inicio`) e sem suspeita (`suspeita`; a `revisao` vale). Motivos novos no `?eu=1`: `sem_semente`, `suspeita`.
+  `candidato` do `?eu=1` ganha `vale`, `motivoAgora`, `motivoAgoraTexto`; `K` ganha `valeAgora`; `candidato_verificar`
+  responde `candidatos: [{id, estado, motivo, valeAgora}]`; `desafio_salvar` responde `candidatosRecusados`; códigos novos
+  `409 nao_cumpre` (declarar: `{motivo, recusado}`) e `409 sem_prova` (ativar, salvar um ativo, verificar com ok e
+  declarar o de todas as conquistas). O regulamento de fábrica diz que a carreira tem de ser começada com a conta aberta
+  (a semente sorteada pelo servidor) e que o limite do dia vale para as carreiras começadas.
+- **§B.3:** `verificarCarreira(…, {servidor, dadosUsados})`; `Verificacao.conclusao` (`bateu | nao_bateu | inconclusiva`) e
+  `dados.usada/exata`; diferenças novas `contagem`, `bonus`, `servidor`; `resultado.detalhes` ganha `conclusao`,
+  `dadosUsados`, `dadosExatos`. Só "bateu" é mandado sozinho; "inconclusiva" não manda nada.
+- **§B.4:** a criação da carreira do Clássico com a conta espera a semente do servidor (até 2,5 s; "Começando…" no botão).
+
+### E.3 Decisões e o que fica para o dono
+
+1. Requisito que falha depois (Hall fechado, fora das 3, conta suspensa, e-mail) **não** recusa o candidato sozinho: ele
+   fica "não vale agora" com a hora guardada, e o declarar responde `409 nao_cumpre` enquanto durar. Assim uma ocultação
+   por denúncias (ou um Hall fechado por um dia) não tira o lugar de ninguém; o admin recusa com o motivo quando for o
+   caso. Só o que é da carreira (critério, replay, semente, limite, suspeita, prazo, apagada) recusa sozinho.
+2. Com o mesmo replay e outro resumo (a mesma carreira, números corrigidos), o `em` fica: a carreira que o replay prova
+   já estava na conta. Com outro replay, recomeça. O candidato recusado pelo sistema que volta a cumprir (outra carreira,
+   ou a mesma corrigida) volta para `pendente` com o `em` da hora em que voltou, nunca com um `em` mais antigo (nem o do
+   lote, nem o de antes da recusa).
+3. Viés conhecido do lote (E.1 #7): a hora em que a conta chegou às partidas mínimas e a da publicação no Hall não ficam
+   guardadas; o `em` do lote usa a entrada da carreira, a confirmação do e-mail e o início. Não use início retroativo
+   num desafio com prêmio.
+4. A semente do servidor impede escolher a semente por fora; ainda dá para provar as escolhas de uma semente sorteada
+   (copiar o IndexedDB, o "oráculo" da R.5 #2): o limite de carreiras por dia é o que segura isso.
+5. Bônus de OVR: carreira com bônus vale se o bônus foi o que a conta ganhou e usou nela (a tabela `bonus`). Se o
+   regulamento deve aceitar carreira com bônus é decisão do dono (R.5 #3).
+6. A verificação "inconclusiva" (carreira de uma versão dos dados que não está em `dados/`) fica para o admin decidir no
+   painel. As carreiras jogadas antes do primeiro deploy com a pasta `dados/` só verificam com a versão de hoje.
+
+### E.4 Testes antigos que mudaram (só o que o contrato mudou)
+
+- `teste/teste-v33.php`: as contas de `v33Conta` ganham a semente do replay das filas como sorteada pelo servidor (o
+  `salvarC` do `teste-v3.php` chama `v33AntesDeSalvar`, que só existe com o `teste-v33.php` carregado; o salvar em paralelo
+  grava a semente antes); `v33Ativar` também envelhece a semente sorteada no mesmo segundo; o teto do "Reenviar código" é
+  o balde `verif-ped` (40), não o `verif-todos` (200); o desafio de todas as conquistas é ligado direto no banco (o
+  `desafio_ativar` dele agora é `409 sem_prova`, conferido); o `?r=carreira` procura o candidato pelo slug (o do lote com
+  início no passado nasce com a hora real e pode vir antes) e o `{carreira: pk}` do `candidato_verificar` confere só `id` e
+  `estado` dos itens (a resposta ganhou `motivo` e `valeAgora`).
+- `teste/teste-v32-integ.php`: espera o `email_log` do "esqueci" pelo SMTP (ele é gravado depois do QUIT, um instante
+  depois da mensagem chegar na caixa; corrida do teste que apareceu numa rodada desta correção).
+- `teste/painel/semente-v33.mjs`: grava a semente do replay real como sorteada para as contas que salvam carreira.
+  `teste/painel/v33.mjs`: o "Ativar" do de todas as conquistas travado (e o `409 sem_prova`); o diálogo de ativar é
+  conferido num desafio de teste criado e apagado ali.
+- `teste/integracao/lib.mjs`: com a semente fixada pelo teste (`jogarCarreira` com `o.semente` e `jogarFila`), a resposta
+  do `{acao: "semente"}` é trocada pelo par do teste e o banco grava que foi ele o sorteado para a conta
+  (`fixarSementeDoServidor`).
+- `src/site/v33.test.ts`: o normalizador do `?eu=1` traz também `motivoCodigo`.
+
+### E.5 Resultados (rodada final, com todos os arquivos desta árvore)
+
+Pilha: o MariaDB compartilhado (`/run/mysqld/mysqld.sock`), bases em `/srv/lenda-v33-corr*` (755), portas 8960–8967,
+bancos `lenda_v33_corr*` (apagados no fim).
+
+- `servidor/teste/rodar.sh` **completo** (com as cargas, o Apache/.htaccess e o teste do painel pelo navegador):
+  **PASSOU — 1583 verificações** (as da §E em `teste/teste-v33-corr.php`, seções §E.1 a §E.9) e **PAINEL: PASSOU** —
+  `painel.mjs` 129 ok, `correcoes.mjs` 72 ok, `v33.mjs` 135 ok, nenhuma falha, log do PHP sem aviso nem erro.
+- `npx tsc --noEmit -p .`: limpo. `npx vitest run`: **585 ok** (2 pulados, como antes), 49 arquivos; os novos:
+  `src/store/v33corr.test.ts` (7, com carreiras reais das filas jogadas pelo store) e `src/site/v33corr.test.ts` (8).
+- `npm run build:site`: ok, 766 arquivos, com `dados/<versão>.json` (os dados do jogo desta versão, que o `#/verificar`
+  usa para refazer as carreiras jogadas com ela).
+- `teste/integracao/e2e.mjs` inteiro, contra o build desta árvore: **PASSOU — 346 verificações, 0 falhas** (~15 min);
+  o instalar na pilha de antes acrescentou só `carreiras: coluna semente_em` (e a tabela nova); nenhum erro de console,
+  nenhum 5xx, nenhuma violação de CSP.
+- `teste/integracao/atualizar.sh` (o v3.2 publicado → esta árvore): **PASSOU — 25 verificações** (nenhuma linha de antes
+  mudou; o instalar não altera nada na 2ª vez; as sessões de antes continuam).
+- Rodadas que falharam antes: uma do produto — o candidato recusado pelo sistema que voltava a cumprir no lote nascia
+  com um `em` mais antigo que o original (agora é a hora em que voltou, E.3 #2). As outras, do teste: as carreiras dos
+  testes antigos sem a semente sorteada (o gancho `v33AntesDeSalvar`); o `candidatos[0]` do `?r=carreira` e uma
+  comparação estrita com os campos novos; o §E.9 contando candidatos de outras contas; a corrida do `email_log` do SMTP
+  (`teste-v32-integ.php`); e no `v33.mjs` o `#/desafios` pedido de novo sem sair da aba (o mesmo hash não recarrega a
+  lista, e o desafio de teste recém-criado não aparecia).
+
+
+## §F Rodada final (tudo de novo, numa pilha nova, com todos os arquivos desta árvore)
+
+Nada foi mudado no código nem nos testes nesta rodada: tudo passou na primeira volta. Pilha: o MariaDB compartilhado
+(`/run/mysqld/mysqld.sock`), bases em `/srv/lenda-v33-final*` (755, apagadas no fim), portas 8970–8979, bancos
+`lenda_v33_final*` (apagados no fim); cada `php -S` encerrado pelo PID.
+
+- `servidor/teste/rodar.sh` **completo** (com as cargas, o Apache/.htaccess na 8971 e o teste do painel pelo navegador na
+  8976): **PASSOU — 1583 verificações** e **PAINEL: PASSOU** — `painel.mjs` 129 ok, `correcoes.mjs` 72 ok, `v33.mjs`
+  135 ok, 0 falhas; log do PHP sem aviso nem erro; 100 mil eventos e a carga de 2.000 contas / 8.000 carreiras dentro dos
+  tempos.
+- `npx tsc --noEmit -p .`: limpo. `npx vitest run`: **585 ok, 2 pulados** (49 arquivos passaram, 2 pulados).
+- `npm run build:site`: ok, **766 arquivos (21,94 MB)** em `dist-site/`, com `dados/2026-09-28.ff31cb13.json`.
+  `dist-site/api/` (31 arquivos, com o `.htaccess`) e `dist-site/privacidade.html` iguais byte a byte aos de `servidor/`;
+  `dist-site/painel/` igual ao `servidor/painel/` menos o `nomes.json`, que o build refaz dos dados do jogo a cada vez e
+  só difere no `geradoEm` (o conteúdo — clubes, países, troféus, prêmios e conquistas — é o mesmo). Nenhum arquivo de
+  teste, `.md`, `.log`, `_config*.php`, chave ou segredo no `dist-site/`.
+- Pilha nova do `subir.sh` (porta 8978, banco `lenda_v33_final_integ`): os 3 desafios de fábrica (`tacas-do-rei`,
+  `tacas-do-rei-copas`, `todas-as-conquistas`) com `ativo = 0`, `inicio`/`fim` NULL, **`premio` vazio**, nenhum candidato;
+  `desafios.php` → `{"desafios":[]}`; o `instalar.php` de novo → `alteracoes: []`, `v33: {libertadores: 0, desafios: 0}`.
+- `teste/integracao/e2e.mjs` **inteiro** (v3 + v3.2 + as etapas g1–g14 da v3.3), contra o `dist-site/` deste build:
+  **PASSOU — 346 ok, 0 falhas** (875 s); CSP do painel sem violação, console sem erro, nenhuma resposta 5xx, log de erros
+  do PHP vazio.
+- A mais: `teste/integracao/atualizar.sh` (`LENDA_ATUALIZAR_REF=80a8d2a`, o v3.2 publicado → esta árvore, porta 8979):
+  **PASSOU — 25 verificações** (nenhuma linha de antes mudou; o instalar não altera nada na 2ª vez; as contas de antes sem
+  o e-mail confirmado; os desafios de fábrica desativados e com o prêmio vazio).
+- Pendências para o dono continuam as da I.5 (#2 a #5) e da E.3; a I.5 #1 (semente escolhida no aparelho) foi resolvida
+  pela semente sorteada pelo servidor (E.1 #4). Sem commit, push nem deploy.

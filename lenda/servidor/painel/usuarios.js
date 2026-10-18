@@ -649,7 +649,7 @@
       aoClicar: abrir,
       rotuloLinha: (m) => 'Abrir a mensagem ' + m.protocolo,
       colunas: [
-        { rotulo: 'Protocolo', principal: true, celula: (m) => h('span', { class: 'mono' }, m.protocolo) },
+        { rotulo: 'Protocolo', principal: true, celula: (m) => h('a', { href: LP.hash('mensagens', { status: 'todas', q: m.protocolo, mensagem: m.id }), class: 'link-discreto mono' }, m.protocolo) },
         { rotulo: 'Assunto', celula: (m) => LP.NOMES_TIPO_SUPORTE[m.tipo] || m.tipo },
         { rotulo: 'Situação', classe: 'situacao', celula: (m) => LP.chipStatusSuporte(m.status) },
         { rotulo: 'Recebida', celula: (m) => LP.quando(m.criadoEm) },

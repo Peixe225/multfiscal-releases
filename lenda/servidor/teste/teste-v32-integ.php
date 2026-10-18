@@ -84,6 +84,11 @@ if (checar('servidor SMTP de mentira no ar (STARTTLS com o certificado desta rod
             && preg_match('/^Subject: =\?UTF-8\?B\?/m', $cab) === 1 && preg_match('/^Message-ID: <[0-9a-f]{24}@oprojeto\.online>/m', $cab) === 1 && $cod !== null,
             substr($cab, 0, 300));
         $el = $ultimoEmailLog();
+        // o email_log é gravado depois do QUIT do SMTP: a mensagem chega na caixa um instante antes (v3.3 §E: corrida do teste)
+        for ($i = 0; $i < 40 && ($el['tipo'] ?? '') !== 'esqueci'; $i++) {
+            usleep(50_000);
+            $el = $ultimoEmailLog();
+        }
         checar('…email_log: via smtp, ok, tipo esqueci, endereço só mascarado', ($el['via'] ?? '') === 'smtp' && (int) ($el['ok'] ?? 0) === 1 && ($el['tipo'] ?? '') === 'esqueci'
             && ($el['detalhe'] ?? null) === null && !str_contains(json_encode($el), $emailS1), json_encode($el));
         resetarLimitesCurtos();

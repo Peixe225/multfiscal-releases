@@ -5,7 +5,8 @@
 # Monta um public_html de mentira (lenda/api, lenda/painel), um banco próprio, a config com segredos aleatórios
 # (só na pasta de trabalho), roda o instalar.php, planta dados de mentira (semente.mjs: contas, carreiras, denúncias,
 # indicações, mesmo aparelho, lixeira, bônus, e-mails, equipe, recados) e roda painel.mjs (o painel pelo navegador) e,
-# na mesma pilha, correcoes.mjs (as correções da revisão 3).
+# na mesma pilha, correcoes.mjs (as correções da revisão 3) e v33.mjs (v3.3: Mensagens, Desafios, e-mail confirmado e
+# partidas por dia; planta o que precisa com o semente-v33.mjs).
 # Termina com PASSOU/FALHOU; código 0 só se tudo passou. Mata pelo PID só o que subiu; apaga o banco no fim.
 # Variáveis: LENDA_TESTE_PAINEL_PORTA (8717), LENDA_TESTE_PAINEL_BANCO (lenda_teste_painel),
 #   LENDA_TESTE_PAINEL_BASE (${LENDA_TESTE_BASE:-/tmp/lenda-teste}/painel), LENDA_TESTE_SOCK (/run/mysqld/mysqld.sock),
@@ -116,6 +117,8 @@ node "$AQUI/painel.mjs"
 CODIGO=$?
 # as correções da revisão 3 (fila ao vivo, foco no pulso, botões travados, coluna fixa…), na mesma pilha, depois
 node "$AQUI/correcoes.mjs" || CODIGO=1
+# v3.3: as abas Mensagens e Desafios, o e-mail confirmado e o limite de partidas por dia (com a semente própria)
+node "$AQUI/v33.mjs" || CODIGO=1
 if grep -q "PHP \(Fatal\|Parse\)" "$BASE/php-erros.log" 2>/dev/null; then
   echo "  XX  erro fatal no PHP durante o teste do painel:"; grep "PHP \(Fatal\|Parse\)" "$BASE/php-erros.log" | head -5
   CODIGO=1

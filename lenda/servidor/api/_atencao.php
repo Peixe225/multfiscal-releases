@@ -16,6 +16,7 @@ if (isset($_SERVER['SCRIPT_FILENAME']) && realpath((string) $_SERVER['SCRIPT_FIL
 }
 
 require_once __DIR__ . '/_hall.php';
+require_once __DIR__ . '/_contas.php'; // §E: a cota dos e-mails de confirmação (cotaEmailsVerif)
 
 const ATENCAO_ESTADO = '_atencao';
 const ATENCAO_TTL_S = 60;
@@ -363,6 +364,21 @@ function calcularAlertas(): array
         $n = (int) umValor('SELECT COUNT(*) FROM email_log WHERE ok = 0 AND em >= ?', [$dia]);
         return $n < 5 ? [] : [alerta('emails_falhando', 'grave', plural($n, 'e-mail falhou', 'e-mails falharam') . ' em 24 h', $n, null,
             ['aba' => 'registro', 'filtro' => 'emails'], false)];
+    });
+    regraAlerta($a, static function (): array {
+        // §E: a cota dos e-mails de confirmação perto do fim (um balde com 80% ou mais): cheio, quem cadastra fica sem o código
+        if (!esquemaV33()) {
+            return [];
+        }
+        $c = cotaEmailsVerif();
+        if (!$c) {
+            return [];
+        }
+        $nomes = ['cadastro' => 'do cadastro', 'pedido' => 'do “Reenviar código”', 'jogador' => 'do “Reenviar código” de quem já jogou'];
+        $cheio = array_values(array_filter($c, static fn(array $b): bool => $b['cheio']));
+        $txt = 'Cota de e-mails de confirmação ' . ($cheio ? 'esgotada' : 'quase no fim') . ': ' . implode(', ', array_map(static fn(array $b): string =>
+            ($nomes[$b['tipo']] ?? $b['tipo']) . ' (' . $b['n10'] . ' de ' . $b['max10'] . ' em 10 min, ' . $b['nDia'] . ' de ' . $b['maxDia'] . ' hoje)', $c));
+        return [alerta('emails_cota', $cheio ? 'grave' : 'acao', $txt, count($c), null, ['aba' => 'registro', 'filtro' => 'emails'], false)];
     });
     regraAlerta($a, static function () use ($dia): array {
         // v3.3: mensagens do Fale conosco ainda novas (ninguém leu) há mais de 24 h

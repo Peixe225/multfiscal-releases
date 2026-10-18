@@ -7,6 +7,10 @@
  * o resultado com candidato_verificar. Bateu: manda sozinho (o candidato fica "verificado"; declarar o vencedor continua
  * no painel, com a confirmação forte). Não bateu: mostra as diferenças e só manda com o clique (o servidor recusa o
  * candidato com o motivo).
+ * §E: compara também os números que o servidor gravou (meta) e o bônus do replay; refaz com a versão dos dados com que a
+ * carreira foi jogada (dados/<versão>.json); sem ela, uma diferença só nos números refeitos é "inconclusiva" e a tela não
+ * oferece recusar. Com a verificação que bate, o servidor ainda pode recusar (a carreira guardada não cumpre mais o
+ * desafio): a tela mostra o que ele fez.
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ArrowLeft, CircleCheck, CircleX, ExternalLink, FileSearch, RotateCcw, Send, ShieldAlert, TriangleAlert } from 'lucide-react'
@@ -19,7 +23,7 @@ import { Button, Skeleton, cx, formatInt, toast } from '@/ui/primitives'
 import { PlaceholderScreen } from '@/ui/shell/Placeholder'
 import { useShellSlots } from '@/ui/shell/slots'
 import { ErroApi, mensagemDeErro } from './api'
-import { alvoDoResultado, buscarCarreiraAdmin, mandarResultado, type CarreiraParaVerificar } from './verificacao'
+import { alvoDoResultado, buscarCarreiraAdmin, dadosParaVerificar, mandarResultado, type CandidatoFeito, type CarreiraParaVerificar } from './verificacao'
 import { ROTULO_ESTADO } from './desafios'
 import './site.css'
 import './v33.css'
@@ -30,7 +34,7 @@ type Fase =
   | { f: 'rodando'; passo: number; total: number }
   | { f: 'pronta'; v: Verificacao }
 
-type Envio = { s: 'nada' } | { s: 'mandando' } | { s: 'mandado'; ok: boolean } | { s: 'falhou'; texto: string }
+type Envio = { s: 'nada' } | { s: 'mandando' } | { s: 'mandado'; ok: boolean; feitos: CandidatoFeito[] } | { s: 'falhou'; texto: string }
 
 export default function VerificarTela() {
   const query = useApp((s) => s.route.query)
@@ -69,9 +73,12 @@ function Verificar({ id, candidato }: { id: string; candidato?: string }) {
       setEnvio({ s: 'mandando' })
       try {
         const { resultadoParaServidor } = await import('@/engine/verificar')
-        await mandarResultado(alvo, resultadoParaServidor(v))
-        setEnvio({ s: 'mandado', ok: v.ok })
-        toast.success(v.ok ? 'Verificação registrada no painel' : 'Resultado registrado: candidato recusado', v.ok ? 'O candidato ficou “verificado”. Declarar o vencedor é no painel.' : 'O motivo vai junto (as diferenças desta tela).')
+        const feitos = await mandarResultado(alvo, resultadoParaServidor(v))
+        setEnvio({ s: 'mandado', ok: v.ok, feitos })
+        // §E: bateu, mas o servidor recusou (a carreira guardada não cumpre mais o critério de agora)
+        const recusou = v.ok && feitos.some((k) => k.estado === 'recusada')
+        if (recusou) toast.info('Bateu, mas o servidor recusou', feitos.find((k) => k.estado === 'recusada')?.motivo ?? 'A carreira guardada não cumpre mais o desafio.')
+        else toast.success(v.ok ? 'Verificação registrada no painel' : 'Resultado registrado: candidato recusado', v.ok ? 'O candidato ficou “verificado”. Declarar o vencedor é no painel.' : 'O motivo vai junto (as diferenças desta tela).')
         // os estados novos dos candidatos
         void buscarCarreiraAdmin(id)
           .then((n) => setC((x) => (x ? { ...x, candidatos: n.candidatos } : n)))
@@ -101,10 +108,15 @@ function Verificar({ id, candidato }: { id: string; candidato?: string }) {
     if (minha !== vez.current) return
     setC(car)
     try {
-      const [{ careerEngine }, { verificarCarreira }, data] = await Promise.all([import('@/engine/career/default'), import('@/engine/verificar'), useData.getState().load()])
+      const [{ careerEngine }, { verificarCarreira }, hoje] = await Promise.all([import('@/engine/career/default'), import('@/engine/verificar'), useData.getState().load()])
       if (useData.getState().source !== 'real') throw new Error('O jogo carregou os dados de exemplo: a verificação precisa dos dados reais.')
       setFase({ f: 'rodando', passo: 0, total: 0 })
-      const v = await verificarCarreira(careerEngine, data, car.entry, computeLegacy, {
+      // §E: os dados da versão com que a carreira foi jogada (sem ela, os de hoje, e a verificação diz que não são os mesmos)
+      const dadosCarreira = (car.entry as { replay?: { dados?: unknown } }).replay?.dados
+      const d = await dadosParaVerificar(typeof dadosCarreira === 'string' ? dadosCarreira : '', hoje)
+      const v = await verificarCarreira(careerEngine, d.data, car.entry, computeLegacy, {
+        servidor: car.servidor,
+        dadosUsados: d.versao,
         versaoNota: LEGACY_VERSION,
         ceder: async (passo, total) => {
           if (minha === vez.current) setFase({ f: 'rodando', passo, total })
@@ -228,6 +240,17 @@ function Progresso({ fase }: { fase: Extract<Fase, { f: 'buscando' | 'rodando' }
 }
 
 function Veredito({ v }: { v: Verificacao }) {
+  if (v.conclusao === 'inconclusiva')
+    return (
+      <p className="sv-veredito is-nao">
+        <TriangleAlert aria-hidden="true" />
+        <span>
+          <b>Inconclusiva: outra versão dos dados do jogo</b>
+          {v.motivo ? `${v.motivo} ` : ''}A carreira foi jogada com a versão {v.dados.carreira.replace('>', ' e depois ')} dos dados, e o jogo não tem como refazê-la com os
+          mesmos dados (refez com a {v.dados.usada}). Os números refeitos não provam trapaça: confira à mão e decida no painel.
+        </span>
+      </p>
+    )
   if (v.motivo)
     return (
       <p className="sv-veredito is-nao">
@@ -312,13 +335,14 @@ function Notas({ v }: { v: Verificacao }) {
   return (
     <ul className="sv-notas">
       {outras.map((d) => (
-        <li key={d.campo} className="is-dif">
+        <li key={`${d.campo}:${d.rotulo}`} className="is-dif">
           <b>{d.rotulo}:</b> guardado {String(d.guardado ?? '—')} · refeito {String(d.refeito ?? '—')}
         </li>
       ))}
       {dadosMudaram && (
         <li>
-          <b>Versão dos dados:</b> a carreira foi jogada com {v.dados.carreira.replace('>', ' e depois ')}; este jogo está com {v.dados.agora}. Uma diferença pode vir daí, e não de trapaça.
+          <b>Versão dos dados:</b> a carreira foi jogada com {v.dados.carreira.replace('>', ' e depois ')}; este jogo está com {v.dados.agora}
+          {v.dados.exata ? ` (refeita com a ${v.dados.usada}, a mesma da carreira).` : `. Refeita com a ${v.dados.usada}: uma diferença só nos números refeitos pode vir daí, e não de trapaça.`}
         </li>
       )}
       {v.avisos.map((a) => (
@@ -330,12 +354,28 @@ function Notas({ v }: { v: Verificacao }) {
 
 function EnvioResultado({ v, envio, onMandar }: { v: Verificacao; envio: Envio; onMandar: () => void }) {
   if (envio.s === 'mandando') return <p className="sc-hint">Registrando no painel…</p>
-  if (envio.s === 'mandado')
+  if (envio.s === 'mandado') {
+    // §E: o que o servidor fez de fato (com a verificação que bateu, ele recusa a carreira guardada que não cumpre mais)
+    const recusado = envio.feitos.find((k) => k.estado === 'recusada')
+    if (envio.ok && recusado)
+      return (
+        <p className="sc-err" role="status">
+          Bateu no replay, mas o servidor recusou o candidato: {recusado.motivo ?? 'a carreira guardada não cumpre mais o desafio.'}
+        </p>
+      )
     return (
       <p className="sc-ok" role="status">
         <CircleCheck aria-hidden="true" />
         <span>{envio.ok ? 'Registrado no painel: o candidato ficou “verificado”.' : 'Registrado no painel: o candidato foi recusado, com as diferenças como motivo.'}</span>
       </p>
+    )
+  }
+  if (v.conclusao === 'inconclusiva')
+    return (
+      <div className="sv-envio">
+        {envio.s === 'falhou' && <p className="sc-err">{envio.texto}</p>}
+        <p className="sc-hint">Nada foi mandado: uma verificação inconclusiva não recusa o candidato. Confira a carreira à mão (o resumo abre abaixo) e, se for o caso, recuse no painel com o motivo.</p>
+      </div>
     )
   return (
     <div className="sv-envio">

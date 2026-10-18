@@ -4,6 +4,7 @@
  *
  *   node scripts/estudos/raridade.mjs simular --plano padrao --saida <pasta> [--workers 3] [--n 1000]
  *   node scripts/estudos/raridade.mjs analisar --saida <pasta>        (lê <pasta>/*.jsonl e escreve <pasta>/resumo.json)
+ *   node scripts/estudos/raridade.mjs tabela-conquistas --saida <pasta>   (a tabela das 87 conquistas em <pasta>/conquistas.md)
  *
  * `simular` empacota scripts/estudos/raridade-motor.ts (o motor REAL do jogo, src/engine, e os dados reais
  * src/data/generated/game-data.json) com o rolldown numa pasta temporária, reparte as carreiras entre workers e grava
@@ -12,10 +13,13 @@
  *
  * Planos:
  *   padrao     o estudo principal: aleatória, gananciosa e caçador × nacionalidades × posições × ritmos (sem bônus);
+ *   extra      a melhor estratégia com amostra maior: caçador argentino (5.000) e guloso espanhol (3.000);
  *   bonus      o caçador com bônus de OVR +2 e +5 (o que um jogador ganha compartilhando e indicando);
  *   alvos      as políticas de alvo (mochileiro, sul-americano, fiel, europeu) para as conquistas de carreira montada;
+ *   alvos2     o artilheiro (atacantes) e o goleiro guloso (goleiros), para as conquistas de gols e de goleiro;
  *   oraculo    o caçador que prova cada opção antes de escolher (o teto de quem "volta no tempo");
  *   sementes   as mesmas sementes com três políticas (quanto do mundo, como quem ganha cada Copa, vem só da semente);
+ *   condicional  joga de novo nas sementes cujo mundo deu 2 ou 3+ Copas a uma seleção (roda por último: lê os outros);
  *   rapido     60 carreiras, para conferir que tudo roda.
  */
 import { Worker, isMainThread, parentPort, workerData } from 'node:worker_threads'
@@ -102,6 +106,15 @@ function planos(nBase) {
       { nome: 'alvo-fiel', pol: 'fiel', nacoes: ['BRA', 'ARG', 'ESP', 'ENG', 'GER', 'ITA', 'FRA', 'POR'], n: n(400), bonus: 0 },
       { nome: 'alvo-europeu', pol: 'europeu', nacoes: ['ESP', 'ENG', 'FRA', 'GER', 'ITA', 'BRA', 'ARG', 'POR'], n: n(500), bonus: 0, ritmos: ['intensa', 'normal'] },
     ],
+    alvos2: [
+      { nome: 'alvo-artilheiro', pol: 'artilheiro', nacoes: ['BRA', 'ARG', 'ESP', 'FRA', 'ENG', 'POR'], n: n(500), bonus: 0, posicoes: ['CA', 'PE', 'PD', 'CA'] },
+      { nome: 'alvo-goleiro', pol: 'gananciosa', nacoes: ['ESP', 'FRA', 'ENG', 'GER', 'BRA', 'ARG', 'ITA', 'POR'], n: n(400), bonus: 0, posicoes: ['GOL'] },
+    ],
+    // a melhor estratégia de cada desafio, com amostra maior (as 3 Copas são raras demais para a amostra comum)
+    extra: [
+      { nome: 'cac-arg', pol: 'cacador', nacoes: ['ARG'], n: n(5000), bonus: 0 },
+      { nome: 'gan-esp', pol: 'gananciosa', nacoes: ['ESP'], n: n(3000), bonus: 0 },
+    ],
     bonus: [
       { nome: 'cac-bonus2', pol: 'cacador', nacoes: ['BRA', 'ARG'], n: n(1000), bonus: 2 },
       { nome: 'cac-bonus5', pol: 'cacador', nacoes: ['BRA', 'ARG'], n: n(1000), bonus: 5 },
@@ -113,8 +126,10 @@ function planos(nBase) {
 }
 
 function configs(lote, salt) {
+  if (lote.tarefas) return lote.tarefas
   const out = []
   const ritmos = lote.ritmos ?? RITMOS
+  const posicoes = lote.posicoes ?? POSICOES
   for (let i = 0; i < lote.n; i++) {
     const r = rngDe(Math.imul(i + 1, 2654435761) ^ salt)
     const a0 = u32(r)
@@ -125,8 +140,8 @@ function configs(lote, salt) {
         a0,
         a1,
         nat: lote.nacoes[i % lote.nacoes.length],
-        pos: POSICOES[Math.floor(i / lote.nacoes.length) % POSICOES.length],
-        pace: ritmos[Math.floor(i / (lote.nacoes.length * POSICOES.length)) % ritmos.length],
+        pos: posicoes[Math.floor(i / lote.nacoes.length) % posicoes.length],
+        pace: ritmos[Math.floor(i / (lote.nacoes.length * posicoes.length)) % ritmos.length],
         pol: lote.pol,
         bonus: lote.bonus,
       },
@@ -163,7 +178,7 @@ async function simular() {
   mkdirSync(saida, { recursive: true })
   const nBase = Number(opt('n', '1000')) / 1000
   const plano = opt('plano', 'rapido')
-  const lotes = planos(nBase)[plano]
+  const lotes = plano === 'condicional' ? planoCondicional(saida, nBase) : planos(nBase)[plano]
   if (!lotes) throw new Error(`plano desconhecido: ${plano}`)
   const nw = Math.max(1, Number(opt('workers', String(Math.max(1, cpus().length - 1)))))
   const { pasta, pacote } = await empacotar()
@@ -209,6 +224,52 @@ async function simular() {
   } finally {
     rmSync(pasta, { recursive: true, force: true })
   }
+}
+
+/**
+ * Plano "condicional" (para medir o que é raro demais para a amostra comum): quem ganha cada Copa vem quase todo da
+ * semente (ver o plano "sementes"). Então P(3 Copas) = Σ_k P(o mundo dá k Copas à seleção) × P(3 Copas | mundos com
+ * k). Este plano pega, das carreiras já simuladas, sementes cujo mundo deu 2 ou 3+ Copas a cada seleção e joga de
+ * novo nelas com um jogador dessa seleção (várias posições e ritmos); a análise junta com a frequência de cada k em
+ * todos os mundos simulados.
+ */
+function planoCondicional(saida, nBase) {
+  const tudo = lerTudo(saida).filter((r) => !r.lote.startsWith('cond-') && Array.isArray(r.wc) && r.wc.length >= 6)
+  // [seleção, política, sementes no máximo]: o caçador nas sul-americanas (Copas + Libertadores), o guloso nas outras
+  // (só Copas) e o oráculo na Argentina (o teto de quem prova as opções)
+  const NACOES = [
+    ['ARG', 'cacador', 60],
+    ['BRA', 'cacador', 60],
+    ['ESP', 'gananciosa', 60],
+    ['FRA', 'gananciosa', 60],
+    ['ENG', 'gananciosa', 60],
+    ['ARG', 'oraculo', 25],
+  ]
+  const porSeed = 6
+  const lotes = []
+  for (const [nat, pol, maxBase] of NACOES)
+    for (const k of [2, 3]) {
+      const max = Math.max(1, Math.round(maxBase * nBase))
+      const vistas = new Set()
+      const sementes = []
+      for (const r of tudo) {
+        const c = r.wc.filter((x) => x === nat).length
+        const chave = `${r.a0}.${r.a1}`
+        if ((k === 3 ? c >= 3 : c === 2) && !vistas.has(chave)) {
+          vistas.add(chave)
+          sementes.push([r.a0, r.a1])
+        }
+      }
+      const tarefas = []
+      for (const [j, [a0, a1]] of sementes.slice(0, max).entries())
+        for (let q = 0; q < porSeed; q++) {
+          const i = j * porSeed + q
+          tarefas.push({ k: i, cfg: { a0, a1, nat, pos: POSICOES[(i * 5 + j) % POSICOES.length], pace: RITMOS[(q + j) % RITMOS.length], pol, bonus: 0 } })
+        }
+      lotes.push({ nome: `cond-${nat}-k${k}-${pol}`, pol, nacoes: [nat], n: tarefas.length, bonus: 0, tarefas, sementes: sementes.length })
+      console.log(`cond-${nat}-k${k}-${pol}: ${sementes.length} sementes com o mundo dando ${k === 3 ? '3+' : '2'} Copas, ${tarefas.length} carreiras`)
+    }
+  return lotes
 }
 
 // ───────────────────────────── análise ─────────────────────────────
@@ -290,7 +351,10 @@ function resumoDe(lista) {
 
 function analisar() {
   const saida = resolve(opt('saida', join(tmpdir(), 'lenda-raridade')))
-  const tudo = lerTudo(saida)
+  const todasLinhas = lerTudo(saida)
+  // as carreiras do plano condicional são de sementes escolhidas: ficam fora das taxas comuns
+  const cond = todasLinhas.filter((r) => r.lote.startsWith('cond-'))
+  const tudo = todasLinhas.filter((r) => !r.lote.startsWith('cond-'))
   const motor = JSON.parse(readFileSync(join(saida, 'conquistas.json'), 'utf8'))
   const ids = motor.ids
   const out = { total: tudo.length, porPolitica: {}, porNacao: {}, porRitmo: {}, porPosicao: {}, porLote: {}, conquistas: {}, raras: [] }
@@ -418,12 +482,92 @@ function analisar() {
   // ── conquistas: a melhor chance por carreira de cada uma (em qualquer política/lote) ──
   out.conquistasMelhor = {}
   for (const [i, id] of ids.entries()) {
+    // a melhor taxa entre os lotes com 100+ carreiras e 3+ ocorrências (menos que isso é sorte); sem nenhum, a geral
     let melhor = { p: 0, k: 0, n: 0, onde: null }
     for (const [lote, l] of grupo(tudo, (r) => r.lote)) {
       const k = l.filter((r) => r.conq.includes(i)).length
-      if (l.length >= 100 && k / l.length > melhor.p) melhor = { p: k / l.length, k, n: l.length, onde: lote }
+      if (l.length >= 100 && k >= 3 && k / l.length > melhor.p) melhor = { p: k / l.length, k, n: l.length, onde: lote }
+    }
+    if (!melhor.onde) {
+      const k = tudo.filter((r) => r.conq.includes(i)).length
+      melhor = { p: k / tudo.length, k, n: tudo.length, onde: k ? 'todas' : null }
     }
     out.conquistasMelhor[id] = melhor
+  }
+  // ── coleção na conta: quantas conquistas diferentes depois de N carreiras ──
+  // "misto": o jogador joga como a média de todas as carreiras do estudo (todas as políticas e alvos misturados);
+  // "mirando": cada conquista com a melhor chance que alguma política teve (o teto de quem monta cada carreira para
+  // uma conquista; otimista, porque uma carreira não mira todas ao mesmo tempo).
+  const pMix = ids.map((_, i) => tudo.filter((r) => r.conq.includes(i)).length / tudo.length)
+  const pBest = ids.map((id) => out.conquistasMelhor[id].p)
+  const esperado = (ps, n) => ps.reduce((t, p) => t + (1 - Math.pow(1 - p, n)), 0)
+  const NS = [30, 100, 300, 700, 1000, 2000, 3000, 5000, 10000, 30000, 100000]
+  out.colecao = {
+    misto: Object.fromEntries(NS.map((n) => [n, esperado(pMix, n)])),
+    mirando: Object.fromEntries(NS.map((n) => [n, esperado(pBest, n)])),
+    // carreiras até ter X conquistas (média, pela conta acima)
+    ate: {},
+  }
+  for (const alvo of [50, 55, 60, 65, 70, 75, 80, 85]) {
+    const achar = (ps) => {
+      let lo = 1
+      let hi = 1e7
+      if (esperado(ps, hi) < alvo) return null
+      while (hi - lo > 1) {
+        const m = Math.floor((lo + hi) / 2)
+        if (esperado(ps, m) >= alvo) hi = m
+        else lo = m
+      }
+      return hi
+    }
+    out.colecao.ate[alvo] = { misto: achar(pMix), mirando: achar(pBest) }
+  }
+  // sorteio de verdade (misto): N carreiras tiradas ao acaso do estudo, 200 vezes → mediana e faixa de 80%
+  const rnd = rngDe(12345)
+  out.colecao.sorteio = {}
+  for (const n of [100, 300, 1000, 3000]) {
+    const v = []
+    for (let t = 0; t < 200; t++) {
+      const tem = new Set()
+      for (let j = 0; j < n; j++) for (const i of tudo[Math.floor(rnd() * tudo.length)].conq) tem.add(i)
+      v.push(tem.size)
+    }
+    v.sort((a, b) => a - b)
+    out.colecao.sorteio[n] = { p10: v[20], p50: v[100], p90: v[180] }
+  }
+  // ── condicional: P(critério) = Σ_k P(mundo dá k Copas à seleção) × P(critério | mundos com k) ──
+  if (cond.length) {
+    out.condicional = {}
+    for (const [lote, l] of grupo(cond, (r) => r.lote)) {
+      const [, nat, kk, pol] = lote.split('-')
+      const k = Number(kk.slice(1))
+      const chave = `${nat}/${pol}`
+      // o mundo "neutro": carreiras em que o jogador não era dessa seleção (não ajudou nem atrapalhou)
+      const neutros = tudo.filter((r) => Array.isArray(r.wc) && r.wc.length >= 6 && r.nat !== nat && r.natFim !== nat)
+      const pk = taxa(neutros, (r) => (k === 3 ? r.wc.filter((x) => x === nat).length >= 3 : r.wc.filter((x) => x === nat).length === 2))
+      out.condicional[chave] ??= {}
+      const o = { mundo: pk, n: l.length }
+      for (const [crit, f] of Object.entries(CRITERIOS)) o[crit] = taxa(l, f)
+      // quantas das Copas do mundo da semente ele estava (convocado) e ganhou
+      o.copasMedia = l.reduce((t, r) => t + r.copas, 0) / l.length
+      o.mesmoMundo = l.filter((r) => r.wc.filter((x) => x === nat).length >= k).length / l.length
+      out.condicional[chave][`k${k}`] = o
+    }
+    for (const [nat, o] of Object.entries(out.condicional)) {
+      o.estimativa = {}
+      for (const crit of Object.keys(CRITERIOS)) {
+        let p = 0
+        let lo = 0
+        let hi = 0
+        for (const kk of ['k2', 'k3']) {
+          if (!o[kk]) continue
+          p += o[kk].mundo.p * o[kk][crit].p
+          lo += o[kk].mundo.lo * o[kk][crit].lo
+          hi += o[kk].mundo.hi * o[kk][crit].hi
+        }
+        o.estimativa[crit] = { p, lo, hi, media: p > 0 ? 1 / p : null }
+      }
+    }
   }
   writeFileSync(join(saida, 'resumo.json'), JSON.stringify(out, null, 1))
   console.log(`resumo: ${join(saida, 'resumo.json')} (${tudo.length} carreiras)`)
@@ -442,6 +586,31 @@ async function conquistas() {
   }
 }
 
+/**
+ * Tabela das 87 conquistas (markdown) a partir do resumo.json: a melhor chance por carreira que alguma política teve,
+ * onde, e quantas carreiras do estudo tiveram a conquista. As impossíveis pelos dados do jogo vão marcadas.
+ */
+function tabelaConquistas() {
+  const saida = resolve(opt('saida', join(tmpdir(), 'lenda-raridade')))
+  const r = JSON.parse(readFileSync(join(saida, 'resumo.json'), 'utf8'))
+  const cat = JSON.parse(readFileSync(join(saida, 'conquistas.json'), 'utf8')).catalogo
+  const IMPOSSIVEL = { nomad: 'impossível: só há clubes de 5 confederações (nenhuma liga da Oceania; Auckland e Wellington jogam a liga australiana, AFC)' }
+  const pct = (p) => (p >= 0.01 ? `${(p * 100).toFixed(1)}%` : p > 0 ? `${(p * 100).toFixed(2)}%` : '0')
+  const linhas = cat
+    .map((c) => {
+      const m = r.conquistasMelhor[c.id]
+      const vezes = r.conquistasGeral[c.id] ?? 0
+      const carreiras = m.p > 0 ? Math.round(1 / m.p) : null
+      const nota = IMPOSSIVEL[c.id] ?? (vezes === 0 ? `não saiu em ${r.total} carreiras` : vezes <= 3 ? `saiu ${vezes} ${vezes === 1 ? 'vez' : 'vezes'}` : '')
+      return { c, m, vezes, carreiras, nota }
+    })
+    .sort((a, b) => b.m.p - a.m.p)
+  const out = ['| Conquista | Melhor chance por carreira | Onde (política) | Carreiras (média) | Vezes no estudo | Observação |', '|---|---:|---|---:|---:|---|']
+  for (const l of linhas) out.push(`| ${l.c.titulo} (\`${l.c.id}\`) | ${pct(l.m.p)} | ${l.m.onde ?? '—'} | ${l.carreiras ?? '—'} | ${l.vezes} | ${l.nota} |`)
+  writeFileSync(join(saida, 'conquistas.md'), out.join('\n') + '\n')
+  console.log(`tabela: ${join(saida, 'conquistas.md')}`)
+}
+
 if (cmd === 'simular') {
   // vários planos em fila: --plano padrao,alvos,bonus,oraculo
   const lista = opt('plano', 'rapido').split(',')
@@ -454,7 +623,8 @@ if (cmd === 'simular') {
 }
 else if (cmd === 'analisar') analisar()
 else if (cmd === 'conquistas') await conquistas()
+else if (cmd === 'tabela-conquistas') tabelaConquistas()
 else {
-  console.log('uso: node scripts/estudos/raridade.mjs simular|analisar|conquistas --saida <pasta> [--plano padrao|bonus|oraculo|rapido] [--n 1000] [--workers 3]')
+  console.log('uso: node scripts/estudos/raridade.mjs simular|analisar|conquistas|tabela-conquistas --saida <pasta> [--plano padrao,alvos,alvos2,extra,bonus,oraculo,sementes,condicional|rapido] [--n 1000] [--workers 3]')
   process.exit(1)
 }

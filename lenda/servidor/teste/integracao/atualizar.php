@@ -139,14 +139,21 @@ if ($fase === 'antes') {
     [$st4, $j] = pedir('POST', '/api/hall.php', ['acao' => 'denunciar', 'id' => 'career-antiga-b1', 'motivo' => 'trapaca', 'texto' => 'Denúncia de antes'], $c['cookie']);
     checar('Hall refeito e uma denúncia aberta (versão de antes)', $st === 200 && $st4 === 200, "$st $st4 " . json_encode($j));
     $pkA2 = (int) $pdo->query("SELECT id FROM carreiras WHERE carreira_id = 'career-antiga-a2'")->fetchColumn();
-    [$st] = adm('POST', '/api/admin.php', ['acao' => 'ocultar_carreira', 'id' => $pkA2]);
+    [$st] = adm('POST', '/api/admin.php', ['acao' => 'ocultar_carreira', 'id' => $pkA2, 'motivo' => 'Nome ofensivo']); // a v3.2 pede o motivo
     [$st2] = adm('POST', '/api/admin.php', ['acao' => 'dar_bonus', 'id' => $a['id'], 'valor' => 2, 'motivo' => 'Presente de antes']);
     [$st3] = adm('POST', '/api/admin.php', ['acao' => 'config', 'valores' => ['aviso' => ['texto' => 'Aviso de antes', 'tipo' => 'info']]]);
     checar('admin na versão de antes: ocultar, bônus e aviso', $st === 200 && $st2 === 200 && $st3 === 200, "$st $st2 $st3");
     [$st, , , $ckPainel] = pedir('POST', '/api/painel.php', ['acao' => 'entrar', 'senha' => $SENHA]);
     checar('painel de antes: entrou com a senha (cookie da v3)', $st === 200 && str_contains($ckPainel, 'lenda_painel='), "$st");
     $foto = fotografia($pdo);
-    file_put_contents($ESTADO, json_encode(['contas' => $contas, 'painel' => $ckPainel, 'pkA2' => $pkA2, 'foto' => $foto], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+    // a versão de antes: sem _esquema = a v3; 32 = a v3.2 (sessões do painel no servidor; o cookie continua valendo depois)
+    $esq = null;
+    try {
+        $esq = $pdo->query("SELECT valor FROM site_config WHERE chave = '_esquema'")->fetchColumn();
+    } catch (PDOException) {
+    }
+    file_put_contents($ESTADO, json_encode(['contas' => $contas, 'painel' => $ckPainel, 'pkA2' => $pkA2, 'foto' => $foto, 'esquema' => $esq === false || $esq === null ? null : (int) $esq],
+        JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
     echo '· guardadas ' . array_sum(array_map(static fn($t) => count($t['linhas']), $foto)) . ' linhas de ' . count($foto) . " tabelas\n";
     exit($falhas ? 1 : 0);
 }
@@ -165,7 +172,12 @@ checar('instalar.php novo (1ª vez): ok, acrescentou colunas/tabelas e não falt
 checar('instalar.php novo (2ª vez): nada a mudar (idempotente)', ($r2['ok'] ?? false) === true && ($r2['alteracoes'] ?? null) === [], substr((string) json_encode($r2['alteracoes'] ?? null), 0, 300));
 $alt = implode(' ', array_map('strval', (array) ($r1['alteracoes'] ?? [])));
 checar('nenhuma alteração apaga ou troca coluna (só ADD e CREATE)', !preg_match('/\b(DROP|MODIFY|CHANGE|RENAME)\b/i', $alt), $alt);
-checar('site_config._esquema = 32 gravado no fim', (string) $pdo->query("SELECT valor FROM site_config WHERE chave = '_esquema'")->fetchColumn() === '32');
+// o esquema desta árvore (LENDA_ESQUEMA do _lib.php novo) e o da versão de antes
+preg_match('/const LENDA_ESQUEMA = (\d+);/', (string) file_get_contents(__DIR__ . '/../../api/_lib.php'), $mEsq);
+$ESQ_NOVO = (int) ($mEsq[1] ?? 0);
+$ESQ_ANTES = isset($E['esquema']) ? (int) $E['esquema'] : 0;
+echo "· de _esquema " . ($ESQ_ANTES ?: 'sem') . " para $ESQ_NOVO\n";
+checar("site_config._esquema = $ESQ_NOVO gravado no fim", $ESQ_NOVO > 0 && (string) $pdo->query("SELECT valor FROM site_config WHERE chave = '_esquema'")->fetchColumn() === (string) $ESQ_NOVO);
 
 // cada linha de antes continua lá, igual, nas colunas que já existiam
 $agora = fotografia($pdo);
@@ -192,6 +204,10 @@ foreach ($E['foto'] as $t => $dados) {
             continue;
         }
         foreach ($l as $col => $v) {
+            // o número do esquema é o único valor de antes que o instalar muda de propósito
+            if ($t === 'site_config' && ($l['chave'] ?? '') === '_esquema' && $col !== 'chave') {
+                continue;
+            }
             if (!array_key_exists($col, $depois[$k])) {
                 $problemas[] = "$t: a coluna $col sumiu";
             } elseif ($depois[$k][$col] !== $v) {
@@ -221,9 +237,13 @@ checar('hall.php responde com a fotografia de antes', $st === 200 && is_array($j
 
 // o painel novo
 [$st] = pedir('GET', '/api/admin.php?r=resumo', null, (string) $E['painel']);
-checar('o cookie do painel de antes deixa de valer (formato novo, sessões no servidor): 401', $st === 401, (string) $st);
+if ($ESQ_ANTES >= 32) {
+    checar('a sessão do painel de antes (v3.2, no servidor) continua valendo: 200', $st === 200, (string) $st);
+} else {
+    checar('o cookie do painel de antes deixa de valer (formato novo, sessões no servidor): 401', $st === 401, (string) $st);
+}
 [$st, $j, , $ck] = pedir('POST', '/api/painel.php', ['acao' => 'entrar', 'senha' => $SENHA]);
-checar('painel novo: a senha de sempre entra (cria a conta Dono)', $st === 200 && ($j['etapa'] ?? '') === 'pronto' && str_contains($ck, 'lenda_painel='), "$st " . json_encode($j));
+checar('painel novo: a senha de sempre entra' . ($ESQ_ANTES >= 32 ? ' (a conta Dono de antes)' : ' (cria a conta Dono)'), $st === 200 && ($j['etapa'] ?? '') === 'pronto' && str_contains($ck, 'lenda_painel='), "$st " . json_encode($j));
 [$st, $j] = pedir('GET', '/api/admin.php?r=resumo', null, $ck);
 checar('painel novo: resumo com as 3 contas, a denúncia e a oculta de antes', $st === 200 && ($j['usuarios']['total'] ?? 0) === 3 && ($j['denunciasAbertas'] ?? 0) === 1
     && ($j['carreiras']['ocultas'] ?? 0) === 1, "$st " . substr(json_encode($j), 0, 300));
@@ -238,6 +258,25 @@ checar('Saúde: nenhuma tabela, coluna ou índice faltando', $st === 200 && ($j[
 [$st, $j] = pedir('GET', '/api/admin.php?r=log', null, $ck);
 $acoes = array_column($j['itens'] ?? [], 'acao');
 checar('o registro de antes continua no Registro (ocultar, bônus, config, Hall)', $st === 200 && !array_diff(['ocultar_carreira', 'dar_bonus', 'config', 'atualizar_hall'], $acoes), implode(',', $acoes));
+// v3.3: o que a atualização para a v3.3 promete sobre os dados de antes
+if ($ESQ_NOVO >= 33 && $ESQ_ANTES < 33) {
+    checar('v3.3: as contas de antes começam sem o e-mail confirmado', (int) $pdo->query('SELECT COUNT(*) FROM usuarios WHERE email_verificado_em IS NOT NULL')->fetchColumn() === 0
+        && (int) $pdo->query('SELECT COUNT(*) FROM usuarios')->fetchColumn() === 3);
+    [$st, $j] = pedir('GET', '/api/conta.php', null, $a['cookie']);
+    checar('v3.3: conta.php → U.emailVerificado = false na sessão de antes', $st === 200 && ($j['usuario']['emailVerificado'] ?? null) === false, "$st");
+    $cs = $pdo->query("SELECT carreira_id, libertadores, tem_replay, primeira_em, fora_desafio, copas FROM carreiras WHERE carreira_id LIKE 'career-antiga-%' ORDER BY carreira_id")->fetchAll();
+    checar('v3.3: as carreiras de antes com as Libertadores lidas do HallEntry guardado, sem replay e sem primeira_em (não valem para desafio)',
+        count($cs) === 3 && !array_filter($cs, static fn($c) => $c['libertadores'] === null || (int) $c['tem_replay'] !== 0 || $c['primeira_em'] !== null || $c['fora_desafio'] !== null)
+        && (int) array_column($cs, 'libertadores', 'carreira_id')['career-antiga-a1'] === 0, json_encode($cs));
+    $ds = $pdo->query("SELECT CONCAT(slug, ':', ativo, ':', premio = '') FROM desafios ORDER BY ordem")->fetchAll(PDO::FETCH_COLUMN);
+    checar('v3.3: os 3 desafios de fábrica semeados desativados e com o prêmio vazio', $ds === ['tacas-do-rei:0:1', 'tacas-do-rei-copas:0:1', 'todas-as-conquistas:0:1'], json_encode($ds));
+    [$st, $j] = pedir('GET', '/api/desafios.php');
+    checar('v3.3: desafios.php (público) → nenhum desafio', $st === 200 && ($j['desafios'] ?? null) === [], "$st " . json_encode($j));
+    [$st, $j] = pedir('POST', '/api/suporte.php', ['tipo' => 'duvida', 'mensagem' => 'Mensagem de uma conta de antes da atualização.'], $a['cookie']);
+    checar('v3.3: a conta de antes manda Fale conosco (201 com protocolo)', $st === 201 && is_string($j['protocolo'] ?? null), "$st " . json_encode($j));
+    [$st, $j] = pedir('GET', '/api/perfil.php?c=' . (string) $pdo->query("SELECT codigo_convite FROM usuarios WHERE id = {$a['id']}")->fetchColumn());
+    checar('v3.3: o perfil público da conta de antes abre', $st === 200 && ($j['apelido'] ?? '') === 'Antiga Um', "$st");
+}
 $log = is_file("$base/php-erros.log") ? trim((string) file_get_contents("$base/php-erros.log")) : '';
 checar('log de erros do PHP vazio (antes e depois)', $log === '', substr($log, 0, 600));
 echo "\n" . ($falhas ? "FALHOU: $falhas de $total" : "PASSOU: $total verificações") . "\n";

@@ -307,7 +307,7 @@ describe('conta de testes (U.tester)', () => {
     expect(normalizarUsuario({ id: 1, apelido: 'A', tester: 1 })?.tester).toBe(false)
     expect(normalizarUsuario({ id: 1, apelido: 'A', tester: true })?.tester).toBe(true)
     expect(normalizarUsuario({ id: 1, apelido: 'A' })?.aviso).toBeNull()
-    expect(normalizarAvisoConta({ texto: '  Uma carreira sua saiu do Hall por: nome ofensivo. ', em: '2026-10-14T12:00:00Z' })).toEqual({ texto: 'Uma carreira sua saiu do Hall por: nome ofensivo.', em: '2026-10-14T12:00:00Z' })
+    expect(normalizarAvisoConta({ texto: '  Uma carreira sua saiu do Hall por: nome ofensivo. ', em: '2026-10-14T12:00:00Z' })).toEqual({ texto: 'Uma carreira sua saiu do Hall por: nome ofensivo.', em: '2026-10-14T12:00:00Z', tipo: 'moderacao' })
     expect(normalizarAvisoConta({ texto: '' })).toBeNull()
     expect(normalizarAvisoConta({ texto: 5 })).toBeNull()
     expect(normalizarAvisoConta({ texto: 'x'.repeat(900) })?.texto.length).toBe(300)

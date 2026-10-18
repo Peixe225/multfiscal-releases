@@ -89,9 +89,30 @@ function arrumarReplay(stdClass $h): bool
     }
     return true;
 }
+/**
+ * A semente (o texto que o motor usa: a0 em base 36 + a1 em base 36, a mesma conta do jogo) do replay que o HallEntry leva,
+ * ou null (sem replay, replay fora do formato ou do Imersivo). §E: é por ela que o servidor sabe se a carreira começou com
+ * uma semente que ele mesmo sorteou para a conta (sementes_carreira).
+ */
+function sementeDoReplay(stdClass $h): ?string
+{
+    $modo = $h->mode ?? null;
+    if ($modo === 'immersive' || $modo === 'imersivo' || !property_exists($h, 'replay') || !replayValido($h->replay)) {
+        return null;
+    }
+    return sementeTexto((int) $h->replay->seed[0], (int) $h->replay->seed[1]);
+}
+
+/** [a0, a1] → o texto da semente (a0.toString(36) + a1.toString(36), como o randomSeed do jogo). */
+function sementeTexto(int $a0, int $a1): string
+{
+    return base_convert((string) $a0, 10, 36) . base_convert((string) $a1, 10, 36);
+}
+
 /** Ordem do Hall (dentro da conta e no geral): nota, pico, Bolas de Ouro, títulos, gols, e a mais antiga. */
 const ORDEM_HALL = 'nota DESC, pico_ovr DESC, bolas_ouro DESC, titulos DESC, gols DESC, id ASC';
-const BONUS_OVR_MAX = 20;
+/** §E: o mesmo teto do motor (BONUS_OVR_MAX em src/engine/career/constants.ts; o painel e o bônus dão até +10). */
+const BONUS_OVR_MAX = 10;
 
 /**
  * Linha do banco → C (item da lista). $noHall = ids (carreiras.id) que entram no Hall público. Com $u (a conta dona,
@@ -260,21 +281,38 @@ function extrairCampos(stdClass $h): array
     $titulos = 0;
     $copas = 0;
     $libertadores = 0;
+    // §E: a contagem de cada taça e prêmio tem de ser um inteiro de 0 a 10.000 (o jogo só grava assim). Fora disso (negativa,
+    // fração, texto) a carreira fica suspeita (`dados`): cortar para 0 em silêncio somava aqui mais Copas do que a soma crua
+    // que a verificação por replay refaz, e a forjada "batia"
+    $contagensOk = true;
+    $contagem = static function (mixed $v) use (&$contagensOk): int {
+        if (!is_int($v) || $v < 0 || $v > 10000) {
+            $contagensOk = false;
+        }
+        return inteiro($v, 0, 10000);
+    };
     foreach ((array) (is_array(campo($s, 'trophies')) ? $s->trophies : []) as $t) {
         if ($t instanceof stdClass) {
-            $n = inteiro(campo($t, 'count'), 0, 10000);
+            $n = $contagem(campo($t, 'count'));
             $titulos += $n;
             if (campo($t, 'trophyId') === 'world-cup') {
                 $copas += $n;
             } elseif (campo($t, 'trophyId') === 'libertadores') {
                 $libertadores += $n;
             }
+        } else {
+            $contagensOk = false;
         }
     }
     $bolas = 0;
     foreach ((array) (is_array(campo($s, 'awards')) ? $s->awards : []) as $a) {
-        if ($a instanceof stdClass && campo($a, 'award') === 'ballon_dor') {
-            $bolas += inteiro(campo($a, 'count'), 0, 1000);
+        if ($a instanceof stdClass) {
+            $n = $contagem(campo($a, 'count'));
+            if (campo($a, 'award') === 'ballon_dor') {
+                $bolas += min($n, 1000);
+            }
+        } else {
+            $contagensOk = false;
         }
     }
     // clubes por onde passou (clubId do jogo, sem repetir, na ordem da carreira)
@@ -302,6 +340,17 @@ function extrairCampos(stdClass $h): array
     }
     $idade = campo($career, 'age');
     $bonus = campo($career, 'bonusOvr');
+    // §E: o bônus de OVR vale o que o motor usou. A verificação por replay refaz a carreira com o replay.bonusOvr, então ele
+    // tem de ser o mesmo do career.bonusOvr (o jogo grava os dois iguais) e é o que a plausibilidade confere contra a tabela
+    // bonus: um replay com +10 e o career.bonusOvr apagado ficava sem a marca `bonus` e a verificação batia consigo mesma
+    $bonusOvr = is_int($bonus) || is_float($bonus) ? inteiro($bonus, 0, BONUS_OVR_MAX) : 0;
+    $bonusOk = $bonus === null || (is_int($bonus) && $bonus >= 0 && $bonus <= BONUS_OVR_MAX);
+    $temReplay = property_exists($h, 'replay') && $modo === 'classico' && replayValido($h->replay);
+    if ($temReplay) {
+        $bonusReplay = (int) $h->replay->bonusOvr;
+        $bonusOk = $bonusOk && $bonusReplay === $bonusOvr;
+        $bonusOvr = max($bonusOvr, $bonusReplay);
+    }
     $cid = campo($career, 'identity') instanceof stdClass ? $career->identity : null;
     $nome = is_string(campo($id, 'surname')) ? $id->surname : '';
     $nomeCareer = is_string(campo($cid, 'surname')) ? $cid->surname : '';
@@ -325,8 +374,11 @@ function extrairCampos(stdClass $h): array
         'copas' => min($copas, 65535),
         // v3.3: as Libertadores (desafio As Taças do Rei) e se o HallEntry leva o replay (o arrumarReplay já conferiu)
         'libertadores' => min($libertadores, 65535),
-        'tem_replay' => property_exists($h, 'replay') && ($modo === 'classico') && replayValido($h->replay) ? 1 : 0,
-        'bonus_ovr' => is_int($bonus) || is_float($bonus) ? inteiro($bonus, 0, BONUS_OVR_MAX) : 0,
+        'tem_replay' => $temReplay ? 1 : 0,
+        'bonus_ovr' => $bonusOvr,
+        // §E: career.bonusOvr e replay.bonusOvr iguais e no formato; as contagens de taças e prêmios inteiras e >= 0
+        'bonus_ok' => $bonusOk,
+        'contagens_ok' => $contagensOk,
         'idade' => is_int($idade) || is_float($idade) ? inteiro($idade, 0, 999) : null,
         // o que o jogo mostra como texto no resumo da carreira de outra pessoa (para o filtro de palavrões)
         'textos' => textosDoHallEntry($h),
@@ -461,7 +513,9 @@ function plausibilidade(array $f, int $uid, string $carreiraId, ?int $pk = null)
     if ($f['idade'] !== null && $f['idade'] > 45) {
         $m[] = 'idade';
     }
-    if ($f['bonus_ovr'] > 0) {
+    if (($f['bonus_ok'] ?? true) !== true) {
+        $m[] = 'bonus'; // §E: o bônus do replay não é o do career (ou está fora do formato)
+    } elseif ($f['bonus_ovr'] > 0) {
         // bônus de OVR só vale se foi usado nesta carreira (bonus.php usar), com o mesmo valor
         $usado = umValor('SELECT valor FROM bonus WHERE usuario_id = ? AND carreira_id = ? AND usado_em IS NOT NULL LIMIT 1', [$uid, $carreiraId]);
         if ($usado === null || (int) $usado !== $f['bonus_ovr']) {
@@ -481,8 +535,8 @@ function plausibilidade(array $f, int $uid, string $carreiraId, ?int $pk = null)
     if ($nomeRuim) {
         $m[] = 'nome';
     }
-    if (($f['dados_ok'] ?? true) !== true) {
-        $m[] = 'dados';
+    if (($f['dados_ok'] ?? true) !== true || ($f['contagens_ok'] ?? true) !== true) {
+        $m[] = 'dados'; // §E: também a contagem de taça ou prêmio que não é um inteiro de 0 a 10.000
     }
     // a mesma carreira (mesmo id ou mesmo resumo) já salva por outra conta: fica a primeira dona
     $antes = $pk !== null ? ' AND id < ?' : '';

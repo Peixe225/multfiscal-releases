@@ -66,7 +66,21 @@ export interface CarreiraQueCumpre {
   /** null = o servidor não disse (contrato mínimo). */
   temReplay: boolean | null
   vale: boolean | null
+  /** A frase pronta do servidor (motivoTexto) ou, sem ela, o código. */
   motivo: string | null
+  /** §E: o código (sem_replay, nao_publicada…): o checklist separa o que é da carreira do que é do Hall. */
+  motivoCodigo: string | null
+}
+
+/** §E: motivos do Hall — a carreira cumpre o critério e vale, só falta publicar (ou pôr entre as 3 do perfil). */
+export const MOTIVOS_DO_HALL: readonly string[] = ['nao_publicada', 'fora_do_top3']
+
+/**
+ * §E: as carreiras que contam para o critério no checklist: as que valem e as que só esperam o Hall (publicar, pôr entre as
+ * 3). Uma sem replay, do Imersivo, sem a semente do servidor, fora do prazo ou do limite do dia não conta para nada.
+ */
+export function carreirasQueContam(cs: readonly CarreiraQueCumpre[]): CarreiraQueCumpre[] {
+  return cs.filter((c) => c.vale !== false || (c.motivoCodigo !== null && MOTIVOS_DO_HALL.includes(c.motivoCodigo)))
 }
 
 export interface MeuDesafio {
@@ -79,7 +93,16 @@ export interface MeuDesafio {
   conquistas: number | null
   conquistasTotal: number | null
   carreirasQueCumprem: CarreiraQueCumpre[]
-  candidato: { estado: EstadoCandidato; motivo: string | null; em: string | null; carreiraId: string | null } | null
+  candidato: {
+    estado: EstadoCandidato
+    motivo: string | null
+    em: string | null
+    carreiraId: string | null
+    /** §E: o pendente/verificado vale agora? (false = deixou de cumprir algo; null = o servidor não disse) */
+    vale: boolean | null
+    /** §E: por que não vale agora (a frase pronta), quando vale = false. */
+    motivoAgora: string | null
+  } | null
 }
 
 const str = (v: unknown, max = 200) => (typeof v === 'string' ? v.slice(0, max) : '')
@@ -196,11 +219,22 @@ export function normalizarMeu(x: unknown): MeuDesafio | null {
           vale: boolOuNulo(o.vale),
           // o servidor manda o código (motivo) e a frase pronta (motivoTexto): a tela mostra a frase
           motivo: typeof o.motivoTexto === 'string' && o.motivoTexto ? o.motivoTexto.slice(0, 200) : typeof o.motivo === 'string' && o.motivo ? o.motivo.slice(0, 200) : null,
+          motivoCodigo: typeof o.motivo === 'string' && /^[a-z0-9_]{1,32}$/.test(o.motivo) ? o.motivo : null,
         }
       })
       .filter((c): c is CarreiraQueCumpre => !!c)
       .slice(0, 20),
-    candidato: estado ? { estado, motivo: typeof cand!.motivo === 'string' && cand!.motivo ? cand!.motivo.slice(0, 200) : null, em: data(cand!.em), carreiraId: typeof cand!.carreiraId === 'string' ? cand!.carreiraId.slice(0, 64) : null } : null,
+    candidato: estado
+      ? {
+          estado,
+          motivo: typeof cand!.motivo === 'string' && cand!.motivo ? cand!.motivo.slice(0, 200) : null,
+          em: data(cand!.em),
+          carreiraId: typeof cand!.carreiraId === 'string' ? cand!.carreiraId.slice(0, 64) : null,
+          vale: boolOuNulo(cand!.vale),
+          motivoAgora:
+            typeof cand!.motivoAgoraTexto === 'string' && cand!.motivoAgoraTexto ? cand!.motivoAgoraTexto.slice(0, 200) : typeof cand!.motivoAgora === 'string' && cand!.motivoAgora ? cand!.motivoAgora.slice(0, 200) : null,
+        }
+      : null,
   }
 }
 
@@ -336,6 +370,9 @@ export const useDesafios = create<DesafiosStore>()((set, get) => ({
 // a conta saiu ou trocou: o checklist era da outra
 useConta.subscribe((s, p) => {
   if (s.usuario?.id !== p.usuario?.id) useDesafios.setState({ meu: null, meuStatus: 'idle', meuDe: null })
+  // confirmou o e-mail com o checklist já carregado: o servidor avaliou a conta na hora (a candidatura pode ter nascido
+  // agora), então o checklist vem de novo — sem isso "Em verificação" só aparecia ao recarregar a tela
+  else if (s.usuario?.emailVerificado && p.usuario && !p.usuario.emailVerificado && useDesafios.getState().meu) void useDesafios.getState().carregarMeu(true)
 })
 
 /** Há desafio valendo agora (menu e tela inicial). */

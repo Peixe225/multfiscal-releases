@@ -155,7 +155,7 @@ const DEFS: AchievementDef[] = [
     rarity: 'epica',
     check: (c) => new Set(c.seasons.filter((r) => r.confed === 'CONMEBOL').map((r) => r.country)).size >= 10,
   },
-  { id: 'nomad', title: 'Nômade', description: 'Jogue em clubes das seis confederações.', icon: 'compass', rarity: 'epica', check: (c) => new Set(c.seasons.map((r) => r.confed).filter(Boolean)).size >= 6 },
+  { id: 'nomad', title: 'Nômade', description: 'Jogue em clubes das cinco confederações do jogo (Europa, América do Sul, América do Norte, Ásia e África).', icon: 'compass', rarity: 'epica', check: (c) => new Set(c.seasons.map((r) => r.confed).filter(Boolean)).size >= 5 },
   {
     id: 'from_the_bottom',
     title: 'Lá de baixo',

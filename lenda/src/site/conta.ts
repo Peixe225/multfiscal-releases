@@ -63,14 +63,24 @@ export interface Usuario {
 export interface AvisoConta {
   texto: string
   em: string | null
+  /**
+   * v3.3: 'desafio' = o recado de quem venceu um desafio ("Parabéns! Você venceu o desafio “…”"), mostrado como vitória;
+   * 'moderacao' = o aviso da moderação de sempre (v3.2). Servidor sem o campo: decide pelo começo do texto.
+   */
+  tipo: 'moderacao' | 'desafio'
 }
+
+/** Começo do recado do vencedor (o mesmo LENDA_AVISO_VENCEDOR do servidor). */
+const AVISO_VENCEDOR = 'Parabéns! Você venceu o desafio'
 
 /** O U.aviso do servidor, conferido (texto curto, só texto). */
 export function normalizarAvisoConta(x: unknown): AvisoConta | null {
-  const a = x as { texto?: unknown; em?: unknown } | null
+  const a = x as { texto?: unknown; em?: unknown; tipo?: unknown } | null
   if (!a || typeof a !== 'object' || typeof a.texto !== 'string') return null
   const texto = a.texto.trim().slice(0, 300)
-  return texto ? { texto, em: typeof a.em === 'string' ? a.em : null } : null
+  if (!texto) return null
+  const tipo = a.tipo === 'desafio' || (a.tipo !== 'moderacao' && texto.startsWith(AVISO_VENCEDOR)) ? 'desafio' : 'moderacao'
+  return { texto, em: typeof a.em === 'string' ? a.em : null, tipo }
 }
 
 export interface Regras {

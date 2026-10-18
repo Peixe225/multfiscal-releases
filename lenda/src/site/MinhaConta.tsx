@@ -6,7 +6,7 @@
  * abertura já rolada até "Convide amigos" (o atalho do menu, X3).
  */
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { Copy, ExternalLink, FolderHeart, LogOut, MailWarning, MessageSquareText, Save, ShieldAlert, Trash } from 'lucide-react'
+import { Copy, Crown, ExternalLink, FolderHeart, LogOut, MailWarning, MessageSquareText, Save, ShieldAlert, Trash } from 'lucide-react'
 import { buildHash, navigate } from '@/store/app'
 import { Button, Modal, formatInt, toast } from '@/ui/primitives'
 import { mensagemDeErro } from './api'
@@ -102,10 +102,10 @@ function Corpo({ u, aviso, excluirAberto, irPara }: { u: Usuario; aviso: AvisoCo
   return (
     <>
       {aviso && (
-        <div className="sc-avisoconta" role="status">
-          <ShieldAlert aria-hidden="true" />
+        <div className={aviso.tipo === 'desafio' ? 'sc-avisoconta is-desafio' : 'sc-avisoconta'} role="status">
+          {aviso.tipo === 'desafio' ? <Crown aria-hidden="true" /> : <ShieldAlert aria-hidden="true" />}
           <div className="min-w-0">
-            <b>Aviso da moderação</b>
+            <b>{aviso.tipo === 'desafio' ? 'Você venceu um desafio!' : 'Aviso da moderação'}</b>
             <p>{aviso.texto}</p>
             <small>{aviso.em ? `${dataBr(aviso.em, true)} · ` : ''}este aviso aparece só uma vez</small>
           </div>

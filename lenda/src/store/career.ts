@@ -190,6 +190,19 @@ interface CareerStore {
 /** O par [a0, a1] de cada semente sorteada nesta janela (o replay guarda os dois números, não o texto). */
 const paresDeSemente = new Map<string, [number, number]>()
 
+/**
+ * §E: guarda o par [a0, a1] que veio de fora (a semente sorteada pelo servidor, src/store/sementeCarreira.ts) e devolve a
+ * semente em texto (a mesma conta do randomSeed); null = o par não é de dois inteiros de 32 bits.
+ */
+export function registrarParDeSemente(par: readonly [number, number] | readonly number[]): string | null {
+  const ok = (v: unknown): v is number => typeof v === 'number' && Number.isInteger(v) && v >= 0 && v < 0x1_0000_0000
+  if (!Array.isArray(par) || par.length !== 2 || !ok(par[0]) || !ok(par[1])) return null
+  const seed = `${par[0].toString(36)}${par[1].toString(36)}`
+  if (paresDeSemente.size > 50) paresDeSemente.clear()
+  paresDeSemente.set(seed, [par[0], par[1]])
+  return seed
+}
+
 /** Semente nova de carreira (o id da carreira é `career-<semente>` no motor real). */
 export const randomSeed = () => {
   try {

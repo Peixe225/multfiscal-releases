@@ -13,12 +13,37 @@ declare(strict_types=1);
 // ── ajudantes ────────────────────────────────────────────────────────────────────────────────────
 
 $V33_FILA = json_decode((string) file_get_contents(dirname($SRC) . '/scripts/gravar/filas/classico.json'), true, 512, JSON_THROW_ON_ERROR);
+/** §E: a conta de cada navegador criado por v33Conta (spl_object_id → usuarios.id), para a semente do servidor. */
+$V33_UIDS = [];
+
+/**
+ * §E: antes de salvar (salvarC chama isto), a semente do replay da carreira fica como sorteada pelo servidor para a conta
+ * do navegador (sementes_carreira, agora): os HallEntry do teste usam o replay real das filas, cuja semente não saiu do
+ * sorteio do servidor. Só nas contas de v33Conta; as outras salvam como quem jogou sem a conta (sem_semente).
+ */
+function v33AntesDeSalvar(Navegador $n, stdClass $h): void
+{
+    $uid = $GLOBALS['V33_UIDS'][spl_object_id($n)] ?? null;
+    $seed = $h->replay->seed ?? null;
+    if ($uid === null || !is_array($seed) || count($seed) !== 2 || !is_int($seed[0]) || !is_int($seed[1])) {
+        return;
+    }
+    v33Semente($uid, $seed);
+}
+
+/** §E: a semente [a0, a1] como sorteada pelo servidor para a conta ($quando = DATETIME(3) do sorteio; null = agora). */
+function v33Semente(int $uid, array $seed, ?string $quando = null): void
+{
+    $s = base_convert((string) $seed[0], 10, 36) . base_convert((string) $seed[1], 10, 36);
+    q('INSERT IGNORE INTO sementes_carreira (usuario_id, semente, dia, emitida_em) VALUES (?, ?, ?, ' . ($quando === null ? 'UTC_TIMESTAMP(3)' : '?') . ')',
+        $quando === null ? [$uid, $s, v33Hoje()] : [$uid, $s, v33Hoje(), $quando]);
+}
 
 /** Estado conhecido: o da v3.2 e as tabelas da v3.3 vazias, os desafios de fábrica desativados. */
 function v33Limpar(): void
 {
     limparV32();
-    foreach (['desafio_candidatos', 'mensagens_suporte', 'verificacoes_email', 'partidas_dia'] as $t) {
+    foreach (['desafio_candidatos', 'mensagens_suporte', 'verificacoes_email', 'partidas_dia', 'sementes_carreira'] as $t) {
         q("DELETE FROM $t");
     }
     q("DELETE FROM desafios WHERE slug NOT IN ('tacas-do-rei', 'tacas-do-rei-copas', 'todas-as-conquistas')");
@@ -57,6 +82,9 @@ function v33Ativar(string $slug, bool $ativo = true): Resposta
 {
     if ($ativo) {
         q('UPDATE carreiras SET primeira_em = primeira_em - INTERVAL 5 SECOND WHERE primeira_em >= UTC_TIMESTAMP() - INTERVAL 2 SECOND');
+        // §E: e a semente sorteada no mesmo segundo
+        q('UPDATE carreiras SET semente_em = semente_em - INTERVAL 5 SECOND WHERE semente_em >= UTC_TIMESTAMP(3) - INTERVAL 2 SECOND');
+        q('UPDATE sementes_carreira SET emitida_em = emitida_em - INTERVAL 5 SECOND WHERE emitida_em >= UTC_TIMESTAMP(3) - INTERVAL 2 SECOND');
     }
     return v33Adm(['acao' => 'desafio_ativar', 'id' => v33IdDesafio($slug), 'ativo' => $ativo]);
 }
@@ -131,6 +159,7 @@ function v33Salvar(Navegador $n, stdClass $h): Resposta
 function v33Conta(string $apelido, bool $verificada = true, int $partidas = 30): array
 {
     [$n, $uid, , , $email] = novaConta($apelido);
+    $GLOBALS['V33_UIDS'][spl_object_id($n)] = $uid;
     $senha = 'senha-v3-' . $GLOBALS['CONTAS_N'];
     if ($verificada) {
         q('UPDATE usuarios SET email_verificado_em = UTC_TIMESTAMP() WHERE id = ?', [$uid]);
@@ -214,7 +243,7 @@ checar('as 87 conquistas do servidor são as do jogo (src/engine/career/achievem
 
 secao('v3.3 · e-mail verificado: código no cadastro, verificar_email, reenviar, limites e tentativas');
 resetarLimitesCurtos();
-q("DELETE FROM tentativas WHERE chave LIKE 'dia-verif-todos:%'");
+q("DELETE FROM tentativas WHERE chave LIKE 'dia-verif-%'");
 $navE = novoNav();
 $emailE = 'verif-' . bin2hex(random_bytes(3)) . '@exemplo.com';
 $antes = emailsPara($emailE);
@@ -289,9 +318,9 @@ encherLimite('dia-reenviar-verif:u' . $uidR, 10, true);
 $r = conta($navR, ['acao' => 'reenviar_verificacao']);
 checar('reenviar: 10 por dia por conta → 429', $r->status === 429 && $r->erro() === 'limite', $r->resumo());
 resetarLimitesCurtos();
-encherLimite('verif-todos:todos', 200);
+encherLimite('verif-ped:todos', 40);
 $r = conta($navR, ['acao' => 'reenviar_verificacao']);
-checar('reenviar: teto do site (200 a cada 10 min, a cota de envio) → 429', $r->status === 429, $r->resumo());
+checar('reenviar: teto do site (§E: o balde do "Reenviar código", 40 a cada 10 min) → 429', $r->status === 429, $r->resumo());
 resetarLimitesCurtos();
 $st = [];
 for ($i = 0; $i < 11; $i++) {
@@ -818,8 +847,12 @@ $pubFim = v33Publico('tacas-do-rei');
 checar('depois do fim: ninguém mais vira candidato; o público mostra encerrado', count(array_filter(v33Cands('tacas-do-rei'), static fn($c) => (int) $c['usuario_id'] === $uidFim)) === 0
     && ($pubFim['encerrado'] ?? null) === true, json_encode($pubFim));
 q("UPDATE desafios SET fim = NULL WHERE slug = 'tacas-do-rei'");
-// todas as conquistas
-v33Ativar('todas-as-conquistas');
+// todas as conquistas. §E: não tem prova (as conquistas vêm do aparelho) e não pode ser ativado pelo admin (409 sem_prova); a
+// contagem é conferida aqui com ele ligado direto no banco (como um desafio ativado antes destas correções)
+$r = v33Ativar('todas-as-conquistas');
+checar('§E: desafio_ativar do de todas as conquistas → 409 sem_prova (continua desativado)', $r->status === 409 && $r->erro() === 'sem_prova'
+    && (int) v("SELECT ativo FROM desafios WHERE slug = 'todas-as-conquistas'") === 0, $r->resumo());
+q("UPDATE desafios SET ativo = 1, inicio = UTC_TIMESTAMP() - INTERVAL 1 MINUTE WHERE slug = 'todas-as-conquistas'");
 [$navT, $uidT] = v33Conta('Todas Conquistas');
 $idsT = $idsPhp['ids'];
 $r = $navT->pedir('POST', '/api/conquistas.php', ['acao' => 'sincronizar', 'conquistas' => array_map(static fn(string $id): array => ['id' => $id, 'em' => '2026-10-10T10:00:00Z'],
@@ -860,7 +893,9 @@ $pkA = pkCarreira('v33-a', $uidA);
 $r = v33Get('r=carreira&id=' . $pkA);
 checar('?r=carreira (o que o #/verificar lê): meta.temReplay, o replay no HallEntry e os candidatos da carreira', $r->status === 200
     && ($r->json['meta']['temReplay'] ?? null) === true && ($r->json['carreira']['replay']['v'] ?? 0) === 1
-    && ($r->json['candidatos'][0]['desafio']['slug'] ?? '') === 'tacas-do-rei' && ($r->json['candidatos'][0]['estado'] ?? '') === 'pendente', $r->resumo());
+    // §E: o candidato do desafio com início no passado nasce com a hora real (a entrada da carreira): ele pode vir antes
+    && (array_column(array_map(static fn($k) => ['s' => $k['desafio']['slug'] ?? '', 'e' => $k['estado'] ?? ''], $r->json['candidatos'] ?? []), 'e', 's')['tacas-do-rei'] ?? '') === 'pendente',
+    $r->resumo());
 $kidA = (int) $k0['id'];
 $r = v33Adm(['acao' => 'desafio_declarar_vencedor', 'candidatoId' => $kidA]);
 checar('declarar vencedor um candidato pendente (não verificado) → 409 nao_verificada', $r->status === 409 && $r->erro() === 'nao_verificada', $r->resumo());
@@ -886,7 +921,8 @@ checar('candidato_verificar não bateu → recusada com o motivo dos detalhes', 
     && v('SELECT motivo FROM desafio_candidatos WHERE id = ?', [$kidB]) === 'O pico deu 91, não 97.', $r->resumo());
 $r = v33Adm(['acao' => 'candidato_verificar', 'carreira' => (int) $K[1]['carreira']['pk'], 'resultado' => ['ok' => true]]);
 checar('…verificar de novo pela carreira ({carreira: pk}: todos os candidatos dela) → verificada (a recusa por engano se desfaz)', $r->status === 200
-    && v('SELECT estado FROM desafio_candidatos WHERE id = ?', [$kidB]) === 'verificada' && in_array(['id' => $kidB, 'estado' => 'verificada'], $r->json['candidatos'] ?? [], true)
+    && v('SELECT estado FROM desafio_candidatos WHERE id = ?', [$kidB]) === 'verificada'
+    && in_array(['id' => $kidB, 'estado' => 'verificada'], array_map(static fn($k) => ['id' => $k['id'] ?? 0, 'estado' => $k['estado'] ?? ''], $r->json['candidatos'] ?? []), true)
     && count($r->json['candidatos'] ?? []) === (int) v("SELECT COUNT(*) FROM desafio_candidatos WHERE carreira_pk = ?", [(int) $K[1]['carreira']['pk']]), $r->resumo());
 $r = v33Adm(['acao' => 'candidato_recusar', 'id' => $kidB]);
 $r2 = v33Adm(['acao' => 'candidato_recusar', 'id' => $kidB, 'motivo' => 'A carreira não bateu no replay.']);
@@ -904,6 +940,8 @@ v33ZerarDesafios();
 v33Ativar('tacas-do-rei');
 [$navP1, $uidP1] = v33Conta('Paralelo Um');
 [$navP2, $uidP2] = v33Conta('Paralelo Dois');
+v33Semente($uidP1, v33Replay()['seed']); // §E: o salvar em paralelo não passa pelo salvarC
+v33Semente($uidP2, v33Replay()['seed']);
 resetarLimitesCurtos();
 $res = paralelo([
     ['POST', '/api/carreiras.php', ['acao' => 'salvar', 'carreira' => v33Hall('v33-par-1', 3, 2), 'como' => 'manual'], $navP1->jar, 'p1'],
@@ -942,6 +980,8 @@ checar('o vencedor ganha o aviso em Minha conta; o público mostra o vencedor (a
     && in_array($pubV['vencedor']['carreiraId'] ?? '', ['v33-par-1', 'v33-par-2'], true) && preg_match($RE_ISO_MS, (string) ($pubV['vencedor']['em'] ?? '')) === 1
     && ($pubV['encerrado'] ?? null) === true && ($pubV['pendentes'] ?? -1) === 1 && acUltimoLog('desafio_vencedor') !== null
     && ($navVenc->pedir('GET', '/api/conta.php')->json['usuario']['aviso']['texto'] ?? '') === $uV['aviso_conta'], json_encode($pubV));
+// integração: o jogo mostra o recado do vencedor como vitória (não como "aviso da moderação"): U.aviso.tipo
+checar('U.aviso do vencedor vem com tipo "desafio"', ($navVenc->pedir('GET', '/api/conta.php')->json['usuario']['aviso']['tipo'] ?? '') === 'desafio');
 $r = v33Adm(['acao' => 'desafio_declarar_vencedor', 'candidatoId' => $segundo]);
 $r2 = v33Adm(['acao' => 'candidato_recusar', 'id' => $primeiro, 'motivo' => 'teste']);
 $r3 = v33Adm(['acao' => 'candidato_verificar', 'id' => $primeiro, 'resultado' => ['ok' => false]]);

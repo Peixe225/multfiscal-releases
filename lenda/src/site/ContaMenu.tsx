@@ -140,7 +140,7 @@ export default function ContaMenu({ fechar }: { fechar: () => void }) {
         </span>
         <span className="sc-me__t">
           <b>{usuario.apelido}</b>
-          <span>{usuario.aviso ? 'Minha conta · 1 aviso da moderação' : `Minha conta · ${usuario.email}`}</span>
+          <span>{usuario.aviso ? (usuario.aviso.tipo === 'desafio' ? 'Minha conta · você venceu um desafio!' : 'Minha conta · 1 aviso da moderação') : `Minha conta · ${usuario.email}`}</span>
         </span>
         {usuario.aviso && <span className="sc-dot" aria-hidden="true" />}
         <ChevronRight className="sc-row__chev" aria-hidden="true" />

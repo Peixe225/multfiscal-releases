@@ -149,9 +149,10 @@ switch ($acao) {
             throw $e;
         }
         $novo = buscarUsuario($uid);
-        if (esquemaV33() && cabeEmailVerificacao()) {
+        if (esquemaV33() && cabeEmailCadastro($email)) {
             // v3.3: o código para confirmar o e-mail sai logo depois da resposta (quem cadastra não espera o envio); passou do
-            // teto do site, o jogador pede outro depois (reenviar_verificacao)
+            // teto (§E: o do cadastro no site, o do IP ou o do domínio), o jogador pede outro depois (reenviar_verificacao, que
+            // tem baldes próprios)
             $codigo = gravarCodigoVerificacao($uid, $email);
             terminarResposta(201, ['usuario' => usuarioJson($novo)]);
             enviarEmail($email, 'LENDA: confirme o seu e-mail', corpoEmailVerificacao($apelido, $codigo), 'verificacao');
@@ -191,8 +192,8 @@ switch ($acao) {
         }
         limitar('reenviar-verif', 'u' . $uid, 3);
         limitar('dia-reenviar-verif', 'u' . $uid, 10, 1, 86400);
-        if (!cabeEmailVerificacao()) {
-            erroLimite(); // o teto do site (a cota de envio da hospedagem)
+        if (!cabeEmailPedido($u)) {
+            erroLimite(); // o teto do site (a cota de envio da hospedagem; §E: o do reenviar, que o cadastro não gasta)
         }
         $codigo = gravarCodigoVerificacao($uid, (string) $u['email']);
         terminarResposta(200, ['ok' => true]);

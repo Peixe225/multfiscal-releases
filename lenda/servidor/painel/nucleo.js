@@ -1026,7 +1026,9 @@
         if (op.rotuloLinha) tr.setAttribute('aria-label', op.rotuloLinha(item));
         tr.addEventListener('click', (ev) => {
           if (tr.classList.contains('resolvido')) return;
-          if (ev.target instanceof Element && ev.target.closest('a, button, input, select, textarea, label, summary, details')) return;
+          // clique num controle da própria linha (link, botão, caixa…) não abre a linha; uma lista dentro de <details> abre
+          const controle = ev.target instanceof Element ? ev.target.closest('a, button, input, select, textarea, label, summary, details') : null;
+          if (controle && tr.contains(controle)) return;
           op.aoClicar(item, ev);
         });
         tr.addEventListener('keydown', (ev) => {

@@ -1060,8 +1060,10 @@ dl { margin: 0; }
 .verificacao-ok { border-color: var(--ok-borda); }
 .verificacao-nao { border-color: var(--perigo-borda); }
 .verificacao ul { margin: 0; padding-left: 18px; }
-.tabela-verif { width: 100%; border-collapse: collapse; font-size: 13.5px; font-variant-numeric: tabular-nums; }
-.tabela-verif th { text-align: left; color: var(--texto-3); font-size: 11.5px; font-weight: 650; text-transform: uppercase; letter-spacing: 0.04em; padding: 4px 6px; border-bottom: 1px solid var(--borda); }
+.tabela-verif { width: 100%; border-collapse: collapse; font-size: 13.5px; font-variant-numeric: tabular-nums; table-layout: fixed; }
+.tabela-verif th:first-child, .tabela-verif td:first-child { width: 46%; overflow-wrap: anywhere; }
+.verificacao, .verificacao > * { min-width: 0; }
+.tabela-verif th { white-space: normal; text-align: left; color: var(--texto-3); font-size: 11.5px; font-weight: 650; text-transform: uppercase; letter-spacing: 0.04em; padding: 4px 6px; border-bottom: 1px solid var(--borda); }
 .tabela-verif td { padding: 4px 6px; border-bottom: 1px solid var(--borda); }
 .tabela-verif .num { text-align: right; }
 .tabela-verif tr.diferente td { color: var(--perigo-texto); font-weight: 700; background: var(--perigo-fundo); }

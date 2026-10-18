@@ -16,6 +16,7 @@
 -- modo), lixeira_carreiras.resumo_hash (a cópia de uma carreira apagada em outra conta) e a tabela contas_excluidas.
 -- v3.3 (CONTRATO-v33 §A): usuarios.email_verificado_em, carreiras.tem_replay, libertadores, primeira_em e fora_desafio e as
 -- tabelas verificacoes_email, partidas_dia, mensagens_suporte, desafios e desafio_candidatos.
+-- v3.3 §E (correções): carreiras.semente_em e a tabela sementes_carreira (semente sorteada pelo servidor).
 
 CREATE TABLE IF NOT EXISTS usuarios (
   id            INT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -102,6 +103,7 @@ CREATE TABLE IF NOT EXISTS carreiras (
   libertadores SMALLINT UNSIGNED NULL,
   primeira_em  DATETIME          NULL,
   fora_desafio VARCHAR(20)       CHARACTER SET ascii COLLATE ascii_bin NULL,
+  semente_em   DATETIME(3)       NULL,
   PRIMARY KEY (id),
   UNIQUE KEY uq_carreiras_usuario_carreira (usuario_id, carreira_id),
   KEY ix_carreiras_usuario_salva (usuario_id, salva_em),
@@ -478,6 +480,21 @@ CREATE TABLE IF NOT EXISTS desafio_candidatos (
   KEY ix_candidatos_desafio (desafio_id, estado, em),
   KEY ix_candidatos_usuario (usuario_id),
   KEY ix_candidatos_carreira (carreira_pk)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Sementes de carreira sorteadas pelo servidor (CONTRATO-v33 §E): uma por início de carreira do Clássico com a conta, até
+-- o limite de partidas do dia. Só vale para desafio a carreira cuja semente (o texto, a mesma conta do jogo) saiu daqui
+-- para a própria conta, depois do começo do desafio. Some em 40 dias (carreiras.semente_em guarda a hora).
+CREATE TABLE IF NOT EXISTS sementes_carreira (
+  id         BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  usuario_id INT UNSIGNED    NOT NULL,
+  semente    VARCHAR(16)     CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  dia        DATE            NOT NULL,
+  emitida_em DATETIME(3)     NOT NULL,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_sementes_usuario (usuario_id, semente),
+  KEY ix_sementes_dia (usuario_id, dia),
+  KEY ix_sementes_emitida (emitida_em)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ── admin: contas, sessões, papéis, recados (CONTRATO-v32 §B) ──────────────────────────────────

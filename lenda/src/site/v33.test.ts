@@ -15,7 +15,7 @@ import { BASE_ROUTES, buildHash, parseHash, SITE_ROUTES } from '@/store/app'
 import { computeLegacy, randomSeed, useCareer, type HallEntry } from '@/store/career'
 import { useData } from '@/store/data'
 import { mensagemDeErro } from './api'
-import { normalizarUsuario, useConta } from './conta'
+import { normalizarAvisoConta, normalizarUsuario, useConta } from './conta'
 import { criterioEmFrase, itensRequisitos, normalizarCriterio, normalizarDesafio, normalizarLista, normalizarMeus, normalizarRequisitos, REQUISITOS_PADRAO, temDesafioAtivo, textoCriterio, useDesafios, valendo } from './desafios'
 import { normalizarCarreiraPublica } from './hallPublico'
 import { linkPerfil } from './indicacao'
@@ -254,7 +254,8 @@ describe('desafios', () => {
     const eu = { partidas: 31, partidasMin: 30, emailVerificado: true, partidasHoje: 4, partidasDiaMax: 100, carreirasQueCumprem: [{ carreiraId: 'career-a', jogador: 'REI', publicada: true, noTop3: false, temReplay: true, vale: false, motivo: 'fora_do_top3', motivoTexto: 'Fora das 3 do perfil' }, { jogador: 'sem id' }], candidato: { estado: 'pendente', motivo: null, em: '2026-10-18T10:00:00Z', carreiraId: 'career-a' } }
     const m = normalizarMeus({ desafios: [{ ...desafioBase, eu }, { slug: 'todas-as-conquistas', partidas: 2, partidasMin: 30, emailVerificado: false, conquistas: 50, conquistasTotal: 87, carreirasQueCumprem: [], candidato: null }] })
     expect(m['tacas-do-rei']).toMatchObject({ partidas: 31, partidasHoje: 4, partidasDiaMax: 100, candidato: { estado: 'pendente', carreiraId: 'career-a' } })
-    expect(m['tacas-do-rei'].carreirasQueCumprem).toEqual([{ carreiraId: 'career-a', jogador: 'REI', publicada: true, noTop3: false, temReplay: true, vale: false, motivo: 'Fora das 3 do perfil' }])
+    // §E: o código do motivo vem junto (o checklist separa o que é da carreira do que é do Hall)
+    expect(m['tacas-do-rei'].carreirasQueCumprem).toEqual([{ carreiraId: 'career-a', jogador: 'REI', publicada: true, noTop3: false, temReplay: true, vale: false, motivo: 'Fora das 3 do perfil', motivoCodigo: 'fora_do_top3' }])
     expect(m['todas-as-conquistas']).toMatchObject({ partidas: 2, emailVerificado: false, conquistas: 50, conquistasTotal: 87, candidato: null })
     expect(normalizarMeus({ desafios: [{ slug: 'x', eu: { candidato: { estado: 'pendente' } } }] })).toEqual({})
   })
@@ -290,6 +291,21 @@ describe('desafios', () => {
     useConta.setState({ usuario: normalizarUsuario({ id: 10, apelido: 'Dez' }) })
     expect(useDesafios.getState().meu).toBeNull()
   })
+  it('confirmar o e-mail com o checklist carregado pede o checklist de novo (a candidatura nasce no servidor na hora)', async () => {
+    useConta.setState({ usuario: normalizarUsuario({ id: 11, apelido: 'Onze', emailVerificado: false }) })
+    let candidato: unknown = null
+    const f = rede(() => resposta(200, { desafios: [{ ...desafioBase, eu: { partidas: 30, partidasMin: 30, emailVerificado: candidato !== null, carreirasQueCumprem: [], candidato } }] }))
+    await useDesafios.getState().carregarMeu()
+    expect(useDesafios.getState().meu?.['tacas-do-rei']?.candidato).toBeNull()
+    candidato = { estado: 'pendente', motivo: null, em: '2026-10-18T12:00:00.123Z', carreiraId: 'career-x' }
+    const u = useConta.getState().usuario!
+    useConta.setState({ usuario: { ...u, emailVerificado: true } })
+    await vi.waitFor(() => expect(useDesafios.getState().meu?.['tacas-do-rei']?.candidato?.estado).toBe('pendente'))
+    expect(f).toHaveBeenCalledTimes(2)
+    // outra mudança qualquer na conta não pede de novo
+    useConta.setState({ usuario: { ...useConta.getState().usuario!, apelido: 'Onze Dois' } })
+    expect(f).toHaveBeenCalledTimes(2)
+  })
   it('nenhum texto do jogo diz o que é o prêmio: ele vem do admin', () => {
     const lista = normalizarLista({ desafios: [{ ...desafioBase, premio: '' }] })
     expect(lista[0].premio).toBe('')
@@ -301,6 +317,19 @@ describe('desafios', () => {
 })
 
 // ───────────────────────────── perfil público ─────────────────────────────
+
+describe('recado do vencedor (U.aviso.tipo)', () => {
+  it('o recado de quem venceu um desafio é "desafio"; o da moderação continua "moderacao"', () => {
+    const venc = 'Parabéns! Você venceu o desafio “As Taças do Rei”. A equipe do LENDA vai falar com você pelo e-mail da conta.'
+    expect(normalizarAvisoConta({ texto: venc, em: null, tipo: 'desafio' })?.tipo).toBe('desafio')
+    // servidor sem o campo: pelo começo do texto
+    expect(normalizarAvisoConta({ texto: venc, em: null })?.tipo).toBe('desafio')
+    expect(normalizarAvisoConta({ texto: 'Uma carreira sua saiu do Hall público por: nome ofensivo.', em: null })?.tipo).toBe('moderacao')
+    // o servidor manda o tipo: ele vale
+    expect(normalizarAvisoConta({ texto: venc, em: null, tipo: 'moderacao' })?.tipo).toBe('moderacao')
+    expect(normalizarAvisoConta({ texto: 'Outro recado', em: null, tipo: 'qualquer' })?.tipo).toBe('moderacao')
+  })
+})
 
 describe('perfil público', () => {
   const carreira = { id: 'career-abc', posicao: 3, apelido: 'Rei', jogador: 'PELEZINHO', numero: 10, pais: 'BRA', posicaoCampo: 'CA', nota: 88, picoOvr: 95, temporadas: 24, gols: 900, titulos: 40, bolasOuro: 6, copas: 3, headline: 'Rei', clubes: ['e1'], bonusOvr: 0, terminouEm: null, destaque: false, perfil: 'ABCD2345' }

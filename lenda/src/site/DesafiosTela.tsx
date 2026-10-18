@@ -13,7 +13,7 @@ import { PlaceholderScreen } from '@/ui/shell/Placeholder'
 import { useShellSlots } from '@/ui/shell/slots'
 import { TrophyArt } from '@/ui/trophies'
 import { useConta } from './conta'
-import { ROTULO_ESTADO, itensRequisitos, textoCriterio, useDesafios, valendo, type Desafio, type MeuDesafio } from './desafios'
+import { ROTULO_ESTADO, carreirasQueContam, itensRequisitos, textoCriterio, useDesafios, valendo, type Desafio, type MeuDesafio } from './desafios'
 import { dataBr } from './datas'
 import { abrirConta, abrirSuporte, abrirVerificarEmail } from './ui'
 import './site.css'
@@ -167,7 +167,8 @@ function CartaoDesafio({ d, meu, logado, contaPronta, meuCarregando }: { d: Desa
         <CalendarClock aria-hidden="true" />
         <span>
           {d.inicio ? `Desde ${dataBr(d.inicio)}` : 'Começa quando for ativado'}
-          {d.fim ? ` · até ${dataBr(d.fim, true)}` : ' · sem data para acabar: vale até alguém vencer'}
+          {/* com vencedor, o desafio já acabou: "vale até alguém vencer" não cabe mais */}
+          {d.fim ? ` · até ${dataBr(d.fim, true)}` : d.vencedor ? '' : ' · sem data para acabar: vale até alguém vencer'}
           {d.pendentes > 0 && !d.vencedor ? ` · ${formatInt(d.pendentes)} ${d.pendentes === 1 ? 'carreira em verificação' : 'carreiras em verificação'}` : ''}
         </span>
       </p>
@@ -259,29 +260,38 @@ function Vencedor({ d }: { d: Desafio }) {
   )
 }
 
-function Checklist({ d, meu }: { d: Desafio; meu: MeuDesafio }) {
+/** O checklist do jogador logado (exportado para o teste: src/site/v33corr.test.ts). */
+export function Checklist({ d, meu }: { d: Desafio; meu: MeuDesafio }) {
   const usuario = useConta((s) => s.usuario)
   const total = useAchievementCatalog((s) => s.list.length)
   const locais = useCareer((s) => Object.keys(s.achievements).length)
   const r = d.requisitos
   const cumpre = meu.carreirasQueCumprem
+  // §E: só as que contam (valem, ou só esperam o Hall) deixam o critério, o Hall e o top 3 verdes; uma sem replay, sem a
+  // semente do servidor, do Imersivo ou fora do limite do dia não conta para nada
+  const contam = carreirasQueContam(cumpre)
+  const naoValem = !contam.length && cumpre.length > 0
   const conquistas = d.criterio.todasConquistas
   const emailOk = meu.emailVerificado || !!usuario?.emailVerificado
   const cand = meu.candidato
+  // §E: o pendente/verificado que deixou de cumprir algo (a carreira saiu do Hall, das 3 do perfil...) diz o quê
+  const candNaoVale = !!cand && (cand.estado === 'pendente' || cand.estado === 'verificada') && cand.vale === false
   return (
     <>
       {cand && (
-        <p className={`sv-cand-meu is-${cand.estado}`} role="status">
+        <p className={cx('sv-cand-meu', `is-${cand.estado}`, candNaoVale && 'is-recusada')} role="status">
           <ShieldCheck aria-hidden="true" />
           <span>
-            <b>{ROTULO_ESTADO[cand.estado]}</b>
-            {cand.estado === 'pendente'
-              ? 'Sua carreira cumpriu tudo e está na fila de verificação da equipe do LENDA.'
-              : cand.estado === 'verificada'
-                ? 'Sua carreira foi conferida. Falta a equipe declarar o vencedor.'
-                : cand.estado === 'vencedora'
-                  ? 'Você venceu este desafio! A equipe do LENDA entra em contato pelo e-mail da conta.'
-                  : (cand.motivo ?? 'A carreira não valeu para este desafio.')}
+            <b>{candNaoVale ? 'Não vale agora' : ROTULO_ESTADO[cand.estado]}</b>
+            {candNaoVale
+              ? `Sua candidatura está guardada, mas falta uma coisa: ${cand.motivoAgora ?? 'confira os itens abaixo.'} Enquanto isso, ela não pode ser declarada vencedora.`
+              : cand.estado === 'pendente'
+                ? 'Sua carreira cumpriu tudo e está na fila de verificação da equipe do LENDA.'
+                : cand.estado === 'verificada'
+                  ? 'Sua carreira foi conferida. Falta a equipe declarar o vencedor.'
+                  : cand.estado === 'vencedora'
+                    ? 'Você venceu este desafio! A equipe do LENDA entra em contato pelo e-mail da conta.'
+                    : (cand.motivo ?? 'A carreira não valeu para este desafio.')}
           </span>
         </p>
       )}
@@ -292,9 +302,15 @@ function Checklist({ d, meu }: { d: Desafio; meu: MeuDesafio }) {
             {meu.conquistas == null ? <small> (neste aparelho)</small> : null}
           </Item>
         ) : (
-          <Item marca={cumpre.length ? 'ok' : 'falta'}>
+          <Item marca={contam.length ? 'ok' : 'falta'}>
             {textoCriterio(d.criterio)}
-            {cumpre.length ? <small> · {cumpre.map((c) => c.jogador).join(', ')}</small> : null}
+            {contam.length ? <small> · {contam.map((c) => c.jogador).join(', ')}</small> : null}
+            {naoValem ? (
+              <small>
+                {' '}
+                · {cumpre[0].jogador} não vale: {cumpre[0].motivo ?? 'veja abaixo'}
+              </small>
+            ) : null}
           </Item>
         )}
         {r.partidasMin > 0 && (
@@ -318,15 +334,15 @@ function Checklist({ d, meu }: { d: Desafio; meu: MeuDesafio }) {
           </Item>
         )}
         {!conquistas && r.publicadoNoHall && (
-          <Item marca={!cumpre.length ? 'espera' : cumpre.some((c) => c.publicada) ? 'ok' : 'falta'}>
+          <Item marca={!contam.length ? 'espera' : contam.some((c) => c.publicada) ? 'ok' : 'falta'}>
             A carreira publicada no Hall das Lendas
-            {!cumpre.length ? <small> · quando tiver uma carreira que cumpra</small> : null}
+            {!contam.length ? <small> · quando tiver uma carreira que cumpra</small> : null}
           </Item>
         )}
         {!conquistas && r.top3Perfil && (
-          <Item marca={!cumpre.length ? 'espera' : cumpre.some((c) => c.noTop3) ? 'ok' : 'falta'}>
+          <Item marca={!contam.length ? 'espera' : contam.some((c) => c.noTop3) ? 'ok' : 'falta'}>
             A carreira entre as 3 do seu perfil público
-            {!cumpre.length ? <small> · quando tiver uma carreira que cumpra</small> : null}
+            {!contam.length ? <small> · quando tiver uma carreira que cumpra</small> : null}
           </Item>
         )}
       </ul>

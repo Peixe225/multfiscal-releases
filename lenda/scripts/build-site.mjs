@@ -122,6 +122,27 @@ if (existsSync(join(out, 'painel'))) {
   console.log(`  painel/nomes.json: ${Object.entries(n).map(([k, v]) => `${v} ${k}`).join(', ')}`)
 }
 
+// ── 1c. os dados do jogo desta versão: dados/<DADOS_VERSAO>.json (CONTRATO-v33 §E) ──
+// A verificação por replay (#/verificar, só o admin) refaz a carreira com a versão dos dados com que ela foi jogada
+// (HallEntry.replay.dados). Cada build publica a sua com o nome da versão (src/data/versao.ts); o deploy só acrescenta —
+// NUNCA apague a pasta dados/ do servidor —, então as versões dos deploys de antes continuam lá para as carreiras antigas.
+// O jogo confere o hash do arquivo pelo próprio nome (FNV-1a, a mesma conta do DADOS_VERSAO) antes de usar.
+{
+  const versaoTs = readFileSync(join(root, 'src', 'data', 'versao.ts'), 'utf8')
+  const versao = /DADOS_VERSAO\s*=\s*'([^']+)'/.exec(versaoTs)?.[1] ?? ''
+  const txt = readFileSync(join(root, 'src', 'data', 'generated', 'game-data.json'), 'utf8')
+  let h = 0x811c9dc5
+  for (let i = 0; i < txt.length; i++) h = Math.imul(h ^ txt.charCodeAt(i), 0x01000193)
+  const esperado = `${String(JSON.parse(txt).generatedAt ?? '').slice(0, 10)}.${(h >>> 0).toString(16).padStart(8, '0')}`
+  if (!/^\d{4}-\d{2}-\d{2}\.[0-9a-f]{8}$/.test(versao) || versao !== esperado) {
+    console.warn(`  ! dados/: o DADOS_VERSAO (${versao || 'sem valor'}) não é o do game-data.json (${esperado}); a versão não foi publicada`)
+  } else {
+    mkdirSync(join(out, 'dados'), { recursive: true })
+    writeFileSync(join(out, 'dados', `${versao}.json`), txt)
+    console.log(`  dados/${versao}.json (a verificação por replay das carreiras desta versão)`)
+  }
+}
+
 // ── 2. .htaccess ──
 // Vale só para public_html/lenda/ e o que está dentro: o .htaccess do public_html continua mandando no
 // resto do site, e nada daqui chega às pastas irmãs. Nenhuma RewriteRule/RewriteEngine de propósito (ver o

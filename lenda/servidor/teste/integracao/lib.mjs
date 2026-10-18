@@ -1,7 +1,7 @@
 // LENDA v3 · integração: utilidades dos testes de navegador (aparelhos, jogar uma carreira pela tela, SQL, admin).
 const { chromium } = await import(process.env.LENDA_PLAYWRIGHT ?? '/opt/node22/lib/node_modules/playwright/index.mjs')
 import { execFileSync } from 'node:child_process'
-import { readFileSync, mkdirSync } from 'node:fs'
+import { readFileSync, readdirSync, statSync, mkdirSync } from 'node:fs'
 
 export const BASE = process.env.LENDA_INTEG_BASE ?? '/tmp/lenda-integracao'
 export const PRINTS = process.env.LENDA_PRINTS ?? `${BASE}/prints`
@@ -160,8 +160,37 @@ export const lerKv = (page, chave) =>
   )
 
 /**
+ * CONTRATO-v33 §E: com a conta aberta, o jogo pede a semente da carreira ao servidor (POST carreiras.php {acao:
+ * "semente"}) e usa a dele. O teste que fixa a semente deixa o servidor sortear, troca a resposta pelo par do teste e
+ * grava no banco que foi esse o sorteado para a conta (a carreira continua valendo para desafio, como a de verdade).
+ * Sem conta, o jogo nem pede (a semente fixada pelo crypto.getRandomValues de sempre vale). Devolve a função que desfaz.
+ */
+export async function fixarSementeDoServidor(page, par) {
+  const texto = (a) => `${Number(a[0]).toString(36)}${Number(a[1]).toString(36)}`
+  const handler = async (route) => {
+    const req = route.request()
+    let corpo = null
+    try {
+      corpo = JSON.parse(req.postData() || 'null')
+    } catch {}
+    if (req.method() !== 'POST' || corpo?.acao !== 'semente') return route.fallback()
+    const resp = await route.fetch()
+    let j = null
+    try {
+      j = await resp.json()
+    } catch {}
+    if (!Array.isArray(j?.semente)) return route.fulfill({ response: resp })
+    sql(`UPDATE IGNORE sementes_carreira SET semente = '${texto(par)}' WHERE semente = '${texto(j.semente)}'`)
+    return route.fulfill({ response: resp, json: { ...j, semente: [par[0], par[1]], id: `career-${texto(par)}` } })
+  }
+  await page.route('**/api/carreiras.php', handler)
+  return () => page.unroute('**/api/carreiras.php', handler).catch(() => {})
+}
+
+/**
  * Joga uma carreira do Clássico pela tela (ritmo Expresso), escolhendo sempre a 1ª opção liberada, até o card
- * de fim ("Jogar novamente"). o.semente = [x, y] fixa a semente. o.nacao = texto da busca de país.
+ * de fim ("Jogar novamente"). o.semente = [x, y] fixa a semente (também a do servidor, com a conta). o.nacao = texto da
+ * busca de país.
  * Devolve { ms, fim } (fim = apareceu o card de fim). Não clica em "Jogar novamente".
  */
 export async function jogarCarreira(page, o = {}) {
@@ -194,8 +223,10 @@ export async function jogarCarreira(page, o = {}) {
   await conferirSobrenome()
   if (o.antesDeConfirmar) await o.antesDeConfirmar(page)
   if (o.semente) await page.evaluate(() => sessionStorage.setItem('teste:armado', '1'))
+  const desfazer = o.semente ? await fixarSementeDoServidor(page, o.semente) : null
   await page.getByRole('button', { name: /Confirmar identidade/ }).click()
   await page.waitForFunction(() => location.hash.startsWith('#/carreira'), null, { timeout: 30000 })
+  if (desfazer) await desfazer()
   await page.evaluate(() => sessionStorage.removeItem('teste:armado'))
   if (o.aoComecar) await o.aoComecar(page)
   const t0 = Date.now()
@@ -245,4 +276,108 @@ export async function esperarSql(q, cond, ms = 20000) {
     await sleep(400)
   }
   return v
+}
+
+/**
+ * v3.3 · joga pela tela uma carreira REAL de uma fila de gravação (scripts/gravar/filas/*.json: {a0, a1, identity,
+ * pace, picks: [{idx, pen, n, ...}]}). O Clássico é determinístico: a mesma semente (fixada como no jogarCarreira), a
+ * mesma identidade e ritmo e o mesmo cartão (#ck-opt-<idx>, também o canto do pênalti) em cada decisão dão a mesma
+ * carreira. Cada escolha espera o replay do estado (career:current, que o jogo grava a cada jogada) ter as escolhas de
+ * antes, para nunca clicar duas vezes na mesma decisão. o.nacao = o nome do país na busca (pt-BR).
+ * Devolve { ms, fim, escolhas } (fim = o card de fim com "Jogar novamente").
+ */
+export async function jogarFila(page, fila, o = {}) {
+  await page.evaluate((s) => sessionStorage.setItem('teste:sementes', JSON.stringify([s])), [fila.a0, fila.a1])
+  await page.goto(`${URL0}#/identidade?ritmo=${fila.pace}`)
+  await page.waitForSelector('#id-surname', { timeout: 60000 })
+  const id = fila.identity
+  const preencher = async () => {
+    for (let i = 0; i < 4 && (await page.inputValue('#id-surname')) !== id.surname; i++) {
+      await page.fill('#id-surname', id.surname)
+      await sleep(150)
+    }
+    if ((await page.inputValue('#id-surname')) !== id.surname) throw new Error(`sobrenome no campo: "${await page.inputValue('#id-surname')}"`)
+  }
+  await preencher()
+  await page.fill('#id-number', String(id.number))
+  const busca = page.getByPlaceholder('Buscar país')
+  await busca.fill(o.nacao)
+  await busca.press('Enter')
+  const pe = page.getByRole('radio', { name: id.foot === 'left' ? 'Esquerda' : 'Direita', exact: true })
+  if ((await pe.getAttribute('aria-checked')) !== 'true') await pe.click()
+  await page.locator('[role="radiogroup"][aria-label="Posição em campo"] .lx-pchip', { hasText: new RegExp(`^\\s*${id.position}\\s*$`) }).first().click()
+  await sleep(300)
+  await preencher()
+  await page.evaluate(() => sessionStorage.setItem('teste:armado', '1'))
+  const desfazer = await fixarSementeDoServidor(page, [fila.a0, fila.a1])
+  await page.getByRole('button', { name: /Confirmar identidade/ }).click()
+  await page.waitForFunction(() => location.hash.startsWith('#/carreira'), null, { timeout: 30000 })
+  await desfazer()
+  await page.evaluate(() => sessionStorage.removeItem('teste:armado'))
+  const t0 = Date.now()
+  const feitas = async () => (await lerKv(page, 'career:current'))?.replay?.picks?.length ?? -1
+  const fimNaTela = async () => (await page.locator('.ck-end button', { hasText: /Jogar novamente/ }).count()) > 0
+  let escolhas = 0
+  for (let i = 0; i < fila.picks.length; i++) {
+    const p = fila.picks[i]
+    const alvo = page.locator(`#ck-opt-${p.idx}`)
+    const tp = Date.now()
+    for (;;) {
+      if (await fimNaTela()) throw new Error(`a carreira acabou antes da decisão ${i + 1} de ${fila.picks.length} (divergiu da fila)`)
+      const livre = (await feitas()) === i && (await alvo.evaluate((el) => {
+        if (!el || el.closest('[hidden]') || el.getAttribute('aria-disabled') === 'true' || el.disabled) return false
+        const r = el.getBoundingClientRect()
+        return r.width > 0 && r.height > 0 && !document.documentElement.classList.contains('ck-celebrating')
+      }).catch(() => false))
+      if (livre) break
+      if (Date.now() - tp > (o.decisaoMs ?? 60000)) throw new Error(`a decisão ${i + 1} não ficou pronta (escolhas no replay: ${await feitas()})`)
+      // revelação ou comemoração no caminho: "Pular" e os diálogos de sempre
+      const pular = page.locator('button.ck-skip') // o "Pular" da revelação (não o pulo do goleiro no pênalti)
+      if (await pular.count()) await pular.first().click({ timeout: 2000 }).catch(() => {})
+      else {
+        const dlg = page.locator('[role="dialog"]:not(.sc-modal)')
+        if (await dlg.count()) {
+          const b = dlg.locator('button').filter({ hasText: /Continuar|Fechar|Seguir|OK|Avançar/ }).first()
+          if (await b.count()) await b.click({ timeout: 2000 }).catch(() => {})
+        }
+      }
+      await sleep(150)
+    }
+    await alvo.click({ timeout: 5000 })
+    escolhas++
+    // a escolha ficou gravada (o estado novo vai para o IndexedDB junto com o replay)
+    const tg = Date.now()
+    while ((await feitas()) < i + 1 && !(await fimNaTela()) && Date.now() - tg < 20000) await sleep(150)
+  }
+  const tf = Date.now()
+  while (!(await fimNaTela()) && Date.now() - tf < (o.fimMs ?? 60000)) {
+    const pular = page.locator('button.ck-skip') // o "Pular" da revelação (não o pulo do goleiro no pênalti)
+    if (await pular.count()) await pular.first().click({ timeout: 2000 }).catch(() => {})
+    await sleep(200)
+  }
+  return { ms: Date.now() - t0, fim: await fimNaTela(), escolhas }
+}
+
+/** v3.3 · e-mails do modo "arquivo" (a pasta $BASE/emails): os que foram para `para`, do mais novo para o mais velho. */
+export function emailsPara(para, depoisDe = 0) {
+  const pasta = `${BASE}/emails`
+  return readdirSync(pasta)
+    .map((f) => ({ f, t: statSync(`${pasta}/${f}`).mtimeMs }))
+    .filter((x) => x.t >= depoisDe)
+    .sort((a, b) => b.t - a.t)
+    .map(({ f, t }) => ({ arquivo: f, t, txt: readFileSync(`${pasta}/${f}`, 'utf8') }))
+    .filter((e) => e.txt.split('\r\n').some((l) => l.toLowerCase() === `to: ${para.toLowerCase()}`))
+}
+
+/** v3.3 · o código de 6 dígitos do e-mail de confirmação mais novo para `para` (espera chegar: o servidor manda depois de responder). */
+export async function codigoDoEmail(para, depoisDe = 0, ms = 15000) {
+  const t0 = Date.now()
+  while (Date.now() - t0 < ms) {
+    for (const e of emailsPara(para, depoisDe)) {
+      const m = /confirmar o e-mail[^\n]*\n\s*\n\s*(\d{6})\s*\n/.exec(e.txt.replace(/\r\n/g, '\n'))
+      if (m) return m[1]
+    }
+    await sleep(250)
+  }
+  return null
 }

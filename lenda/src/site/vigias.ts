@@ -313,10 +313,12 @@ export function iniciarSite() {
     const a = useConta.getState().usuario?.aviso
     if (!a || lembrouAviso === a.texto || useSiteUi.getState().dialogo?.tipo === 'perfil') return
     lembrouAviso = a.texto
-    toastAviso = toast.info('Um aviso sobre o Hall público', 'A moderação deixou um recado na sua conta.', {
-      key: 'aviso-conta',
-      action: { label: 'Ver', icon: ArrowRight, onClick: () => abrirPerfil() },
-    })
+    const acao = { key: 'aviso-conta', action: { label: 'Ver', icon: ArrowRight, onClick: () => abrirPerfil() } }
+    // v3.3: o recado de quem venceu um desafio é uma vitória, não um aviso da moderação
+    toastAviso =
+      a.tipo === 'desafio'
+        ? toast.gold('Você venceu um desafio!', 'A equipe do LENDA deixou um recado na sua conta.', acao)
+        : toast.info('Um aviso sobre o Hall público', 'A moderação deixou um recado na sua conta.', acao)
   }
   useConta.subscribe((s, p) => {
     if (s.usuario?.aviso && s.usuario.aviso !== p.usuario?.aviso) lembrarAviso()

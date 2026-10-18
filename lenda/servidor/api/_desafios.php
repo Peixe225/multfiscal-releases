@@ -7,10 +7,13 @@
  * e-mail, ao mudar o modo do Hall, a cada partida contada na conta e quando o admin libera uma carreira ou ativa um
  * desafio (avaliarDesafiosConta). Só desafio ativo, sem vencedor e dentro do prazo. A conta que cumpre o critério e todos
  * os requisitos vira candidata pendente; "o primeiro" = menor `em` (hora do servidor com milésimos; empate: menor id).
- * Carreira de desafio: Clássico, com replay (tem_replay), entrou na conta depois do início do desafio (primeira_em) e não
- * foi salva num dia em que a conta passou do limite de partidas (fora_desafio). O admin confere a carreira no jogo
- * (#/verificar, que roda o motor de novo) e só um candidato verificado, sem outro anterior esperando decisão, pode ser
- * declarado vencedor (numa transação: um vencedor por desafio).
+ * Carreira de desafio: Clássico, com replay (tem_replay), começada com uma semente que o servidor sorteou para a conta
+ * depois do início do desafio (semente_em, §E), entrou na conta depois do início (primeira_em), não foi salva num dia em
+ * que a conta passou do limite de partidas (fora_desafio) e sem suspeita (salvo a revisão da nota alta). O admin confere a
+ * carreira no jogo (#/verificar, que roda o motor de novo) e só um candidato verificado, sem outro anterior esperando
+ * decisão, pode ser declarado vencedor (numa transação: um vencedor por desafio). §E: o candidato é conferido de novo, com a
+ * carreira guardada de agora e o critério de agora, ao salvar a carreira, a cada avaliação da conta, ao mudar as regras do
+ * desafio, ao verificar e ao declarar (motivoCandidato); o de todas as conquistas não tem prova e não pode ser ativado.
  * Usado por carreiras.php, conquistas.php, conta.php, e.php, desafios.php, perfil.php, admin.php e instalar.php.
  * Nunca é servido (o .htaccess nega _*.php).
  */
@@ -39,16 +42,30 @@ const CONQUISTAS_IDS = ['king_of_america', 'one_club_legend', 'europe_owner', 'm
     'clubs_10', 'goals_100', 'goals_1000', 'goals_1300', 'assists_100', 'assists_250', 'assists_400', 'gpg_05', 'gpg_07', 'gpg_09',
     'records_1', 'records_5', 'records_10', 'legacy_60', 'legacy_80', 'legacy_95', 'legend_top10', 'beat_pele', 'beat_all'];
 const CONQUISTAS_TOTAL = 87;
-/** Por que uma carreira que cumpre o critério não vale (eu=1). */
+/**
+ * Por que uma carreira que cumpre o critério não vale (eu=1) e, §E, por que um candidato não vale agora (eu=1, painel,
+ * declarar, a recusa automática).
+ */
 const DESAFIO_MOTIVOS = [
     'imersivo' => 'Só carreiras do Modo Clássico valem.',
     'sem_replay' => 'Esta carreira não tem os dados de replay (foi jogada antes desta versão do jogo).',
     'limite_diario' => 'Foi salva num dia em que a conta passou do limite de partidas por dia.',
-    'antes_do_inicio' => 'Foi salva antes do começo do desafio.',
+    'sem_semente' => 'Esta carreira não começou com a conta aberta (a semente não foi sorteada pelo servidor para você) ou passou do limite de partidas do dia.',
+    'suspeita' => 'Os números desta carreira esperam a conferência da moderação.',
+    'antes_do_inicio' => 'Foi começada ou salva antes do começo do desafio.',
     'depois_do_fim' => 'Foi salva depois do fim do desafio.',
     'nao_publicada' => 'Publique esta carreira no Hall das Lendas.',
     'fora_do_top3' => 'Ela precisa estar entre as 3 carreiras do seu perfil público.',
+    'criterio' => 'A carreira guardada não cumpre o critério do desafio.',
+    'carreira_apagada' => 'A carreira não está mais na conta.',
+    'conta_suspensa' => 'A conta está suspensa.',
+    'conta_excluida' => 'A conta foi excluída.',
+    'partidas' => 'A conta não tem as partidas mínimas.',
+    'email' => 'O e-mail da conta não está confirmado.',
+    'conquistas' => 'A conta não tem todas as conquistas.',
 ];
+/** §E: por que o desafio de todas as conquistas não pode ser ativado, verificado nem ter vencedor. */
+const DESAFIO_SEM_PROVA = 'O desafio de todas as conquistas não tem como ser conferido: as conquistas vêm do aparelho do jogador, sem prova (não há replay das conquistas). Ele não pode ser ativado, verificado nem ter vencedor.';
 
 // ── datas e textos ───────────────────────────────────────────────────────────────────────────────
 
@@ -225,13 +242,13 @@ function regulamentoPadrao(array $crit, array $req): string
     } else {
         $partes = [];
         if (isset($crit['copas'])) {
-            $partes[] = $crit['copas'] . ' Copas do Mundo';
+            $partes[] = $crit['copas'] . ($crit['copas'] === 1 ? ' Copa do Mundo' : ' Copas do Mundo');
         }
         if (isset($crit['libertadores'])) {
             $partes[] = $crit['libertadores'] . ' Libertadores';
         }
         $l[] = 'Vale a primeira conta a terminar uma carreira com ' . implode(' e ', $partes) . ', com todos os requisitos abaixo cumpridos. A hora que conta é a do servidor.';
-        $l[] = 'A carreira tem de ser do Modo Clássico, jogada e salva na conta depois do começo do desafio, nesta versão do jogo (com os dados de replay).';
+        $l[] = 'A carreira tem de ser do Modo Clássico, começada com a conta aberta (a semente da carreira é sorteada pelo servidor) e salva na conta depois do começo do desafio, nesta versão do jogo (com os dados de replay).';
         if ($req['publicadoNoHall']) {
             $l[] = 'A carreira tem de estar publicada no Hall das Lendas' . ($req['top3Perfil'] ? ' e entre as 3 carreiras do seu perfil público.' : '.');
         }
@@ -242,7 +259,7 @@ function regulamentoPadrao(array $crit, array $req): string
     if ($req['partidasMin'] > 0) {
         $l[] = 'A conta precisa ter pelo menos ' . $req['partidasMin'] . ' partidas jogadas com ela.';
     }
-    $l[] = 'Só contam as partidas de até o limite diário do jogo; carreira salva num dia em que a conta passou desse limite não vale.';
+    $l[] = 'Só contam as partidas e as carreiras começadas até o limite diário do jogo; carreira salva num dia em que a conta passou desse limite não vale.';
     if (!eDeConquistas($crit)) {
         $l[] = 'Antes de declarar o vencedor, a equipe refaz a carreira no próprio jogo, com as mesmas escolhas. Carreira que não bater é recusada.';
     }
@@ -349,6 +366,20 @@ function sqlCumpreCriterio(array $crit): array
     return [$w ? implode(' AND ', $w) : '1 = 0', $p];
 }
 
+/** As colunas da carreira que a avaliação de desafio lê (apelido c). */
+const DESAFIO_CAMPOS_CARREIRA = 'c.id, c.usuario_id, c.carreira_id, c.jogador, c.copas, c.libertadores, c.modo, c.tem_replay, c.fora_desafio,
+    c.primeira_em, c.semente_em, c.suspeita';
+
+/**
+ * §E: os motivos que vêm da própria carreira guardada (o conteúdo de agora, o critério de agora, a semente, o prazo). O
+ * candidato que passa a ter um deles é recusado sozinho (quem = sistema) e, se a carreira voltar a cumprir, volta a pendente
+ * com a hora de então. Os outros (a conta e o Hall: suspensa, partidas, e-mail, publicada, entre as 3) só deixam o candidato
+ * "não vale agora": a hora dele fica, o painel e o ?eu=1 mostram o motivo e o declarar responde 409 nao_cumpre enquanto
+ * durar (uma ocultação por denúncias ou o Hall fechado por um dia não mudam quem foi o primeiro).
+ */
+const DESAFIO_MOTIVOS_CARREIRA = ['criterio', 'carreira_apagada', 'imersivo', 'sem_replay', 'sem_semente', 'limite_diario', 'antes_do_inicio',
+    'depois_do_fim', 'suspeita', 'conquistas'];
+
 /** Por que a carreira (que cumpre o critério) não vale para o desafio, ou null. Sem olhar o Hall. */
 function motivoCarreiraDesafio(array $c, array $d): ?string
 {
@@ -361,14 +392,35 @@ function motivoCarreiraDesafio(array $c, array $d): ?string
     if (($c['fora_desafio'] ?? null) !== null) {
         return 'limite_diario';
     }
+    // §E: a semente da carreira tem de ter sido sorteada pelo servidor para esta conta (sementes_carreira) — e depois do
+    // começo do desafio: a carreira é jogada (não só salva) dentro do prazo
+    $semente = $c['semente_em'] ?? null;
+    if ($semente === null) {
+        return 'sem_semente';
+    }
+    // §E: números que a plausibilidade marcou (cópia, contagem de taça inválida, bônus sem registro...): a que só espera a
+    // revisão da nota alta continua valendo
+    $susp = $c['suspeita'] ?? null;
+    if ($susp !== null && $susp !== 'revisao') {
+        return 'suspeita';
+    }
     $primeira = $c['primeira_em'] ?? null;
-    if ($primeira === null || ($d['inicio'] !== null && (string) $primeira < (string) $d['inicio'])) {
+    if ($primeira === null || ($d['inicio'] !== null && ((string) $primeira < (string) $d['inicio'] || (string) $semente < (string) $d['inicio']))) {
         return 'antes_do_inicio';
     }
     if ($d['fim'] !== null && (string) $primeira > (string) $d['fim']) {
         return 'depois_do_fim';
     }
     return null;
+}
+
+/** A carreira (linha de carreiras) cumpre o critério de taças do desafio? */
+function cumpreCriterio(array $c, array $crit): bool
+{
+    if (eDeConquistas($crit) || (!isset($crit['copas']) && !isset($crit['libertadores']))) {
+        return false;
+    }
+    return (int) $c['copas'] >= ($crit['copas'] ?? 0) && (int) ($c['libertadores'] ?? 0) >= ($crit['libertadores'] ?? 0);
 }
 
 /**
@@ -397,18 +449,139 @@ function conquistasValidas(int $uid): int
         array_merge([$uid], CONQUISTAS_IDS));
 }
 
+/**
+ * Os requisitos da conta para o desafio (e, com a carreira $c, os do Hall): null = cumpre; senão o motivo (conta_suspensa
+ * | partidas | email | nao_publicada | fora_do_top3). $hall = cache do hallParaDesafio da conta.
+ */
+function motivoContaDesafio(array $u, array $req, ?array $c = null, ?array &$hall = null): ?string
+{
+    if (contaSuspensa($u)) {
+        return 'conta_suspensa';
+    }
+    if ((int) ($u['partidas_conta'] ?? 0) < $req['partidasMin']) {
+        return 'partidas';
+    }
+    if ($req['emailVerificado'] && ($u['email_verificado_em'] ?? null) === null) {
+        return 'email';
+    }
+    if ($c !== null && ($req['publicadoNoHall'] || $req['top3Perfil'])) {
+        $hall ??= hallParaDesafio($u);
+        if ($req['publicadoNoHall'] && !in_array((int) $c['id'], $hall['publicaveis'], true)) {
+            return 'nao_publicada';
+        }
+        if ($req['top3Perfil'] && !in_array((int) $c['id'], $hall['top3'], true)) {
+            return 'fora_do_top3';
+        }
+    }
+    return null;
+}
+
 /** Os requisitos da conta (sem os do Hall) estão cumpridos? */
 function contaCumpreRequisitos(array $u, array $req): bool
 {
-    return !contaSuspensa($u) && (int) ($u['partidas_conta'] ?? 0) >= $req['partidasMin']
-        && (!$req['emailVerificado'] || ($u['email_verificado_em'] ?? null) !== null);
+    return motivoContaDesafio($u, $req) === null;
 }
 
 /**
- * Confere a conta em cada desafio valendo (ou nos $desafios dados) e cria o candidato pendente do que ela cumpre agora (um
- * por carreira; um por conta no de conquistas). Idempotente: candidato que já existe não muda. Devolve quantos criou.
+ * §E: por que o candidato não vale AGORA (null = vale), conferido de novo com as linhas de agora — a carreira guardada (o
+ * critério de agora, modo, replay, semente, limite do dia, suspeita, prazo) e a conta (os requisitos e o Hall). A foto do
+ * candidato (as Copas e Libertadores de quando ele nasceu) não entra: vale o que está guardado. $u = a conta (null =
+ * excluída); $hall = cache do hallParaDesafio dela.
  */
-function avaliarDesafiosConta(int $uid, ?array $desafios = null): int
+function motivoCandidato(array $k, array $d, ?array $u, ?array &$hall = null): ?string
+{
+    if ($u === null) {
+        return 'conta_excluida';
+    }
+    $crit = criterioDe($d);
+    $c = null;
+    if (eDeConquistas($crit)) {
+        if (conquistasValidas((int) $u['id']) < CONQUISTAS_TOTAL) {
+            return 'conquistas';
+        }
+    } else {
+        $c = $k['carreira_pk'] !== null ? umaLinha('SELECT ' . DESAFIO_CAMPOS_CARREIRA . ' FROM carreiras c WHERE c.id = ?', [(int) $k['carreira_pk']]) : null;
+        if ($c === null || (int) $c['usuario_id'] !== (int) $u['id']) {
+            return 'carreira_apagada';
+        }
+        if (!cumpreCriterio($c, $crit)) {
+            return 'criterio';
+        }
+        $m = motivoCarreiraDesafio($c, $d);
+        if ($m !== null) {
+            return $m;
+        }
+    }
+    return motivoContaDesafio($u, requisitosDe($d), $c, $hall);
+}
+
+/** O candidato deixou de valer pela carreira: recusado pelo sistema, com o motivo (o jogador vê). true = recusou. */
+function recusarPeloSistema(int $kid, string $motivo, string $antes = 'Deixou de valer:'): bool
+{
+    $texto = mb_substr($antes . ' ' . (DESAFIO_MOTIVOS[$motivo] ?? $motivo), 0, 200, 'UTF-8');
+    return sql("UPDATE desafio_candidatos SET estado = 'recusada', motivo = ?, decidido_em = ?, quem = 'sistema'
+        WHERE id = ? AND estado IN ('pendente', 'verificada')", [$texto, dt(time()), $kid])->rowCount() === 1;
+}
+
+/**
+ * §E: um candidato pendente ou verificado conferido de novo: motivo da carreira (DESAFIO_MOTIVOS_CARREIRA) → recusado pelo
+ * sistema; vale → a foto (Copas, Libertadores, jogador) passa a ser a da carreira de agora. Motivo da conta ou do Hall: nada
+ * muda. true = recusou.
+ */
+function reavaliarCandidato(array $k, array $d, ?array $u, ?array &$hall = null, string $antes = 'Deixou de valer:'): bool
+{
+    $m = motivoCandidato($k, $d, $u, $hall);
+    if ($m !== null && in_array($m, DESAFIO_MOTIVOS_CARREIRA, true)) {
+        return recusarPeloSistema((int) $k['id'], $m, $antes);
+    }
+    if ($m === null && $k['carreira_pk'] !== null) {
+        sql("UPDATE desafio_candidatos k JOIN carreiras c ON c.id = k.carreira_pk SET k.copas = c.copas, k.libertadores = COALESCE(c.libertadores, 0),
+            k.jogador = LEFT(c.jogador, 40) WHERE k.id = ? AND k.estado IN ('pendente', 'verificada')", [(int) $k['id']]);
+    }
+    return false;
+}
+
+/** §E: os candidatos pendentes e verificados da conta neste desafio, conferidos de novo. Devolve quantos recusou. */
+function reavaliarCandidatosConta(array $d, array $u, ?array &$hall = null): int
+{
+    $n = 0;
+    foreach (sql("SELECT * FROM desafio_candidatos WHERE desafio_id = ? AND usuario_id = ? AND estado IN ('pendente', 'verificada')",
+        [(int) $d['id'], (int) $u['id']])->fetchAll() as $k) {
+        $n += reavaliarCandidato($k, $d, $u, $hall) ? 1 : 0;
+    }
+    return $n;
+}
+
+/**
+ * §E: todos os candidatos pendentes e verificados do desafio, conferidos de novo (o admin mudou o critério, os requisitos ou
+ * o prazo): o que não cumpre mais pela carreira é recusado ("O desafio mudou: …"). Devolve quantos recusou.
+ */
+function reavaliarCandidatosDesafio(array $d): int
+{
+    if ($d['vencido_em'] !== null) {
+        return 0;
+    }
+    $n = 0;
+    $contas = [];
+    foreach (sql("SELECT * FROM desafio_candidatos WHERE desafio_id = ? AND estado IN ('pendente', 'verificada') ORDER BY em, id LIMIT 5000",
+        [(int) $d['id']])->fetchAll() as $k) {
+        $uid = (int) $k['usuario_id'];
+        if (!array_key_exists($uid, $contas)) {
+            $contas[$uid] = ['u' => umaLinha('SELECT * FROM usuarios WHERE id = ?', [$uid]), 'hall' => null];
+        }
+        $n += reavaliarCandidato($k, $d, $contas[$uid]['u'], $contas[$uid]['hall'], 'O desafio mudou:') ? 1 : 0;
+    }
+    return $n;
+}
+
+/**
+ * Confere a conta em cada desafio valendo (ou nos $desafios dados). §E: primeiro os candidatos que ela já tem (o que deixou
+ * de cumprir pela carreira é recusado; a foto dos outros fica a de agora); depois cria o candidato pendente do que ela cumpre
+ * agora (um por carreira; um por conta no de conquistas) ou faz voltar a pendente o que o sistema tinha recusado e voltou a
+ * cumprir. $lote (ativar, salvar um desafio valendo): o `em` de quem já cumpria é a hora real em que cumpriu (emReal), não a
+ * da avaliação. Devolve quantos criou ou fez voltar.
+ */
+function avaliarDesafiosConta(int $uid, ?array $desafios = null, bool $lote = false): int
 {
     if (!esquemaV33()) {
         return 0;
@@ -424,50 +597,84 @@ function avaliarDesafiosConta(int $uid, ?array $desafios = null): int
     $criados = 0;
     $hall = null;
     foreach ($ds as $d) {
+        reavaliarCandidatosConta($d, $u, $hall);
         $req = requisitosDe($d);
         $crit = criterioDe($d);
-        if (!contaCumpreRequisitos($u, $req)) {
+        if (motivoContaDesafio($u, $req) !== null) {
             continue;
         }
         if (eDeConquistas($crit)) {
             if (conquistasValidas($uid) >= CONQUISTAS_TOTAL) {
-                $criados += criarCandidato($d, $uid, null);
+                $criados += garantirCandidato($d, $uid, null, null);
             }
             continue;
         }
         [$w, $p] = sqlCumpreCriterio($crit);
-        $linhas = sql("SELECT c.id, c.carreira_id, c.jogador, c.copas, c.libertadores, c.modo, c.tem_replay, c.fora_desafio, c.primeira_em
-            FROM carreiras c WHERE c.usuario_id = ? AND $w ORDER BY c.id LIMIT 200", array_merge([$uid], $p))->fetchAll();
+        $linhas = sql('SELECT ' . DESAFIO_CAMPOS_CARREIRA . " FROM carreiras c WHERE c.usuario_id = ? AND $w ORDER BY c.id LIMIT 200",
+            array_merge([$uid], $p))->fetchAll();
         foreach ($linhas as $c) {
-            if (motivoCarreiraDesafio($c, $d) !== null) {
+            if (motivoCarreiraDesafio($c, $d) !== null || motivoContaDesafio($u, $req, $c, $hall) !== null) {
                 continue;
             }
-            if ($req['publicadoNoHall'] || $req['top3Perfil']) {
-                $hall ??= hallParaDesafio($u);
-                if (($req['publicadoNoHall'] && !in_array((int) $c['id'], $hall['publicaveis'], true))
-                    || ($req['top3Perfil'] && !in_array((int) $c['id'], $hall['top3'], true))) {
-                    continue;
-                }
-            }
-            $criados += criarCandidato($d, $uid, $c);
+            $criados += garantirCandidato($d, $uid, $c, $lote ? emReal($c, $u, $d, $req) : null);
         }
     }
     return $criados;
 }
 
-/** Candidato pendente (só se o desafio ainda vale: ativo e sem vencedor, conferido no próprio INSERT). 1 = criou. */
-function criarCandidato(array $d, int $uid, ?array $c): int
+/**
+ * §E (lote): a hora em que a conta passou a cumprir tudo com esta carreira, até onde o banco sabe — a maior entre a entrada
+ * da carreira na conta (primeira_em), a confirmação do e-mail (quando pedida) e o começo do desafio, nunca depois de agora.
+ * A hora em que a conta chegou às partidas mínimas e a da publicação no Hall não ficam guardadas: não entram (viés
+ * conhecido, CONTRATO-v33 §E; o painel avisa ao afrouxar um requisito de um desafio valendo).
+ */
+function emReal(array $c, array $u, array $d, array $req): string
+{
+    $ms = static fn(string $t): string => strlen($t) === 19 ? $t . '.000' : substr($t, 0, 23);
+    $ts = [];
+    foreach ([$c['primeira_em'] ?? null, $req['emailVerificado'] ? ($u['email_verificado_em'] ?? null) : null, $d['inicio'] ?? null] as $t) {
+        if (is_string($t) && strlen($t) >= 19) {
+            $ts[] = $ms($t);
+        }
+    }
+    $agora = agoraMs();
+    return $ts ? min(max($ts), $agora) : $agora;
+}
+
+/**
+ * Cria o candidato pendente (só se o desafio ainda vale: ativo e sem vencedor, conferido no próprio INSERT) ou, se ele já
+ * existe recusado pelo sistema (§E: a carreira tinha deixado de valer), faz voltar a pendente com a hora de AGORA (é agora
+ * que ela volta a cumprir; nunca a hora de antes da recusa). $em = a hora do candidato novo (lote: a real; null = agora).
+ * 1 = criou ou voltou.
+ */
+function garantirCandidato(array $d, int $uid, ?array $c, ?string $em): int
 {
     $chave = $c === null ? 'u' . $uid : 'c' . (int) $c['id'];
-    return sql("INSERT IGNORE INTO desafio_candidatos (desafio_id, chave, carreira_pk, carreira_id, jogador, copas, libertadores, usuario_id, em, estado)
+    $em ??= agoraMs();
+    $foto = [$c['carreira_id'] ?? null, $c !== null ? mb_substr((string) $c['jogador'], 0, 40, 'UTF-8') : null,
+        $c !== null ? (int) $c['copas'] : null, $c !== null ? (int) ($c['libertadores'] ?? 0) : null];
+    $n = sql("INSERT IGNORE INTO desafio_candidatos (desafio_id, chave, carreira_pk, carreira_id, jogador, copas, libertadores, usuario_id, em, estado)
         SELECT d.id, ?, ?, ?, ?, ?, ?, ?, ?, 'pendente' FROM desafios d WHERE d.id = ? AND d.ativo = 1 AND d.vencido_em IS NULL",
-        [$chave, $c !== null ? (int) $c['id'] : null, $c['carreira_id'] ?? null, $c !== null ? mb_substr((string) $c['jogador'], 0, 40, 'UTF-8') : null,
-            $c !== null ? (int) $c['copas'] : null, $c !== null ? (int) ($c['libertadores'] ?? 0) : null, $uid, agoraMs(), (int) $d['id']])->rowCount();
+        array_merge([$chave, $c !== null ? (int) $c['id'] : null], $foto, [$uid, $em, (int) $d['id']]))->rowCount();
+    if ($n === 1) {
+        return 1;
+    }
+    $k = umaLinha('SELECT id, estado, quem, decidido_em FROM desafio_candidatos WHERE desafio_id = ? AND chave = ?', [(int) $d['id'], $chave]);
+    if ($k === null || $k['estado'] !== 'recusada' || $k['quem'] !== 'sistema') {
+        return 0; // já conta (pendente, verificado, vencedor) ou foi recusado pela equipe: a decisão dela fica
+    }
+    $em = agoraMs();
+    return sql("UPDATE desafio_candidatos k JOIN desafios d ON d.id = k.desafio_id SET k.estado = 'pendente', k.em = ?, k.motivo = NULL,
+        k.verificacao = NULL, k.decidido_em = NULL, k.quem = NULL, k.carreira_id = ?, k.jogador = ?, k.copas = ?, k.libertadores = ?
+        WHERE k.id = ? AND k.estado = 'recusada' AND k.quem = 'sistema' AND d.ativo = 1 AND d.vencido_em IS NULL",
+        array_merge([$em], $foto, [(int) $k['id']]))->rowCount() === 1 ? 1 : 0;
 }
 
 /**
  * Todas as contas que podem cumprir o desafio (ativar, salvar um ativo): as com carreira que cumpre o critério (ou com as
- * 87 conquistas), uma a uma, por até DESAFIO_LOTE_S segundos. Devolve quantos candidatos criou.
+ * 87 conquistas), uma a uma, por até DESAFIO_LOTE_S segundos. §E: na ordem de quem cumpriu primeiro (a carreira mais antiga
+ * de cada conta), com o `em` de cada uma a hora real (emReal) — antes, todas nasciam no mesmo instante na ordem do id da
+ * conta, e a mais antiga sempre era "a primeira". Devolve quantos candidatos criou.
  */
 function avaliarDesafioTodos(array $d): int
 {
@@ -477,14 +684,14 @@ function avaliarDesafioTodos(array $d): int
             GROUP BY usuario_id HAVING COUNT(*) >= ' . CONQUISTAS_TOTAL . ' ORDER BY usuario_id LIMIT 5000', CONQUISTAS_IDS)->fetchAll(PDO::FETCH_COLUMN);
     } else {
         [$w, $p] = sqlCumpreCriterio($crit);
-        $uids = sql("SELECT DISTINCT c.usuario_id FROM carreiras c WHERE c.tem_replay = 1 AND c.modo = 'classico' AND c.fora_desafio IS NULL
-            AND c.primeira_em >= ? AND $w ORDER BY c.usuario_id LIMIT 5000", array_merge([(string) ($d['inicio'] ?? '1970-01-01 00:00:00')], $p))
-            ->fetchAll(PDO::FETCH_COLUMN);
+        $uids = sql("SELECT c.usuario_id FROM carreiras c WHERE c.tem_replay = 1 AND c.modo = 'classico' AND c.fora_desafio IS NULL
+            AND c.semente_em IS NOT NULL AND c.primeira_em >= ? AND $w GROUP BY c.usuario_id ORDER BY MIN(c.primeira_em), c.usuario_id LIMIT 5000",
+            array_merge([(string) ($d['inicio'] ?? '1970-01-01 00:00:00')], $p))->fetchAll(PDO::FETCH_COLUMN);
     }
     $fim = microtime(true) + DESAFIO_LOTE_S;
     $n = 0;
     foreach ($uids as $uid) {
-        $n += avaliarDesafiosConta((int) $uid, [$d]);
+        $n += avaliarDesafiosConta((int) $uid, [$d], true);
         if (microtime(true) > $fim) {
             break;
         }
@@ -493,16 +700,36 @@ function avaliarDesafioTodos(array $d): int
 }
 
 /**
- * O dono salvou de novo uma carreira candidata com outro conteúdo: a verificação de antes não vale mais (volta a
- * pendente, para o admin conferir de novo). A vencedora não muda.
+ * O dono salvou de novo uma carreira candidata com outro conteúdo: a verificação de antes não vale mais (volta a pendente,
+ * para o admin conferir de novo). §E: com outro replay ($replayMudou) é outra carreira com o mesmo id (outras escolhas): o
+ * candidato fica com a hora de agora, porque a de antes era de uma carreira que não existe mais. Depois cada candidato dela
+ * é conferido de novo com o que está guardado agora (não cumpre → recusado; cumpre → a foto nova), em qualquer desafio sem
+ * vencedor (também nos que já acabaram ou foram desativados). A vencedora não muda.
  */
-function candidatosCarreiraMudou(int $pk): void
+function candidatosCarreiraMudou(int $pk, bool $replayMudou = false): void
 {
     if (!esquemaV33()) {
         return;
     }
     sql("UPDATE desafio_candidatos SET estado = 'pendente', verificacao = NULL, motivo = 'A carreira mudou depois da verificação: confira de novo.',
         decidido_em = NULL, quem = 'sistema' WHERE carreira_pk = ? AND estado = 'verificada'", [$pk]);
+    if ($replayMudou) {
+        sql("UPDATE desafio_candidatos SET em = ?, motivo = 'A carreira foi salva de novo com outras escolhas: vale a hora de agora.'
+            WHERE carreira_pk = ? AND estado = 'pendente'", [agoraMs(), $pk]);
+    }
+    $contas = [];
+    foreach (sql("SELECT k.* FROM desafio_candidatos k JOIN desafios d ON d.id = k.desafio_id WHERE k.carreira_pk = ? AND k.estado = 'pendente'
+        AND d.vencido_em IS NULL", [$pk])->fetchAll() as $k) {
+        $d = umaLinha('SELECT * FROM desafios WHERE id = ?', [(int) $k['desafio_id']]);
+        $uid = (int) $k['usuario_id'];
+        if ($d === null) {
+            continue;
+        }
+        if (!array_key_exists($uid, $contas)) {
+            $contas[$uid] = ['u' => umaLinha('SELECT * FROM usuarios WHERE id = ?', [$uid]), 'hall' => null];
+        }
+        reavaliarCandidato($k, $d, $contas[$uid]['u'], $contas[$uid]['hall']);
+    }
 }
 
 /** O dono apagou a carreira: o candidato pendente ou verificado dela é recusado (a vencedora fica). */
@@ -513,6 +740,53 @@ function candidatosCarreiraApagada(int $pk): void
     }
     sql("UPDATE desafio_candidatos SET estado = 'recusada', motivo = 'A carreira foi apagada da conta.', decidido_em = ?, quem = 'sistema'
         WHERE carreira_pk = ? AND estado IN ('pendente', 'verificada')", [dt(time()), $pk]);
+}
+
+// ── sementes sorteadas pelo servidor (§E) ────────────────────────────────────────────────────────
+
+/**
+ * Sorteia a semente da carreira do Clássico que a conta começa agora (POST carreiras.php {acao:"semente"}): uma por início,
+ * até partidas_dia_max por dia de Brasília (o mesmo limite das partidas). Passou do limite: sem semente — o jogo usa a do
+ * aparelho e a carreira não vale para desafio. → {semente: [a0, a1] | null, id: "career-…" | null, motivo: null |
+ * "limite_diario", hoje, max}.
+ */
+function emitirSemente(int $uid): array
+{
+    $max = partidasDiaMax();
+    $dia = diaBrasilia();
+    return transacao(static function () use ($uid, $max, $dia): array {
+        sql('SELECT id FROM usuarios WHERE id = ? FOR UPDATE', [$uid]); // uma de cada vez por conta: o limite do dia não estoura
+        $n = (int) umValor('SELECT COUNT(*) FROM sementes_carreira WHERE usuario_id = ? AND dia = ?', [$uid, $dia]);
+        if ($n >= $max) {
+            return ['semente' => null, 'id' => null, 'motivo' => 'limite_diario', 'hoje' => $n, 'max' => $max];
+        }
+        for ($i = 0; $i < 8; $i++) {
+            $a0 = random_int(0, 4294967295);
+            $a1 = random_int(0, 4294967295);
+            $s = sementeTexto($a0, $a1);
+            if (sql('INSERT IGNORE INTO sementes_carreira (usuario_id, semente, dia, emitida_em) VALUES (?, ?, ?, ?)', [$uid, $s, $dia, agoraMs()])->rowCount() === 1) {
+                return ['semente' => [$a0, $a1], 'id' => 'career-' . $s, 'motivo' => null, 'hoje' => $n + 1, 'max' => $max];
+            }
+        }
+        throw new RuntimeException('semente: oito sorteios repetidos');
+    });
+}
+
+/** Quando a semente saiu do servidor para a conta (DATETIME(3)), ou null (não saiu, já foi limpa, ou o banco não tem a tabela). */
+function sementeEmitidaEm(int $uid, ?string $semente): ?string
+{
+    if ($semente === null || !esquemaV33()) {
+        return null;
+    }
+    try {
+        $v = umValor('SELECT emitida_em FROM sementes_carreira WHERE usuario_id = ? AND semente = ?', [$uid, $semente]);
+    } catch (PDOException $e) {
+        if (!eFaltaDeSchema($e)) {
+            throw $e;
+        }
+        return null;
+    }
+    return $v === null ? null : (string) $v;
 }
 
 // ── o que o jogo vê ──────────────────────────────────────────────────────────────────────────────
@@ -590,8 +864,8 @@ function euNoDesafio(array $d, array $u, ?array &$hall): array
         $out['conquistasTotal'] = CONQUISTAS_TOTAL;
     } else {
         [$w, $p] = sqlCumpreCriterio($crit);
-        $linhas = sql("SELECT c.id, c.carreira_id, c.jogador, c.copas, c.libertadores, c.modo, c.tem_replay, c.fora_desafio, c.primeira_em
-            FROM carreiras c WHERE c.usuario_id = ? AND $w ORDER BY c.nota DESC, c.id ASC LIMIT 20", array_merge([$uid], $p))->fetchAll();
+        $linhas = sql('SELECT ' . DESAFIO_CAMPOS_CARREIRA . " FROM carreiras c WHERE c.usuario_id = ? AND $w ORDER BY c.nota DESC, c.id ASC LIMIT 20",
+            array_merge([$uid], $p))->fetchAll();
         foreach ($linhas as $c) {
             $hall ??= hallParaDesafio($u);
             $pk = (int) $c['id'];
@@ -605,10 +879,16 @@ function euNoDesafio(array $d, array $u, ?array &$hall): array
         }
     }
     $out['carreirasQueCumprem'] = $lista;
-    $k = umaLinha("SELECT estado, motivo, em, carreira_id FROM desafio_candidatos WHERE desafio_id = ? AND usuario_id = ?
+    $k = umaLinha("SELECT * FROM desafio_candidatos WHERE desafio_id = ? AND usuario_id = ?
         ORDER BY FIELD(estado, 'vencedora', 'verificada', 'pendente', 'recusada'), em, id LIMIT 1", [(int) $d['id'], $uid]);
-    $out['candidato'] = $k === null ? null : ['estado' => (string) $k['estado'], 'motivo' => $k['motivo'], 'em' => isoMs($k['em']),
-        'carreiraId' => $k['carreira_id']];
+    $out['candidato'] = null;
+    if ($k !== null) {
+        // §E: o pendente/verificado que não vale agora (a carreira saiu do Hall, das 3 do perfil...) diz o motivo, em vez
+        // de "em verificação"
+        $agora = in_array($k['estado'], ['pendente', 'verificada'], true) ? motivoCandidato($k, $d, $u, $hall) : null;
+        $out['candidato'] = ['estado' => (string) $k['estado'], 'motivo' => $k['motivo'], 'em' => isoMs($k['em']), 'carreiraId' => $k['carreira_id'],
+            'vale' => $agora === null, 'motivoAgora' => $agora, 'motivoAgoraTexto' => $agora !== null ? (DESAFIO_MOTIVOS[$agora] ?? null) : null];
+    }
     return $out;
 }
 
@@ -675,8 +955,11 @@ function desafioAdmin(array $d, ?array $contagem = null): array
     ];
 }
 
-/** K: um candidato para o painel (com os links do jogo: resumo e verificação). */
-function candidatoAdmin(array $l, array $nomes, ?int $primeiroId): array
+/**
+ * K: um candidato para o painel (com os links do jogo: resumo e verificação). §E: $agora = por que o pendente/verificado não
+ * vale agora (motivoCandidato; null = vale; false = não conferido) → K.valeAgora.
+ */
+function candidatoAdmin(array $l, array $nomes, ?int $primeiroId, string|false|null $agora = false): array
 {
     $v = is_string($l['verificacao'] ?? null) ? json_decode((string) $l['verificacao'], true) : null;
     $pk = $l['carreira_pk'] !== null ? (int) $l['carreira_pk'] : null;
@@ -699,6 +982,8 @@ function candidatoAdmin(array $l, array $nomes, ?int $primeiroId): array
             'existe' => $existe, 'nota' => $existe ? (int) $l['c_nota'] : null, 'temReplay' => $existe && (int) $l['c_replay'] === 1],
         'links' => $existe ? ['resumo' => LENDA_CAMINHO_COOKIE . '#/resumo?id=' . $pk . '&de=admin',
             'verificar' => LENDA_CAMINHO_COOKIE . '#/verificar?id=' . $pk . '&candidato=' . (int) $l['id']] : null,
+        // §E: conferido agora com a carreira guardada e a conta (o declarar confere de novo): {ok, motivo, texto} | null
+        'valeAgora' => $agora === false ? null : ['ok' => $agora === null, 'motivo' => $agora, 'texto' => $agora !== null ? (DESAFIO_MOTIVOS[$agora] ?? null) : null],
     ];
 }
 
@@ -712,7 +997,7 @@ function primeiroCandidato(int $desafioId): ?int
 /** Texto do aviso em Minha conta para o vencedor (aviso_conta, até 300). */
 function avisoVencedor(array $d): string
 {
-    return mb_substr('Parabéns! Você venceu o desafio “' . (string) $d['titulo'] . '”. A equipe do LENDA vai falar com você pelo e-mail da conta.', 0, 300, 'UTF-8');
+    return mb_substr(LENDA_AVISO_VENCEDOR . (string) $d['titulo'] . '”. A equipe do LENDA vai falar com você pelo e-mail da conta.', 0, 300, 'UTF-8');
 }
 
 /** As rotas GET do admin.php da v3.3 (desafios e Fale conosco). Responde e termina, ou volta sem fazer nada. */
@@ -755,8 +1040,21 @@ function rotasGetV33(string $r, int $pagina): void
         WHERE $onde ORDER BY k.em, k.id LIMIT " . POR_PAGINA . ' OFFSET ' . (($pagina - 1) * POR_PAGINA), $params)->fetchAll();
     $nomes = function_exists('nomesQuem') ? nomesQuem(array_values(array_unique(array_filter(array_column($linhas, 'quem'), 'is_string')))) : [];
     $primeiro = primeiroCandidato($id);
+    // §E: cada pendente/verificado conferido agora (critério de agora, carreira guardada, requisitos, Hall)
+    $contas = [];
+    $agora = [];
+    foreach ($linhas as $l) {
+        if (!in_array($l['estado'], ['pendente', 'verificada'], true)) {
+            continue;
+        }
+        $uid = (int) $l['usuario_id'];
+        if (!array_key_exists($uid, $contas)) {
+            $contas[$uid] = ['u' => umaLinha('SELECT * FROM usuarios WHERE id = ?', [$uid]), 'hall' => null];
+        }
+        $agora[(int) $l['id']] = motivoCandidato($l, $d, $contas[$uid]['u'], $contas[$uid]['hall']);
+    }
     responder(200, ['desafio' => desafioAdmin($d), 'candidatos' => paginado($total, $pagina,
-        array_map(static fn(array $l): array => candidatoAdmin($l, $nomes, $primeiro), $linhas))]);
+        array_map(static fn(array $l): array => candidatoAdmin($l, $nomes, $primeiro, array_key_exists((int) $l['id'], $agora) ? $agora[(int) $l['id']] : false), $linhas))]);
 }
 
 /** As ações POST do admin.php da v3.3. Responde e termina, ou volta sem fazer nada (ação de outro). */
@@ -794,6 +1092,9 @@ function rotasPostV33(string $acao, array $j): void
                 erro(400, 'dados', 'Diga se o desafio fica ativo (sim) ou não.');
             }
             $antes = desafioOu404($id);
+            if ($ativo && eDeConquistas(criterioDe($antes))) {
+                erro(409, 'sem_prova', DESAFIO_SEM_PROVA); // §E
+            }
             transacao(static function () use ($id, $ativo): void {
                 $d = desafioOu404($id, true);
                 // começa quando é ativado (se o admin não marcou outro início)
@@ -839,16 +1140,33 @@ function rotasPostV33(string $acao, array $j): void
                     if ($k['carreira_pk'] !== null && umValor('SELECT 1 FROM carreiras WHERE id = ?', [(int) $k['carreira_pk']]) === null) {
                         erro(409, 'carreira_apagada', 'A carreira desse candidato não existe mais.');
                     }
+                    $d = umaLinha('SELECT * FROM desafios WHERE id = ?', [(int) $k['desafio_id']]) ?? [];
                     $ok = $res['ok'];
+                    if ($ok && eDeConquistas(criterioDe($d))) {
+                        erro(409, 'sem_prova', DESAFIO_SEM_PROVA); // §E: "Conferi as conquistas" não conferia nada
+                    }
                     $motivo = $ok ? null : (texto(is_array($det) ? ($det['motivo'] ?? null) : null, 200) ?? 'Não bateu na verificação pelo jogo.');
+                    $estado = $ok ? 'verificada' : 'recusada';
+                    $naoCumpre = null;
+                    if ($ok) {
+                        // §E: o replay prova que a carreira GUARDADA é a do motor; aqui confere se ela (a de agora) cumpre o critério
+                        // de agora. Não cumpre pela carreira: recusada, com o motivo (a verificação fica guardada)
+                        $naoCumpre = motivoCandidato($k, $d, umaLinha('SELECT * FROM usuarios WHERE id = ?', [(int) $k['usuario_id']]));
+                        if ($naoCumpre !== null && in_array($naoCumpre, DESAFIO_MOTIVOS_CARREIRA, true)) {
+                            $estado = 'recusada';
+                            $motivo = mb_substr('Bateu no replay, mas não vale: ' . (DESAFIO_MOTIVOS[$naoCumpre] ?? $naoCumpre), 0, 200, 'UTF-8');
+                        }
+                    }
                     sql('UPDATE desafio_candidatos SET estado = ?, verificacao = ?, motivo = ?, decidido_em = ?, quem = ? WHERE id = ?',
-                        [$ok ? 'verificada' : 'recusada', json(['ok' => $ok, 'detalhes' => $det, 'em' => gmdate('Y-m-d\TH:i:s\Z'), 'quem' => $quem]),
+                        [$estado, json(['ok' => $ok, 'detalhes' => $det, 'em' => gmdate('Y-m-d\TH:i:s\Z'), 'quem' => $quem]),
                             $motivo, dt(time()), $quem, $cid]);
-                    return $k;
+                    return $k + ['_estado' => $estado, '_motivo' => $motivo, '_naoCumpre' => $naoCumpre];
                 });
-                $feitos[] = ['id' => $cid, 'estado' => $res['ok'] ? 'verificada' : 'recusada'];
+                $feitos[] = ['id' => $cid, 'estado' => $k['_estado'], 'motivo' => $k['_motivo'], 'valeAgora' => !$res['ok'] ? null : ($k['_naoCumpre'] === null
+                    ? ['ok' => true, 'motivo' => null, 'texto' => null] : ['ok' => false, 'motivo' => $k['_naoCumpre'], 'texto' => DESAFIO_MOTIVOS[$k['_naoCumpre']] ?? null])];
                 registrarAdmin('candidato_verificar', 'desafio:' . $k['desafio_id'], ['candidato' => $cid, 'usuario' => (int) $k['usuario_id'],
-                    'carreira' => $k['carreira_pk'] !== null ? (int) $k['carreira_pk'] : null, 'ok' => $res['ok']]);
+                    'carreira' => $k['carreira_pk'] !== null ? (int) $k['carreira_pk'] : null, 'ok' => $res['ok'], 'estado' => $k['_estado']]
+                    + ($k['_naoCumpre'] !== null ? ['naoCumpre' => $k['_naoCumpre']] : []));
             }
             responder(200, ['ok' => true, 'candidatos' => $feitos]);
 
@@ -873,7 +1191,7 @@ function rotasPostV33(string $acao, array $j): void
         case 'desafio_declarar_vencedor':
             $cid = lerIdNumero($j['candidatoId'] ?? null, 'Candidato');
             $quem = admQuem();
-            [$d, $k] = transacao(static function () use ($cid, $quem): array {
+            $r = transacao(static function () use ($cid, $quem): array {
                 $k0 = umaLinha('SELECT desafio_id FROM desafio_candidatos WHERE id = ?', [$cid]);
                 if ($k0 === null) {
                     erro(404, 'nao_encontrado', 'Candidato não encontrado.');
@@ -902,13 +1220,33 @@ function rotasPostV33(string $acao, array $j): void
                 if ($k['carreira_pk'] !== null && umValor('SELECT 1 FROM carreiras WHERE id = ?', [(int) $k['carreira_pk']]) === null) {
                     erro(409, 'carreira_apagada', 'A carreira desse candidato não existe mais.');
                 }
+                if (eDeConquistas(criterioDe($d))) {
+                    erro(409, 'sem_prova', DESAFIO_SEM_PROVA); // §E
+                }
+                // §E: a carreira guardada AGORA cumpre o critério de AGORA, e a conta, todos os requisitos (as mesmas regras de
+                // quando o candidato nasceu)? A verificação por replay só prova que a guardada é a do motor
+                $falha = motivoCandidato($k, $d, $u);
+                if ($falha !== null) {
+                    $recusado = in_array($falha, DESAFIO_MOTIVOS_CARREIRA, true) && recusarPeloSistema($cid, $falha, 'Na hora de declarar:');
+                    return [$d, $k, $falha, $recusado];
+                }
                 $t = dt(time());
                 sql('UPDATE desafios SET vencedor_usuario_id = ?, vencedor_carreira_pk = ?, vencedor_candidato = ?, vencido_em = ?, atualizado_em = ? WHERE id = ?',
                     [(int) $k['usuario_id'], $k['carreira_pk'], $cid, $t, $t, (int) $d['id']]);
                 sql("UPDATE desafio_candidatos SET estado = 'vencedora', decidido_em = ?, quem = ? WHERE id = ?", [$t, $quem, $cid]);
                 sql('UPDATE usuarios SET aviso_conta = ?, aviso_conta_em = ? WHERE id = ?', [avisoVencedor($d), $t, (int) $k['usuario_id']]);
-                return [$d, $k];
+                return [$d, $k, null, false];
             });
+            [$d, $k, $falha, $recusado] = $r;
+            if ($falha !== null) {
+                if ($recusado) {
+                    registrarAdmin('candidato_recusar', 'desafio:' . $d['id'], ['candidato' => $cid, 'usuario' => (int) $k['usuario_id'],
+                        'automatico' => true, 'naoCumpre' => $falha]);
+                }
+                erroCom(409, 'nao_cumpre', 'Esse candidato não vale agora: ' . (DESAFIO_MOTIVOS[$falha] ?? $falha)
+                    . ($recusado ? ' Ele foi recusado (a carreira guardada não cumpre mais o desafio).' : ' Resolva isso (ou recuse o candidato) antes de declarar.'),
+                    ['motivo' => $falha, 'recusado' => $recusado]);
+            }
             registrarAdmin('desafio_vencedor', 'desafio:' . $d['id'], ['slug' => (string) $d['slug'], 'candidato' => $cid, 'usuario' => (int) $k['usuario_id'],
                 'carreira' => $k['carreira_pk'] !== null ? (int) $k['carreira_pk'] : null]);
             responder(200, ['ok' => true, 'desafio' => desafioAdmin(desafioOu404((int) $d['id']))]);
@@ -999,6 +1337,9 @@ function acaoDesafioSalvar(array $j): never
         if ($antes !== null && $antes['vencido_em'] !== null && json($c) !== json(criterioDe($antes))) {
             erro(409, 'vencido', 'O desafio já tem vencedor: o critério não muda mais (reabra antes, se precisar).');
         }
+        if ($antes !== null && (int) $antes['ativo'] === 1 && eDeConquistas($c)) {
+            erro(409, 'sem_prova', DESAFIO_SEM_PROVA); // §E: um desafio ativo não vira o de todas as conquistas
+        }
         $campos['criterio'] = json($c);
     }
     if (array_key_exists('requisitos', $j)) {
@@ -1054,9 +1395,14 @@ function acaoDesafioSalvar(array $j): never
         sql('UPDATE desafios SET ' . implode(', ', $sets) . ', atualizado_em = ? WHERE id = ?', array_merge($p, [$t, $id]));
     }
     $d = desafioOu404($id);
-    // mudou o critério, os requisitos ou o prazo de um desafio valendo: quem passou a cumprir vira candidato agora
-    $novos = $antes !== null && array_intersect(array_keys($campos), ['criterio', 'requisitos', 'inicio', 'fim']) ? avaliarSeValendo($d) : 0;
+    $mudouRegra = $antes !== null && array_intersect(array_keys($campos), ['criterio', 'requisitos', 'inicio', 'fim']);
+    // §E: mudou o critério, os requisitos ou o prazo: os candidatos que já existiam são conferidos com as regras novas (o que
+    // não cumpre mais pela carreira é recusado: "O desafio mudou: …"); num desafio valendo, quem passou a cumprir vira
+    // candidato agora
+    $recusados = $mudouRegra ? reavaliarCandidatosDesafio($d) : 0;
+    $novos = $mudouRegra ? avaliarSeValendo($d) : 0;
     registrarAdmin('desafio_salvar', 'desafio:' . $id, ['slug' => (string) $d['slug'], 'novo' => $antes === null, 'campos' => array_keys($campos),
-        'candidatosNovos' => $novos]);
-    responder($antes === null ? 201 : 200, ['ok' => true, 'desafio' => desafioAdmin($d), 'candidatosNovos' => $novos]);
+        'candidatosNovos' => $novos] + ($recusados ? ['candidatosRecusados' => $recusados] : []));
+    responder($antes === null ? 201 : 200, ['ok' => true, 'desafio' => desafioAdmin(desafioOu404($id)), 'candidatosNovos' => $novos,
+        'candidatosRecusados' => $recusados]);
 }

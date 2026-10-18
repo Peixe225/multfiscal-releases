@@ -16,7 +16,10 @@
   const ROTULO_CAMPO = {
     copas: 'Copas do Mundo', libertadores: 'Libertadores', bolasOuro: 'Bolas de Ouro', titulos: 'Títulos', gols: 'Gols', pico: 'Pico de OVR',
     nota: 'Nota de Legado', jogos: 'Jogos', temporadas: 'Temporadas', id: 'Semente', identidade: 'Seleção e posição', replay: 'Replay', trofeus: 'Taças',
+    contagem: 'Contagem de taças', bonus: 'Bônus de OVR', servidor: 'Números do servidor',
   };
+  /** §E: o desafio de todas as conquistas não tem prova (as conquistas vêm do aparelho): o servidor não deixa ativar. */
+  const SEM_PROVA = 'O desafio de todas as conquistas não pode ser ativado: as conquistas vêm do aparelho do jogador, sem prova que dê para conferir.';
   const NUMEROS = ['copas', 'libertadores', 'bolasOuro', 'titulos', 'gols', 'pico', 'nota', 'jogos', 'temporadas'];
 
   const dz = {
@@ -89,6 +92,10 @@
     dz.form = null;
     dz.original = null;
     dz.pendentes = null;
+    // um pedido da tela anterior (a recarga que o pulso pediu) que chegar depois não desenha por cima desta
+    dz.pedido++;
+    LP.unico('desafio');
+    LP.unico('desafios');
     dz.corpo = h('div');
     LP.trocar(raiz, dz.corpo);
     LP.trocar(dz.corpo, LP.estadoCarregando(6));
@@ -170,6 +177,9 @@
 
   // ═══ ativar / desativar ════════════════════════════════════════════════════════════════════
   function botaoAtivar(D, depois, pequeno) {
+    if (!D.ativo && D.criterio && D.criterio.todasConquistas) {
+      return LP.botao('Ativar', () => {}, { tipo: 'ok', pequeno: !!pequeno, icone: 'jogar', disabled: true, title: SEM_PROVA }); // §E
+    }
     return D.ativo
       ? LP.botao('Desativar', () => ativar(D, false, depois), { tipo: 'fantasma', pequeno: !!pequeno, icone: 'bloquear' })
       : LP.botao('Ativar', () => ativar(D, true, depois), { tipo: 'ok', pequeno: !!pequeno, icone: 'jogar' });
@@ -209,8 +219,9 @@
     const n = ++dz.pedido;
     if (silencioso && dz.corpo) dz.corpo.classList.add('esmaecido');
     try {
+      const modo = dz.modo;
       const r = await LP.adminGet('desafio', { id: dz.id, estado: dz.estado, pagina: dz.pagina }, { sinal: LP.unico('desafio') });
-      if (n !== dz.pedido || !LP.visivel(dz.corpo)) return;
+      if (n !== dz.pedido || !LP.visivel(dz.corpo) || dz.modo !== modo || (modo !== 'detalhe' && modo !== 'editar')) return;
       dz.d = r.desafio;
       const cs = r.candidatos || {};
       dz.itens = Array.isArray(cs.itens) ? cs.itens : [];
@@ -228,7 +239,7 @@
       if (dz.corpo) dz.corpo.classList.remove('esmaecido');
     }
   }
-  const recarregarDesafio = () => carregarDesafio(true);
+  const recarregarDesafio = () => { if (dz.modo === 'detalhe') carregarDesafio(true); };
 
   function desenharDesafio() {
     const D = dz.d;
@@ -322,15 +333,14 @@
     if (podeVerificar && c.temReplay) bs.push(linkVerificar(k, k.estado === 'pendente' ? 'Verificar no jogo' : 'Verificar de novo', k.estado === 'pendente' ? 'ouro' : 'fantasma'));
     if (c && c.existe && k.links && k.links.resumo) bs.push(linkJogoAbs('Abrir a carreira', k.links.resumo, { tipo: 'fantasma', pequeno: true, title: 'O resumo da carreira no jogo (outra aba)' }));
     if (k.estado !== 'vencedora' && k.estado !== 'recusada' && LP.pode('moderar')) bs.push(LP.botao('Recusar', () => recusar(k), { tipo: 'perigo', pequeno: true, icone: 'x' }));
-    if (k.estado === 'verificada' && !D.vencedor && LP.pode('config')) {
+    // §E: conferido agora pelo servidor (a carreira guardada de agora, o critério de agora, os requisitos, o Hall)
+    const naoVale = k.valeAgora && k.valeAgora.ok === false ? (k.valeAgora.texto || 'não cumpre mais o desafio') : null;
+    if (k.estado === 'verificada' && !D.vencedor && LP.pode('config') && !conq) {
       const b = LP.botao('Declarar vencedor', () => declarar(k), { tipo: 'ouro', pequeno: true, icone: 'trofeu',
-        disabled: !k.primeiro, title: k.primeiro ? 'O primeiro que cumpriu tudo, verificado no jogo' : 'Há um candidato que cumpriu antes esperando decisão: verifique ou recuse esse primeiro' });
+        disabled: !k.primeiro || !!naoVale, title: naoVale ? 'Não vale agora: ' + naoVale : k.primeiro ? 'O primeiro que cumpriu tudo, verificado no jogo' : 'Há um candidato que cumpriu antes esperando decisão: verifique ou recuse esse primeiro' });
       bs.push(b);
     }
-    if (conq && k.estado === 'pendente' && LP.pode('moderar')) {
-      // sem carreira para refazer: a equipe confere as conquistas da conta e registra
-      bs.unshift(LP.botao('Conferi as conquistas', () => conferirConquistas(k), { tipo: 'ok', pequeno: true, icone: 'check', title: 'Marca como verificado (a conta tem as conquistas no servidor)' }));
-    }
+    // §E: o "Conferi as conquistas" saiu — ele marcava como verificado sem conferir nada (as conquistas vêm do aparelho)
     return h('article', { class: 'candidato candidato-' + k.estado + (k.primeiro ? ' primeiro' : ''), dataset: { id: k.id } },
       h('div', { class: 'candidato-topo' },
         h('div', { class: 'chips' },
@@ -342,6 +352,9 @@
       h('p', { class: 'texto-3' }, 'Cumpriu tudo em ', h('b', { class: 'mono' }, comMilesimos(k.em)), ' (Brasília)',
         k.decididoEm ? ' · decidido ' + LP.relativo(k.decididoEm) + (k.quem && k.quem.nome ? ' por ' + k.quem.nome : '') : ''),
       blocoVerificacao(k),
+      naoVale ? h('p', { class: 'faixa faixa-alerta' }, h('b', null, 'Não vale agora: '), naoVale,
+        ' O servidor confere de novo ao declarar; se for da carreira, ele recusa sozinho.') : null,
+      conq && k.estado !== 'recusada' ? h('p', { class: 'faixa faixa-alerta' }, SEM_PROVA + ' Recuse com o motivo.') : null,
       k.motivo && k.estado === 'recusada' ? h('p', { class: 'moderacao-nota' }, h('b', null, 'Motivo (o jogador vê): '), k.motivo) : null,
       c && c.existe && !c.temReplay && k.estado !== 'recusada' ? h('p', { class: 'faixa faixa-alerta' }, 'Sem replay: não dá para refazer no jogo. Recuse com o motivo.') : null,
       bs.length ? h('div', { class: 'botoes' }, bs) : null);
@@ -399,16 +412,6 @@
     LP.avisar('Candidato recusado. O jogador vê o motivo no desafio.');
     LP.depoisDeAgir();
     recarregarDesafio();
-  }
-  async function conferirConquistas(k) {
-    const u = k.usuario || {};
-    if (!LP.confirmar('Marcar @' + (u.apelido || k.id) + ' como verificado? Confira antes, na ficha da conta, que ela tem todas as conquistas.')) return;
-    try {
-      await LP.adminPost({ acao: 'candidato_verificar', id: k.id, resultado: { ok: true, detalhes: { v: 1, manual: true, conquistas: true } } });
-      LP.avisar('Candidato verificado.');
-      LP.depoisDeAgir();
-      recarregarDesafio();
-    } catch (e) { LP.avisarErro(e); }
   }
   async function declarar(k) {
     const D = dz.d;
@@ -600,7 +603,7 @@
       textoConq.hidden = f.tipo !== 'conquistas';
       textoTacas.hidden = f.tipo !== 'tacas';
     };
-    const textoConq = h('p', { class: 'ajuda' }, 'Todas as conquistas: vale a primeira conta com as ' + LP.inteiro(dz.conquistasTotal) + ' conquistas do jogo sincronizadas (não há carreira para refazer: a equipe confere as conquistas da conta).');
+    const textoConq = h('p', { class: 'ajuda' }, 'Todas as conquistas: vale a primeira conta com as ' + LP.inteiro(dz.conquistasTotal) + ' conquistas do jogo sincronizadas. ' + SEM_PROVA);
     const textoTacas = h('p', { class: 'ajuda' }, 'Copas e Libertadores saem da carreira guardada na conta. 0 = não pede aquela taça.');
     const cCriterio = h('section', { class: 'cartao' }, h('div', { class: 'cartao-cabeca' }, h('h2', null, 'O que vale'), h('span', { class: 'texto-3' }, 'critério')),
       vencido ? h('p', { class: 'faixa faixa-info' }, 'O desafio já tem vencedor: o critério não muda (reabra antes, se precisar).') : null,
@@ -745,7 +748,7 @@
     sub: '',
     montar: montar,
     recarregar: recarregar,
-    sair: () => { document.body.classList.remove('com-barra'); dz.form = null; },
+    sair: () => { document.body.classList.remove('com-barra'); dz.form = null; dz.pedido++; },
     podeSair: () => !LP.desafioSujo(),
     textoSair: () => 'Há alterações não salvas no desafio. Se sair agora, elas se perdem.',
     aoPulso: (a) => {

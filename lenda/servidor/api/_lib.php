@@ -35,6 +35,8 @@ const LENDA_HALL_POR_CONTA = 3;       // carreiras de cada conta no Hall públic
 /** Conta valendo agora (status ativo, ou suspensão com data já vencida). Usa o apelido `u` para usuarios. */
 const LENDA_SQL_ATIVO = "(u.status = 'ativo' OR (u.suspenso_ate IS NOT NULL AND u.suspenso_ate <= UTC_TIMESTAMP()))";
 const LENDA_CONVITE_LETRAS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // sem I, O, 0 e 1 (que se confundem)
+/** v3.3: começo do aviso_conta do vencedor de um desafio (avisoVencedor); o U.aviso diz tipo 'desafio' por ele. */
+const LENDA_AVISO_VENCEDOR = 'Parabéns! Você venceu o desafio “';
 
 ob_start();
 
@@ -592,6 +594,8 @@ function limpezaTalvez(): void
         sql('DELETE FROM verificacoes_email WHERE expira_em < ? LIMIT 5000', [dt($t)]);
         sql('DELETE FROM partidas_dia WHERE dia < ? LIMIT 5000', [gmdate('Y-m-d', $t - 40 * 86400)]);
         sql('DELETE FROM mensagens_suporte WHERE criado_em < ? LIMIT 1000', [dt($t - 365 * 86400)]);
+        // §E: as sementes sorteadas pelo servidor, em 40 dias (a carreira salva guarda a hora em carreiras.semente_em)
+        sql('DELETE FROM sementes_carreira WHERE emitida_em < ? LIMIT 5000', [dt($t - 40 * 86400)]);
     } catch (Throwable $e) {
         error_log('LENDA limpeza v3.3: ' . $e->getMessage());
     }

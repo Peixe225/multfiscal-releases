@@ -1846,6 +1846,7 @@ require __DIR__ . '/teste-v32-acesso.php'; // v3.2: acesso ao painel, equipe, Sa
 require __DIR__ . '/teste-v32-integ.php'; // v3.2: o que a integração acrescentou (CONTRATO-v32 §E: SMTP, tipo na ficha, destaque no hall.php?id=)
 require __DIR__ . '/teste-v32-corr.php'; // v3.2 rev3: correções confirmadas do servidor (CONTRATO-v32 §E.7)
 require __DIR__ . '/teste-v33.php'; // v3.3: e-mail verificado, Fale conosco, limite diário, replay, desafios e perfil público (CONTRATO-v33 §A)
+require __DIR__ . '/teste-v33-corr.php'; // v3.3 §E: correções confirmadas (candidato reconferido, contagem, bônus, semente do servidor, conquistas, e-mails, em real)
 
 // ══ 9. .htaccess no Apache ═══════════════════════════════════════════════════════════════════════
 
