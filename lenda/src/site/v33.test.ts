@@ -185,7 +185,7 @@ describe('Fale conosco', () => {
   it('o corpo: sem e-mail quando logado; a isca vai como veio; pagina cortada', () => {
     expect(corpoSuporte({ tipo: 'duvida', mensagem: '  Como salvo?  ', email: 'eu@x.com', pagina: '/hall' }, true)).toEqual({ tipo: 'duvida', mensagem: 'Como salvo?', pagina: '/hall' })
     expect(corpoSuporte({ tipo: 'outro', mensagem: 'Oi, tudo bem por aí?', email: ' eu@x.com ', site: 'http://spam' }, false)).toEqual({ tipo: 'outro', mensagem: 'Oi, tudo bem por aí?', email: 'eu@x.com', site: 'http://spam' })
-    expect(EMAIL_CONTATO).toBe('contato@oprojeto.online')
+    expect(EMAIL_CONTATO).toBe('contato@lenda.portalmultipla.online')
   })
   it('201 {ok, protocolo} → o protocolo; protocolo estranho fica de fora; 429 é limite', async () => {
     const f = rede((u, m, corpo) => {

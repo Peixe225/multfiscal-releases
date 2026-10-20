@@ -1,64 +1,1121 @@
 {
   "conquistas": {
-    "only_pele": { "parametros": { "copas": 2, "gols": 800 }, "descricao": "?", "regra": "?" },
-    "ushuaia_to_darien": { "parametros": { "paises": 6 }, "descricao": "?", "regra": "?" },
-    "nomad": { "parametros": { "confederacoes": 4 }, "descricao": "?", "regra": "?" },
-    "baldosero": { "parametros": { "clubes": 21 }, "descricao": "?", "regra": "?" },
-    "world_cup_4": { "parametros": { "tipo": "copas_maior_que_pele", "copas": 2 }, "descricao": "?", "regra": "?" },
-    "goals_1300": { "parametros": { "gols": 1100 }, "descricao": "?", "regra": "?" },
-    "gpg_09": { "parametros": { "media": 0.85, "jogos": 300 }, "descricao": "?", "regra": "?" },
-    "records_10": { "parametros": { "recordes": 7 }, "descricao": "?", "regra": "?" },
-    "records_5": { "parametros": { "recordes": 4 }, "descricao": "?", "regra": "?" },
-    "net_terror": { "parametros": { "chuteiras": 5 }, "descricao": "?", "regra": "?" },
-    "legacy_95": { "parametros": { "nota": 92 }, "descricao": "?", "regra": "?" }
+    "only_pele": {
+      "parametros": {
+        "copas": 2,
+        "gols": 800
+      },
+      "plano": "chuteira-ESP-FRA-ENG",
+      "raridade": "lendaria",
+      "oculta": true,
+      "descricao": "Ganhe duas Copas do Mundo e marque mais de 800 gols — no futebol de verdade, só o Pelé conseguiu.",
+      "regra": "Copas do Mundo ≥ 2 e gols na carreira (clube + seleção) > 800.",
+      "porque": "No futebol de verdade, quem tem duas Copas ou mais e mais de 800 gols é só o Pelé (três Copas e 1.283 gols), então o nome continua valendo. A regra antiga (três Copas e mais de 1.000 gols) saiu uma vez em todo o estudo e vira o emblema lendário “Mil gols e o tri”."
+    },
+    "ushuaia_to_darien": {
+      "parametros": {
+        "paises": 8
+      },
+      "plano": [
+        "sulamericano-gk",
+        "sulamericano"
+      ],
+      "raridade": "epica",
+      "oculta": false,
+      "descricao": "Jogue em clubes de oito países diferentes da América do Sul.",
+      "regra": "Países diferentes (confederação CONMEBOL) entre os clubes da carreira ≥ 8."
+    },
+    "baldosero": {
+      "parametros": {
+        "clubes": 23
+      },
+      "plano": "mochileiro",
+      "raridade": "lendaria",
+      "oculta": false,
+      "descricao": "Jogue por 23 clubes diferentes, trocando de clube quase toda temporada (no Modo Clássico, só no ritmo Intenso).",
+      "regra": "Clubes diferentes na carreira ≥ 23.",
+      "porque": "No Intenso a carreira tem 24 temporadas: com 23 clubes o jogador troca de clube em todas as temporadas menos uma. 24 nunca saiu porque alguma temporada sempre fica sem proposta de clube novo."
+    },
+    "world_cup_4": {
+      "parametros": {
+        "tipo": "copas_maior_que_pele",
+        "copas": 2
+      },
+      "plano": "chuteira-ESP-FRA-ENG",
+      "raridade": "lendaria",
+      "oculta": true,
+      "descricao": "Ganhe duas Copas do Mundo e encerre a carreira com Nota de Legado maior que a de Pelé.",
+      "regra": "Carreira encerrada, Copas do Mundo ≥ 2 e nota bruta de legado maior que a de Pelé (o mesmo teste da “Maior que Pelé”).",
+      "porque": "Quatro Copas nunca saíram e três já são ~1 em 800 para o melhor plano. O “além do Rei” passa a ser o legado: duas Copas e a nota acima da do Pelé (três Copas com a nota acima saiu uma vez no estudo, ~1 em 3.000 ou mais)."
+    },
+    "goals_1300": {
+      "parametros": {
+        "gols": 1050
+      },
+      "plano": [
+        "goleador-COL",
+        "gol-rec-BRA",
+        "goleador-sul"
+      ],
+      "raridade": "lendaria",
+      "oculta": true,
+      "descricao": "Marque 1.050 gols na carreira.",
+      "regra": "Gols na carreira (clube + seleção) ≥ 1.050.",
+      "porque": "O máximo do estudo foi 1.193 gols e 1.100 sai ~1 vez em 2.500; 1.050 é passar dos mil com folga, ainda para quem monta a carreira para isso (o goleador colombiano)."
+    },
+    "records_10": {
+      "parametros": {
+        "recordes": 6
+      },
+      "plano": [
+        "gol-rec-BRA",
+        "goleador-sul",
+        "sulamericano"
+      ],
+      "raridade": "lendaria",
+      "oculta": true,
+      "descricao": "Quebre seis recordes históricos do futebol real.",
+      "regra": "Recordes históricos quebrados (os da Nota de Legado, contra o futebol real) ≥ 6.",
+      "porque": "São 19 recordes possíveis e a carreira mais completa quebrou 9; dez nunca saiu e sete saiu 2 vezes em ~25 mil carreiras da v3.4. Seis fica um degrau acima do “Livro dos recordes” (cinco)."
+    }
   },
-  "emblemas": [],
+  "emblemas": [
+    {
+      "slug": "noite-de-gala",
+      "titulo": "Noite de gala",
+      "descricao": "Ganhe a Bola de Ouro e a Champions League na mesma carreira.",
+      "dificuldade": "facil",
+      "criterio": {
+        "bolasOuro": 1,
+        "champions": 1
+      },
+      "emblema": {
+        "icone": "star",
+        "cor": "#b98652"
+      },
+      "ordem": 10,
+      "home": true
+    },
+    {
+      "slug": "andarilho-campeao",
+      "titulo": "Andarilho campeão",
+      "descricao": "Jogue por 12 clubes diferentes e conquiste 20 títulos na carreira.",
+      "dificuldade": "facil",
+      "criterio": {
+        "clubes": 12,
+        "titulos": 20
+      },
+      "emblema": {
+        "icone": "plane",
+        "cor": "#b98652"
+      },
+      "ordem": 20
+    },
+    {
+      "slug": "bandeira-do-clube",
+      "titulo": "Bandeira do clube",
+      "descricao": "Jogue 18 temporadas pelo mesmo clube e conquiste 20 títulos na carreira.",
+      "dificuldade": "facil",
+      "criterio": {
+        "temporadasMesmoClube": 18,
+        "titulos": 20
+      },
+      "emblema": {
+        "icone": "shield",
+        "cor": "#b98652"
+      },
+      "ordem": 30
+    },
+    {
+      "slug": "hexa-e-gloria-eterna",
+      "titulo": "Hexa e Glória Eterna",
+      "descricao": "Com um jogador brasileiro, dê ao Brasil a Copa do Mundo e ganhe duas Libertadores.",
+      "dificuldade": "medio",
+      "criterio": {
+        "copas": 1,
+        "libertadores": 2,
+        "nacionalidade": [
+          "BRA"
+        ],
+        "copasPelaSelecao": 1
+      },
+      "emblema": {
+        "icone": "flag",
+        "cor": "#c8d0dc"
+      },
+      "ordem": 40,
+      "home": true
+    },
+    {
+      "slug": "era-de-ouro",
+      "titulo": "Era de ouro",
+      "descricao": "Ganhe cinco Bolas de Ouro e quatro Champions League na mesma carreira.",
+      "dificuldade": "medio",
+      "criterio": {
+        "bolasOuro": 5,
+        "champions": 4
+      },
+      "emblema": {
+        "icone": "circle-dot",
+        "cor": "#c8d0dc"
+      },
+      "ordem": 50
+    },
+    {
+      "slug": "artilheiro-do-mundo",
+      "titulo": "Artilheiro do mundo",
+      "descricao": "Marque 800 gols na carreira e ganhe uma Copa do Mundo.",
+      "dificuldade": "medio",
+      "criterio": {
+        "gols": 800,
+        "copas": 1
+      },
+      "emblema": {
+        "icone": "goal",
+        "cor": "#c8d0dc"
+      },
+      "ordem": 60
+    },
+    {
+      "slug": "bi-do-mundo-bi-da-america",
+      "titulo": "Bi do mundo, bi da América",
+      "descricao": "Ganhe duas Copas do Mundo e duas Libertadores na mesma carreira.",
+      "dificuldade": "dificil",
+      "criterio": {
+        "copas": 2,
+        "libertadores": 2
+      },
+      "emblema": {
+        "icone": "globe",
+        "cor": "#f2c75a"
+      },
+      "ordem": 70,
+      "plano": "cacador-ARG"
+    },
+    {
+      "slug": "imortal",
+      "titulo": "Imortal",
+      "descricao": "Ganhe duas Copas do Mundo e encerre a carreira com Nota de Legado 92 ou mais.",
+      "dificuldade": "dificil",
+      "criterio": {
+        "copas": 2,
+        "nota": 92
+      },
+      "plano": "chuteira-ESP-FRA-ENG",
+      "emblema": {
+        "icone": "sparkles",
+        "cor": "#f2c75a"
+      },
+      "ordem": 80
+    },
+    {
+      "slug": "tacas-do-rei-emblema",
+      "titulo": "As Taças do Rei",
+      "descricao": "Ganhe três Copas do Mundo e duas Libertadores, como o Rei Pelé.",
+      "dificuldade": "lendario",
+      "criterio": {
+        "copas": 3,
+        "libertadores": 2
+      },
+      "emblema": {
+        "icone": "crown",
+        "cor": "#c9b8ff"
+      },
+      "ordem": 90,
+      "home": true,
+      "estimativa": {
+        "plano": "cacador-sul",
+        "campo": "p3C2L"
+      }
+    },
+    {
+      "slug": "mil-gols-e-o-tri",
+      "titulo": "Mil gols e o tri",
+      "descricao": "Ganhe três Copas do Mundo e marque mais de 1.000 gols: a marca do Rei.",
+      "dificuldade": "lendario",
+      "criterio": {
+        "copas": 3,
+        "gols": 1001
+      },
+      "emblema": {
+        "icone": "gem",
+        "cor": "#c9b8ff"
+      },
+      "ordem": 100,
+      "plano": "chuteira-ESP-FRA-ENG"
+    }
+  ],
   "emblemasCandidatos": [
-    { "slug": "gols600", "criterio": { "gols": 600 } },
-    { "slug": "gols700", "criterio": { "gols": 700 } },
-    { "slug": "gols800", "criterio": { "gols": 800 } },
-    { "slug": "gols900", "criterio": { "gols": 900 } },
-    { "slug": "bola1-ucl1", "criterio": { "bolasOuro": 1, "champions": 1 } },
-    { "slug": "bola2-ucl2", "criterio": { "bolasOuro": 2, "champions": 2 } },
-    { "slug": "bola3-ucl2", "criterio": { "bolasOuro": 3, "champions": 2 } },
-    { "slug": "bola5-ucl3", "criterio": { "bolasOuro": 5, "champions": 3 } },
-    { "slug": "copa1-bola1", "criterio": { "copas": 1, "bolasOuro": 1 } },
-    { "slug": "copa1-bola3", "criterio": { "copas": 1, "bolasOuro": 3 } },
-    { "slug": "copa1-lib1-bola1", "criterio": { "copas": 1, "libertadores": 1, "bolasOuro": 1 } },
-    { "slug": "copa1-ucl1-lib1", "criterio": { "copas": 1, "champions": 1, "libertadores": 1 } },
-    { "slug": "fiel12-tit10", "criterio": { "temporadasMesmoClube": 12, "titulos": 10 } },
-    { "slug": "fiel15-tit15", "criterio": { "temporadasMesmoClube": 15, "titulos": 15 } },
-    { "slug": "fiel18-tit25", "criterio": { "temporadasMesmoClube": 18, "titulos": 25 } },
-    { "slug": "fiel20-lib1", "criterio": { "temporadasMesmoClube": 20, "libertadores": 1 } },
-    { "slug": "fiel20-ucl2", "criterio": { "temporadasMesmoClube": 20, "champions": 2 } },
-    { "slug": "fiel20-lib3", "criterio": { "temporadasMesmoClube": 20, "libertadores": 3 } },
-    { "slug": "clubes10-tit15", "criterio": { "clubes": 10, "titulos": 15 } },
-    { "slug": "clubes12-tit20", "criterio": { "clubes": 12, "titulos": 20 } },
-    { "slug": "pico95", "criterio": { "pico": 95 } },
-    { "slug": "pico97-ucl3", "criterio": { "pico": 97, "champions": 3 } },
-    { "slug": "nota85", "criterio": { "nota": 85 } },
-    { "slug": "nota90", "criterio": { "nota": 90 } },
-    { "slug": "nota80-copa1", "criterio": { "nota": 80, "copas": 1 } },
-    { "slug": "bra-copa-lib", "criterio": { "copas": 1, "libertadores": 1, "nacionalidade": ["BRA"], "copaPelaSelecao": true } },
-    { "slug": "bra-copa", "criterio": { "copas": 1, "nacionalidade": ["BRA"], "copaPelaSelecao": true } },
-    { "slug": "arg-copa-bola", "criterio": { "copas": 1, "bolasOuro": 1, "nacionalidade": ["ARG"], "copaPelaSelecao": true } },
-    { "slug": "copa-propria", "criterio": { "copas": 1, "copaPelaSelecao": true } },
-    { "slug": "c2l2", "criterio": { "copas": 2, "libertadores": 2 } },
-    { "slug": "c2l3", "criterio": { "copas": 2, "libertadores": 3 } },
-    { "slug": "c3l2", "criterio": { "copas": 3, "libertadores": 2 } },
-    { "slug": "c3", "criterio": { "copas": 3 } },
-    { "slug": "c2", "criterio": { "copas": 2 } },
-    { "slug": "lib3-ucl1", "criterio": { "libertadores": 3, "champions": 1 } },
-    { "slug": "lib2-ucl2", "criterio": { "libertadores": 2, "champions": 2 } },
-    { "slug": "tit40", "criterio": { "titulos": 40 } },
-    { "slug": "tit50", "criterio": { "titulos": 50 } },
-    { "slug": "chut3-gols700", "criterio": { "chuteirasOuro": 3, "gols": 700 } },
-    { "slug": "mundiais3", "criterio": { "mundiais": 3 } },
-    { "slug": "gols600-copa1", "criterio": { "gols": 600, "copas": 1 } },
-    { "slug": "gols500-bola1", "criterio": { "gols": 500, "bolasOuro": 1 } },
-    { "slug": "lib1", "criterio": { "libertadores": 1 } },
-    { "slug": "ucl1", "criterio": { "champions": 1 } },
-    { "slug": "bola1", "criterio": { "bolasOuro": 1 } },
-    { "slug": "copa1", "criterio": { "copas": 1 } }
+    {
+      "slug": "gols600",
+      "criterio": {
+        "gols": 600
+      }
+    },
+    {
+      "slug": "gols700",
+      "criterio": {
+        "gols": 700
+      }
+    },
+    {
+      "slug": "gols800",
+      "criterio": {
+        "gols": 800
+      }
+    },
+    {
+      "slug": "gols900",
+      "criterio": {
+        "gols": 900
+      }
+    },
+    {
+      "slug": "gols1000",
+      "criterio": {
+        "gols": 1000
+      }
+    },
+    {
+      "slug": "bola1-ucl1",
+      "criterio": {
+        "bolasOuro": 1,
+        "champions": 1
+      }
+    },
+    {
+      "slug": "bola2-ucl2",
+      "criterio": {
+        "bolasOuro": 2,
+        "champions": 2
+      }
+    },
+    {
+      "slug": "bola3-ucl3",
+      "criterio": {
+        "bolasOuro": 3,
+        "champions": 3
+      }
+    },
+    {
+      "slug": "bola5-ucl3",
+      "criterio": {
+        "bolasOuro": 5,
+        "champions": 3
+      }
+    },
+    {
+      "slug": "bola5-ucl4",
+      "criterio": {
+        "bolasOuro": 5,
+        "champions": 4
+      }
+    },
+    {
+      "slug": "copa1-bola1",
+      "criterio": {
+        "copas": 1,
+        "bolasOuro": 1
+      }
+    },
+    {
+      "slug": "copa1-bola3",
+      "criterio": {
+        "copas": 1,
+        "bolasOuro": 3
+      }
+    },
+    {
+      "slug": "copa1-bola5",
+      "criterio": {
+        "copas": 1,
+        "bolasOuro": 5
+      }
+    },
+    {
+      "slug": "copa1-ucl1-bola1",
+      "criterio": {
+        "copas": 1,
+        "champions": 1,
+        "bolasOuro": 1
+      }
+    },
+    {
+      "slug": "copa1-ucl1-lib1",
+      "criterio": {
+        "copas": 1,
+        "champions": 1,
+        "libertadores": 1
+      }
+    },
+    {
+      "slug": "copa1-ucl1-lib1-bola1",
+      "criterio": {
+        "copas": 1,
+        "champions": 1,
+        "libertadores": 1,
+        "bolasOuro": 1
+      }
+    },
+    {
+      "slug": "copa1-lib1",
+      "criterio": {
+        "copas": 1,
+        "libertadores": 1
+      }
+    },
+    {
+      "slug": "copa1-lib2",
+      "criterio": {
+        "copas": 1,
+        "libertadores": 2
+      }
+    },
+    {
+      "slug": "bra-copa",
+      "criterio": {
+        "copas": 1,
+        "nacionalidade": [
+          "BRA"
+        ],
+        "copasPelaSelecao": 1
+      }
+    },
+    {
+      "slug": "bra-copa-lib1",
+      "criterio": {
+        "copas": 1,
+        "libertadores": 1,
+        "nacionalidade": [
+          "BRA"
+        ],
+        "copasPelaSelecao": 1
+      }
+    },
+    {
+      "slug": "bra-copa-lib2",
+      "criterio": {
+        "copas": 1,
+        "libertadores": 2,
+        "nacionalidade": [
+          "BRA"
+        ],
+        "copasPelaSelecao": 1
+      }
+    },
+    {
+      "slug": "bra-copa-lib1-bola1",
+      "criterio": {
+        "copas": 1,
+        "libertadores": 1,
+        "bolasOuro": 1,
+        "nacionalidade": [
+          "BRA"
+        ],
+        "copasPelaSelecao": 1
+      }
+    },
+    {
+      "slug": "bra-copa2",
+      "criterio": {
+        "copas": 2,
+        "nacionalidade": [
+          "BRA"
+        ],
+        "copasPelaSelecao": 2
+      }
+    },
+    {
+      "slug": "arg-copa-bola1",
+      "criterio": {
+        "copas": 1,
+        "bolasOuro": 1,
+        "nacionalidade": [
+          "ARG"
+        ],
+        "copasPelaSelecao": 1
+      }
+    },
+    {
+      "slug": "sulam-copa",
+      "criterio": {
+        "copas": 1,
+        "nacionalidade": [
+          "URU",
+          "COL",
+          "CHI",
+          "PAR",
+          "PER",
+          "ECU",
+          "BOL",
+          "VEN"
+        ],
+        "copasPelaSelecao": 1
+      }
+    },
+    {
+      "slug": "uru-copa",
+      "criterio": {
+        "copas": 1,
+        "nacionalidade": [
+          "URU"
+        ],
+        "copasPelaSelecao": 1
+      }
+    },
+    {
+      "slug": "col-copa",
+      "criterio": {
+        "copas": 1,
+        "nacionalidade": [
+          "COL"
+        ],
+        "copasPelaSelecao": 1
+      }
+    },
+    {
+      "slug": "fiel15-tit15",
+      "criterio": {
+        "temporadasMesmoClube": 15,
+        "titulos": 15
+      }
+    },
+    {
+      "slug": "fiel18-tit20",
+      "criterio": {
+        "temporadasMesmoClube": 18,
+        "titulos": 20
+      }
+    },
+    {
+      "slug": "fiel18-tit25",
+      "criterio": {
+        "temporadasMesmoClube": 18,
+        "titulos": 25
+      }
+    },
+    {
+      "slug": "fiel20-tit30",
+      "criterio": {
+        "temporadasMesmoClube": 20,
+        "titulos": 30
+      }
+    },
+    {
+      "slug": "fiel20-lib3",
+      "criterio": {
+        "temporadasMesmoClube": 20,
+        "libertadores": 3
+      }
+    },
+    {
+      "slug": "fiel15-ucl2",
+      "criterio": {
+        "temporadasMesmoClube": 15,
+        "champions": 2
+      }
+    },
+    {
+      "slug": "fiel15-ucl3",
+      "criterio": {
+        "temporadasMesmoClube": 15,
+        "champions": 3
+      }
+    },
+    {
+      "slug": "fiel15-lib2-copa1",
+      "criterio": {
+        "temporadasMesmoClube": 15,
+        "libertadores": 2,
+        "copas": 1
+      }
+    },
+    {
+      "slug": "fiel20-copa1",
+      "criterio": {
+        "temporadasMesmoClube": 20,
+        "copas": 1
+      }
+    },
+    {
+      "slug": "clubes10-tit20",
+      "criterio": {
+        "clubes": 10,
+        "titulos": 20
+      }
+    },
+    {
+      "slug": "clubes12-tit20",
+      "criterio": {
+        "clubes": 12,
+        "titulos": 20
+      }
+    },
+    {
+      "slug": "clubes15-tit20",
+      "criterio": {
+        "clubes": 15,
+        "titulos": 20
+      }
+    },
+    {
+      "slug": "clubes15-tit25",
+      "criterio": {
+        "clubes": 15,
+        "titulos": 25
+      }
+    },
+    {
+      "slug": "clubes12-copa1",
+      "criterio": {
+        "clubes": 12,
+        "copas": 1
+      }
+    },
+    {
+      "slug": "clubes10-ucl1-lib1",
+      "criterio": {
+        "clubes": 10,
+        "champions": 1,
+        "libertadores": 1
+      }
+    },
+    {
+      "slug": "pico95",
+      "criterio": {
+        "pico": 95
+      }
+    },
+    {
+      "slug": "pico97",
+      "criterio": {
+        "pico": 97
+      }
+    },
+    {
+      "slug": "pico99",
+      "criterio": {
+        "pico": 99
+      }
+    },
+    {
+      "slug": "pico99-copa1",
+      "criterio": {
+        "pico": 99,
+        "copas": 1
+      }
+    },
+    {
+      "slug": "pico97-ucl3",
+      "criterio": {
+        "pico": 97,
+        "champions": 3
+      }
+    },
+    {
+      "slug": "nota85",
+      "criterio": {
+        "nota": 85
+      }
+    },
+    {
+      "slug": "nota88",
+      "criterio": {
+        "nota": 88
+      }
+    },
+    {
+      "slug": "nota90",
+      "criterio": {
+        "nota": 90
+      }
+    },
+    {
+      "slug": "nota92",
+      "criterio": {
+        "nota": 92
+      }
+    },
+    {
+      "slug": "nota93",
+      "criterio": {
+        "nota": 93
+      }
+    },
+    {
+      "slug": "nota80-copa1",
+      "criterio": {
+        "nota": 80,
+        "copas": 1
+      }
+    },
+    {
+      "slug": "nota90-copa1",
+      "criterio": {
+        "nota": 90,
+        "copas": 1
+      }
+    },
+    {
+      "slug": "tit30",
+      "criterio": {
+        "titulos": 30
+      }
+    },
+    {
+      "slug": "tit40",
+      "criterio": {
+        "titulos": 40
+      }
+    },
+    {
+      "slug": "tit50",
+      "criterio": {
+        "titulos": 50
+      }
+    },
+    {
+      "slug": "lib3",
+      "criterio": {
+        "libertadores": 3
+      }
+    },
+    {
+      "slug": "lib4",
+      "criterio": {
+        "libertadores": 4
+      }
+    },
+    {
+      "slug": "lib5",
+      "criterio": {
+        "libertadores": 5
+      }
+    },
+    {
+      "slug": "lib3-ucl1",
+      "criterio": {
+        "libertadores": 3,
+        "champions": 1
+      }
+    },
+    {
+      "slug": "lib2-ucl2",
+      "criterio": {
+        "libertadores": 2,
+        "champions": 2
+      }
+    },
+    {
+      "slug": "c2",
+      "criterio": {
+        "copas": 2
+      }
+    },
+    {
+      "slug": "c2-bola3",
+      "criterio": {
+        "copas": 2,
+        "bolasOuro": 3
+      }
+    },
+    {
+      "slug": "c2l1",
+      "criterio": {
+        "copas": 2,
+        "libertadores": 1
+      }
+    },
+    {
+      "slug": "c2l2",
+      "criterio": {
+        "copas": 2,
+        "libertadores": 2
+      }
+    },
+    {
+      "slug": "c2l3",
+      "criterio": {
+        "copas": 2,
+        "libertadores": 3
+      }
+    },
+    {
+      "slug": "c3",
+      "criterio": {
+        "copas": 3
+      }
+    },
+    {
+      "slug": "c3l1",
+      "criterio": {
+        "copas": 3,
+        "libertadores": 1
+      }
+    },
+    {
+      "slug": "c3l2",
+      "criterio": {
+        "copas": 3,
+        "libertadores": 2
+      }
+    },
+    {
+      "slug": "c2-gols800",
+      "criterio": {
+        "copas": 2,
+        "gols": 800
+      }
+    },
+    {
+      "slug": "c1-gols1000",
+      "criterio": {
+        "copas": 1,
+        "gols": 1000
+      }
+    },
+    {
+      "slug": "c1-gols800",
+      "criterio": {
+        "copas": 1,
+        "gols": 800
+      }
+    },
+    {
+      "slug": "gols500-bola1",
+      "criterio": {
+        "gols": 500,
+        "bolasOuro": 1
+      }
+    },
+    {
+      "slug": "gols700-bola3",
+      "criterio": {
+        "gols": 700,
+        "bolasOuro": 3
+      }
+    },
+    {
+      "slug": "chut3-gols700",
+      "criterio": {
+        "chuteirasOuro": 3,
+        "gols": 700
+      }
+    },
+    {
+      "slug": "chut1",
+      "criterio": {
+        "chuteirasOuro": 1
+      }
+    },
+    {
+      "slug": "chut3",
+      "criterio": {
+        "chuteirasOuro": 3
+      }
+    },
+    {
+      "slug": "mundiais3",
+      "criterio": {
+        "mundiais": 3
+      }
+    },
+    {
+      "slug": "ucl3",
+      "criterio": {
+        "champions": 3
+      }
+    },
+    {
+      "slug": "ucl5",
+      "criterio": {
+        "champions": 5
+      }
+    },
+    {
+      "slug": "bola3",
+      "criterio": {
+        "bolasOuro": 3
+      }
+    },
+    {
+      "slug": "bola5",
+      "criterio": {
+        "bolasOuro": 5
+      }
+    },
+    {
+      "slug": "pico97-copa1",
+      "criterio": {
+        "pico": 97,
+        "copas": 1
+      }
+    },
+    {
+      "slug": "pico95-copa1",
+      "criterio": {
+        "pico": 95,
+        "copas": 1
+      }
+    },
+    {
+      "slug": "pico99-ucl1",
+      "criterio": {
+        "pico": 99,
+        "champions": 1
+      }
+    },
+    {
+      "slug": "fiel20-copa2",
+      "criterio": {
+        "temporadasMesmoClube": 20,
+        "copas": 2
+      }
+    },
+    {
+      "slug": "fiel15-copa2",
+      "criterio": {
+        "temporadasMesmoClube": 15,
+        "copas": 2
+      }
+    },
+    {
+      "slug": "fiel18-ucl3",
+      "criterio": {
+        "temporadasMesmoClube": 18,
+        "champions": 3
+      }
+    },
+    {
+      "slug": "fiel18-copa1-lib2",
+      "criterio": {
+        "temporadasMesmoClube": 18,
+        "copas": 1,
+        "libertadores": 2
+      }
+    },
+    {
+      "slug": "fiel20-copa1-lib1",
+      "criterio": {
+        "temporadasMesmoClube": 20,
+        "copas": 1,
+        "libertadores": 1
+      }
+    },
+    {
+      "slug": "c2-bola5",
+      "criterio": {
+        "copas": 2,
+        "bolasOuro": 5
+      }
+    },
+    {
+      "slug": "c3-gols1000",
+      "criterio": {
+        "copas": 3,
+        "gols": 1000
+      }
+    },
+    {
+      "slug": "c3-gols700",
+      "criterio": {
+        "copas": 3,
+        "gols": 700
+      }
+    },
+    {
+      "slug": "c2-ucl3",
+      "criterio": {
+        "copas": 2,
+        "champions": 3
+      }
+    },
+    {
+      "slug": "c2-ucl2-bola3",
+      "criterio": {
+        "copas": 2,
+        "champions": 2,
+        "bolasOuro": 3
+      }
+    },
+    {
+      "slug": "c1-ucl3-bola5",
+      "criterio": {
+        "copas": 1,
+        "champions": 3,
+        "bolasOuro": 5
+      }
+    },
+    {
+      "slug": "c1-lib3-bola3",
+      "criterio": {
+        "copas": 1,
+        "libertadores": 3,
+        "bolasOuro": 3
+      }
+    },
+    {
+      "slug": "lib5-bola3",
+      "criterio": {
+        "libertadores": 5,
+        "bolasOuro": 3
+      }
+    },
+    {
+      "slug": "gols1000-tit40",
+      "criterio": {
+        "gols": 1000,
+        "titulos": 40
+      }
+    },
+    {
+      "slug": "gols900-copa1",
+      "criterio": {
+        "gols": 900,
+        "copas": 1
+      }
+    },
+    {
+      "slug": "clubes15-copa1-ucl1",
+      "criterio": {
+        "clubes": 15,
+        "copas": 1,
+        "champions": 1
+      }
+    },
+    {
+      "slug": "clubes12-copa1-lib1-ucl1",
+      "criterio": {
+        "clubes": 12,
+        "copas": 1,
+        "libertadores": 1,
+        "champions": 1
+      }
+    },
+    {
+      "slug": "bra-copa2-lib2",
+      "criterio": {
+        "copas": 2,
+        "libertadores": 2,
+        "nacionalidade": [
+          "BRA"
+        ],
+        "copasPelaSelecao": 2
+      }
+    },
+    {
+      "slug": "arg-copa-lib2",
+      "criterio": {
+        "copas": 1,
+        "libertadores": 2,
+        "nacionalidade": [
+          "ARG"
+        ],
+        "copasPelaSelecao": 1
+      }
+    },
+    {
+      "slug": "tit45",
+      "criterio": {
+        "titulos": 45
+      }
+    },
+    {
+      "slug": "chut5",
+      "criterio": {
+        "chuteirasOuro": 5
+      }
+    },
+    {
+      "slug": "fiel20-copa2-lib2",
+      "criterio": {
+        "temporadasMesmoClube": 20,
+        "copas": 2,
+        "libertadores": 2
+      }
+    },
+    {
+      "slug": "fiel18-copa2-lib1",
+      "criterio": {
+        "temporadasMesmoClube": 18,
+        "copas": 2,
+        "libertadores": 1
+      }
+    },
+    {
+      "slug": "fiel15-copa2-lib2",
+      "criterio": {
+        "temporadasMesmoClube": 15,
+        "copas": 2,
+        "libertadores": 2
+      }
+    },
+    {
+      "slug": "pico99-copa2",
+      "criterio": {
+        "pico": 99,
+        "copas": 2
+      }
+    },
+    {
+      "slug": "c2-ucl3-bola3",
+      "criterio": {
+        "copas": 2,
+        "champions": 3,
+        "bolasOuro": 3
+      }
+    },
+    {
+      "slug": "c2-ucl2-bola5",
+      "criterio": {
+        "copas": 2,
+        "champions": 2,
+        "bolasOuro": 5
+      }
+    },
+    {
+      "slug": "nota92-copa2",
+      "criterio": {
+        "nota": 92,
+        "copas": 2
+      }
+    },
+    {
+      "slug": "c2-lib1-ucl1",
+      "criterio": {
+        "copas": 2,
+        "libertadores": 1,
+        "champions": 1
+      }
+    },
+    {
+      "slug": "c2-ucl4",
+      "criterio": {
+        "copas": 2,
+        "champions": 4
+      }
+    },
+    {
+      "slug": "c3-gols1001",
+      "criterio": {
+        "copas": 3,
+        "gols": 1001
+      }
+    },
+    {
+      "slug": "gols800-copa1",
+      "criterio": {
+        "gols": 800,
+        "copas": 1
+      }
+    },
+    {
+      "slug": "bola8-ucl4-copa1",
+      "criterio": {
+        "bolasOuro": 8,
+        "champions": 4,
+        "copas": 1
+      }
+    }
   ]
 }

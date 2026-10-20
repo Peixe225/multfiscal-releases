@@ -23,7 +23,8 @@
  *   rapido     60 carreiras, para conferir que tudo roda.
  *   v34        a calibração da v3.4 (servidor/CONTRATO-v34.md §K): aleatória, caçador sul-americano, guloso das Copas e as
  *              políticas novas (goleador, chuteira, recordista, nômade) mais mochileiro e sul-americano no Intenso;
- *   v34piloto  ~100 carreiras de cada política nova, para conferir antes da rodada grande.
+ *   v34piloto  ~100 carreiras de cada política nova, para conferir antes da rodada grande;
+ *   v34b       a segunda leva da v3.4 (sementes novas nos planos que decidem os limites novos e o Desafio do Rei).
  *
  * O pacote do motor ganha uma troca só de desempenho (`acelerar`): o `clubTitles` do src/engine/world/awards.ts (20% do
  * tempo) percorria todas as copas para cada candidato a prêmio; no pacote ele lê um índice por clube montado uma vez por
@@ -131,7 +132,11 @@ function planos(nBase) {
     ],
     oraculo: [{ nome: 'ora-sul', pol: 'oraculo', nacoes: ['BRA', 'ARG'], n: n(800), bonus: 0 }],
     // v3.4 (§K): a calibração das conquistas raras, dos desafios de emblema e do Desafio do Rei
-    // (as de alvo primeiro: decidem os limites novos; depois as grandes do caçador, do guloso e da aleatória)
+    // (as de alvo primeiro: decidem os limites novos; depois as do Desafio do Rei e das Copas, a aleatória e o resto).
+    // A ordem e os tamanhos mudaram no meio da rodada (o recordista sul-americano atacante e o artilheiro europeu foram os
+    // melhores planos para as Copas: entraram v34-rec2 e v34-chut-copa; o caçador e o guloso diminuíram); os lotes já
+    // feitos continuam iguais (cada lote tem as suas sementes, pelo nome); o v34x-nom foi para o fim (a Nômade de 5
+    // confederações já sai com o mochileiro marroquino)
     v34: [
       { nome: 'v34-gol', pol: 'goleador', nacoes: ['BRA', 'ARG', 'URU', 'COL'], n: n(2500), bonus: 0, posicoes: ['CA', 'CA', 'PE', 'PD'] },
       { nome: 'v34-chut', pol: 'chuteira', nacoes: ['ESP', 'FRA', 'ENG', 'POR', 'BRA', 'ARG'], n: n(1500), bonus: 0, posicoes: ['CA', 'CA', 'PE', 'PD'] },
@@ -139,15 +144,33 @@ function planos(nBase) {
       { nome: 'v34-nom', pol: 'nomade', nacoes: ['BRA', 'ARG', 'ENG', 'ESP', 'JPN', 'MEX', 'USA', 'MAR', 'SEN', 'FRA'], n: n(1000), bonus: 0, ritmos: ['intensa'] },
       { nome: 'v34-moc', pol: 'mochileiro', nacoes: ['BRA', 'ARG', 'ENG', 'ESP', 'JPN', 'MEX', 'USA', 'MAR'], n: n(1000), bonus: 0, ritmos: ['intensa'] },
       { nome: 'v34-sul', pol: 'sulamericano', nacoes: ['BRA', 'ARG', 'URU', 'COL', 'CHI', 'PAR', 'ECU'], n: n(1000), bonus: 0, ritmos: ['intensa'] },
-      { nome: 'v34-gan-esp', pol: 'gananciosa', nacoes: ['ESP'], n: n(3000), bonus: 0, posicoes: POS_CAC },
-      { nome: 'v34-cac-arg', pol: 'cacador', nacoes: ['ARG'], n: n(8000), bonus: 0, posicoes: POS_CAC },
-      { nome: 'v34-cac-bra', pol: 'cacador', nacoes: ['BRA'], n: n(2000), bonus: 0, posicoes: POS_CAC },
-      { nome: 'v34-ale', pol: 'aleatoria', nacoes: [...NACOES_PRINCIPAIS, ...NACOES_OUTRAS], n: n(3000), bonus: 0 },
-      { nome: 'v34-gan-fra-eng', pol: 'gananciosa', nacoes: ['FRA', 'ENG'], n: n(1000), bonus: 0, posicoes: POS_CAC },
-      { nome: 'v34-cac-uru-col', pol: 'cacador', nacoes: ['URU', 'COL'], n: n(500), bonus: 0, posicoes: POS_CAC },
-      { nome: 'v34-fiel', pol: 'fiel', nacoes: ['BRA', 'ARG', 'ESP', 'ENG', 'GER', 'ITA', 'FRA', 'POR'], n: n(500), bonus: 0 },
-      { nome: 'v34-eur', pol: 'europeu', nacoes: ['ESP', 'ENG', 'FRA', 'GER', 'ITA', 'BRA', 'ARG', 'POR'], n: n(500), bonus: 0, ritmos: ['intensa', 'normal'] },
-      { nome: 'v34-gk', pol: 'gananciosa', nacoes: ['ESP', 'FRA', 'ENG', 'GER', 'BRA', 'ARG', 'ITA', 'POR'], n: n(500), bonus: 0, posicoes: ['GOL'] },
+      { nome: 'v34-rec2', pol: 'recordista', nacoes: ['ARG', 'BRA'], n: n(4000), bonus: 0, posicoes: ['CA', 'CA', 'PE', 'PD'] },
+      { nome: 'v34-chut-copa', pol: 'chuteira', nacoes: ['ESP', 'FRA', 'ENG'], n: n(2500), bonus: 0, posicoes: ['CA', 'CA', 'PE', 'PD'] },
+      { nome: 'v34-cac-arg', pol: 'cacador', nacoes: ['ARG'], n: n(3000), bonus: 0, posicoes: POS_CAC },
+      { nome: 'v34-ale', pol: 'aleatoria', nacoes: [...NACOES_PRINCIPAIS, ...NACOES_OUTRAS], n: n(2500), bonus: 0 },
+      { nome: 'v34-gan-esp', pol: 'gananciosa', nacoes: ['ESP'], n: n(1500), bonus: 0, posicoes: POS_CAC },
+      { nome: 'v34x-gol-col', pol: 'goleador', nacoes: ['COL'], n: n(1200), bonus: 0, posicoes: ['CA', 'CA', 'PE', 'PD'] },
+      { nome: 'v34x-gol-sul', pol: 'goleador', nacoes: ['ECU', 'PAR', 'CHI', 'PER', 'VEN', 'BOL'], n: n(900), bonus: 0, posicoes: ['CA', 'CA', 'PE', 'PD'] },
+      { nome: 'v34-cac-bra', pol: 'cacador', nacoes: ['BRA'], n: n(800), bonus: 0, posicoes: POS_CAC },
+      { nome: 'v34-fiel', pol: 'fiel', nacoes: ['BRA', 'ARG', 'ESP', 'ENG', 'GER', 'ITA', 'FRA', 'POR'], n: n(400), bonus: 0 },
+      { nome: 'v34-eur', pol: 'europeu', nacoes: ['ESP', 'ENG', 'FRA', 'GER', 'ITA', 'BRA', 'ARG', 'POR'], n: n(400), bonus: 0, ritmos: ['intensa', 'normal'] },
+      { nome: 'v34-gk', pol: 'gananciosa', nacoes: ['ESP', 'FRA', 'ENG', 'GER', 'BRA', 'ARG', 'ITA', 'POR'], n: n(400), bonus: 0, posicoes: ['GOL'] },
+      { nome: 'v34x-nom', pol: 'nomade', nacoes: ['MAR', 'SEN', 'USA', 'MEX'], n: n(1600), bonus: 0, ritmos: ['intensa'] },
+    ],
+    // v3.4, segunda leva (servidor/CONTRATO-v34.md §K): amostras novas, com sementes novas, nos planos que decidem os
+    // limites novos e o Desafio do Rei, na ordem do que decide mais (o goleiro sul-americano é quem mais muda de país na
+    // América do Sul; o caçador argentino de meio e de ataque é o plano da GOAT, do Futebol completo e do Rei; o caçador
+    // espanhol junta a seleção que mais ganha Copas, 19%, com as Libertadores de um clube sul-americano)
+    v34b: [
+      { nome: 'v34b-sul-gk', pol: 'sulamericano', nacoes: ['PAR', 'ARG', 'COL', 'ECU', 'CHI', 'BRA', 'URU'], n: n(2000), bonus: 0, ritmos: ['intensa'], posicoes: ['GOL'] },
+      // o goleiro argentino quase não sai da Argentina (0 de 286 com 8 países): a segunda amostra é sem ele
+      { nome: 'v34b-sul-gk2', pol: 'sulamericano', nacoes: ['PAR', 'COL', 'ECU', 'CHI', 'BRA', 'URU'], n: n(2500), bonus: 0, ritmos: ['intensa'], posicoes: ['GOL'] },
+      { nome: 'v34b-chut', pol: 'chuteira', nacoes: ['ENG', 'ESP'], n: n(2000), bonus: 0, posicoes: ['CA', 'CA', 'PE'] },
+      { nome: 'v34b-rec-bra', pol: 'recordista', nacoes: ['BRA'], n: n(2000), bonus: 0, posicoes: ['CA', 'CA', 'PE', 'PD'] },
+      { nome: 'v34b-moc', pol: 'mochileiro', nacoes: ['MAR', 'BRA', 'ARG', 'ENG', 'ESP', 'JPN', 'MEX', 'USA'], n: n(1500), bonus: 0, ritmos: ['intensa'], posicoes: ['MEI', 'MC', 'CA', 'PE'] },
+      { nome: 'v34b-cac-arg', pol: 'cacador', nacoes: ['ARG'], n: n(2000), bonus: 0, posicoes: ['MC', 'MEI', 'CA', 'PE'] },
+      { nome: 'v34b-cac-esp', pol: 'cacador', nacoes: ['ESP'], n: n(1200), bonus: 0, posicoes: POS_CAC },
+      { nome: 'v34b-sul', pol: 'sulamericano', nacoes: ['PAR', 'ARG', 'COL'], n: n(800), bonus: 0, ritmos: ['intensa'] },
     ],
     v34piloto: [
       { nome: 'pil-gol', pol: 'goleador', nacoes: ['BRA', 'ARG', 'ESP', 'FRA'], n: 96, bonus: 0, posicoes: ['CA', 'CA', 'PE', 'PD'] },
@@ -157,8 +180,7 @@ function planos(nBase) {
       { nome: 'pil-nom', pol: 'nomade', nacoes: ['BRA', 'ARG', 'ENG', 'ESP', 'JPN', 'MEX'], n: 96, bonus: 0, ritmos: ['intensa'] },
     ],
     v34piloto2: [
-      { nome: 'pil3-gol', pol: 'goleador', nacoes: ['BRA', 'ARG', 'URU', 'COL'], n: 96, bonus: 0, posicoes: ['CA', 'CA', 'PE', 'PD'] },
-      { nome: 'pil3-sul', pol: 'sulamericano', nacoes: ['BRA', 'ARG', 'URU', 'COL'], n: 96, bonus: 0, posicoes: ['CA', 'CA', 'PE', 'PD'], ritmos: ['intensa'] },
+      { nome: 'pil4-nom', pol: 'nomade', nacoes: ['BRA', 'ARG', 'ENG', 'ESP', 'JPN', 'MEX', 'USA', 'MAR'], n: 96, bonus: 0, ritmos: ['intensa'], posicoes: ['CA', 'PE', 'MEI', 'PD'] },
     ],
     // as MESMAS sementes com políticas diferentes: quanto do mundo (quem ganha cada Copa) já vem da semente
     sementes: ['aleatoria', 'gananciosa', 'cacador'].map((pol) => ({ nome: `sem-${pol}`, sal: 'sementes', pol, nacoes: ['ARG', 'BRA', 'ESP', 'FRA'], n: n(240), bonus: 0 })),
@@ -240,10 +262,13 @@ async function empacotar(acelerar = !args.includes('--sem-acelerar'), sufixo = '
   const { build } = await import('rolldown')
   const pasta = join(process.env.LENDA_ESTUDO_TMP || tmpdir(), `lenda-raridade-${process.pid}${sufixo}`)
   mkdirSync(pasta, { recursive: true })
+  // --motor <cópia>/scripts/estudos/raridade-motor.ts: empacota uma cópia da árvore (ex.: com as regras novas das conquistas,
+  // para conferir a calibração contra o código antes de alguém mexer no src/ de verdade); o '@' aponta para o src da cópia
+  const motor = opt('motor', null) ? resolve(opt('motor', null)) : join(AQUI, 'raridade-motor.ts')
   await build({
-    input: join(AQUI, 'raridade-motor.ts'),
+    input: motor,
     platform: 'node',
-    resolve: { alias: { '@': join(RAIZ, 'src') } },
+    resolve: { alias: { '@': join(dirname(motor), '../../src') } },
     output: { dir: pasta, format: 'esm', entryFileNames: 'motor.mjs', codeSplitting: false },
     logLevel: 'warn',
   })
@@ -287,15 +312,33 @@ async function conferirPacote() {
   }
 }
 
+/**
+ * v3.4: `pacote --destino <pasta>` monta o pacote do motor e o deixa lá (o `simular --pacote <pasta>/motor.mjs` usa esse
+ * pacote em vez de montar outro e não o apaga). Assim uma rodada longa, retomada depois, joga sempre com o MESMO motor e as
+ * MESMAS regras de conquista, mesmo que alguém mude o src/ no meio.
+ */
+async function pacoteFixo() {
+  const destino = resolve(opt('destino', join(tmpdir(), 'lenda-raridade-pacote')))
+  const { pasta, pacote } = await empacotar()
+  mkdirSync(destino, { recursive: true })
+  writeFileSync(join(destino, 'motor.mjs'), readFileSync(pacote))
+  rmSync(pasta, { recursive: true, force: true })
+  console.log(`pacote: ${join(destino, 'motor.mjs')}`)
+}
+
 async function simular() {
   const saida = resolve(opt('saida', join(tmpdir(), 'lenda-raridade')))
   mkdirSync(saida, { recursive: true })
   const nBase = Number(opt('n', '1000')) / 1000
   const plano = opt('plano', 'rapido')
-  const lotes = plano === 'condicional' ? planoCondicional(saida, nBase) : planos(nBase)[plano]
-  if (!lotes) throw new Error(`plano desconhecido: ${plano}`)
+  const todosLotes = plano === 'condicional' ? planoCondicional(saida, nBase) : planos(nBase)[plano]
+  if (!todosLotes) throw new Error(`plano desconhecido: ${plano}`)
+  // --lotes a,b: só esses lotes do plano (na ordem do plano), para rodar primeiro o que decide mais
+  const soLotes = opt('lotes', null)
+  const lotes = soLotes ? todosLotes.filter((l) => soLotes.split(',').includes(l.nome)) : todosLotes
   const nw = Math.max(1, Number(opt('workers', String(Math.max(1, cpus().length - 1)))))
-  const { pasta, pacote } = await empacotar()
+  const fixo = opt('pacote', null)
+  const { pasta, pacote } = fixo ? { pasta: null, pacote: resolve(fixo) } : await empacotar()
   try {
     for (const lote of lotes) {
       const arq = join(saida, `${lote.nome}.jsonl`)
@@ -336,7 +379,7 @@ async function simular() {
       )
     }
   } finally {
-    rmSync(pasta, { recursive: true, force: true })
+    if (pasta) rmSync(pasta, { recursive: true, force: true })
   }
 }
 
@@ -690,13 +733,14 @@ function analisar() {
 async function conquistas() {
   const saida = resolve(opt('saida', join(tmpdir(), 'lenda-raridade')))
   mkdirSync(saida, { recursive: true })
-  const { pasta } = await empacotar()
+  const fixo = opt('pacote', null)
+  const { pasta, pacote } = fixo ? { pasta: null, pacote: resolve(fixo) } : await empacotar()
   try {
-    const mod = await import(pathToFileURL(join(pasta, 'motor.mjs')).href)
+    const mod = await import(pathToFileURL(pacote).href)
     writeFileSync(join(saida, 'conquistas.json'), JSON.stringify({ ids: mod.IDS_CONQUISTAS, catalogo: mod.CATALOGO }, null, 1))
     console.log(`${mod.IDS_CONQUISTAS.length} conquistas → ${join(saida, 'conquistas.json')}`)
   } finally {
-    rmSync(pasta, { recursive: true, force: true })
+    if (pasta) rmSync(pasta, { recursive: true, force: true })
   }
 }
 
@@ -736,10 +780,11 @@ if (cmd === 'simular') {
   await conquistas()
 }
 else if (cmd === 'conferir-pacote') await conferirPacote()
+else if (cmd === 'pacote') await pacoteFixo()
 else if (cmd === 'analisar') analisar()
 else if (cmd === 'conquistas') await conquistas()
 else if (cmd === 'tabela-conquistas') tabelaConquistas()
 else {
-  console.log('uso: node scripts/estudos/raridade.mjs simular|analisar|conquistas|tabela-conquistas|conferir-pacote --saida <pasta> [--plano padrao,alvos,alvos2,extra,bonus,oraculo,sementes,condicional,v34,v34piloto|rapido] [--n 1000] [--workers 3] [--sem-acelerar]')
+  console.log('uso: node scripts/estudos/raridade.mjs simular|analisar|conquistas|tabela-conquistas|conferir-pacote|pacote --saida <pasta> [--pacote <motor.mjs>] [--destino <pasta>] [--motor <raridade-motor.ts de uma cópia>] [--lotes a,b] [--plano padrao,alvos,alvos2,extra,bonus,oraculo,sementes,condicional,v34,v34piloto|rapido] [--n 1000] [--workers 3] [--sem-acelerar]')
   process.exit(1)
 }

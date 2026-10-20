@@ -248,7 +248,7 @@ export default function IdentityScreen() {
     try {
       // outra semente: a carreira de antes pode ter ficado com o bônus marcado no servidor
       await comecarClassico(await sementeDaCarreira(), 0)
-      toast.info('Carreira sem o bônus', 'Se o bônus sumir da sua conta sem ter sido usado, fale com o suporte: contato@oprojeto.online.')
+      toast.info('Carreira sem o bônus', 'Se o bônus sumir da sua conta sem ter sido usado, fale com o suporte: contato@lenda.portalmultipla.online.')
     } catch (err) {
       console.error(err)
       toast.error('Não foi possível começar a carreira', 'Tente de novo em instantes.')

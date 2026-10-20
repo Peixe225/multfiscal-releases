@@ -165,7 +165,7 @@ function avisarAutor(int $uid, string $jogador, string $categoria): void
 {
     $nome = $jogador !== '' ? ' (' . mb_substr($jogador, 0, 40, 'UTF-8') . ')' : '';
     $txt = 'Uma carreira sua' . $nome . ' saiu do Hall público por: ' . (AVISO_CATEGORIAS[$categoria] ?? AVISO_CATEGORIAS['outro'])
-        . '. Se achar que foi engano, escreva para contato@oprojeto.online.';
+        . '. Se achar que foi engano, escreva para ' . emailResposta() . '.';
     sql('UPDATE usuarios SET aviso_conta = ?, aviso_conta_em = ? WHERE id = ?', [mb_substr($txt, 0, 300, 'UTF-8'), dt(time()), $uid]);
 }
 

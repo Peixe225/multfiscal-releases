@@ -9,7 +9,7 @@
 import { api } from './api'
 import { erroEmail } from './conta'
 
-export const EMAIL_CONTATO = 'contato@oprojeto.online'
+export const EMAIL_CONTATO = 'contato@lenda.portalmultipla.online'
 
 export type TipoSuporte = 'duvida' | 'ideia' | 'problema' | 'recomendacao' | 'outro'
 

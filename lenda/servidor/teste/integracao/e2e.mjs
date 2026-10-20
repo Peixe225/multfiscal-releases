@@ -1325,7 +1325,7 @@ await etapa('g2. v3.3: Fale conosco sem conta (C) e com conta (A)', async () => 
   await m.getByRole('button', { name: /Fale conosco/ }).click()
   const d = page.getByRole('dialog', { name: 'Fale conosco' })
   await d.waitFor({ timeout: 10000 })
-  ok(await d.locator('a[href="mailto:contato@oprojeto.online"]').isVisible(), 'Fale conosco: o e-mail contato@oprojeto.online aparece')
+  ok(await d.locator('a[href="mailto:contato@lenda.portalmultipla.online"]').isVisible(), 'Fale conosco: o e-mail contato@oprojeto.online aparece')
   await d.locator('.sv-tipo', { hasText: 'Ideia' }).click()
   await d.locator('textarea').fill('Coloquem a Série C do Brasileirão, por favor! <b>obrigado</b>')
   await d.getByRole('button', { name: 'Enviar mensagem' }).click()

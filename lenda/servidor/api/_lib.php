@@ -178,6 +178,7 @@ function config(): array
             'origens' => [],
             'regras' => ['apos_partidas' => 5, 'obrigatorio' => false, 'lembrar_a_cada' => 3],
             'email_remetente' => 'contato@oprojeto.online',
+            'email_resposta' => '',
             'email_modo' => 'mail',
             'email_pasta' => sys_get_temp_dir() . '/lenda-emails',
             'cookie_seguro' => true,
@@ -660,7 +661,7 @@ function mensagemSuspenso(array $u): string
     $ate = paraTempo($u['suspenso_ate'] ?? null);
     $msg = 'Sua conta está suspensa' . ($ate !== null ? ' até ' . gmdate('d/m/Y', $ate - LENDA_FUSO_H * 3600) : '') . '.';
     $motivo = texto($u['motivo_suspensao'] ?? null, 200);
-    return $msg . ($motivo !== null ? ' Motivo: ' . $motivo . '.' : '') . ' Fale com contato@oprojeto.online se achar que é um engano.';
+    return $msg . ($motivo !== null ? ' Motivo: ' . $motivo . '.' : '') . ' Fale com ' . emailResposta() . ' se achar que é um engano.';
 }
 
 /** Linha da conta suspensa que mandou o cookie neste pedido (para exigirUsuario responder 403 em vez de 401). */
@@ -847,6 +848,21 @@ function semEmails(string $t, string $para = ''): string
  * 'arquivo', para teste). $tipo vai para o email_log (esqueci, admin_redef, outro). true do mail() só quer dizer
  * "aceito pelo servidor de envio"; o do SMTP, que o servidor da caixa aceitou a mensagem (250 depois do DATA).
  */
+/**
+ * O e-mail que o jogador vê e para onde vão as respostas: email_resposta da config (a caixa que recebe), senão o
+ * remetente. O remetente pode ser de um domínio cuja caixa já não existe (os e-mails continuam saindo pelo servidor).
+ */
+function emailResposta(): string
+{
+    $c = config();
+    $r = (string) ($c['email_resposta'] ?? '');
+    if (filter_var($r, FILTER_VALIDATE_EMAIL)) {
+        return $r;
+    }
+    $e = (string) ($c['email_remetente'] ?? '');
+    return filter_var($e, FILTER_VALIDATE_EMAIL) ? $e : 'contato@oprojeto.online';
+}
+
 function enviarEmail(string $para, string $assunto, string $corpo, string $tipo = 'outro'): bool
 {
     $c = config();
@@ -859,7 +875,7 @@ function enviarEmail(string $para, string $assunto, string $corpo, string $tipo 
     }
     $cab = [
         'From' => 'LENDA <' . $rem . '>',
-        'Reply-To' => $rem,
+        'Reply-To' => emailResposta(),
         'MIME-Version' => '1.0',
         'Content-Type' => 'text/plain; charset=UTF-8',
         'Content-Transfer-Encoding' => '8bit',

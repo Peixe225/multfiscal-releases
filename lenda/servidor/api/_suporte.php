@@ -22,8 +22,7 @@ const SUPORTE_TIPO_NOME = ['duvida' => 'Dúvida', 'ideia' => 'Ideia', 'problema'
 /** O e-mail de contato do site (o remetente da config). */
 function emailContato(): string
 {
-    $e = (string) (config()['email_remetente'] ?? '');
-    return filter_var($e, FILTER_VALIDATE_EMAIL) ? $e : 'contato@oprojeto.online';
+    return emailResposta();
 }
 
 /** Protocolo de 8 letras (as do convite, sem as que se confundem). */

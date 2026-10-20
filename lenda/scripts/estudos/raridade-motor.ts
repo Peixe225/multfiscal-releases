@@ -31,7 +31,8 @@
  *                ×1,5 nas outras) (Chuteiras de Ouro, recordes de gols);
  *   recordista   o goleador (na América do Sul) que fica no clube onde já fez muitos gols (gols por um clube, títulos,
  *                jogos) e quer seleção (gols pela seleção) — para os recordes históricos;
- *   nomade       um clube de uma confederação onde ainda não jogou, antes de qualquer outra coisa (Nômade).
+ *   nomade       um clube de uma confederação onde ainda não jogou sempre que aparece; senão, o clube do guloso (para o
+ *                OVR crescer: as ofertas de outras confederações só vêm com OVR 78+) (Nômade).
  */
 import type { CareerEngine } from '../../src/engine/api'
 import { careerEngine } from '../../src/engine/career/default'
@@ -313,7 +314,9 @@ function valorAlvo(data: GameData, s: CareerState, clubId: string | undefined, f
     const aqui = s.seasons.filter((r) => r.clubId === club.id).reduce((t, r) => t + r.stats.goals, 0)
     return golsEsperados(data, s, club.id, false) + (cf === 'CONMEBOL' ? 40 : 0) + (ficar ? 6 + Math.min(20, aqui / 25) : 0) + forca * 0.15
   }
-  if (pol === 'nomade') return (confeds.has(cf) ? 0 : 200) + (jogou.has(club.id) ? -5 : 5) + base
+  // o nômade aceita na hora qualquer clube de uma confederação nova (as ofertas de fora só vêm com OVR 78+, e as das
+  // ligas mais fracas no fim da carreira); fora isso joga como o guloso, para crescer e receber ofertas do mundo todo
+  if (pol === 'nomade') return (confeds.has(cf) ? 0 : 200) + forca + PAPEL[papel] + (jogou.has(club.id) ? 0 : 1)
   if (pol === 'mochileiro') return (jogou.has(club.id) ? -100 : 100) + (paises.has(club.country) ? 0 : 6) + (confeds.has(cf) ? 0 : 10) + base
   if (pol === 'sulamericano') {
     const paisesSul = new Set(s.seasons.filter((r) => r.confed === 'CONMEBOL').map((r) => r.country))
