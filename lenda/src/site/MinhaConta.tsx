@@ -117,7 +117,7 @@ function Corpo({ u, aviso, excluirAberto, irPara }: { u: Usuario; aviso: AvisoCo
             <MailWarning aria-hidden="true" />
             <div>
               <b>Confirme o seu e-mail</b>
-              <span>Digite o código de 6 dígitos que mandamos para {u.email}. Confirmar é um dos requisitos para valer nos desafios.</span>
+              <span>Digite o código de 6 dígitos que mandamos para {u.email} (se não achar, veja o spam). Confirmar é um dos requisitos para valer nos desafios.</span>
             </div>
           </div>
           <FormVerificar email={u.email} jaVerificado={false} compacto />

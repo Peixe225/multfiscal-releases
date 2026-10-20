@@ -113,7 +113,7 @@ export function FormVerificar({ email, depoisDoCadastro, jaVerificado, onPronto,
         <p className="sv-verif__p">
           <MailCheck aria-hidden="true" />
           <span>
-            {depoisDoCadastro ? 'Conta criada! ' : ''}Mandamos um código de 6 dígitos para <b>{email}</b> (vale por 24 horas). Confirmar o e-mail é um dos requisitos para valer nos desafios do LENDA.
+            {depoisDoCadastro ? 'Conta criada! ' : ''}Mandamos um código de 6 dígitos para <b>{email}</b> (vale por 24 horas). Se não aparecer em 1 minuto, procure na pasta de spam ou lixo eletrônico. Confirmar o e-mail é um dos requisitos para valer nos desafios do LENDA.
           </span>
         </p>
       )}
