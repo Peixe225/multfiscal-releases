@@ -21,6 +21,14 @@
  *   sementes   as mesmas sementes com três políticas (quanto do mundo, como quem ganha cada Copa, vem só da semente);
  *   condicional  joga de novo nas sementes cujo mundo deu 2 ou 3+ Copas a uma seleção (roda por último: lê os outros);
  *   rapido     60 carreiras, para conferir que tudo roda.
+ *   v34        a calibração da v3.4 (servidor/CONTRATO-v34.md §K): aleatória, caçador sul-americano, guloso das Copas e as
+ *              políticas novas (goleador, chuteira, recordista, nômade) mais mochileiro e sul-americano no Intenso;
+ *   v34piloto  ~100 carreiras de cada política nova, para conferir antes da rodada grande.
+ *
+ * O pacote do motor ganha uma troca só de desempenho (`acelerar`): o `clubTitles` do src/engine/world/awards.ts (20% do
+ * tempo) percorria todas as copas para cada candidato a prêmio; no pacote ele lê um índice por clube montado uma vez por
+ * temporada, na mesma ordem. O resultado é idêntico (`node scripts/estudos/raridade.mjs conferir-pacote` joga as mesmas
+ * carreiras com e sem a troca e compara tudo); `--sem-acelerar` desliga. Nada em src/ muda.
  */
 import { Worker, isMainThread, parentPort, workerData } from 'node:worker_threads'
 import { existsSync, mkdirSync, readFileSync, readdirSync, appendFileSync, writeFileSync, rmSync } from 'node:fs'
@@ -79,6 +87,8 @@ const RITMOS = ['intensa', 'normal', 'expressa']
 /** As do pedido (Brasil, Argentina, Uruguai, Colômbia, Portugal, Espanha, França) e outras de vários tamanhos. */
 const NACOES_PRINCIPAIS = ['BRA', 'ARG', 'URU', 'COL', 'POR', 'ESP', 'FRA']
 const NACOES_OUTRAS = ['ENG', 'GER', 'ITA', 'NED', 'BEL', 'MEX', 'USA', 'JPN', 'MAR', 'SEN', 'CHI', 'ECU', 'PAR', 'CRO', 'NGA']
+/** v3.4: as posições do caçador e do guloso, puxadas para o ataque (Bolas de Ouro e nota), sem tirar as outras. */
+const POS_CAC = ['CA', 'PE', 'PD', 'MEI', 'CA', 'MC', 'ZAG', 'GOL']
 
 /**
  * Um lote = uma política com uma lista de nacionalidades, todas as posições e todos os ritmos (em ciclo, para ficar
@@ -120,6 +130,36 @@ function planos(nBase) {
       { nome: 'cac-bonus5', pol: 'cacador', nacoes: ['BRA', 'ARG'], n: n(1000), bonus: 5 },
     ],
     oraculo: [{ nome: 'ora-sul', pol: 'oraculo', nacoes: ['BRA', 'ARG'], n: n(800), bonus: 0 }],
+    // v3.4 (§K): a calibração das conquistas raras, dos desafios de emblema e do Desafio do Rei
+    // (as de alvo primeiro: decidem os limites novos; depois as grandes do caçador, do guloso e da aleatória)
+    v34: [
+      { nome: 'v34-gol', pol: 'goleador', nacoes: ['BRA', 'ARG', 'URU', 'COL'], n: n(2500), bonus: 0, posicoes: ['CA', 'CA', 'PE', 'PD'] },
+      { nome: 'v34-chut', pol: 'chuteira', nacoes: ['ESP', 'FRA', 'ENG', 'POR', 'BRA', 'ARG'], n: n(1500), bonus: 0, posicoes: ['CA', 'CA', 'PE', 'PD'] },
+      { nome: 'v34-rec', pol: 'recordista', nacoes: ['ARG', 'BRA'], n: n(1000), bonus: 0, posicoes: ['CA', 'CA', 'PE', 'PD'] },
+      { nome: 'v34-nom', pol: 'nomade', nacoes: ['BRA', 'ARG', 'ENG', 'ESP', 'JPN', 'MEX', 'USA', 'MAR', 'SEN', 'FRA'], n: n(1000), bonus: 0, ritmos: ['intensa'] },
+      { nome: 'v34-moc', pol: 'mochileiro', nacoes: ['BRA', 'ARG', 'ENG', 'ESP', 'JPN', 'MEX', 'USA', 'MAR'], n: n(1000), bonus: 0, ritmos: ['intensa'] },
+      { nome: 'v34-sul', pol: 'sulamericano', nacoes: ['BRA', 'ARG', 'URU', 'COL', 'CHI', 'PAR', 'ECU'], n: n(1000), bonus: 0, ritmos: ['intensa'] },
+      { nome: 'v34-gan-esp', pol: 'gananciosa', nacoes: ['ESP'], n: n(3000), bonus: 0, posicoes: POS_CAC },
+      { nome: 'v34-cac-arg', pol: 'cacador', nacoes: ['ARG'], n: n(8000), bonus: 0, posicoes: POS_CAC },
+      { nome: 'v34-cac-bra', pol: 'cacador', nacoes: ['BRA'], n: n(2000), bonus: 0, posicoes: POS_CAC },
+      { nome: 'v34-ale', pol: 'aleatoria', nacoes: [...NACOES_PRINCIPAIS, ...NACOES_OUTRAS], n: n(3000), bonus: 0 },
+      { nome: 'v34-gan-fra-eng', pol: 'gananciosa', nacoes: ['FRA', 'ENG'], n: n(1000), bonus: 0, posicoes: POS_CAC },
+      { nome: 'v34-cac-uru-col', pol: 'cacador', nacoes: ['URU', 'COL'], n: n(500), bonus: 0, posicoes: POS_CAC },
+      { nome: 'v34-fiel', pol: 'fiel', nacoes: ['BRA', 'ARG', 'ESP', 'ENG', 'GER', 'ITA', 'FRA', 'POR'], n: n(500), bonus: 0 },
+      { nome: 'v34-eur', pol: 'europeu', nacoes: ['ESP', 'ENG', 'FRA', 'GER', 'ITA', 'BRA', 'ARG', 'POR'], n: n(500), bonus: 0, ritmos: ['intensa', 'normal'] },
+      { nome: 'v34-gk', pol: 'gananciosa', nacoes: ['ESP', 'FRA', 'ENG', 'GER', 'BRA', 'ARG', 'ITA', 'POR'], n: n(500), bonus: 0, posicoes: ['GOL'] },
+    ],
+    v34piloto: [
+      { nome: 'pil-gol', pol: 'goleador', nacoes: ['BRA', 'ARG', 'ESP', 'FRA'], n: 96, bonus: 0, posicoes: ['CA', 'CA', 'PE', 'PD'] },
+      { nome: 'pil-art', pol: 'artilheiro', nacoes: ['BRA', 'ARG', 'ESP', 'FRA'], n: 96, bonus: 0, posicoes: ['CA', 'CA', 'PE', 'PD'] },
+      { nome: 'pil-chut', pol: 'chuteira', nacoes: ['ESP', 'FRA', 'BRA', 'ARG'], n: 96, bonus: 0, posicoes: ['CA', 'CA', 'PE', 'PD'] },
+      { nome: 'pil-rec', pol: 'recordista', nacoes: ['ARG', 'BRA', 'ESP', 'FRA'], n: 96, bonus: 0, posicoes: ['CA', 'CA', 'PE', 'PD'] },
+      { nome: 'pil-nom', pol: 'nomade', nacoes: ['BRA', 'ARG', 'ENG', 'ESP', 'JPN', 'MEX'], n: 96, bonus: 0, ritmos: ['intensa'] },
+    ],
+    v34piloto2: [
+      { nome: 'pil3-gol', pol: 'goleador', nacoes: ['BRA', 'ARG', 'URU', 'COL'], n: 96, bonus: 0, posicoes: ['CA', 'CA', 'PE', 'PD'] },
+      { nome: 'pil3-sul', pol: 'sulamericano', nacoes: ['BRA', 'ARG', 'URU', 'COL'], n: 96, bonus: 0, posicoes: ['CA', 'CA', 'PE', 'PD'], ritmos: ['intensa'] },
+    ],
     // as MESMAS sementes com políticas diferentes: quanto do mundo (quem ganha cada Copa) já vem da semente
     sementes: ['aleatoria', 'gananciosa', 'cacador'].map((pol) => ({ nome: `sem-${pol}`, sal: 'sementes', pol, nacoes: ['ARG', 'BRA', 'ESP', 'FRA'], n: n(240), bonus: 0 })),
   }
@@ -159,9 +199,46 @@ function hash(s) {
   return h >>> 0
 }
 
-async function empacotar() {
+/**
+ * Troca só de desempenho no pacote (o src/ não muda): o `clubTitles` do motor do mundo percorre todas as copas da
+ * temporada para cada candidato a prêmio (milhares por temporada). Aqui ele lê um índice por clube, montado uma vez por
+ * `env` (uma temporada) na mesma ordem das copas, então devolve as mesmas listas na mesma ordem (cópias novas a cada
+ * chamada). Sem o trecho esperado no pacote, avisa e segue sem a troca.
+ */
+const CLUB_TITLES_ORIGINAL = `\t\tfor (const cup of Object.values(env.result.cups)) if (cup.winner === clubId) titles.push(cup.competitionId);
+\t\telse if (cup.reached[clubId]) reached[cup.competitionId] = cup.reached[clubId];`
+const CLUB_TITLES_INDICE = `\t\tlet __ix = __CUP_IX.get(env);
+\t\tif (!__ix || __ix.src !== env.result.cups) {
+\t\t\tconst m = new Map();
+\t\t\tconst at = (k) => { let e = m.get(k); if (!e) m.set(k, (e = { titles: [], reached: [] })); return e; };
+\t\t\tfor (const cup of Object.values(env.result.cups)) {
+\t\t\t\tif (cup.winner) at(cup.winner).titles.push(cup.competitionId);
+\t\t\t\tfor (const k of Object.keys(cup.reached)) if (k !== cup.winner && cup.reached[k]) at(k).reached.push([cup.competitionId, cup.reached[k]]);
+\t\t\t}
+\t\t\t__ix = { src: env.result.cups, m };
+\t\t\t__CUP_IX.set(env, __ix);
+\t\t}
+\t\tconst __e = __ix.m.get(clubId);
+\t\tif (__e) {
+\t\t\tfor (const t of __e.titles) titles.push(t);
+\t\t\tfor (const [c, r] of __e.reached) reached[c] = r;
+\t\t}`
+
+function acelerarPacote(arq) {
+  const src = readFileSync(arq, 'utf8')
+  const i = src.indexOf(CLUB_TITLES_ORIGINAL)
+  if (i < 0 || src.indexOf(CLUB_TITLES_ORIGINAL, i + 1) >= 0) {
+    console.warn('aviso: clubTitles não encontrado (uma vez só) no pacote; seguindo sem acelerar')
+    return false
+  }
+  const out = src.slice(0, i) + CLUB_TITLES_INDICE + src.slice(i + CLUB_TITLES_ORIGINAL.length)
+  writeFileSync(arq, out.replace('function clubTitles(env, clubId, nationality) {', 'const __CUP_IX = new WeakMap();\nfunction clubTitles(env, clubId, nationality) {'))
+  return true
+}
+
+async function empacotar(acelerar = !args.includes('--sem-acelerar'), sufixo = '') {
   const { build } = await import('rolldown')
-  const pasta = join(process.env.LENDA_ESTUDO_TMP || tmpdir(), `lenda-raridade-${process.pid}`)
+  const pasta = join(process.env.LENDA_ESTUDO_TMP || tmpdir(), `lenda-raridade-${process.pid}${sufixo}`)
   mkdirSync(pasta, { recursive: true })
   await build({
     input: join(AQUI, 'raridade-motor.ts'),
@@ -170,7 +247,44 @@ async function empacotar() {
     output: { dir: pasta, format: 'esm', entryFileNames: 'motor.mjs', codeSplitting: false },
     logLevel: 'warn',
   })
-  return { pasta, pacote: join(pasta, 'motor.mjs') }
+  const pacote = join(pasta, 'motor.mjs')
+  if (acelerar) acelerarPacote(pacote)
+  return { pasta, pacote }
+}
+
+/**
+ * Confere a troca de desempenho: as mesmas carreiras (várias políticas, ritmos e posições) no pacote original e no
+ * acelerado, comparando a linha inteira do resultado (menos o tempo). `--n` carreiras (padrão 24).
+ */
+async function conferirPacote() {
+  const a = await empacotar(false, '-orig')
+  const b = await empacotar(true, '-acel')
+  try {
+    const ma = await import(pathToFileURL(a.pacote).href)
+    const mb = await import(pathToFileURL(b.pacote).href)
+    const data = JSON.parse(readFileSync(DADOS, 'utf8'))
+    const pols = ['aleatoria', 'cacador', 'gananciosa', 'goleador', 'chuteira', 'recordista', 'nomade', 'mochileiro']
+    const n = Number(opt('n', '24'))
+    let iguais = 0
+    let ta = 0
+    let tb = 0
+    for (let i = 0; i < n; i++) {
+      const r = rngDe(9000 + i)
+      const cfg = { a0: u32(r), a1: u32(r), nat: NACOES_PRINCIPAIS[i % 7], pos: POSICOES[(i * 5) % 12], pace: RITMOS[i % 3], pol: pols[i % pols.length], bonus: i % 6 === 5 ? 3 : 0 }
+      const x = ma.jogar(data, cfg, true)
+      const y = mb.jogar(data, cfg, true)
+      ta += x.ms
+      tb += y.ms
+      const sem = (o) => JSON.stringify({ ...o, ms: 0 })
+      if (sem(x) === sem(y)) iguais++
+      else console.log('DIFERENTE', JSON.stringify(cfg))
+    }
+    console.log(`${iguais}/${n} carreiras idênticas; tempo ${(ta / n).toFixed(0)} ms → ${(tb / n).toFixed(0)} ms por carreira`)
+    if (iguais !== n) process.exitCode = 1
+  } finally {
+    rmSync(a.pasta, { recursive: true, force: true })
+    rmSync(b.pasta, { recursive: true, force: true })
+  }
 }
 
 async function simular() {
@@ -621,10 +735,11 @@ if (cmd === 'simular') {
   }
   await conquistas()
 }
+else if (cmd === 'conferir-pacote') await conferirPacote()
 else if (cmd === 'analisar') analisar()
 else if (cmd === 'conquistas') await conquistas()
 else if (cmd === 'tabela-conquistas') tabelaConquistas()
 else {
-  console.log('uso: node scripts/estudos/raridade.mjs simular|analisar|conquistas|tabela-conquistas --saida <pasta> [--plano padrao,alvos,alvos2,extra,bonus,oraculo,sementes,condicional|rapido] [--n 1000] [--workers 3]')
+  console.log('uso: node scripts/estudos/raridade.mjs simular|analisar|conquistas|tabela-conquistas|conferir-pacote --saida <pasta> [--plano padrao,alvos,alvos2,extra,bonus,oraculo,sementes,condicional,v34,v34piloto|rapido] [--n 1000] [--workers 3] [--sem-acelerar]')
   process.exit(1)
 }

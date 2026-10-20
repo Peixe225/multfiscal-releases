@@ -22,18 +22,43 @@
  *   fiel         fica sempre no mesmo clube (Um clube só, Lenda do clube, Ídolo);
  *   europeu      campeão de liga em cada uma das cinco grandes (Dono da Europa);
  *   artilheiro   o clube onde ele é muito melhor que o time (a faixa de gols mais alta), numa liga forte (gols, médias).
+ *
+ * Políticas da v3.4 (servidor/CONTRATO-v34.md §K):
+ *   goleador     na América do Sul, o clube com mais gols esperados por temporada pela conta do motor (faixa de gols ×
+ *                ataque e jogos do time na temporada anterior × coeficiente da liga × papel, com o teto de metade dos
+ *                gols do time) (gols, médias);
+ *   chuteira     o goleador só nas primeiras divisões da UEFA, com o peso da Chuteira de Ouro (×2 nas cinco grandes,
+ *                ×1,5 nas outras) (Chuteiras de Ouro, recordes de gols);
+ *   recordista   o goleador (na América do Sul) que fica no clube onde já fez muitos gols (gols por um clube, títulos,
+ *                jogos) e quer seleção (gols pela seleção) — para os recordes históricos;
+ *   nomade       um clube de uma confederação onde ainda não jogou, antes de qualquer outra coisa (Nômade).
  */
 import type { CareerEngine } from '../../src/engine/api'
 import { careerEngine } from '../../src/engine/career/default'
 import { ACHIEVEMENTS } from '../../src/engine/career/achievements'
 import { predictRole } from '../../src/engine/career/player'
-import { clubConfed, clubStrength, indexData, nationStrength } from '../../src/engine/career/util'
+import { clubConfed, clubLeague, clubStrength, indexData, nationStrength } from '../../src/engine/career/util'
+import { APP_SHARE, GOAL_RATES } from '../../src/engine/career/constants'
+import { deltaBucket } from '../../src/engine/career/season'
 import type { EffectSpec, OptionSpec } from '../../src/engine/career/events/types'
-import { evaluateRun } from '../../src/engine/legacy'
+import { evaluateLegends, evaluateRun } from '../../src/engine/legacy'
 import { rng } from '../../src/engine/rng'
 import type { CareerState, Decision, GameData, Pace, PlayerIdentity, Position, SquadRole } from '../../src/engine/types'
 
-export type Politica = 'aleatoria' | 'gananciosa' | 'cacador' | 'oraculo' | 'mochileiro' | 'sulamericano' | 'fiel' | 'europeu' | 'artilheiro'
+export type Politica =
+  | 'aleatoria'
+  | 'gananciosa'
+  | 'cacador'
+  | 'oraculo'
+  | 'mochileiro'
+  | 'sulamericano'
+  | 'fiel'
+  | 'europeu'
+  | 'artilheiro'
+  | 'goleador'
+  | 'chuteira'
+  | 'recordista'
+  | 'nomade'
 
 export interface Config {
   /** A semente como o navegador sorteia (crypto.getRandomValues(new Uint32Array(2))). */
@@ -92,13 +117,52 @@ export interface Resultado {
   ms: number
   /** As escolhas (só nas carreiras raras, para repetir no navegador). */
   picks?: Pick[]
+  // ── v3.4 (§K): os números crus das conquistas raras e dos critérios de emblema ──
+  /** Chuteiras de Ouro. */
+  bot?: number
+  /** Recordes históricos quebrados (o `historic` da Nota de Legado, carreira encerrada) e quais. */
+  rec?: number
+  recs?: string[]
+  /** Nota bruta (a da conquista "Acima de todos") e quantas lendas reais têm nota bruta maior. */
+  raw?: number
+  acima?: number
+  /** Nota de Legado como o HallEntry grava (com o resumo, `legacyWith` do store). */
+  notaHall?: number
+  /** Títulos continentais de seleção (Copa América, Eurocopa…). */
+  nacCont?: number
+  /** Copas do Mundo ganhas pela seleção de nascimento (`teamId` = nacionalidade da criação). */
+  copaPropria?: number
+  ast?: number
+  /** Ligas de primeira divisão ganhas. */
+  ligas?: number
+  /** Mais temporadas num clube só (o `summary.clubs[].seasons` do HallEntry). */
+  maxClube?: number
+  /** Mundiais de Clubes. */
+  mundial?: number
+  /** Prêmios: Puskás, Kopa, Bola de Ouro da Copa, The Best, Luva de Ouro. */
+  puskas?: number
+  kopa?: number
+  wcBola?: number
+  best?: number
+  luva?: number
+  /** Jogos e gols pela seleção. */
+  selJogos?: number
+  selGols?: number
+  /** Jogos sem sofrer gol (goleiro). */
+  cs?: number
+  /** Países diferentes dos clubes. */
+  paises?: number
 }
 
 export const IDS_CONQUISTAS = ACHIEVEMENTS.map((a) => a.id)
 export const CATALOGO = ACHIEVEMENTS.map((a) => ({ id: a.id, titulo: a.title, descricao: a.description, raridade: a.rarity, oculta: !!a.hidden }))
 const IDX_CONQUISTA = new Map(IDS_CONQUISTAS.map((id, i) => [id, i]))
+/** v3.4: as lendas reais do Hall com a nota bruta (a régua do "Acima de todos" e do "Maior que Pelé"). */
+export const LENDAS = () => evaluateLegends().map((l) => ({ id: l.id, nome: l.name, raw: Math.round(l.raw * 100) / 100, nota: l.score }))
 
 export const sementeDe = (a0: number, a1: number) => a0.toString(36) + a1.toString(36)
+/** LENDA_ESTUDO_DEBUG=1: mostra cada decisão e as opções (tipo, país/confederação/força do clube). */
+const DEBUG = typeof process !== 'undefined' && process.env?.LENDA_ESTUDO_DEBUG === '1'
 
 // ───────────────────────────── valor das opções ─────────────────────────────
 
@@ -162,6 +226,64 @@ function valorClube(data: GameData, s: CareerState, clubId: string, p: Plano): n
 
 const BIG5 = new Set(['ESP', 'ENG', 'ITA', 'GER', 'FRA'])
 
+/** Força média dos clubes de cada liga no mundo de agora (para o ataque do time: quem domina a liga faz mais gols). */
+const MEDIA_LIGA = new WeakMap<CareerState, Map<string, number>>()
+function forcaMediaLiga(data: GameData, s: CareerState, leagueId: string): number {
+  let memo = MEDIA_LIGA.get(s)
+  if (!memo) MEDIA_LIGA.set(s, (memo = new Map()))
+  const hit = memo.get(leagueId)
+  if (hit !== undefined) return hit
+  let soma = 0
+  let n = 0
+  for (const c of data.clubs) {
+    const lg = s.world.clubs[c.id]?.leagueId ?? c.leagueId
+    if (lg !== leagueId) continue
+    soma += clubStrength(s.world, c)
+    n++
+  }
+  const m = n ? soma / n : 70
+  memo.set(leagueId, m)
+  return m
+}
+
+const SHARE_MEDIO = Object.fromEntries(Object.entries(APP_SHARE).map(([k, [a, b]]) => [k, (a + b) / 2])) as Record<SquadRole, number>
+
+/**
+ * Gols esperados numa temporada no clube, pela conta do motor (src/engine/career/season.ts): jogos × papel × faixa de
+ * gols (folga do OVR sobre o time) × ataque do time × coeficiente da liga, com o teto de metade dos gols do time.
+ * `chuteira`: só os gols de liga das primeiras divisões da UEFA, com o peso da Chuteira de Ouro.
+ */
+function golsEsperados(data: GameData, s: CareerState, clubId: string, chuteira: boolean): number {
+  const idx = indexData(data)
+  const club = idx.club.get(clubId)
+  if (!club) return 0
+  const lg = clubLeague(data, s.world, club)
+  const forca = clubStrength(s.world, club)
+  const papel = predictRole(s.ovr, forca, s.identity.position)
+  const taxa = GOAL_RATES.attacker[deltaBucket(s.ovr - forca)]
+  // jogos e gols pró do clube na última temporada simulada (o que o motor usa: todos os jogos oficiais); sem ela, a
+  // força do clube contra a média da liga e 44 jogos
+  const ultima = s.world.seasons[Math.max(-1, ...Object.keys(s.world.seasons).map(Number))]
+  const st = ultima?.clubStats?.[club.id]
+  let jogos = 44
+  let ataque: number
+  if (st && st[0] > 0) {
+    jogos = st[0]
+    ataque = Math.max(0.6, Math.min(1.4, st[1] / st[0] / 1.6))
+  } else {
+    const media = lg ? forcaMediaLiga(data, s, lg.id) : 70
+    ataque = Math.max(0.6, Math.min(1.4, 1 + (forca - media) * 0.035))
+  }
+  const lc = 0.7 + 0.3 * (lg?.coefficient ?? 0.6)
+  const porJogo = Math.min(taxa * ataque * lc, 0.8 * ataque)
+  let g = jogos * SHARE_MEDIO[papel] * porJogo
+  if (chuteira) {
+    const uefa = !!lg && lg.confed === 'UEFA' && lg.tier === 1
+    g = uefa ? g * 0.75 * (BIG5.has(club.country) ? 2 : 1.5) : g * 0.2
+  }
+  return g
+}
+
 /** Valor de um clube para as políticas de alvo (o clube de destino da opção, ou o atual quando fica). */
 function valorAlvo(data: GameData, s: CareerState, clubId: string | undefined, ficar: boolean, pol: Politica): number {
   const idx = indexData(data)
@@ -182,6 +304,16 @@ function valorAlvo(data: GameData, s: CareerState, clubId: string | undefined, f
     const lg = idx.league.get(club.leagueId)
     return faixa * 100 * (0.7 + 0.3 * (lg?.coefficient ?? 0.5)) * (0.85 + 0.06 * (club.prestige ?? 2))
   }
+  // o goleador fica na América do Sul (ligas mais fracas, muitos jogos por temporada e time que domina: no estudo da v3.3
+  // o sul-americano do Intenso foi quem mais fez gols) e, lá dentro, vai para onde faria mais gols
+  if (pol === 'goleador') return golsEsperados(data, s, club.id, false) + (cf === 'CONMEBOL' ? 40 : 0)
+  if (pol === 'chuteira') return golsEsperados(data, s, club.id, true)
+  if (pol === 'recordista') {
+    // o goleador que fica onde já fez muitos gols (gols por um clube) e num time que ganha (títulos)
+    const aqui = s.seasons.filter((r) => r.clubId === club.id).reduce((t, r) => t + r.stats.goals, 0)
+    return golsEsperados(data, s, club.id, false) + (cf === 'CONMEBOL' ? 40 : 0) + (ficar ? 6 + Math.min(20, aqui / 25) : 0) + forca * 0.15
+  }
+  if (pol === 'nomade') return (confeds.has(cf) ? 0 : 200) + (jogou.has(club.id) ? -5 : 5) + base
   if (pol === 'mochileiro') return (jogou.has(club.id) ? -100 : 100) + (paises.has(club.country) ? 0 : 6) + (confeds.has(cf) ? 0 : 10) + base
   if (pol === 'sulamericano') {
     const paisesSul = new Set(s.seasons.filter((r) => r.confed === 'CONMEBOL').map((r) => r.country))
@@ -194,7 +326,8 @@ function valorAlvo(data: GameData, s: CareerState, clubId: string | undefined, f
   return (alvo ? 40 : BIG5.has(club.country) ? 5 : -20) + forca * 0.6 + PAPEL[papel]
 }
 
-const ALVO = new Set<Politica>(['mochileiro', 'sulamericano', 'fiel', 'europeu', 'artilheiro'])
+const ALVO = new Set<Politica>(['mochileiro', 'sulamericano', 'fiel', 'europeu', 'artilheiro', 'goleador', 'chuteira', 'recordista', 'nomade'])
+const GOLS = new Set<Politica>(['goleador', 'chuteira', 'recordista'])
 
 function valorOpcao(data: GameData, s: CareerState, d: Decision, optId: string, p: Plano): number {
   const specs = (d.context?.specs ?? {}) as Record<string, OptionSpec>
@@ -204,7 +337,9 @@ function valorOpcao(data: GameData, s: CareerState, d: Decision, optId: string, 
   if (ALVO.has(p.pol)) {
     const temClube = !!spec.clubId && spec.type !== 'stay'
     let v = temClube ? valorAlvo(data, s, spec.clubId, false, p.pol) : valorAlvo(data, s, s.clubId ?? undefined, true, p.pol)
-    for (const o of spec.outcomes) v += o.p * valorFx(data, s, o.fx, p) * 0.2
+    // os goleadores pesam os eventos pelo que eles fazem com os gols (OVR, multiplicador de números, lesão)
+    const peso = GOLS.has(p.pol) ? 1 : 0.2
+    for (const o of spec.outcomes) v += o.p * (valorFx(data, s, o.fx, p) * peso + (GOLS.has(p.pol) && o.fx.statsMult ? (o.fx.statsMult - 1) * 30 : 0))
     return v
   }
   let v = 0
@@ -226,7 +361,8 @@ const libDe = (s: CareerState) => contaTrofeu(s, (t) => t.trophyId === 'libertad
 
 function plano(pol: Politica, s: CareerState): Plano {
   if (pol === 'cacador' || pol === 'oraculo') return { pol, querLib: libDe(s) < 2 && s.age <= 34, querCopa: true }
-  return { pol, querLib: false, querCopa: pol === 'gananciosa' }
+  // o recordista quer a seleção (gols pela seleção, Copas)
+  return { pol, querLib: false, querCopa: pol === 'gananciosa' || pol === 'recordista' }
 }
 
 /** O que o oráculo quer ver depois de um período: Copas e Libertadores primeiro, depois OVR e taças. */
@@ -241,6 +377,16 @@ function valorDepois(antes: CareerState, depois: CareerState, p: Plano): number 
 function escolher(engine: CareerEngine, data: GameData, s: CareerState, cfg: Config, step: number): string {
   const d = s.pendingDecision!
   const opts = d.options.filter((o) => !o.id.startsWith('retire-'))
+  if (DEBUG) {
+    const idx = indexData(data)
+    const specs = (d.context?.specs ?? {}) as Record<string, OptionSpec>
+    const desc = opts.map((o) => {
+      const sp = specs[o.id]
+      const c = sp?.clubId ? idx.club.get(sp.clubId) : undefined
+      return `${sp?.type ?? '?'}${c ? `:${c.country}/${clubConfed(data, c)}/${clubStrength(s.world, c)}` : ''}`
+    })
+    console.log(`[${step}] idade ${s.age} ovr ${s.ovr} ${d.kind}/${d.eventKey ?? ''} → ${desc.join(' | ')}`)
+  }
   const r = rng(sementeDe(cfg.a0, cfg.a1), 'politica', cfg.pol, step)
   if (!opts.length) return d.options[0].id
   if (cfg.pol === 'aleatoria') return r.pick(opts).id
@@ -299,6 +445,17 @@ export function jogar(data: GameData, cfg: Config, guardarPicks = false): Result
     nota = -1
   }
   const copasJogadas = s.national.tournaments.filter((t) => t.competitionId === 'fifa.world').length
+  // v3.4: a avaliação da conquista (sem o resumo, como o detectAchievements) e a do HallEntry (com o resumo)
+  let leg: ReturnType<typeof evaluateRun> | null = null
+  let notaHall = -1
+  try {
+    leg = evaluateRun({ id: s.id, identity: s.identity, seasons: s.seasons, national: s.national }, { finished: true })
+    notaHall = evaluateRun({ id: s.id, identity: s.identity, seasons: s.seasons, national: s.national, summary: sum }, { finished: true }).score
+  } catch {
+    leg = null
+  }
+  const premio = (a: string) => sum.awards.reduce((t, x) => t + (x.award === a ? x.count : 0), 0)
+  const todas = s.seasons.flatMap((r) => r.trophies)
   const res: Resultado = {
     nat: cfg.nat,
     natFim: s.identity.nationality,
@@ -333,8 +490,30 @@ export function jogar(data: GameData, cfg: Config, guardarPicks = false): Result
     confeds: new Set(s.seasons.map((r) => r.confed).filter(Boolean)).size,
     clubes: new Set(s.seasons.map((r) => r.clubId)).size,
     paisesSul: new Set(s.seasons.filter((r) => r.confed === 'CONMEBOL').map((r) => r.country)).size,
-    ms: Math.round(performance.now() - t0),
+    ms: 0,
+    bot: premio('golden_boot'),
+    rec: leg ? leg.historic.length : -1,
+    recs: leg ? leg.historic.map((h) => h.metric) : [],
+    raw: leg ? Math.round(leg.raw * 100) / 100 : -1,
+    acima: leg ? evaluateLegends().filter((l) => l.raw > leg!.raw).length : -1,
+    notaHall: Math.round(notaHall * 10) / 10,
+    nacCont: todas.filter((t) => t.kind === 'national_continental' && !t.minor).length,
+    copaPropria: todas.filter((t) => t.kind === 'world_cup' && !t.minor && t.teamId === cfg.nat).length,
+    ast: sum.totals.assists,
+    ligas: s.seasons.reduce((n, r) => n + r.trophies.filter((t) => t.kind === 'league' && !t.minor && (t.tier ?? r.tier) === 1).length, 0),
+    maxClube: Math.max(0, ...sum.clubs.map((c) => c.seasons)),
+    mundial: todas.filter((t) => t.kind === 'club_world_cup' && !t.minor).length,
+    puskas: premio('puskas'),
+    kopa: premio('kopa'),
+    wcBola: premio('wc_golden_ball'),
+    best: premio('the_best'),
+    luva: premio('golden_glove'),
+    selJogos: s.national.apps,
+    selGols: s.national.goals,
+    cs: sum.totals.cleanSheets ?? 0,
+    paises: new Set(s.seasons.map((r) => r.country).filter(Boolean)).size,
   }
+  res.ms = Math.round(performance.now() - t0)
   if (guardarPicks) res.picks = picks
   return res
 }
