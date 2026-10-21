@@ -11,6 +11,9 @@
  * carreira foi jogada (dados/<versão>.json); sem ela, uma diferença só nos números refeitos é "inconclusiva" e a tela não
  * oferece recusar. Com a verificação que bate, o servidor ainda pode recusar (a carreira guardada não cumpre mais o
  * desafio): a tela mostra o que ele fez.
+ * v3.4 (CONTRATO-v34): compara também a lista de conquistas da carreira (as que ela prova na conta) e os números dos
+ * critérios novos (Champions, clubes, temporadas no mesmo clube, Copas pela seleção da criação); a carreira-prova recebe o
+ * resultado por prova_verificar; #/verificar?conta=<id> verifica em lote as carreiras-prova de uma conta (VerificarConta).
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ArrowLeft, CircleCheck, CircleX, ExternalLink, FileSearch, RotateCcw, Send, ShieldAlert, TriangleAlert } from 'lucide-react'
@@ -23,10 +26,12 @@ import { Button, Skeleton, cx, formatInt, toast } from '@/ui/primitives'
 import { PlaceholderScreen } from '@/ui/shell/Placeholder'
 import { useShellSlots } from '@/ui/shell/slots'
 import { ErroApi, mensagemDeErro } from './api'
-import { alvoDoResultado, buscarCarreiraAdmin, dadosParaVerificar, mandarResultado, type CandidatoFeito, type CarreiraParaVerificar } from './verificacao'
+import { alvoDoResultado, buscarCarreiraAdmin, dadosParaVerificar, mandarProvas, mandarResultado, type CandidatoFeito, type CarreiraParaVerificar } from './verificacao'
 import { ROTULO_ESTADO } from './desafios'
+import VerificarConta from './VerificarConta'
 import './site.css'
 import './v33.css'
+import './v34.css'
 
 type Fase =
   | { f: 'buscando' }
@@ -34,13 +39,15 @@ type Fase =
   | { f: 'rodando'; passo: number; total: number }
   | { f: 'pronta'; v: Verificacao }
 
-type Envio = { s: 'nada' } | { s: 'mandando' } | { s: 'mandado'; ok: boolean; feitos: CandidatoFeito[] } | { s: 'falhou'; texto: string }
+type Envio = { s: 'nada' } | { s: 'mandando' } | { s: 'mandado'; ok: boolean; feitos: CandidatoFeito[]; prova: boolean | null } | { s: 'falhou'; texto: string }
 
 export default function VerificarTela() {
   const query = useApp((s) => s.route.query)
   const id = query.id ?? ''
   const candidato = query.candidato
   useShellSlots({ sub: '', center: <span className="sm-topbar-t">Verificação por replay · só o admin</span>, stage: { preset: 'legend' } }, [])
+  // v3.4: as carreiras-prova de uma conta, em lote
+  if (!id && query.conta && /^\d{1,10}$/.test(query.conta)) return <VerificarConta key={`${query.conta}:${candidato ?? ''}`} uid={query.conta} candidato={candidato} />
   if (!/^\d{1,10}$/.test(id) && !/^career-[0-9a-z]{2,20}$/.test(id)) {
     return (
       <PlaceholderScreen eyebrow="Verificação por replay" title="Falta a carreira" icon={FileSearch} description="Abra a verificação pelo painel: aba Desafios → candidato → “Verificar no jogo”." actions={<BotaoPainel />} />
@@ -69,12 +76,29 @@ function Verificar({ id, candidato }: { id: string; candidato?: string }) {
   const mandar = useCallback(
     async (v: Verificacao, car: CarreiraParaVerificar) => {
       const alvo = alvoDoResultado(car.candidatos, candidato, car.meta.pk)
-      if (!alvo) return
+      // v3.4: a carreira-prova (prova conquistas na conta) também recebe o resultado
+      const prova = car.prova.ehProva && car.meta.pk > 0
+      if (!alvo && !prova) return
       setEnvio({ s: 'mandando' })
       try {
         const { resultadoParaServidor } = await import('@/engine/verificar')
-        const feitos = await mandarResultado(alvo, resultadoParaServidor(v))
-        setEnvio({ s: 'mandado', ok: v.ok, feitos })
+        const resultado = resultadoParaServidor(v)
+        const feitos = alvo ? await mandarResultado(alvo, resultado) : []
+        let provaOk: boolean | null = null
+        if (prova) {
+          // §E: com a versão do conteúdo que foi refeito (o dono salvou outro depois: o servidor não grava, pulados "mudou")
+          const r = await mandarProvas([{ carreira: car.meta.pk, ok: resultado.ok, detalhes: resultado.detalhes, versao: car.prova.versao ?? null }], car.meta.usuarioId)
+          if (r.pulados.some((k) => k.carreira === car.meta.pk && k.motivo === 'mudou')) throw new ErroApi('mudou', 409, 'O dono salvou esta carreira de novo depois que ela abriu aqui: nada foi gravado. Abra a verificação de novo.')
+          provaOk = r.carreiras.find((k) => k.pk === car.meta.pk)?.provaOk ?? resultado.ok
+        }
+        setEnvio({ s: 'mandado', ok: v.ok, feitos, prova: prova ? provaOk : null })
+        if (!alvo) {
+          toast.success(v.ok ? 'Prova verificada no painel' : 'Resultado registrado: a carreira deixou de ser prova', v.ok ? 'As conquistas desta carreira ficaram “conferidas” na conta.' : 'As conquistas que só ela provava voltam a “não provadas”.')
+          void buscarCarreiraAdmin(id)
+            .then((n) => setC((x) => (x ? { ...x, prova: n.prova } : n)))
+            .catch(() => {})
+          return
+        }
         // §E: bateu, mas o servidor recusou (a carreira guardada não cumpre mais o critério de agora)
         const recusou = v.ok && feitos.some((k) => k.estado === 'recusada')
         if (recusou) toast.info('Bateu, mas o servidor recusou', feitos.find((k) => k.estado === 'recusada')?.motivo ?? 'A carreira guardada não cumpre mais o desafio.')
@@ -189,6 +213,28 @@ function Verificar({ id, candidato }: { id: string; candidato?: string }) {
         </>
       )}
 
+      {fase.f === 'pronta' && c && <ConquistasVerificadas v={fase.v} />}
+
+      {c && c.prova.ehProva && (
+        <section className="sv-bloco" aria-labelledby="sv-prova-h">
+          <h2 id="sv-prova-h" className="sc-sec">
+            Prova de conquistas na conta
+          </h2>
+          <p className="s4-prova">
+            <span className={cx('sv-estado', c.prova.provaOk === true ? 'is-verificada' : c.prova.provaOk === false ? 'is-recusada' : 'is-pendente')}>
+              {c.prova.provaOk === true ? 'Verificada' : c.prova.provaOk === false ? 'Não bateu' : 'Ainda não verificada'}
+            </span>
+            <span>
+              Esta carreira prova {c.prova.conquistas ? formatInt(c.prova.conquistas.length) : 'as'} conquistas na conta de {c.meta.apelido}.{' '}
+              <a className="sv-link" href={`#/verificar?conta=${c.meta.usuarioId}`}>
+                Verificar todas as carreiras-prova da conta
+              </a>
+            </span>
+          </p>
+          {fase.f === 'pronta' && !alvo && <EnvioResultado v={fase.v} envio={envio} onMandar={() => c && void mandar(fase.v, c)} prova />}
+        </section>
+      )}
+
       {c && (
         <section className="sv-bloco" aria-labelledby="sv-cand-h">
           <h2 id="sv-cand-h" className="sc-sec">
@@ -289,6 +335,11 @@ const LINHAS: { campo: keyof NonNullable<Verificacao['guardado']>; rotulo: strin
   { campo: 'nota', rotulo: 'Nota de Legado' },
   { campo: 'jogos', rotulo: 'Jogos' },
   { campo: 'temporadas', rotulo: 'Temporadas' },
+  // v3.4: os números dos critérios dos desafios de emblema
+  { campo: 'champions', rotulo: 'Champions League' },
+  { campo: 'clubes', rotulo: 'Clubes' },
+  { campo: 'mesmoClube', rotulo: 'Temporadas no mesmo clube' },
+  { campo: 'copasSelecao', rotulo: 'Copas pela seleção da criação' },
 ]
 
 function Tabela({ v }: { v: Verificacao }) {
@@ -352,8 +403,33 @@ function Notas({ v }: { v: Verificacao }) {
   )
 }
 
-function EnvioResultado({ v, envio, onMandar }: { v: Verificacao; envio: Envio; onMandar: () => void }) {
+/** v3.4: a lista de conquistas da carreira × a do replay. */
+function ConquistasVerificadas({ v }: { v: Verificacao }) {
+  const c = v.conquistas
+  if (!c) return null
+  return (
+    <p className={cx('s4-conq', c.faltam.length ? 'is-nao' : 'is-ok')}>
+      {c.faltam.length ? <CircleX aria-hidden="true" /> : <CircleCheck aria-hidden="true" />}
+      <span>
+        <b>
+          Conquistas: {formatInt(c.aceitas.length)} de {formatInt(c.guardadas.length)} saem no replay
+        </b>
+        {c.faltam.length ? ` Não saem: ${c.faltam.join(', ')}.` : ' A lista que a carreira prova na conta é a que o motor dá.'}
+        {c.sobram.length ? ` O replay dá também ${c.sobram.join(', ')} (fora da lista: não conta como prova).` : ''}
+      </span>
+    </p>
+  )
+}
+
+function EnvioResultado({ v, envio, onMandar, prova = false }: { v: Verificacao; envio: Envio; onMandar: () => void; prova?: boolean }) {
   if (envio.s === 'mandando') return <p className="sc-hint">Registrando no painel…</p>
+  if (envio.s === 'mandado' && prova)
+    return (
+      <p className={envio.prova === false ? 'sc-err' : 'sc-ok'} role="status">
+        {envio.prova === false ? null : <CircleCheck aria-hidden="true" />}
+        <span>{envio.prova === false ? 'Registrado: a carreira não bateu e deixou de ser prova.' : 'Registrado no painel: a prova ficou “verificada”.'}</span>
+      </p>
+    )
   if (envio.s === 'mandado') {
     // §E: o que o servidor fez de fato (com a verificação que bateu, ele recusa a carreira guardada que não cumpre mais)
     const recusado = envio.feitos.find((k) => k.estado === 'recusada')
@@ -384,6 +460,13 @@ function EnvioResultado({ v, envio, onMandar }: { v: Verificacao; envio: Envio; 
         <Button variant="primary" size="md" icon={Send} onClick={onMandar}>
           Registrar no painel
         </Button>
+      ) : prova ? (
+        <>
+          <p className="sc-hint">Nada foi mandado ainda. Registrar tira a carreira das provas da conta (as conquistas que só ela provava voltam a “não provadas”) e retira os emblemas que ela deu.</p>
+          <Button variant="danger" size="md" icon={Send} onClick={onMandar}>
+            Registrar: não bateu (tira a prova)
+          </Button>
+        </>
       ) : (
         <>
           <p className="sc-hint">Nada foi mandado ainda. Registrar recusa o candidato (o motivo vai com as diferenças desta tela); ele pode ser reavaliado no painel.</p>

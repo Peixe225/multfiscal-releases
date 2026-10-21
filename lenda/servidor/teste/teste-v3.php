@@ -179,8 +179,9 @@ function phpComLib(string $codigo): mixed
     return $j;
 }
 
-const CAMPOS_ITEM_HALL = ['apelido', 'bolasOuro', 'bonusOvr', 'clubes', 'copas', 'destaque', 'gols', 'headline', 'id', 'jogador', 'nota', 'numero', 'pais', 'perfil',
-    'picoOvr', 'posicao', 'posicaoCampo', 'posicaoGeral', 'temporadas', 'terminouEm', 'titulos'];
+// v3.4: + emblemas e emblemasTotal (CONTRATO-v34 §A)
+const CAMPOS_ITEM_HALL = ['apelido', 'bolasOuro', 'bonusOvr', 'clubes', 'copas', 'destaque', 'emblemas', 'emblemasTotal', 'gols', 'headline', 'id', 'jogador', 'nota',
+    'numero', 'pais', 'perfil', 'picoOvr', 'posicao', 'posicaoCampo', 'posicaoGeral', 'temporadas', 'terminouEm', 'titulos'];
 
 // ══ v3.1 instalar.php num banco da v2 ════════════════════════════════════════════════════════════
 
@@ -1036,12 +1037,14 @@ checar('sincronizar sem login → 401', $r->status === 401, $r->resumo());
 $r = $navQ->pedir('GET', '/api/conquistas.php');
 checar('conta nova: lista vazia', $r->status === 200 && ($r->json['conquistas'] ?? null) === [], $r->resumo());
 $r = $sinc($navQ, [['id' => 'goat', 'em' => '2026-10-01T10:00:00Z'], ['id' => 'legend_90', 'em' => '2026-10-05T10:00:00.123Z']]);
-checar('sincronizar → a união (mais antiga primeiro)', $r->status === 200 && ($r->json['conquistas'] ?? null) === [['id' => 'goat', 'em' => '2026-10-01T10:00:00Z'],
+// v3.4: cada item ganhou provada, verificada e carreira (CONTRATO-v34 §A): aqui só o id e a data
+$idEm = static fn(mixed $l): ?array => is_array($l) ? array_map(static fn(array $c): array => ['id' => $c['id'] ?? null, 'em' => $c['em'] ?? null], $l) : null;
+checar('sincronizar → a união (mais antiga primeiro)', $r->status === 200 && $idEm($r->json['conquistas'] ?? null) === [['id' => 'goat', 'em' => '2026-10-01T10:00:00Z'],
     ['id' => 'legend_90', 'em' => '2026-10-05T10:00:00Z']], $r->resumo());
 $navQ2 = novoNav();
 conta($navQ2, ['acao' => 'entrar', 'email' => (string) v('SELECT email FROM usuarios WHERE id = ?', [$uidQ]), 'senha' => 'senha-v3-' . $CONTAS_N]);
 $r = $sinc($navQ2, [['id' => 'goat', 'em' => '2026-09-01T08:00:00Z'], ['id' => 'legend_90', 'em' => '2026-10-09T10:00:00Z'], ['id' => 'ballon_dor', 'em' => '2026-10-02T00:00:00-03:00']]);
-checar('outro aparelho: mescla e fica a data mais antiga de cada (fuso convertido para UTC)', $r->status === 200 && ($r->json['conquistas'] ?? null) === [
+checar('outro aparelho: mescla e fica a data mais antiga de cada (fuso convertido para UTC)', $r->status === 200 && $idEm($r->json['conquistas'] ?? null) === [
     ['id' => 'goat', 'em' => '2026-09-01T08:00:00Z'], ['id' => 'ballon_dor', 'em' => '2026-10-02T03:00:00Z'], ['id' => 'legend_90', 'em' => '2026-10-05T10:00:00Z']], $r->resumo());
 $r = $navQ->pedir('GET', '/api/conquistas.php');
 checar('o primeiro aparelho vê a união', count($r->json['conquistas'] ?? []) === 3, $r->resumo());

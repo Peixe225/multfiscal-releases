@@ -328,12 +328,14 @@ describe('conquistas em níveis (Hall das Lendas)', () => {
       rec(18 + i, { clubId: `c${i % 11}`, stats: { apps: 55, goals: 60, assists: 22, rating: 9 }, a: [bdo(), { award: 'golden_boot', place: 1 }, { award: 'the_best', place: 1 }, { award: 'league_top_scorer', place: 1 }], t: [league(), ...(i < 6 ? [primary('UEFA'), primary('CONMEBOL')] : []), ...(i % 4 === 0 ? [wc()] : [])] }),
     )
     const running = detectAchievements(withSeasons(seasons))
-    expect(running).toEqual(expect.arrayContaining(['goals_100', 'goals_1000', 'ballon_5', 'ballon_8', 'ballon_9', 'world_cup_3', 'world_cup_4', 'ucl_3', 'libertadores_5', 'league_titles_20', 'clubs_10', 'assists_400', 'records_1', 'records_5']))
+    expect(running).toEqual(expect.arrayContaining(['goals_100', 'goals_1000', 'ballon_5', 'ballon_8', 'ballon_9', 'world_cup_3', 'ucl_3', 'libertadores_5', 'league_titles_20', 'clubs_10', 'assists_400', 'records_1', 'records_5']))
     expect(running).not.toContain('gpg_09')
     expect(running).not.toContain('legacy_95')
     expect(running).not.toContain('beat_pele')
+    // v3.4: "Além do Rei" = 2 Copas + nota maior que a de Pelé, só com a carreira encerrada (era 4 Copas)
+    expect(running).not.toContain('world_cup_4')
     const done = detectAchievements(withSeasons(seasons, { retired: true, phase: 'finished' }))
-    expect(done).toEqual(expect.arrayContaining(['gpg_05', 'gpg_07', 'gpg_09', 'legacy_60', 'legacy_80', 'legacy_95', 'beat_pele', 'legend_top10', 'beat_all']))
+    expect(done).toEqual(expect.arrayContaining(['gpg_05', 'gpg_07', 'gpg_09', 'legacy_60', 'legacy_80', 'legacy_95', 'beat_pele', 'legend_top10', 'beat_all', 'world_cup_4']))
     // a nota que as conquistas usam é a mesma do Hall (mesmo com runs anteriores no Hall)
     const finished = withSeasons(seasons.slice(0, 12), { retired: true, phase: 'finished' })
     const input = { id: finished.id, identity: finished.identity, seasons: finished.seasons, national: finished.national }

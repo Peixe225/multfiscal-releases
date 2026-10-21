@@ -1270,9 +1270,10 @@ const LENDA_CONFIG_CHAVES = ['regras', 'imersivo_publico', 'live_publica', 'avis
     'cadastro_aberto', 'hall_revisao_nota', 'avisos', 'aviso_celular', 'partidas_dia_max'];
 /**
  * Versão do banco que o instalar.php grava em site_config._esquema (o código novo só usa coluna/tabela nova com ela):
- * 32 = v3.2 (esquemaV32), 33 = v3.3 (esquemaV33: e-mail verificado, Fale conosco, desafios, replay, limite diário).
+ * 32 = v3.2 (esquemaV32), 33 = v3.3 (esquemaV33: e-mail verificado, Fale conosco, desafios, replay, limite diário), 34 = v3.4
+ * (esquemaV34: conquistas provadas pelas carreiras, desafios de emblema, critérios novos).
  */
-const LENDA_ESQUEMA = 33;
+const LENDA_ESQUEMA = 34;
 const LENDA_AVISOS_MAX = 5;
 
 /** Padrões de cada chave (o `regras` vem do arquivo de config). */
@@ -1504,6 +1505,12 @@ function esquemaV32(): bool
 function esquemaV33(): bool
 {
     return (int) (siteConfig()['_esquema'] ?? 0) >= 33;
+}
+
+/** O instalar.php da v3.4 já rodou (conquistas provadas, desafios de emblema, critérios novos, emblemas_usuario)? */
+function esquemaV34(): bool
+{
+    return (int) (siteConfig()['_esquema'] ?? 0) >= 34;
 }
 
 /** A config sem o estado interno (chaves com _), para o painel. */

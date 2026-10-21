@@ -14,6 +14,21 @@ if (isset($_SERVER['SCRIPT_FILENAME']) && realpath((string) $_SERVER['SCRIPT_FIL
 
 const CAMPOS_C = 'id, carreira_id, modo, jogador, numero, pais, posicao, nota, nota_v, pico_ovr, temporadas, gols, titulos,
     bolas_ouro, headline, como, salva_em, terminou_em, publica, oculta, suspeita, bonus_ovr, copas';
+/**
+ * As 87 conquistas do jogo (ACHIEVEMENTS em src/engine/career/achievements.ts; o teste confere que batem). v3.4: só estes ids
+ * entram na lista de conquistas guardada da carreira-prova (carreiras.conquistas) e contam nos desafios.
+ */
+const CONQUISTAS_IDS = ['king_of_america', 'one_club_legend', 'europe_owner', 'mr_champions', 'goat', 'only_pele', 'black_spider',
+    'net_terror', 'complete_football', 'most_decorated', 'ringless', 'national_hero', 'the_world_is_yours', 'from_the_periphery',
+    'ushuaia_to_darien', 'nomad', 'from_the_bottom', 'matagigantes', 'the_treble', 'baldosero', 'first_title', 'ballon_dor', 'ballon_tri',
+    'hexa', 'world_champion', 'tri_libertadores', 'libertadores', 'orelhuda', 'golden_boot', 'league_top_scorer', 'goals_300', 'goals_500',
+    'goals_800', 'apps_500', 'apps_1000', 'promotion_to_title', 'never_relegated', 'globetrotter', 'one_club_only', 'club_world_champion',
+    'playmaker', 'wall', 'legend_90', 'perfection', 'idol', 'continental_national', 'kopa', 'the_best', 'captain_champion', 'puskas',
+    'wc_golden_ball', 'ballon_5', 'ballon_8', 'ballon_9', 'world_cup_2', 'world_cup_3', 'world_cup_4', 'golden_boot_3', 'golden_boot_7',
+    'ucl_3', 'ucl_7', 'libertadores_5', 'libertadores_7', 'league_titles_5', 'league_titles_10', 'league_titles_20', 'clubs_3', 'clubs_6',
+    'clubs_10', 'goals_100', 'goals_1000', 'goals_1300', 'assists_100', 'assists_250', 'assists_400', 'gpg_05', 'gpg_07', 'gpg_09',
+    'records_1', 'records_5', 'records_10', 'legacy_60', 'legacy_80', 'legacy_95', 'legend_top10', 'beat_pele', 'beat_all'];
+const CONQUISTAS_TOTAL = 87;
 /** Replay do Clássico (HallEntry.replay, CONTRATO-v33 §A): até 64 KB em JSON e 600 decisões. */
 const REPLAY_MAX_BYTES = 64 * 1024;
 const REPLAY_MAX_PICKS = 600;
@@ -281,6 +296,7 @@ function extrairCampos(stdClass $h): array
     $titulos = 0;
     $copas = 0;
     $libertadores = 0;
+    $champions = 0;
     // §E: a contagem de cada taça e prêmio tem de ser um inteiro de 0 a 10.000 (o jogo só grava assim). Fora disso (negativa,
     // fração, texto) a carreira fica suspeita (`dados`): cortar para 0 em silêncio somava aqui mais Copas do que a soma crua
     // que a verificação por replay refaz, e a forjada "batia"
@@ -299,6 +315,8 @@ function extrairCampos(stdClass $h): array
                 $copas += $n;
             } elseif (campo($t, 'trophyId') === 'libertadores') {
                 $libertadores += $n;
+            } elseif (campo($t, 'trophyId') === 'champions-league') {
+                $champions += $n; // v3.4: critério `champions` dos desafios
             }
         } else {
             $contagensOk = false;
@@ -315,12 +333,17 @@ function extrairCampos(stdClass $h): array
             $contagensOk = false;
         }
     }
-    // clubes por onde passou (clubId do jogo, sem repetir, na ordem da carreira)
+    // clubes por onde passou (clubId do jogo, sem repetir, na ordem da carreira). v3.4: e as temporadas em cada um (o critério
+    // `temporadasMesmoClube` = o clube com mais temporadas, somadas, como o resumo do jogo junta as passagens)
     $clubes = [];
+    $temporadasClube = [];
     foreach ((array) (is_array(campo($s, 'clubs')) ? $s->clubs : []) as $c) {
         $cid = $c instanceof stdClass ? campo($c, 'clubId') : null;
         if (is_string($cid) && preg_match('/^[A-Za-z0-9_-]{1,16}$/', $cid) && !in_array($cid, $clubes, true) && count($clubes) < 40) {
             $clubes[] = $cid;
+        }
+        if (is_string($cid) && $cid !== '') {
+            $temporadasClube[$cid] = min(999, ($temporadasClube[$cid] ?? 0) + inteiro(campo($c, 'seasons'), 0, 999));
         }
     }
     $nota = campo($legacy, 'score');
@@ -351,6 +374,28 @@ function extrairCampos(stdClass $h): array
         $bonusOk = $bonusOk && $bonusReplay === $bonusOvr;
         $bonusOvr = max($bonusOvr, $bonusReplay);
     }
+    // v3.4: a seleção da criação (a do replay; a do fim pode ter mudado), as Copas por ela e a lista de conquistas que o motor
+    // gravou na carreira (career.achievements, só os 87 ids do jogo, sem repetir)
+    $paisFim = texto(campo($id, 'nationality'), 8) ?? '';
+    $paisInicio = $temReplay && campo($h->replay, 'identity') instanceof stdClass ? texto(campo($h->replay->identity, 'nationality'), 8) : null;
+    $copasSelecao = 0;
+    $nat = campo($s, 'national') instanceof stdClass ? $s->national : null;
+    foreach ((array) (is_array(campo($nat, 'trophies')) ? $nat->trophies : []) as $t) {
+        if ($t instanceof stdClass && (campo($t, 'trophyId') === 'world-cup' || campo($t, 'kind') === 'world_cup')
+            && campo($t, 'minor') !== true && is_string(campo($t, 'teamId')) && $t->teamId === ($paisInicio ?? $paisFim)) {
+            $copasSelecao++;
+        }
+    }
+    $conquistas = [];
+    $validas = array_flip(CONQUISTAS_IDS);
+    foreach ((array) (is_array(campo($career, 'achievements')) ? $career->achievements : []) as $a) {
+        if (is_string($a) && isset($validas[$a]) && !in_array($a, $conquistas, true)) {
+            $conquistas[] = $a;
+        }
+    }
+    // a versão das regras das conquistas com que o jogo jogou (HallEntry.conquistas.v, a partir da v3.4; sem ela, 1 = até a v3.3)
+    $hc = campo($h, 'conquistas') instanceof stdClass ? $h->conquistas : null;
+    $conquistasV = is_int(campo($hc, 'v')) && $hc->v >= 1 && $hc->v <= 999 ? $hc->v : 1;
     $cid = campo($career, 'identity') instanceof stdClass ? $career->identity : null;
     $nome = is_string(campo($id, 'surname')) ? $id->surname : '';
     $nomeCareer = is_string(campo($cid, 'surname')) ? $cid->surname : '';
@@ -376,6 +421,14 @@ function extrairCampos(stdClass $h): array
         'libertadores' => min($libertadores, 65535),
         'tem_replay' => $temReplay ? 1 : 0,
         'bonus_ovr' => $bonusOvr,
+        // v3.4: os números dos critérios novos dos desafios e a lista de conquistas (guardada só na carreira-prova)
+        'champions' => min($champions, 65535),
+        'n_clubes' => count($clubes),
+        'mesmo_clube' => $temporadasClube ? max($temporadasClube) : 0,
+        'copas_selecao' => min($copasSelecao, 65535),
+        'pais_inicio' => $paisInicio,
+        'conquistas' => $conquistas,
+        'conquistas_v' => $conquistasV,
         // §E: career.bonusOvr e replay.bonusOvr iguais e no formato; as contagens de taças e prêmios inteiras e >= 0
         'bonus_ok' => $bonusOk,
         'contagens_ok' => $contagensOk,

@@ -11,6 +11,7 @@ import type { CarreiraComunidade } from '@/store/comunidade'
 import { api, comReintento, ErroApi } from './api'
 import { normalizarCarreiraPublica } from './hallPublico'
 import { codigoValido } from './indicacao'
+import { normalizarEmblemas, ordenarEmblemas, type Emblema } from './emblemas'
 
 export interface PerfilPublico {
   codigo: string
@@ -19,6 +20,9 @@ export interface PerfilPublico {
   conquistas: number
   carreiras: CarreiraComunidade[]
   desafiosVencidos: string[]
+  /** v3.4: os emblemas dos desafios (os mais difíceis primeiro) e quantas conquistas estão provadas (null = não disse). */
+  emblemas: Emblema[]
+  conquistasProvadas: number | null
 }
 
 export type PerfilAberto = { status: 'carregando' } | { status: 'pronto'; perfil: PerfilPublico; em: number } | { status: 'erro'; naoEncontrado: boolean; semRede: boolean }
@@ -41,6 +45,8 @@ export function normalizarPerfil(x: unknown, codigo: string): PerfilPublico | nu
       .filter((c): c is CarreiraComunidade => !!c)
       .slice(0, 3),
     desafiosVencidos: (Array.isArray(p.desafiosVencidos) ? p.desafiosVencidos : []).filter((s): s is string => typeof s === 'string' && /^[a-z0-9-]{1,64}$/.test(s)).slice(0, 20),
+    emblemas: ordenarEmblemas(normalizarEmblemas(p.emblemas)),
+    conquistasProvadas: typeof p.conquistasProvadas === 'number' && Number.isFinite(p.conquistasProvadas) ? Math.max(0, Math.round(p.conquistasProvadas)) : null,
   }
 }
 

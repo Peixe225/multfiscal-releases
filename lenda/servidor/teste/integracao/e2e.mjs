@@ -6,11 +6,18 @@
 // desafio de teste criado e ativado no painel, uma carreira REAL de fila jogada pela tela que cumpre o critério e vira
 // candidata, "Verificar no jogo" que bate, HallEntry adulterada pela API (sem replay: não vira candidata; com replay e
 // taças a mais: reprovada pela verificação), limite de partidas por dia, vencedor declarado, perfil público.
+// v3.4 (etapas h, e o que mudou nas de antes): os 10 desafios de emblema de fábrica valendo (a faixa da tela inicial, que
+// some sem desafio), a carreira-prova (semente do servidor + replay) que sobe sozinha quando prova conquista nova da conta,
+// uma carreira REAL de fila (v-otima-01, pico 89) que cumpre dois desafios de emblema fáceis e dá os emblemas sozinha
+// (Minha conta, perfil, Hall), HallEntry adulterada (sem replay e com semente que o servidor não sorteou: nem prova nem
+// emblema; com replay e taças a mais: ganha na hora e perde na verificação em lote do admin), o link de compartilhar pela
+// prévia (api/v.php: Open Graph, PNG 1200×630, leva ao resumo) e o SEO do build (sitemap.xml e a chave do IndexNow).
 // As carreiras são jogadas pela tela (ritmo Expresso, sempre a 1ª opção) com sementes fixas: as mesmas sementes
 // dão as mesmas carreiras (a 1004 é um goleiro boliviano que passa pelo Cruzeiro; a 1011 e a 1001 passam de 90).
 //   C = visitante sem conta · A = Ian (cria conta depois de 5 partidas, joga, salva, convida, compartilha)
 //   B = amigo convidado pelo link ?c= · A2 = segundo aparelho do Ian · ADM = painel do admin
-import { readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
 import { gunzipSync } from 'node:zlib'
 import { lancar, aparelho, jogarCarreira, jogarFila, codigoDoEmail, emailsPara, ultimaTerminada, lerKv, sql, esperarSql, admin, ok, resultado, sleep, URL0, ORIGEM, PRINTS, env, BASE } from './lib.mjs'
 
@@ -49,6 +56,23 @@ const esperarTexto = (page, re, ms = 20000) => page.getByText(re).first().waitFo
 const hallApi = async (q = '') => (await fetch(`${URL0}api/hall.php${q}`)).json()
 const conquistasDoAparelho = async (page) => Object.keys((await lerKv(page, 'achievements'))?.unlocked ?? {}).sort()
 const conquistasDaConta = (uid) => sql(`SELECT conquista_id FROM conquistas_usuario WHERE usuario_id=${uid} ORDER BY conquista_id`).split('\n').filter(Boolean)
+/** v3.4: as conquistas PROVADAS da conta (as que têm uma carreira-prova). */
+const provadasDaConta = (uid) => new Set(sql(`SELECT conquista_id FROM conquistas_usuario WHERE usuario_id=${uid} AND prova_pk IS NOT NULL`).split('\n').filter(Boolean))
+const conquistasDe = (h) => [...new Set(h?.career?.achievements ?? [])].sort()
+/**
+ * v3.4 (CONTRATO-v34 §B.3): no fim, a carreira sobe sozinha para a conta quando é 90+ ou quando é carreira-prova (Clássico,
+ * replay, a semente que o servidor sorteou lembrada no aparelho) com alguma conquista que a conta ainda não tem provada. As
+ * sementes são fixas, então o teste sabe o que esperar: sobe sozinha → espera; senão → "Salvar na minha conta".
+ * `provadasAntes` = provadasDaConta() antes da carreira; `lembrada` = o aparelho ainda lembra a semente do servidor.
+ */
+async function fimDaCarreira(page, h, uid, provadasAntes, { lembrada = true } = {}) {
+  const novas = conquistasDe(h).filter((x) => !provadasAntes.has(x))
+  const auto = h.summary.peakOvr >= 90 || (lembrada && novas.length > 0)
+  if (!auto) await page.locator('.ck-end').getByRole('button', { name: 'Salvar na minha conta' }).click()
+  await esperarTexto(page, 'Salva na sua conta', 30000)
+  const como = await esperarSql(`SELECT como FROM carreiras WHERE carreira_id='${h.id}' AND usuario_id=${uid}`, (x) => x !== '', 20000)
+  return { auto, novas, como }
+}
 /**
  * Preenche o diálogo de conta do jogo. O diálogo põe o foco no 1º campo um quadro depois de aparecer (~30 ms); um robô
  * que digita nesse meio-tempo perde o texto para o campo que ganhou o foco. Espera o foco chegar e confere cada valor.
@@ -185,13 +209,21 @@ await etapa('b2. A: Convide amigos (link com código, faltam 3 partidas)', async
 
 await etapa('b3. A joga (Bolívia, passa pelo Cruzeiro) e salva pelo botão', async () => {
   const { page } = A
-  const r = await jogarCarreira(page, { semente: SEM.cruzeiro, nacao: 'Bolívia', sobrenome: 'DANTAS' })
+  // v3.4 (CONTRATO-v34 §B.9 #3): o aparelho que perdeu a lembrança da semente do servidor não manda sozinho a carreira-prova
+  // (pico < 90): o botão de salvar continua, e quem decide se ela prova é o servidor (a semente foi sorteada por ele)
+  const r = await jogarCarreira(page, {
+    semente: SEM.cruzeiro,
+    nacao: 'Bolívia',
+    sobrenome: 'DANTAS',
+    aoComecar: (p) => p.evaluate(() => localStorage.removeItem('lenda:sementes-servidor')),
+  })
   ok(r.fim, `A: carreira DANTAS até o fim (${Math.round(r.ms / 1000)} s)`)
   await sleep(1500)
   const h = await ultimaTerminada(page)
   estado.idDantas = h.id
   ok(h.identity.nationality === 'BOL' && (h.summary.clubs ?? []).some((c) => c.clubId === 'e2022'), `DANTAS é boliviano e passou pelo Cruzeiro (${(h.summary.clubs ?? []).map((c) => c.clubId).join(',')})`)
   ok(h.summary.peakOvr < 90, `pico ${h.summary.peakOvr} (< 90: não salva sozinha)`)
+  ok(sql(`SELECT COUNT(*) FROM carreiras WHERE carreira_id='${h.id}'`) === '0', 'v3.4: sem a lembrança da semente no aparelho, a carreira-prova não subiu sozinha')
   await page.locator('.ck-end').getByRole('button', { name: 'Salvar na minha conta' }).click()
   await esperarTexto(page, 'Salva na sua conta')
   await print(page, 'b3-A-salvar-botao')
@@ -199,6 +231,14 @@ await etapa('b3. A joga (Bolívia, passa pelo Cruzeiro) e salva pelo botão', as
   ok(linha === 'manual|2|BOL|1|1', `servidor: manual, nota v2, BOL, Cruzeiro, sem suspeita (${linha})`)
   const pc = await esperarSql(`SELECT partidas_conta FROM usuarios WHERE id=${estado.idA}`, (x) => x === '1')
   ok(pc === '1', `servidor: 1 partida com a conta (${pc})`)
+  // v3.4: o servidor guardou a lista de conquistas da carreira (a do HallEntry) e ela prova as conquistas na conta
+  const pk = sql(`SELECT id FROM carreiras WHERE carreira_id='${h.id}'`)
+  const ach = conquistasDe(h)
+  const lista = JSON.parse(sql(`SELECT IFNULL(conquistas, 'null') FROM carreiras WHERE id=${pk}`))
+  ok(Array.isArray(lista) && JSON.stringify([...lista].sort()) === JSON.stringify(ach) && sql(`SELECT CONCAT_WS('|', conquistas_v, IFNULL(prova_ok, '-')) FROM carreiras WHERE id=${pk}`) === '2|-',
+    `v3.4: a lista de conquistas guardada no servidor é a do HallEntry (${ach.length}), conquistas_v = 2, ainda não verificada`)
+  const provadas = Number(sql(`SELECT COUNT(*) FROM conquistas_usuario WHERE usuario_id=${estado.idA} AND prova_pk=${pk}`))
+  ok(ach.length > 0 && provadas === ach.length, `v3.4: salva pelo botão, a carreira prova as ${ach.length} conquistas dela na conta (${provadas} com prova_pk = ela)`)
 })
 
 // ───────────────────────── c. B pelo convite ─────────────────────────
@@ -232,6 +272,7 @@ await etapa('c1. B abre o link ?c= e cria a conta', async () => {
 
 await etapa('c2. B termina 1 partida e joga 3 min → indicação válida; bônus do A guardado', async () => {
   const { page } = B
+  const provB0 = provadasDaConta(estado.idB)
   const r = await jogarCarreira(page, { semente: SEM.amigo, nacao: 'Brasil', sobrenome: 'AMIGAO' })
   ok(r.fim, `B: carreira até o fim (${Math.round(r.ms / 1000)} s)`)
   // a partida conta para a conta do B: o início chegou ao servidor pelo menos 20 s antes do fim, no mesmo aparelho
@@ -247,9 +288,11 @@ await etapa('c2. B termina 1 partida e joga 3 min → indicação válida; bônu
   await sleep(1000)
   const h = await ultimaTerminada(page)
   estado.idAmigao = h.id
-  await page.locator('.ck-end').getByRole('button', { name: 'Salvar na minha conta' }).click()
-  await esperarTexto(page, 'Salva na sua conta')
-  ok(sql(`SELECT como FROM carreiras WHERE carreira_id='${h.id}' AND usuario_id=${estado.idB}`) === 'manual', 'B salvou a carreira pelo botão')
+  // v3.4: a 1ª carreira do B com a conta é carreira-prova (semente do servidor) e prova conquistas que a conta não tem: sobe
+  // sozinha ("auto"); sem conquista nova, o botão
+  const fimB = await fimDaCarreira(page, h, estado.idB, provB0)
+  ok(fimB.como === (fimB.auto ? 'auto' : 'manual'), `B: ${fimB.auto ? `a carreira-prova subiu sozinha (${fimB.novas.length} conquistas novas na conta)` : 'salvou pelo botão (nenhuma conquista nova para provar)'} (${fimB.como})`)
+  ok(fimB.novas.every((x) => provadasDaConta(estado.idB).has(x)), `v3.4: as ${fimB.novas.length} conquistas da carreira ficaram provadas na conta do B`)
   const bon = sql(`SELECT CONCAT_WS('|', valor, origem, usado_em IS NULL) FROM bonus WHERE usuario_id=${estado.idA}`)
   ok(bon === '2|indicacao|1', `bônus +2 de indicação criado para o A (${bon})`)
   // A ainda tem 1 partida com a conta: o bônus fica guardado
@@ -282,7 +325,12 @@ await etapa('b4. A joga (pico 90+) → salva sozinha; compartilhar ainda bloquea
   await page.locator('.sm-share__primary').click()
   await esperarTexto(page, 'Bônus de compartilhar ainda bloqueado')
   ok(true, 'compartilhar antes de 3 partidas: "ainda bloqueado"')
-  ok((await page.evaluate(() => window.__textoCompartilhado)).includes(`?c=${estado.codigoA}`), 'o texto compartilhado leva o link com o código de convite')
+  // v3.4: com a conta, o link é o da prévia (api/v.php: o cartão da carreira nas redes), com o código de convite — §E.9: só
+  // quando a carreira já está no Hall público (o v.php só conhece a fotografia); a que acabou de entrar na conta leva o convite
+  const textoComp = await page.evaluate(() => window.__textoCompartilhado)
+  const noHallB4 = (await fetch(`${URL0}api/hall.php?id=${encodeURIComponent(h.id)}`)).status === 200
+  ok(noHallB4 ? textoComp.includes(`api/v.php?id=${h.id}&c=${estado.codigoA}`) : !textoComp.includes('api/v.php') && textoComp.includes(`?c=${estado.codigoA}`),
+    `o texto compartilhado leva ${noHallB4 ? 'o link da prévia com a carreira' : 'o link de convite (a carreira ainda não está no Hall público, §E.9)'} e o código de convite (${textoComp.slice(-90)})`)
   ok(sql(`SELECT COUNT(*) FROM bonus WHERE usuario_id=${estado.idA} AND origem='compartilhar'`) === '0', 'servidor: nenhum bônus de compartilhar')
   await print(page, 'b4-A-compartilhar-bloqueado')
 })
@@ -317,6 +365,7 @@ await etapa('b5. A joga a 3ª partida com a conta → bônus liberado; compartil
 await etapa('b6. A começa uma carreira com +2 de OVR (indicação)', async () => {
   const { page } = A
   let antes = {}
+  const provA0 = provadasDaConta(estado.idA)
   const r = await jogarCarreira(page, {
     semente: SEM.bonus,
     nacao: 'Bolívia',
@@ -349,10 +398,9 @@ await etapa('b6. A começa uma carreira com +2 de OVR (indicação)', async () =
   const z0 = sem.career.seasons[0]
   ok(s0.ovrStart === z0.ovrStart + 2 && s0.ovrEnd === z0.ovrEnd + 2, `1ª temporada: OVR ${s0.ovrStart}→${s0.ovrEnd} com bônus × ${z0.ovrStart}→${z0.ovrEnd} sem (mesmo mundo e mesmas escolhas)`)
   ok(h.career.bonusOvr === 2 && h.summary.peakOvr >= 40, `HallEntry com career.bonusOvr = ${h.career.bonusOvr}`)
-  if (h.summary.peakOvr < 90) {
-    await page.locator('.ck-end').getByRole('button', { name: 'Salvar na minha conta' }).click()
-  }
-  await esperarTexto(page, 'Salva na sua conta', 30000)
+  // v3.4: 90+, ou carreira-prova com conquista nova para a conta → sobe sozinha; senão, o botão
+  const fimA = await fimDaCarreira(page, h, estado.idA, provA0)
+  ok(fimA.como === (fimA.auto ? 'auto' : 'manual'), `BONIFICADO: ${fimA.auto ? `subiu sozinha (pico ${h.summary.peakOvr}, ${fimA.novas.length} conquistas novas para provar)` : 'salva pelo botão'} (${fimA.como})`)
   const linha = await esperarSql(`SELECT CONCAT_WS('|', bonus_ovr, IFNULL(suspeita,'-')) FROM carreiras WHERE carreira_id='${h.id}'`, (x) => x !== '')
   ok(linha === '2|-', `servidor: carreira com bônus salva e não suspeita (${linha})`)
   await page.goto(`${URL0}#/resumo?id=${h.id}`)
@@ -1150,8 +1198,13 @@ await etapa('f8. backup: baixar, guardar no servidor e restaurar o baixado (comp
   const pasta = `${BASE}/lenda-copias`
   writeFileSync(`${pasta}/${nome}`, bruto, { mode: 0o600 })
   const antes = sql(`SELECT COUNT(*) FROM carreiras WHERE usuario_id=${estado.idB}`)
+  // v3.4: as conquistas que a AMIGAO prova na conta do B (apagar tira a prova; restaurar pela cópia devolve)
+  const provAmigao = sql(`SELECT GROUP_CONCAT(cu.conquista_id ORDER BY cu.conquista_id) FROM conquistas_usuario cu JOIN carreiras c ON c.id = cu.prova_pk WHERE c.carreira_id='${estado.idAmigao}' AND cu.usuario_id=${estado.idB}`)
   const ap = await B.page.evaluate(async (id) => (await fetch('api/carreiras.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify({ acao: 'apagar', id }) })).status, estado.idAmigao)
   ok(ap === 200 && sql(`SELECT COUNT(*) FROM carreiras WHERE carreira_id='${estado.idAmigao}'`) === '0', 'B apagou a AMIGAO da conta')
+  const provBdepois = provadasDaConta(estado.idB)
+  ok(provAmigao === 'NULL' || (Number(sql(`SELECT COUNT(*) FROM conquistas_usuario WHERE usuario_id=${estado.idB}`)) >= provAmigao.split(',').length && provAmigao.split(',').every((x) => !provBdepois.has(x))),
+    `v3.4: apagada pelo dono, as conquistas ficam na conta, mas sem prova (${provAmigao})`)
   await irP('#/config?parte=backup', 2200)
   const linha = abaP().locator('tbody tr', { hasText: nome })
   await linha.waitFor({ timeout: 10000 })
@@ -1166,6 +1219,8 @@ await etapa('f8. backup: baixar, guardar no servidor e restaurar o baixado (comp
   await confirmar()
   ok(await avisoPainel(/Cópia restaurada \(completar\): 1 linha gravada \(carreiras 1\)/, 60000), 'restaurar (completar): toast "1 linha gravada (carreiras 1)" e a cópia de antes')
   ok(sql(`SELECT COUNT(*) FROM carreiras WHERE usuario_id=${estado.idB}`) === antes && sql(`SELECT COUNT(*) FROM carreiras WHERE carreira_id='${estado.idAmigao}'`) === '1', 'a AMIGAO voltou pela cópia baixada')
+  const provDepois = sql(`SELECT GROUP_CONCAT(cu.conquista_id ORDER BY cu.conquista_id) FROM conquistas_usuario cu JOIN carreiras c ON c.id = cu.prova_pk WHERE c.carreira_id='${estado.idAmigao}' AND cu.usuario_id=${estado.idB}`)
+  ok(provDepois === provAmigao, `v3.4: de volta pela cópia, a carreira-prova volta a provar as conquistas da conta (${provDepois})`)
   ok(sql(`SELECT COUNT(*) FROM admin_log WHERE acao = 'backup_restaurar'`) === '1', 'restaurar fica no registro')
 })
 
@@ -1293,28 +1348,72 @@ function comTacasAMais(h) {
 }
 const pkDe = (carreiraId, uid) => sql(`SELECT id FROM carreiras WHERE carreira_id='${carreiraId}' AND usuario_id=${uid}`)
 
-await etapa('g1. v3.3: os 3 desafios de fábrica nascem desativados e não aparecem para o público', async () => {
+const SLUGS_EMBLEMA = ['noite-de-gala', 'andarilho-campeao', 'bandeira-do-clube', 'hexa-e-gloria-eterna', 'era-de-ouro', 'artilheiro-do-mundo', 'bi-do-mundo-bi-da-america', 'imortal', 'tacas-do-rei-emblema', 'mil-gols-e-o-tri']
+const desafiosDePremio = (lista) => (lista ?? []).filter((d) => d.modo !== 'emblema')
+await etapa('g1. v3.3/v3.4: os 3 desafios de prêmio desativados; os 10 de emblema valendo (a faixa da tela inicial); sem desafio, a faixa some', async () => {
   const r = await desafiosApi()
-  ok(Array.isArray(r.desafios) && r.desafios.length === 0, `desafios.php: lista vazia (${JSON.stringify(r).slice(0, 120)})`)
-  ok(sql("SELECT GROUP_CONCAT(CONCAT(slug, ':', ativo, ':', premio = '') ORDER BY ordem) FROM desafios") === 'tacas-do-rei:0:1,tacas-do-rei-copas:0:1,todas-as-conquistas:0:1',
+  ok(Array.isArray(r.desafios) && desafiosDePremio(r.desafios).length === 0, `desafios.php: nenhum desafio de prêmio (${JSON.stringify(desafiosDePremio(r.desafios)).slice(0, 120)})`)
+  ok(sql("SELECT GROUP_CONCAT(CONCAT(slug, ':', ativo, ':', premio = '') ORDER BY ordem) FROM desafios WHERE modo = 'primeiro'") === 'tacas-do-rei:0:1,tacas-do-rei-copas:0:1,todas-as-conquistas:0:1',
     'banco: tacas-do-rei, tacas-do-rei-copas e todas-as-conquistas desativados e com o prêmio vazio')
   ok(sql("SELECT CONCAT_WS('|', criterio, requisitos) FROM desafios WHERE slug='tacas-do-rei'") === '{"copas":3,"libertadores":2}|{"partidasMin":30,"emailVerificado":true,"publicadoNoHall":true,"top3Perfil":true}',
     'tacas-do-rei: 3 Copas + 2 Libertadores, 30 partidas, e-mail confirmado, no Hall e entre as 3 do perfil')
-  const { page } = C
-  await page.goto(`${URL0}#/`)
-  await page.reload()
-  await page.waitForSelector('.ld-modes', { timeout: 30000 })
-  await sleep(4500) // o destaque só é pedido depois de a tela pintar (1,8 s + ocioso)
-  ok((await page.locator('.sv-destaque').count()) === 0, 'tela inicial: sem o destaque de desafio')
-  const m = await menu(page)
+  // v3.4: os 10 de emblema de fábrica, ativos, com a dificuldade, o emblema e os 3 da faixa
+  const emb = r.desafios.filter((d) => d.modo === 'emblema')
+  ok(emb.length === 10 && SLUGS_EMBLEMA.every((s) => emb.some((d) => d.slug === s)) && emb.every((d) => d.ativo && d.vencedor === null && d.emblema?.icone && /^#[0-9a-f]{6}$/.test(d.emblema?.cor ?? '')),
+    `v3.4: desafios.php com os 10 de emblema valendo (${emb.map((d) => `${d.slug}:${d.dificuldade}`).join(', ')})`)
+  ok(JSON.stringify(emb.filter((d) => d.home).map((d) => d.slug).sort()) === JSON.stringify(['hexa-e-gloria-eterna', 'noite-de-gala', 'tacas-do-rei-emblema'])
+    && ['facil', 'medio', 'dificil', 'lendario'].every((x) => emb.some((d) => d.dificuldade === x)), 'v3.4: os 3 da faixa (home) e as 4 dificuldades')
+  ok(sql("SELECT CONCAT_WS('|', COUNT(*), SUM(ativo), SUM(requisitos = '{\"partidasMin\":0,\"emailVerificado\":false,\"publicadoNoHall\":false,\"top3Perfil\":false}')) FROM desafios WHERE modo = 'emblema'") === '10|10|10',
+    'v3.4: banco: 10 de emblema, ativos, sem requisito de conta')
+  // a faixa (aparelho novo: sem o cache de 60 s da lista)
+  const F = await novo('F', { partidas: 0 })
+  await F.page.goto(`${URL0}#/`)
+  await F.page.waitForSelector('.ld-modes', { timeout: 30000 })
+  const faixa = F.page.locator('.s4-faixa')
+  await faixa.waitFor({ timeout: 20000 }) // pedida depois de a tela pintar (1,8 s + ocioso)
+  const inteiros = await faixa.locator('.s4-faixa__d').evaluateAll((l) => {
+    const caixa = l[0]?.parentElement?.getBoundingClientRect()
+    return caixa ? l.filter((e) => e.getBoundingClientRect().bottom <= caixa.bottom + 1).map((e) => e.getAttribute('title')) : []
+  })
+  const alt = (await faixa.boundingBox())?.height ?? 0
+  ok(inteiros.length >= 2 && inteiros.length <= 3 && inteiros[0] === 'Noite de gala' && alt <= 48, `v3.4: tela inicial com a faixa discreta (uma linha de ${Math.round(alt)} px): ${inteiros.join(' · ')} · Ver todos`)
+  ok((await F.page.locator('.sv-destaque').count()) === 0, 'v3.4: sem desafio de prêmio valendo: nada do destaque grande')
+  ok(!(await faixa.locator('.s4-faixa__n').evaluateAll((l) => l.some((e) => e.offsetParent && e.scrollWidth > e.clientWidth + 1))), 'v3.4: nenhum nome cortado na faixa')
+  await print(F.page, 'g1-F-home-faixa')
+  const m = await menu(F.page)
   await m.getByRole('button', { name: /Fale conosco/ }).waitFor({ timeout: 10000 }) // as linhas da v3.3 chegam num pedaço à parte
+  await m.getByText(/10 desafios valendo/).first().waitFor({ timeout: 10000 }).catch(() => {})
+  ok((await m.locator('.sc-row--cta', { hasText: 'Desafio valendo' }).count()) === 0 && /10 desafios valendo/.test(await m.innerText()), 'menu: sem a linha do desafio de prêmio; a linha discreta "Desafios · 10 desafios valendo"')
+  await fecharMenu(F.page)
+  await faixa.locator('.s4-faixa__todos').click()
+  await F.page.waitForFunction(() => location.hash.startsWith('#/desafios'), null, { timeout: 10000 })
+  await F.page.locator('.s4-emb').first().waitFor({ timeout: 15000 })
+  const tx = await F.page.locator('.s4-embs').innerText()
+  ok((await F.page.locator('.s4-emb').count()) === 10 && /Fácil/i.test(tx) && /Lendário/i.test(tx) && /~1 em 12 carreiras/.test(tx), '"Ver todos" → #/desafios: os 10 de emblema, com a dificuldade e a chance')
+  ok((await F.page.getByRole('button', { name: 'Criar conta para ganhar' }).count()) === 1 && (await F.page.locator('.sv-desafio').count()) === 0, 'sem conta: "Criar conta para ganhar"; nenhum desafio de prêmio')
+  await print(F.page, 'g1-F-desafios-emblemas', { fullPage: true })
+  // sem desafio nenhum valendo, a faixa some (o admin desliga os 10 e depois religa)
+  const ids = sql("SELECT GROUP_CONCAT(id) FROM desafios WHERE modo = 'emblema' AND ativo = 1").split(',').map(Number)
+  for (const id of ids) await admin({ acao: 'desafio_ativar', id, ativo: false })
+  ok(desafiosDePremio((await desafiosApi()).desafios).length === 0 && (await desafiosApi()).desafios.length === 0, 'desligados os 10: desafios.php vazio')
+  const { page } = await novo('F2', { partidas: 0 })
+  await page.goto(`${URL0}#/`)
+  await page.waitForSelector('.ld-modes', { timeout: 30000 })
+  await sleep(4500) // a faixa e o destaque só são pedidos depois de a tela pintar (1,8 s + ocioso)
+  ok((await page.locator('.s4-faixa').count()) === 0 && (await page.locator('.sv-destaque').count()) === 0, 'tela inicial sem desafio: sem a faixa e sem o destaque')
+  const m2 = await menu(page)
+  await m2.getByRole('button', { name: /Fale conosco/ }).waitFor({ timeout: 10000 })
   await sleep(500)
-  ok((await m.locator('.sc-row--cta', { hasText: 'Desafio valendo' }).count()) === 0 && (await m.getByRole('button', { name: /Fale conosco/ }).count()) === 1, 'menu: sem a linha de desafio, com "Fale conosco"')
+  ok(!/desafios? valendo/i.test(await m2.innerText()) && (await m2.getByRole('button', { name: /Fale conosco/ }).count()) === 1, 'menu: sem a linha de desafio, com "Fale conosco"')
   await fecharMenu(page)
   await page.goto(`${URL0}#/desafios`)
   await esperarTexto(page, 'Nenhum desafio valendo agora', 20000)
   ok(true, '#/desafios: "Nenhum desafio valendo agora"')
   await print(page, 'g1-C-desafios-vazio')
+  let novos = 0
+  for (const id of ids) novos += (await admin({ acao: 'desafio_ativar', id, ativo: true })).json?.emblemasNovos ?? 0
+  estado.emblemasReativar = novos
+  ok((await desafiosApi()).desafios.filter((d) => d.modo === 'emblema').length === 10, `religados os 10 (o lote deu ${novos} emblemas às contas que já cumpriam)`)
 })
 
 await etapa('g2. v3.3: Fale conosco sem conta (C) e com conta (A)', async () => {
@@ -1395,7 +1494,9 @@ await etapa('g3. v3.3: painel → Mensagens: as duas chegam; abrir marca como li
 
 await etapa('g4. v3.3: painel → Desafios: cria o desafio de teste (1 Copa + 2 Libertadores, 2 partidas) e ativa', async () => {
   await irP('#/desafios', 2000)
-  ok((await abaP().locator('article.cartao-desafio').count()) === 3, 'Desafios: os 3 de fábrica (desativados)')
+  // v3.4 (CONTRATO-v34 §A.14 e §C.6 #2): 13 cartões — os 3 de prêmio de fábrica (desativados) e os 10 de emblema (valendo)
+  ok((await abaP().locator('article.cartao-desafio').count()) === 13 && (await abaP().locator('article.cartao-desafio[data-modo="primeiro"]').count()) === 3,
+    'Desafios: os 3 de prêmio de fábrica (desativados) e os 10 de emblema (v3.4)')
   await irP('#/desafios?parte=novo', 1800)
   await painel.fill('#dz-titulo', TITULO_D)
   ok((await painel.inputValue('#dz-slug')) === 'tacas-do-rei-teste', 'o endereço sai do título (tacas-do-rei-teste)')
@@ -1416,7 +1517,7 @@ await etapa('g4. v3.3: painel → Desafios: cria o desafio de teste (1 Copa + 2 
   estado.idDesafio = sql("SELECT id FROM desafios WHERE slug='tacas-do-rei-teste'")
   const l = sql(`SELECT CONCAT_WS('|', ativo, criterio, requisitos, premio, regulamento LIKE '1. Vale a primeira conta%') FROM desafios WHERE id=${estado.idDesafio}`)
   ok(l === `0|{"copas":1,"libertadores":2}|{"partidasMin":2,"emailVerificado":true,"publicadoNoHall":true,"top3Perfil":true}|${PREMIO}|1`, `no banco: desativado, o critério, os requisitos, o prêmio (texto do admin) e o regulamento de partida (${l})`)
-  ok((await desafiosApi()).desafios.length === 0, 'desativado: o público ainda não vê')
+  ok(!(await desafiosApi()).desafios.some((d) => d.slug === 'tacas-do-rei-teste'), 'desativado: o público ainda não vê')
   await irP('#/desafios', 2000)
   await abaP().locator(`article.cartao-desafio[data-id="${estado.idDesafio}"] button`, { hasText: 'Ativar' }).click()
   await dialogo().waitFor()
@@ -1425,8 +1526,8 @@ await etapa('g4. v3.3: painel → Desafios: cria o desafio de teste (1 Copa + 2 
   await confirmar()
   ok(await avisoPainel(/ativado/), 'ativado (toast)')
   ok(sql(`SELECT CONCAT(ativo, IF(inicio IS NULL, '-', '+')) FROM desafios WHERE id=${estado.idDesafio}`) === '1+', 'no banco: ativo, com o início gravado na ativação')
-  const pub = (await desafiosApi()).desafios
-  ok(pub.length === 1 && pub[0].slug === 'tacas-do-rei-teste' && pub[0].premio === PREMIO && pub[0].vencedor === null && pub[0].ativo === true, `desafios.php: só o de teste (os 3 de fábrica continuam fora) (${pub.map((x) => x.slug).join(',')})`)
+  const pub = desafiosDePremio((await desafiosApi()).desafios)
+  ok(pub.length === 1 && pub[0].slug === 'tacas-do-rei-teste' && pub[0].modo === 'primeiro' && pub[0].premio === PREMIO && pub[0].vencedor === null && pub[0].ativo === true, `desafios.php: de prêmio, só o de teste (os 3 de fábrica continuam fora) (${pub.map((x) => x.slug).join(',')})`)
   await print(painel, 'g4-painel-desafios-ativo')
 })
 
@@ -1437,6 +1538,8 @@ await etapa('g5. v3.3: público com desafio valendo: destaque, menu e #/desafios
   await page.waitForSelector('.sv-destaque', { timeout: 30000 })
   const t = await page.locator('.sv-destaque').innerText()
   ok(t.includes(TITULO_D) && t.includes(PREMIO), `tela inicial: o destaque com o título e o prêmio (${t.replace(/\s+/g, ' ').slice(0, 140)})`)
+  await sleep(800)
+  ok((await page.locator('.s4-faixa').count()) === 0, 'v3.4: com um desafio de prêmio valendo, o destaque dele no lugar da faixa dos emblemas (nunca os dois)')
   await print(page, 'g5-V-destaque')
   const m = await menu(page)
   ok(await m.locator('.sc-row--cta', { hasText: TITULO_D }).waitFor({ timeout: 10000 }).then(() => true, () => false), 'menu: a linha do desafio valendo')
@@ -1470,13 +1573,21 @@ await etapa('g6. v3.3: R cria a conta pelo desafio ("Depois" no código) e joga 
   estado.codigoR = sql(`SELECT codigo_convite FROM usuarios WHERE id=${estado.idR}`)
   ok(/^\d+$/.test(estado.idR), `conta do R criada (${estado.idR}), e-mail ainda sem confirmar`)
   // 1ª partida com a conta (uma carreira qualquer, a 1ª opção sempre)
+  const provR0 = provadasDaConta(estado.idR)
   const r1 = await jogarCarreira(page, { semente: [2001, 333], nacao: 'Brasil', sobrenome: 'REIZINHO' })
   ok(r1.fim, `R: 1ª carreira até o fim (${Math.round(r1.ms / 1000)} s)`)
   ok((await esperarSql(`SELECT partidas_conta FROM usuarios WHERE id=${estado.idR}`, (x) => x === '1', 30000)) === '1', 'servidor: 1 partida com a conta')
   await sleep(1000)
   estado.hallQ = await ultimaTerminada(page)
   ok(!!estado.hallQ?.replay && estado.hallQ.replay.seed[0] === 2001 && estado.hallQ.replay.seed[1] === 333, 'a carreira jogada pela tela tem o replay com a semente [a0, a1]')
+  // v3.4: carreira-prova com conquistas que a conta ainda não tem provadas → sobe sozinha (sem nenhuma, fica no aparelho)
+  const novasQ = conquistasDe(estado.hallQ).filter((x) => !provR0.has(x))
+  if (novasQ.length || estado.hallQ.summary.peakOvr >= 90) {
+    const como = await esperarSql(`SELECT como FROM carreiras WHERE carreira_id='${estado.hallQ.id}' AND usuario_id=${estado.idR}`, (x) => x !== '', 30000)
+    ok(como === 'auto', `v3.4: a 1ª carreira do R (pico ${estado.hallQ.summary.peakOvr}) subiu sozinha como prova de ${novasQ.length} conquistas (${como})`)
+  }
   // a carreira REAL da fila, pelos cliques (o mesmo cartão de cada decisão)
+  const provR1 = provadasDaConta(estado.idR)
   const r2 = await jogarFila(page, FILA, { nacao: 'Brasil' })
   ok(r2.fim && r2.escolhas === FILA.picks.length, `R: a carreira da fila ${FILA.nome} jogada pela tela até o fim (${r2.escolhas} de ${FILA.picks.length} escolhas, ${Math.round(r2.ms / 1000)} s)`)
   await sleep(1200)
@@ -1488,8 +1599,9 @@ await etapa('g6. v3.3: R cria a conta pelo desafio ("Depois" no código) e joga 
   ok(tacas(h, 'world-cup') === 1 && tacas(h, 'libertadores') === 2 && h.summary.peakOvr === 86, `a carreira cumpre o critério: ${tacas(h, 'world-cup')} Copa, ${tacas(h, 'libertadores')} Libertadores, pico ${h.summary.peakOvr}`)
   ok((await esperarSql(`SELECT partidas_conta FROM usuarios WHERE id=${estado.idR}`, (x) => x === '2', 30000)) === '2', 'servidor: 2 partidas com a conta (o mínimo do desafio de teste)')
   await print(page, 'g6-R-fim-da-fila')
-  await page.locator('.ck-end').getByRole('button', { name: 'Salvar na minha conta' }).click()
-  await esperarTexto(page, 'Salva na sua conta', 20000)
+  // v3.4: prova conquista nova da conta → sobe sozinha; senão o botão
+  const fimG = await fimDaCarreira(page, h, estado.idR, provR1)
+  ok(fimG.como === (fimG.auto ? 'auto' : 'manual'), `a carreira da fila foi para a conta: ${fimG.auto ? `sozinha, como prova de ${fimG.novas.length} conquistas novas` : 'pelo botão'} (${fimG.como})`)
   estado.pkG = pkDe(h.id, estado.idR)
   const l = sql(`SELECT CONCAT_WS('|', tem_replay, copas, libertadores, IFNULL(fora_desafio, '-'), primeira_em >= (SELECT inicio FROM desafios WHERE id=${estado.idDesafio})) FROM carreiras WHERE id=${estado.pkG}`)
   ok(l === '1|1|2|-|1', `servidor: tem_replay, 1 Copa, 2 Libertadores, dentro do limite do dia, salva depois do início (${l})`)
@@ -1612,12 +1724,22 @@ await etapa('g10. v3.3: limite de partidas por dia (Configurações): passou do 
   // o R já jogou as 10 de hoje (o contador do dia de Brasília, como se fossem partidas de antes)
   sql(`INSERT INTO partidas_dia (usuario_id, dia, n) VALUES (${estado.idR}, DATE(UTC_TIMESTAMP() - INTERVAL 3 HOUR), 10) ON DUPLICATE KEY UPDATE n = 10`)
   const { page } = R
+  const provR2 = provadasDaConta(estado.idR)
   const r = await jogarCarreira(page, { semente: [2003, 333], nacao: 'Brasil', sobrenome: 'PASSOU' })
   ok(r.fim, `R: a 11ª partida do dia jogada pela tela (${Math.round(r.ms / 1000)} s)`)
   const n = await esperarSql(`SELECT n FROM partidas_dia WHERE usuario_id=${estado.idR} AND dia = DATE(UTC_TIMESTAMP() - INTERVAL 3 HOUR)`, (x) => x === '11', 30000)
   ok(n === '11' && sql(`SELECT partidas_conta FROM usuarios WHERE id=${estado.idR}`) === '2', `a partida conta no dia (${n}) mas não soma na conta (partidas_conta continua 2)`)
   await sleep(1000)
-  const c = comTacasAMais(await ultimaTerminada(page))
+  const hPassou = await ultimaTerminada(page)
+  // v3.4: o aparelho manda sozinha a carreira com conquista nova para provar (o servidor é quem diz que, acima do limite do
+  // dia, ela não prova nada): espera esse salvar antes de mandar a versão adulterada por cima
+  if (conquistasDe(hPassou).some((x) => !provR2.has(x))) {
+    await esperarSql(`SELECT COUNT(*) FROM carreiras WHERE carreira_id='${hPassou.id}' AND usuario_id=${estado.idR}`, (x) => x === '1', 30000)
+    const pkP = pkDe(hPassou.id, estado.idR)
+    const lp = sql(`SELECT CONCAT_WS('|', c.como, IFNULL(c.fora_desafio, '-'), (SELECT COUNT(*) FROM conquistas_usuario cu WHERE cu.prova_pk = c.id)) FROM carreiras c WHERE c.id=${pkP}`)
+    ok(lp === 'auto|limite_diario|0', `v3.4: acima do limite do dia, a carreira que subiu sozinha não prova nada (como|fora_desafio|provas = ${lp})`)
+  }
+  const c = comTacasAMais(hPassou)
   const rc = await salvarPelaApi(page, c)
   const pkC = pkDe(c.id, estado.idR)
   ok(rc.status === 200 && sql(`SELECT IFNULL(fora_desafio, '-') FROM carreiras WHERE id=${pkC}`) === 'limite_diario' && sql(`SELECT COUNT(*) FROM desafio_candidatos WHERE carreira_pk=${pkC}`) === '0',
@@ -1673,8 +1795,8 @@ await etapa('g11. v3.3: declarar o vencedor (confirmação forte) → o jogo mos
   const W = await novo('W', { partidas: 0, viewport: { width: 390, height: 844 }, celular: true })
   await W.page.goto(`${URL0}#/`)
   await W.page.waitForSelector('.ld-modes', { timeout: 30000 })
-  await sleep(4500)
-  ok((await W.page.locator('.sv-destaque').count()) === 0, 'público: com vencedor, o destaque some da tela inicial')
+  await W.page.locator('.s4-faixa').waitFor({ timeout: 20000 }).catch(() => {})
+  ok((await W.page.locator('.sv-destaque').count()) === 0 && (await W.page.locator('.s4-faixa').count()) === 1, 'público: com vencedor, o destaque some da tela inicial (e a faixa dos emblemas volta, v3.4)')
   await W.page.goto(`${URL0}#/desafios`)
   await W.page.locator('.sv-vencedor').waitFor({ timeout: 20000 })
   const t = await W.page.locator('.sv-desafio').first().innerText()
@@ -1685,7 +1807,7 @@ await etapa('g11. v3.3: declarar o vencedor (confirmação forte) → o jogo mos
   await W.page.locator('.sv-vencedor a', { hasText: APELIDO_R }).click()
   await W.page.waitForSelector('.sv-perfil', { timeout: 20000 })
   ok(W.page.url().endsWith(`#/jogador/${estado.codigoR}`) && /Venceu:/.test(await W.page.locator('.sv-vencidos').innerText()), 'o apelido do vencedor abre o perfil, com "Venceu: …"')
-  ok((await desafiosApi()).desafios[0]?.vencedor?.apelido === APELIDO_R, 'desafios.php: vencedor com o apelido')
+  ok((await desafiosApi()).desafios.find((d) => d.slug === 'tacas-do-rei-teste')?.vencedor?.apelido === APELIDO_R, 'desafios.php: vencedor com o apelido')
 })
 
 await etapa('g12. v3.3: perfil público pelo link do código (quem abre chega como convidado) e o apelido no Hall leva ao perfil', async () => {
@@ -1773,6 +1895,332 @@ await etapa('g14. v3.3: o Registro mostra as ações novas em pt-BR', async () =
   const faltam = nomes.filter((n) => !reg.includes(n))
   ok(faltam.length === 0 && !/desafio_salvar|candidato_verificar|suporte_responder/.test(reg), `Registro: ${nomes.join(' · ')}${faltam.length ? ` (faltam: ${faltam.join(', ')})` : ''}`)
   await print(painel, 'g14-painel-registro')
+})
+
+// ───────────────────────── h. v3.4: conquistas provadas, desafios de emblema, prévia de link, SEO ─────────────────────────
+// Uma carreira REAL de fila (v-otima-01: Expresso, centroavante italiano, 8 decisões; pico 89, 2 Bolas de Ouro, 5 Champions,
+// 18 temporadas no mesmo clube e 34 títulos) jogada pela tela com a conta: não é 90+, mas é carreira-prova com conquistas
+// novas — sobe sozinha e cumpre dois desafios de emblema fáceis (Noite de gala e Bandeira do clube).
+const FILA_E = JSON.parse(readFileSync(new URL('../../../scripts/gravar/filas/classico.json', import.meta.url), 'utf8')).find((f) => f.nome === 'v-otima-01')
+const EMAIL_E = `emblema${Date.now()}@exemplo.com`
+const APELIDO_E = 'Craque do Emblema'
+const emblemasDe = (uid, estadoE = 'ativo') => sql(`SELECT GROUP_CONCAT(d.slug ORDER BY d.slug) FROM emblemas_usuario e JOIN desafios d ON d.id = e.desafio_id WHERE e.usuario_id=${uid} AND e.estado='${estadoE}'`)
+const meta = (html, chave) => {
+  const m = new RegExp(`<meta (?:property|name)="${chave.replace(/[.:]/g, (x) => `\\${x}`)}" content="([^"]*)"`).exec(html)
+  return m ? m[1].replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#039;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>') : null
+}
+const tamanhoPng = (b) => (b.length > 24 && b.readUInt32BE(0) === 0x89504e47 ? [b.readUInt32BE(16), b.readUInt32BE(20)] : null)
+const E = await novo('E', { partidas: 0, viewport: { width: 1440, height: 900 } })
+
+await etapa('h1. v3.4: E cria a conta e joga pela tela a carreira real da fila → sobe sozinha como prova e ganha 2 emblemas', async () => {
+  const { page } = E
+  await page.goto(URL0)
+  await page.waitForSelector('.ld-modes', { timeout: 60000 })
+  const m = await menu(page)
+  await m.getByText('Entrar / Criar conta').click()
+  const d = page.locator('[role="dialog"].sc-modal')
+  await d.waitFor()
+  await d.getByRole('tab', { name: 'Criar conta' }).click()
+  await preencherConta(page, d, [['Apelido', APELIDO_E], ['E-mail', EMAIL_E], ['Senha', SENHA, true]])
+  await d.getByRole('checkbox').first().check()
+  await d.getByRole('button', { name: 'Criar conta', exact: true }).click()
+  const dv = page.locator('[role="dialog"].sc-modal', { hasText: 'Confirme seu e-mail' })
+  await dv.waitFor({ timeout: 20000 })
+  await dv.getByRole('button', { name: 'Depois', exact: true }).click()
+  await page.waitForFunction(() => !document.querySelector('[role="dialog"].sc-modal'), null, { timeout: 20000 })
+  estado.idE = idUsuario(EMAIL_E)
+  estado.codigoE = sql(`SELECT codigo_convite FROM usuarios WHERE id=${estado.idE}`)
+  ok(/^\d+$/.test(estado.idE) && provadasDaConta(estado.idE).size === 0 && emblemasDe(estado.idE) === 'NULL', `conta do E criada (${estado.idE}), sem conquista provada e sem emblema`)
+  const r = await jogarFila(page, FILA_E, { nacao: 'Itália' })
+  ok(r.fim && r.escolhas === FILA_E.picks.length, `E: a carreira da fila ${FILA_E.nome} jogada pela tela (${r.escolhas} de ${FILA_E.picks.length} escolhas, ${Math.round(r.ms / 1000)} s)`)
+  await sleep(1200)
+  const h = await ultimaTerminada(page)
+  estado.hallE = h
+  const seed36 = `${FILA_E.a0.toString(36)}${FILA_E.a1.toString(36)}`
+  ok(h.id === `career-${seed36}` && h.summary.peakOvr === 89, `HallEntry career-<semente da fila>, pico ${h.summary.peakOvr} (não é 90+)`)
+  const lembradas = await page.evaluate(() => JSON.parse(localStorage.getItem('lenda:sementes-servidor') || 'null'))
+  ok(lembradas?.uid === Number(estado.idE) && lembradas.s.includes(seed36), 'o aparelho lembra que a semente desta carreira veio do servidor para a conta')
+  // sobe sozinha só como prova (não é 90+): conquistas que a conta não tem provadas
+  const como = await esperarSql(`SELECT como FROM carreiras WHERE carreira_id='${h.id}' AND usuario_id=${estado.idE}`, (x) => x !== '', 30000)
+  ok(como === 'auto', `a carreira-prova subiu sozinha para a conta ("auto", pico 89: só pela prova) (${como})`)
+  estado.pkE = pkDe(h.id, estado.idE)
+  const ach = conquistasDe(h)
+  const lista = JSON.parse(sql(`SELECT IFNULL(conquistas, 'null') FROM carreiras WHERE id=${estado.pkE}`))
+  ok(Array.isArray(lista) && JSON.stringify([...lista].sort()) === JSON.stringify(ach) && sql(`SELECT CONCAT_WS('|', conquistas_v, tem_replay, IFNULL(prova_ok, '-'), IFNULL(fora_desafio, '-'), IFNULL(suspeita, '-')) FROM carreiras WHERE id=${estado.pkE}`) === '2|1|-|-|-',
+    `servidor: a lista de conquistas da carreira (${ach.length}) igual à do HallEntry, conquistas_v 2, com replay, sem verificação ainda, sem suspeita`)
+  const prov = provadasDaConta(estado.idE)
+  ok(ach.length >= 10 && ach.every((x) => prov.has(x)) && sql(`SELECT COUNT(*) FROM conquistas_usuario WHERE usuario_id=${estado.idE} AND prova_pk <> ${estado.pkE}`) === '0', `as ${ach.length} conquistas da carreira estão provadas na conta (prova_pk = ela)`)
+  const emb = await esperarSql(`SELECT GROUP_CONCAT(d.slug ORDER BY d.slug) FROM emblemas_usuario e JOIN desafios d ON d.id = e.desafio_id WHERE e.usuario_id=${estado.idE} AND e.estado='ativo'`, (x) => x !== 'NULL', 15000)
+  ok(emb === 'bandeira-do-clube,noite-de-gala' && sql(`SELECT COUNT(*) FROM emblemas_usuario WHERE usuario_id=${estado.idE} AND carreira_pk=${estado.pkE}`) === '2',
+    `o servidor deu sozinho os 2 emblemas fáceis que a carreira cumpre (Bandeira do clube: 18 temporadas no mesmo clube + 20 títulos; Noite de gala: Bola de Ouro + Champions) (${emb})`)
+  const avisou = await page.getByText(/2 emblemas novos|Emblema novo/).first().waitFor({ timeout: 15000 }).then(() => true, () => false)
+  ok(avisou, 'o aviso dourado dos emblemas novos (pelo emblemasNovos do salvar)')
+  ok(await page.getByText(/conquistas? provadas? na conta/).first().isVisible().catch(() => false), 'o aviso discreto: "N conquistas provadas na conta"')
+  await print(page, 'h1-E-fim-carreira-prova-emblemas')
+  ok((await page.locator('.ck-end .sc-saved').count()) === 1 && (await page.locator('.ck-end').getByRole('button', { name: 'Salvar na minha conta' }).count()) === 0, 'o fim da carreira mostra "Salva na sua conta" (sem o botão)')
+})
+
+await etapa('h2. v3.4: os emblemas e as provadas na tela: #/desafios "Você já tem", a faixa com ✓, Minha conta, a tela de conquistas', async () => {
+  const { page } = E
+  await page.goto(`${URL0}#/desafios`)
+  await page.locator('.s4-emb.is-tem').first().waitFor({ timeout: 20000 })
+  const tem = (await page.locator('.s4-emb.is-tem h3').allInnerTexts()).map((x) => x.trim()).sort()
+  ok(JSON.stringify(tem) === JSON.stringify(['Bandeira do clube', 'Noite de gala']), `#/desafios: "Você já tem" em ${tem.join(' e ')}`)
+  ok(/Você tem 2 de 10/.test(await page.locator('.s4-emb-meus').innerText()), '"Você tem 2 de 10"')
+  const ng = await page.locator('#d-noite-de-gala').innerText()
+  ok(/Você já tem/.test(ng) && ng.includes(FILA_E.identity.surname), `o cartão diz com qual jogador ganhou (${ng.replace(/\s+/g, ' ').slice(0, 140)})`)
+  await print(page, 'h2-E-desafios-voce-ja-tem', { fullPage: true })
+  // de volta à tela inicial na mesma sessão (sem recarregar: os emblemas da conta já foram lidos pelo ?eu=1 do #/desafios)
+  await page.evaluate(() => (location.hash = '#/'))
+  await page.locator('.s4-faixa').waitFor({ timeout: 20000 })
+  await page.locator('.s4-faixa__d.is-tem').first().waitFor({ timeout: 10000 }).catch(() => {})
+  ok((await page.locator('.s4-faixa__d.is-tem[title="Noite de gala"]').count()) === 1 && /você já tem o emblema/.test((await page.locator('.s4-faixa__d[title="Noite de gala"]').getAttribute('aria-label')) ?? ''),
+    'tela inicial: a faixa marca o desafio que a conta já tem (✓; "você já tem o emblema" no aria-label)')
+  await print(page, 'h2-E-home-faixa-com-emblema')
+  const m = await menu(page)
+  await m.getByText(/Minha conta/).first().click()
+  const mc = page.getByRole('dialog', { name: 'Minha conta' })
+  await mc.waitFor({ timeout: 15000 })
+  await mc.locator('.s4-meus').waitFor({ timeout: 15000 })
+  ok((await mc.locator('.s4-meus li').count()) === 2, 'Minha conta: "Seus emblemas" com os 2')
+  await mc.locator('.s4-meus').scrollIntoViewIfNeeded()
+  await print(page, 'h2-E-minha-conta-emblemas')
+  await page.keyboard.press('Escape')
+  await page.goto(`${URL0}#/?conquistas=1`)
+  const ach = page.getByRole('dialog', { name: /Conquistas da carreira/ })
+  await ach.waitFor({ timeout: 15000 })
+  await ach.locator('.ac-prova').waitFor({ timeout: 15000 })
+  const n = provadasDaConta(estado.idE).size
+  const linha = (await ach.locator('.ac-prova').innerText()).replace(/\s+/g, ' ')
+  ok(new RegExp(`${n} provadas na conta`).test(linha), `tela de conquistas: "${linha}" (${n} no banco)`)
+  ok((await ach.locator('.ac-ppill.is-ok').count()) > 0 && (await ach.locator('.ac-ppill.is-ok').first().innerText()).includes('Provada'), 'as conquistas da carreira aparecem com o selo "Provada"')
+  await print(page, 'h2-E-conquistas-provadas')
+  await page.keyboard.press('Escape')
+  const eu = await page.evaluate(async () => (await (await fetch('api/desafios.php?eu=1', { credentials: 'same-origin' })).json()))
+  ok(JSON.stringify((eu.emblemas ?? []).map((x) => x.slug).sort()) === JSON.stringify(['bandeira-do-clube', 'noite-de-gala']) && eu.desafios.find((x) => x.slug === 'noite-de-gala')?.eu?.emblema?.estado === 'ativo',
+    'desafios.php?eu=1: a lista "emblemas" no topo e eu.emblema ativo')
+  const cq = await page.evaluate(async () => (await (await fetch('api/conquistas.php', { credentials: 'same-origin' })).json()))
+  ok(cq.provadas === n && cq.total === 87 && cq.conquistas.filter((x) => x.provada).every((x) => x.carreira === estado.hallE.id), `conquistas.php: provadas ${cq.provadas} de ${cq.total}, cada uma com a carreira que prova`)
+})
+
+await etapa('h3. v3.4: o emblema no Hall da comunidade (ao lado do apelido) e no perfil público', async () => {
+  const at = await admin({ acao: 'atualizar_hall' })
+  ok(at.status === 200, 'atualizar o Hall (a fotografia)')
+  const it = (await hallApi()).itens.find((i) => i.id === estado.hallE.id)
+  ok(it?.apelido === APELIDO_E && it.emblemasTotal === 2 && (it.emblemas ?? []).length === 2 && it.emblemas.every((x) => x.slug && x.icone && x.cor), `hall.php: o item com os emblemas (${(it?.emblemas ?? []).map((x) => x.slug).join(', ')}) e emblemasTotal ${it?.emblemasTotal}`)
+  const C2 = await novo('C2', { partidas: 0 })
+  await C2.page.goto(`${URL0}#/hall?seg=comunidade`)
+  const linha = C2.page.locator('.hl-row.is-com', { hasText: FILA_E.identity.surname }).first()
+  await linha.waitFor({ timeout: 30000 })
+  ok((await linha.locator('.lx-emblema').count()) === 2, 'Hall da comunidade: os 2 emblemas pequenos ao lado do apelido')
+  await linha.scrollIntoViewIfNeeded()
+  await print(C2.page, 'h3-C2-hall-emblemas')
+  await C2.page.goto(`${URL0}#/jogador/${estado.codigoE}`)
+  await C2.page.locator('.sv-perfil').waitFor({ timeout: 20000 })
+  await C2.page.locator('.s4-meus').waitFor({ timeout: 15000 })
+  ok((await C2.page.locator('.s4-meus li').count()) === 2, 'perfil público: "Emblemas dos desafios" com os 2')
+  ok(new RegExp(`${provadasDaConta(estado.idE).size} provadas`, 'i').test(await C2.page.locator('.sv-perfil__nums').innerText()), 'perfil público: "N provadas" embaixo do número de conquistas')
+  await print(C2.page, 'h3-C2-perfil-emblemas', { fullPage: true })
+  const pf = await (await fetch(`${URL0}api/perfil.php?c=${estado.codigoE}`)).json()
+  ok((pf.emblemas ?? []).length === 2 && pf.conquistasProvadas === provadasDaConta(estado.idE).size, `perfil.php: emblemas ${(pf.emblemas ?? []).map((x) => x.slug).join(', ')} e conquistasProvadas ${pf.conquistasProvadas}`)
+})
+
+await etapa('h4. v3.4: o link de compartilhar é a prévia (api/v.php): Open Graph, a imagem PNG 1200×630 e o caminho até o resumo', async () => {
+  const { page } = E
+  await page.goto(`${URL0}#/resumo?id=${estado.hallE.id}`)
+  await page.locator('.sm-share__link').first().waitFor({ timeout: 30000 })
+  await page.locator('.sm-share__link').first().scrollIntoViewIfNeeded()
+  await sleep(1200)
+  await page.locator('.sm-share__link').first().click()
+  await sleep(800)
+  const copiado = await page.evaluate(() => navigator.clipboard.readText())
+  const link = (/(https?:\/\/\S+\/api\/v\.php\?\S+)/.exec(copiado) ?? [])[1] ?? ''
+  ok(link === `${URL0}api/v.php?id=${estado.hallE.id}&c=${estado.codigoE}`, `"Copiar link": o link da prévia, com a carreira e o convite (${link})`)
+  estado.linkPrevia = link
+  const r = await fetch(link)
+  const html = await r.text()
+  ok(r.status === 200 && /^text\/html/.test(r.headers.get('content-type') ?? '') && /max-age=300/.test(r.headers.get('cache-control') ?? '') && /noindex/.test(r.headers.get('x-robots-tag') ?? ''),
+    `v.php: 200 HTML, cache de 5 min, X-Robots-Tag noindex (${r.status} ${r.headers.get('content-type')})`)
+  const ogT = meta(html, 'og:title')
+  const ogD = meta(html, 'og:description') ?? ''
+  const nota = Math.round(estado.hallE.legacy?.score ?? 0)
+  ok(ogT === `${FILA_E.identity.surname} · Nota de Legado ${nota} · LENDA`, `og:title "${ogT}"`)
+  ok(/2 Bolas de Ouro/.test(ogD) && /títulos em 24 temporadas/.test(ogD) && ogD.includes(`Carreira de ${APELIDO_E}`) && !ogD.includes(EMAIL_E), `og:description "${ogD.slice(0, 160)}"`)
+  ok(meta(html, 'twitter:card') === 'summary_large_image' && meta(html, 'og:image:width') === '1200' && meta(html, 'og:image:height') === '630' && meta(html, 'og:type') === 'website' && meta(html, 'og:locale') === 'pt_BR',
+    'Twitter summary_large_image; og:image 1200×630; type website; locale pt_BR')
+  const destino = (/http-equiv="refresh" content="0; url=([^"]+)"/.exec(html) ?? [])[1]?.replace(/&amp;/g, '&')
+  ok(destino === `${ORIGEM}/lenda/?c=${estado.codigoE}#/resumo?id=${estado.hallE.id}&de=comunidade` && !/<script/i.test(html) && /<meta name="robots" content="noindex, follow">/.test(html)
+    && html.includes(`<link rel="icon" type="image/svg+xml" href="${URL0}favicon.svg">`), `refresh para o resumo da comunidade com o convite (${destino}); sem script; robots noindex; o ícone do LENDA`)
+  const img = meta(html, 'og:image') ?? ''
+  ok(img.startsWith(`${ORIGEM}/lenda/api/v.php?`) && img.includes('png=1') && img.includes(`id=${estado.hallE.id}`), `og:image absoluta (${img.slice(0, 120)})`)
+  const ri = await fetch(img)
+  const b = Buffer.from(await ri.arrayBuffer())
+  const tam = tamanhoPng(b)
+  ok(ri.status === 200 && ri.headers.get('content-type') === 'image/png' && tam?.[0] === 1200 && tam?.[1] === 630 && /max-age=86400/.test(ri.headers.get('cache-control') ?? ''), `a imagem: PNG ${tam?.join('×')} (${b.length} bytes), cache de 1 dia`)
+  writeFileSync(`${PRINTS}/h4-previa-carreira.png`, b)
+  const pasta = `${BASE}/lenda-cache/previas`
+  const arqs = existsSync(pasta) ? readdirSync(pasta).filter((f) => f.startsWith(`c${estado.idE}-`) && f.endsWith('.png')) : []
+  ok(arqs.length === 1 && !pasta.startsWith(`${BASE}/public_html`), `guardada em disco fora do public_html, com o número da conta no nome (${arqs.join(', ')})`)
+  const b2 = Buffer.from(await (await fetch(img)).arrayBuffer())
+  ok(b2.equals(b), 'a segunda vez vem a mesma imagem (do disco)')
+  // quem abre o link vai para o resumo, já como convidado de quem compartilhou
+  const Q = await novo('Q', { partidas: 0, viewport: { width: 390, height: 844 }, celular: true })
+  await Q.page.goto(link)
+  await Q.page.waitForFunction(() => location.hash.startsWith('#/resumo'), null, { timeout: 30000 })
+  await Q.page.locator('.sm-chip--com').waitFor({ timeout: 30000 })
+  ok((await Q.page.locator('.sm-chip--com').innerText()).includes(APELIDO_E) && Q.page.url().includes('de=comunidade'), `quem abre o link chega no resumo da comunidade ("Carreira de ${APELIDO_E}")`)
+  ok((await Q.page.evaluate(() => JSON.parse(localStorage.getItem('lenda:convite') || 'null')?.codigo)) === estado.codigoE, '…já como convidado de quem compartilhou (o código fica guardado)')
+  await print(Q.page, 'h4-Q-link-abre-o-resumo')
+  // o perfil e o link que não existe
+  const hp = await (await fetch(`${URL0}api/v.php?c=${estado.codigoE}`)).text()
+  ok((meta(hp, 'og:title') ?? '').startsWith(`${APELIDO_E} no LENDA · melhor nota ${nota}`) && /2 emblemas/.test(meta(hp, 'og:description') ?? ''), `prévia do perfil: "${meta(hp, 'og:title')}" · "${(meta(hp, 'og:description') ?? '').slice(0, 100)}"`)
+  const rg = await fetch(`${URL0}api/v.php?id=career-nao-existe-${Date.now()}`)
+  const hg = await rg.text()
+  ok(rg.status === 200 && meta(hg, 'og:title') === 'LENDA · jogo de carreira de futebol online grátis' && !hg.includes(APELIDO_E), 'link de carreira que não existe: a prévia genérica (200), sem dado de ninguém')
+  ok((await fetch(link, { method: 'POST' })).status === 405, 'v.php só aceita GET/HEAD (POST → 405)')
+})
+
+/** HallEntry da conta mandada direto pela API (o jogo não manda isso: é o teste fazendo o papel de quem adultera). */
+const salvarComo = (page, h) =>
+  page.evaluate(async (h) => {
+    const r = await fetch('api/carreiras.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify({ acao: 'salvar', carreira: h, como: 'manual' }) })
+    return { status: r.status, json: await r.json().catch(() => null) }
+  }, h)
+/** Bolas de Ouro e Champions a mais no resumo (cumpre o Era de ouro: 5 Bolas + 3 Champions). */
+function comBolasAMais(h) {
+  const x = structuredClone(h)
+  x.summary.awards = (x.summary.awards ?? []).filter((a) => a.award !== 'ballon_dor')
+  x.summary.awards.push({ award: 'ballon_dor', count: 5, seasons: [2030, 2031, 2032, 2033, 2034] })
+  const ucl = (x.summary.trophies ?? []).find((t) => t.trophyId === 'champions-league')
+  if (ucl) ucl.count = Math.max(ucl.count, 3)
+  else x.summary.trophies.push({ trophyId: 'champions-league', count: 3, seasons: [2030, 2031, 2032] })
+  return x
+}
+
+await etapa('h5. v3.4: HallEntry adulterada — sem replay e com semente que o servidor não sorteou: nem prova nem emblema', async () => {
+  const { page } = E
+  const provAntes = provadasDaConta(estado.idE).size
+  // (a) a carreira da fila com outro id, sem o replay e com Bolas de Ouro a mais
+  const a = comBolasAMais(estado.hallE)
+  a.id = `career-forjada-sem-replay-e-${Date.now()}`
+  if (a.career) a.career.id = a.id
+  a.summary.e2e = a.id
+  delete a.replay
+  const ra = await salvarComo(page, a)
+  const pkA = pkDe(a.id, estado.idE)
+  ok(ra.status === 200 && ra.json?.carreira?.prova === null && (ra.json?.emblemasNovos ?? []).length === 0 && (ra.json?.provasNovas ?? []).length === 0
+    && sql(`SELECT CONCAT_WS('|', tem_replay, IFNULL(conquistas, '-'), bolas_ouro) FROM carreiras WHERE id=${pkA}`) === '0|-|5',
+    `sem replay: salva (5 Bolas de Ouro no resumo), mas C.prova = null, nenhuma prova e nenhum emblema (${ra.status})`)
+  // (b) o replay de verdade com a semente trocada por uma que o servidor não sorteou para a conta
+  const b = comBolasAMais(estado.hallE)
+  b.replay.seed = [123456789, 987654321]
+  b.id = `career-${(123456789).toString(36)}${(987654321).toString(36)}`
+  if (b.career) b.career.id = b.id
+  b.summary.e2e = b.id
+  const rb = await salvarComo(page, b)
+  const pkB = pkDe(b.id, estado.idE)
+  ok(rb.status === 200 && rb.json?.carreira?.prova === null && (rb.json?.emblemasNovos ?? []).length === 0 && sql(`SELECT CONCAT_WS('|', tem_replay, IFNULL(conquistas, '-')) FROM carreiras WHERE id=${pkB}`) === '1|-',
+    `semente que não veio do servidor: salva com o replay, mas não prova nada nem dá emblema (${rb.status})`)
+  ok(emblemasDe(estado.idE) === 'bandeira-do-clube,noite-de-gala' && provadasDaConta(estado.idE).size === provAntes && sql(`SELECT COUNT(*) FROM conquistas_usuario WHERE usuario_id=${estado.idE} AND prova_pk IN (${pkA}, ${pkB})`) === '0',
+    'a conta continua com os mesmos 2 emblemas e as mesmas provadas (Era de ouro não veio)')
+  const eu = (await meuDesafio(page)).find((x) => x.slug === 'era-de-ouro')?.eu
+  const mA = eu?.carreirasQueCumprem?.find((c) => c.carreiraId === a.id)
+  const mB = eu?.carreirasQueCumprem?.find((c) => c.carreiraId === b.id)
+  ok(mA?.motivo === 'sem_replay' && mB?.motivo === 'sem_semente' && eu?.emblema === null, `desafios.php?eu=1 (Era de ouro): cumprem, mas não valem — ${mA?.motivo} e ${mB?.motivo} (${JSON.stringify([mA?.motivoTexto, mB?.motivoTexto]).slice(0, 160)})`)
+  await page.goto(`${URL0}#/desafios?d=era-de-ouro`)
+  await page.locator('#d-era-de-ouro').waitFor({ timeout: 20000 })
+  await sleep(1200)
+  const t = await page.locator('#d-era-de-ouro').innerText()
+  ok(/cumpre, mas não vale/.test(t) && !/Você já tem/.test(t), `#/desafios: "${FILA_E.identity.surname} cumpre, mas não vale: …" (${t.replace(/\s+/g, ' ').slice(0, 200)})`)
+  await print(page, 'h5-E-adulterada-nao-vale')
+})
+
+await etapa('h6. v3.4: replay e semente do servidor com taças a mais ganha na hora (o servidor não refaz a carreira) e perde na verificação em lote do admin', async () => {
+  const { page } = E
+  // uma 2ª carreira de verdade com a conta (semente fixa, a 1ª opção sempre)
+  const prov0 = provadasDaConta(estado.idE)
+  const r = await jogarCarreira(page, { semente: [3001, 333], nacao: 'Itália', sobrenome: 'SEGUNDO' })
+  ok(r.fim, `E: 2ª carreira até o fim (${Math.round(r.ms / 1000)} s)`)
+  await sleep(1200)
+  const h2 = await ultimaTerminada(page)
+  const fim2 = await fimDaCarreira(page, h2, estado.idE, prov0)
+  ok(fim2.como === (fim2.auto ? 'auto' : 'manual'), `a 2ª carreira foi para a conta (${fim2.auto ? `sozinha, prova de ${fim2.novas.length} novas` : 'pelo botão'})`)
+  estado.pkE2 = pkDe(h2.id, estado.idE)
+  // a mesma carreira, agora com 5 Bolas de Ouro e 3 Champions no resumo (o replay e a semente são os de verdade)
+  const f = comBolasAMais(h2)
+  const rf = await salvarComo(page, f)
+  ok(rf.status === 200 && (rf.json?.emblemasNovos ?? []).some((x) => x.slug === 'era-de-ouro') && pkDe(h2.id, estado.idE) === estado.pkE2,
+    `com o replay e a semente do servidor, o resumo adulterado dá o Era de ouro na hora (CONTRATO-v34 §A.13 #4: a proteção é a verificação) (${JSON.stringify((rf.json?.emblemasNovos ?? []).map((x) => x.slug))})`)
+  ok(emblemasDe(estado.idE) === 'bandeira-do-clube,era-de-ouro,noite-de-gala', `emblemas da conta agora: ${emblemasDe(estado.idE)}`)
+  // o admin: a ficha da conta → "Verificar as provas no jogo" (o lote #/verificar?conta=)
+  await irP(`#/usuarios?conta=${estado.idE}`, 1800)
+  await painel.waitForSelector('#gaveta:not([hidden]) .perfil-nome h2', { timeout: 10000 })
+  const btLote = painel.locator('#gaveta a', { hasText: 'Verificar as provas no jogo' }).first()
+  await btLote.waitFor({ timeout: 15000 })
+  ok((await btLote.getAttribute('href')) === `../#/verificar?conta=${estado.idE}`, `ficha da conta: "Verificar as provas no jogo" → ${await btLote.getAttribute('href')}`)
+  await print(painel, 'h6-painel-ficha-provas')
+  const [aba] = await Promise.all([ADM.ctx.waitForEvent('page'), btLote.click()])
+  await aba.locator('.s4-lote__i').first().waitFor({ timeout: 60000 })
+  // ao abrir, verifica as essenciais; depois "Todas"
+  await aba.waitForFunction(() => !document.querySelector('.sv-prog') && document.querySelectorAll('.s4-lote__i.is-bateu, .s4-lote__i.is-nao_bateu').length > 0, null, { timeout: 180000 })
+  await sleep(1500)
+  await aba.getByRole('radio', { name: 'Todas' }).click()
+  await aba.getByRole('button', { name: /^Verificar \d+ carreiras?$/ }).click()
+  await aba.waitForFunction(() => !document.querySelector('.sv-prog'), null, { timeout: 180000 })
+  await aba.locator('.s4-lote__i.is-nao_bateu').first().waitFor({ timeout: 30000 })
+  await sleep(1500)
+  const itens = await aba.locator('.s4-lote__i').allInnerTexts()
+  ok((await aba.locator('.s4-lote__i.is-bateu').count()) === itens.length - 1 && (await aba.locator('.s4-lote__i.is-nao_bateu').count()) === 1, `lote: ${itens.length} carreiras-prova, ${itens.length - 1} bateram e 1 não bateu (a adulterada)`)
+  ok(sql(`SELECT prova_ok FROM carreiras WHERE id=${estado.pkE}`) === '1' && sql(`SELECT IFNULL(prova_ok, '-') FROM carreiras WHERE id=${estado.pkE2}`) === '-', 'as que bateram foram registradas sozinhas (prova_ok = 1); a que não bateu espera o clique')
+  await print(aba, 'h6-jogo-lote-nao-bateu', { fullPage: true })
+  await aba.getByRole('button', { name: 'Registrar as que não bateram' }).click()
+  await esperarSql(`SELECT IFNULL(prova_ok, '-') FROM carreiras WHERE id=${estado.pkE2}`, (x) => x === '0', 20000)
+  await sleep(1000)
+  await aba.close()
+  const e = sql(`SELECT CONCAT_WS('|', e.estado, e.motivo IS NOT NULL, e.quem) FROM emblemas_usuario e JOIN desafios d ON d.id = e.desafio_id WHERE e.usuario_id=${estado.idE} AND d.slug='era-de-ouro'`)
+  ok(sql(`SELECT prova_ok FROM carreiras WHERE id=${estado.pkE2}`) === '0' && e.startsWith('retirado|1|'), `"Registrar as que não bateram": a adulterada deixou de ser prova e o Era de ouro foi retirado (${e})`)
+  ok(emblemasDe(estado.idE) === 'bandeira-do-clube,noite-de-gala' && sql(`SELECT COUNT(*) FROM conquistas_usuario WHERE usuario_id=${estado.idE} AND prova_pk=${estado.pkE2}`) === '0',
+    'a conta fica com os 2 emblemas de verdade; a adulterada não prova mais nenhuma conquista')
+  const ach = conquistasDe(estado.hallE)
+  ok(ach.every((x) => provadasDaConta(estado.idE).has(x)) && Number(sql(`SELECT COUNT(*) FROM conquistas_usuario cu JOIN carreiras c ON c.id = cu.prova_pk WHERE cu.usuario_id=${estado.idE} AND c.prova_ok = 1`)) >= ach.length,
+    `as ${ach.length} conquistas da carreira de verdade continuam provadas e agora conferidas`)
+  ok(Number(sql(`SELECT COUNT(*) FROM admin_log WHERE acao='prova_verificar'`)) >= 2, 'registro: prova_verificar (as que bateram e a que não bateu)')
+  const pf = await (await fetch(`${URL0}api/perfil.php?c=${estado.codigoE}`)).json()
+  ok(JSON.stringify((pf.emblemas ?? []).map((x) => x.slug).sort()) === JSON.stringify(['bandeira-do-clube', 'noite-de-gala']), 'perfil público: o emblema retirado some')
+  const eu = (await meuDesafio(page)).find((x) => x.slug === 'era-de-ouro')?.eu
+  ok(eu?.emblema?.estado === 'retirado' && !!eu.emblema.motivo, `?eu=1: o jogador vê o emblema retirado com o motivo ("${eu?.emblema?.motivo}")`)
+  // o painel: de volta à aba dele (visibilitychange; o navegador sem tela não troca de aba sozinho), a ficha se refaz com as
+  // provas conferidas; e o Registro dá nome às ações novas
+  const nP = provadasDaConta(estado.idE).size
+  await painel.evaluate(() => document.dispatchEvent(new Event('visibilitychange')))
+  const refez = await painel.waitForFunction((n) => new RegExp(`${n} provadas de 87 · ${n} conferidas`).test(document.getElementById('gaveta')?.textContent ?? ''), nP, { timeout: 20000 }).then(() => true, () => false)
+  const ficha = (await painel.textContent('#gaveta')) ?? ''
+  ok(refez && /Emblemas/.test(ficha), `painel: de volta do lote, a ficha se refaz sozinha: "${nP} provadas de 87 · ${nP} conferidas" (${(/\d+ provadas de 87[^·]*·[^·]*conferidas/.exec(ficha) ?? [''])[0]})`)
+  await print(painel, 'h6-painel-ficha-depois-do-lote')
+  await irP('#/registro', 2200)
+  await abaP().locator('tbody tr').first().waitFor({ timeout: 10000 })
+  const reg = await abaP().locator('tbody').textContent()
+  const nome = await painel.evaluate(() => window.LP?.NOMES_ACAO_LOG?.prova_verificar ?? 'prova_verificar')
+  ok(reg.includes(nome) && nome !== 'prova_verificar', `Registro: "${nome}"`)
+})
+
+await etapa('h7. v3.4: SEO do build — título e JSON-LD, sitemap.xml só com as páginas de /lenda/, a chave do IndexNow e o indexnow.mjs --seco', async () => {
+  const html = await (await fetch(URL0)).text()
+  ok(/<title>LENDA · Jogo de carreira de futebol online grátis<\/title>/.test(html) && /<script type="application\/ld\+json">\{[^<]*"@type":\s*"VideoGame"/.test(html) && /<meta name="description" content="[^"]{120,170}"\s*\/?>/.test(html),
+    'index.html: o título pensado para busca, a descrição (120 a 170 letras) e o JSON-LD de VideoGame')
+  const rs = await fetch(`${URL0}sitemap.xml`)
+  const xml = await rs.text()
+  const locs = [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1])
+  ok(rs.status === 200 && JSON.stringify(locs) === JSON.stringify(['https://oprojeto.online/lenda/', 'https://oprojeto.online/lenda/privacidade.html']), `sitemap.xml: só as páginas públicas de /lenda/ (${locs.join(', ')})`)
+  const chave = (/export const CHAVE_INDEXNOW = '([0-9a-f]+)'/.exec(readFileSync(new URL('../../../scripts/indexnow.mjs', import.meta.url), 'utf8')) ?? [])[1]
+  const rk = await fetch(`${URL0}${chave}.txt`)
+  ok(rk.status === 200 && (await rk.text()).trim() === chave, `a chave do IndexNow publicada em /lenda/${chave}.txt`)
+  // (o php -S responde o index.html para arquivo que não existe: confere a pasta publicada)
+  ok(!existsSync(`${BASE}/public_html/lenda/robots.txt`) && !existsSync(new URL('../../../dist-site/robots.txt', import.meta.url)), 'nenhum robots.txt no build (o da raiz do domínio é de outro site)')
+  const seco = execFileSync('node', [new URL('../../../scripts/indexnow.mjs', import.meta.url).pathname, '--seco'], { encoding: 'utf8' })
+  const pedido = JSON.parse(seco.slice(seco.indexOf('{')))
+  ok(pedido.keyLocation === `https://oprojeto.online/lenda/${chave}.txt` && pedido.key === chave && pedido.host === 'oprojeto.online' && JSON.stringify(pedido.urlList) === JSON.stringify(locs) && /nada foi mandado/.test(seco),
+    `indexnow.mjs --seco: o pedido com o keyLocation em /lenda/ e as URLs do sitemap, nada mandado (${pedido.urlList?.length} URLs)`)
 })
 
 // ───────────────────────── fim ─────────────────────────

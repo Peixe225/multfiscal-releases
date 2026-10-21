@@ -146,6 +146,25 @@ function excluirUsuario(int $uid): void
             // §E: as sementes de carreira sorteadas para a conta
             sql('DELETE FROM sementes_carreira WHERE usuario_id = ?', [$uid]);
         }
+        if (esquemaV34()) {
+            // v3.4: os emblemas da conta (a lista de conquistas da carreira-prova e as provas saem com as carreiras e as conquistas)
+            sql('DELETE FROM emblemas_usuario WHERE usuario_id = ?', [$uid]);
+            // §E: o "não bateu" guardado pelas sementes da conta (a tabela pode faltar num banco da v3.4 de antes das correções)
+            try {
+                sql('DELETE FROM provas_nao_bateu WHERE usuario_id = ?', [$uid]);
+            } catch (PDOException $e) {
+                if (!eFaltaDeSchema($e)) {
+                    throw $e;
+                }
+            }
+        }
+        // v3.4: as imagens das prévias de link da conta (guardadas em disco, fora do public_html)
+        try {
+            require_once __DIR__ . '/_previa.php';
+            apagarPreviasDaConta($uid);
+        } catch (Throwable $e) {
+            error_log('LENDA prévias (excluir): ' . $e->getMessage());
+        }
         sql('DELETE FROM carreiras WHERE usuario_id = ?', [$uid]);
         sql('DELETE FROM sessoes_login WHERE usuario_id = ?', [$uid]);
         sql('DELETE FROM visitantes_usuarios WHERE usuario_id = ?', [$uid]);
@@ -172,7 +191,8 @@ function excluirUsuario(int $uid): void
 /** Ações do registro cujos detalhes citam a conta pelo id (usuario / indicador / indicado), com outro alvo. */
 const ACOES_LOG_COM_CONTA = ['ocultar_carreira', 'mostrar_carreira', 'apagar_carreira', 'destacar_carreira', 'restaurar_carreira',
     'resolver_denuncia', 'recusar_indicacao', 'candidato_verificar', 'candidato_recusar', 'desafio_vencedor', 'desafio_reabrir', 'suporte_status',
-    'suporte_responder']; // v3.3: desafios (alvo desafio:<id>) e Fale conosco (alvo suporte:<id>)
+    'suporte_responder', 'prova_verificar', 'emblema_retirar', 'emblema_devolver']; // v3.3: desafios (alvo desafio:<id>) e Fale conosco (alvo
+    // suporte:<id>); v3.4: a verificação das provas (alvo usuario:<id> ou provas) e os emblemas (alvo desafio:<id>)
 
 /**
  * LGPD, no excluirUsuario(): as linhas do registro do admin que falam da conta ficam só com a ação, a data e o id

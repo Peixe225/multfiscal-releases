@@ -11,6 +11,11 @@
  * v3.3 (CONTRATO-v33 §A): preenche carreiras.libertadores das carreiras antigas (do HallEntry guardado) e semeia os três
  * desafios (As Taças do Rei, só as Copas e todas as conquistas) DESATIVADOS e sem prêmio; semente que já existe (pelo
  * slug) nunca é mexida. O que preencheu vem em "v33": {libertadores, desafios}.
+ * v3.4 (CONTRATO-v34 §A): preenche nas carreiras guardadas os números dos critérios novos (champions, clubes, temporadas no
+ * mesmo clube, Copas pela seleção, a seleção da criação) e, na carreira-prova (Clássico, replay, semente do servidor), a lista
+ * de conquistas do motor; refaz uma vez as provas de cada conta (o que dá para provar fica provado; o resto continua lá, não
+ * provado: nada some); semeia uma vez os 10 desafios de emblema ATIVOS e dá os emblemas a quem já cumpre. O que fez vem em
+ * "v34": {carreiras, desafios, contas, provas, emblemas}. Até ele rodar (_esquema 33), nada disso é usado.
  * Responde a lista de tabelas do banco e o que preencheu; se a resposta disser "faltam" > 0, rode de novo.
  *   curl -X POST -H "Authorization: Bearer $TOKEN" https://oprojeto.online/lenda/api/instalar.php
  */
@@ -164,9 +169,72 @@ $desafios = semearDesafios();
 // v3.3: o banco tem tudo do _schema.sql; as rotas passam a usar as colunas e tabelas novas (esquemaV32/V33() no _lib.php)
 gravarSiteConfig('_esquema', LENDA_ESQUEMA, 'instalar');
 esquecerSiteConfig();
-$faltam = (int) umValor('SELECT COUNT(*) FROM carreiras WHERE clubes IS NULL OR resumo_hash IS NULL OR libertadores IS NULL')
-    + (int) umValor('SELECT COUNT(*) FROM usuarios WHERE codigo_convite IS NULL');
+
+// ── v3.4: critérios novos, conquistas provadas e desafios de emblema ─────────────────────────────
+
+$v34 = ['carreiras' => 0, 'desafios' => 0, 'contas' => 0, 'provas' => 0, 'emblemas' => 0];
+// os números dos critérios novos das carreiras guardadas (lidos do HallEntry) e a lista de conquistas da carreira-prova
+while (microtime(true) < $fim) {
+    $lote = sql('SELECT id, dados FROM carreiras WHERE champions IS NULL ORDER BY id LIMIT 200')->fetchAll();
+    if (!$lote) {
+        break;
+    }
+    foreach ($lote as $l) {
+        $json = is_string($l['dados']) ? @gzdecode($l['dados']) : false;
+        $h = is_string($json) ? json_decode($json, false, 512) : null;
+        $f = $h instanceof stdClass ? extrairCampos($h) : ['champions' => 0, 'n_clubes' => 0, 'mesmo_clube' => 0, 'copas_selecao' => 0, 'pais_inicio' => null,
+            'conquistas' => [], 'conquistas_v' => 1];
+        sql("UPDATE carreiras SET champions = ?, n_clubes = ?, mesmo_clube = ?, copas_selecao = ?, pais_inicio = ?,
+            conquistas = IF(tem_replay = 1 AND modo = 'classico' AND semente_em IS NOT NULL, ?, NULL),
+            conquistas_v = IF(tem_replay = 1 AND modo = 'classico' AND semente_em IS NOT NULL, ?, NULL) WHERE id = ?",
+            [$f['champions'], $f['n_clubes'], $f['mesmo_clube'], $f['copas_selecao'], $f['pais_inicio'], json($f['conquistas']), $f['conquistas_v'], (int) $l['id']]);
+        $v34['carreiras']++;
+    }
+}
+$semColunas = (int) umValor('SELECT COUNT(*) FROM carreiras WHERE champions IS NULL');
+// os desafios de emblema de fábrica, ativos, uma vez só
+$v34['desafios'] = semearEmblemas();
+// as provas de cada conta, uma vez (depois, salvar, apagar e a moderação mantêm): retoma de onde parou se o tempo acabar
+$rec = lerEstado('_v34_recalculo') ?? ['ultimo' => 0, 'feito' => false];
+if (($rec['feito'] ?? false) !== true && $semColunas === 0) {
+    $ultimo = (int) ($rec['ultimo'] ?? 0);
+    $acabou = true;
+    foreach (sql('SELECT DISTINCT usuario_id FROM carreiras WHERE conquistas IS NOT NULL AND usuario_id > ? ORDER BY usuario_id LIMIT 20000', [$ultimo])
+        ->fetchAll(PDO::FETCH_COLUMN) as $uid) {
+        if (microtime(true) > $fim) {
+            $acabou = false;
+            break;
+        }
+        $r = recalcularProvas((int) $uid);
+        $v34['contas']++;
+        $v34['provas'] += $r['mudou'];
+        $ultimo = (int) $uid;
+    }
+    $rec = ['ultimo' => $ultimo, 'feito' => $acabou, 'em' => gmdate('Y-m-d\TH:i:s\Z')];
+    gravarSiteConfig('_v34_recalculo', $rec, 'instalar');
+}
+// os emblemas de quem já cumpre (o lote de cada desafio de emblema valendo), uma vez, depois das provas
+$lot = lerEstado('_v34_emblemas_lote');
+if ($lot === null && ($rec['feito'] ?? false) === true) {
+    $acabou = true;
+    foreach (desafiosValendo(true) as $d) {
+        if (microtime(true) > $fim) {
+            $acabou = false;
+            break;
+        }
+        if (eEmblema($d)) {
+            $v34['emblemas'] += avaliarDesafioTodos($d);
+        }
+    }
+    if ($acabou) {
+        gravarSiteConfig('_v34_emblemas_lote', ['em' => gmdate('Y-m-d\TH:i:s\Z'), 'emblemas' => $v34['emblemas']], 'instalar');
+    }
+}
+
+$faltam = (int) umValor('SELECT COUNT(*) FROM carreiras WHERE clubes IS NULL OR resumo_hash IS NULL OR libertadores IS NULL OR champions IS NULL')
+    + (int) umValor('SELECT COUNT(*) FROM usuarios WHERE codigo_convite IS NULL')
+    + (($rec['feito'] ?? false) === true ? 0 : 1) + (lerEstado('_v34_emblemas_lote') !== null ? 0 : 1);
 responder(200, ['ok' => true, 'comandos' => count($comandos), 'alteracoes' => $alteracoes, 'tabelas' => $tabelas,
     'preenchidas' => ['convites' => $convites, 'carreiras' => $carreiras, 'resumos' => $resumos, 'moderacao' => $moderacao,
         'partidasVid' => $partidasVid, 'faltam' => $faltam],
-    'v33' => ['libertadores' => $libertadores, 'desafios' => $desafios]]);
+    'v33' => ['libertadores' => $libertadores, 'desafios' => $desafios], 'v34' => $v34]);

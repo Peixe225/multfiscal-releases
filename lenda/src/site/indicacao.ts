@@ -8,6 +8,7 @@
  *   conviteGuardado(ls)                     // o código para mandar no cadastro (ou null)
  *   linkConvite(codigo)                     // https://oprojeto.online/lenda/?c=ABCD2345
  *   linkPerfil(codigo)                      // https://oprojeto.online/lenda/?c=ABCD2345#/jogador/ABCD2345 (v3.3)
+ *   linkPrevia({ id, codigo })              // https://oprojeto.online/lenda/api/v.php?id=career-…&c=ABCD2345 (v3.4)
  */
 import type { Armazem } from './medicao'
 
@@ -70,6 +71,22 @@ export function linkPerfil(codigo: string | null | undefined, base = enderecoDoJ
   if (!codigoValido(codigo)) return null
   const c = encodeURIComponent(codigo)
   return `${base}?c=${c}#/jogador/${c}`
+}
+
+/** Um id de carreira (o do HallEntry: career-<semente>) que dá para pôr no link da prévia. */
+const ID_CARREIRA_RE = /^[A-Za-z0-9_.:-]{1,64}$/
+
+/**
+ * v3.4 (CONTRATO-v34 §A.0): o link da PRÉVIA para compartilhar (api/v.php): os robôs do WhatsApp, X, Facebook e Discord
+ * leem o cartão (Open Graph + a imagem 1200×630 da carreira, feita no servidor) e a pessoa é levada para o jogo, já como
+ * convidada de quem compartilhou. `id` = a carreira (do Hall público); sem `id`, o perfil do `codigo`. Sem nada que sirva: o
+ * link do convite (ou o do jogo).
+ */
+export function linkPrevia(o: { id?: string | null; codigo?: string | null }, base = enderecoDoJogo()): string {
+  const c = codigoValido(o.codigo) ? encodeURIComponent(o.codigo) : null
+  if (o.id && ID_CARREIRA_RE.test(o.id)) return `${base}api/v.php?id=${encodeURIComponent(o.id)}${c ? `&c=${c}` : ''}`
+  if (c) return `${base}api/v.php?c=${c}`
+  return linkConvite(o.codigo, base)
 }
 
 /** Tira o `?c=` da barra de endereço (o resto da URL e o #/rota ficam). */

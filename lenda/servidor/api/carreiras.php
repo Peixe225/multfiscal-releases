@@ -13,6 +13,12 @@
  * semente, uma por início, até o limite de partidas do dia) e o salvar guarda quando ela saiu para a conta (semente_em: sem
  * ela, a carreira não vale para desafio); salvar de novo com outro replay é outra carreira (primeira_em e a hora do candidato
  * recomeçam) e todo conteúdo novo reconfere os candidatos dela.
+ * v3.4 (CONTRATO-v34 §A): a carreira-prova (Clássico, semente do servidor, replay) guarda a lista de conquistas do motor
+ * (career.achievements) e prova as conquistas da conta; o salvar responde provasNovas e emblemasNovos; C ganha `prova`;
+ * conteúdo novo zera a verificação da prova; salvar e apagar refazem as provas da conta.
+ * v3.4 §E: o "não bateu" da verificação vale pela semente (provas_nao_bateu: salvar de novo, outro id ou apagar e salvar não
+ * desfazem); apagar a carreira ainda não verificada e salvar um conteúdo que não cumpre mais tiram os emblemas que ela deu
+ * (passam para outra carreira-prova da conta que cumpra, ou saem pelo sistema).
  */
 declare(strict_types=1);
 
@@ -37,12 +43,21 @@ function lerId(mixed $v): string
     return $v;
 }
 
-/** C de uma carreira da conta, com o noHall em vigor e onde ela está em relação ao Hall (C.hall). */
+/** C de uma carreira da conta, com o noHall em vigor e onde ela está em relação ao Hall (C.hall). v3.4: e C.prova. */
 function cDaConta(array $u, string $id, string $modoHall): ?array
 {
     $uid = (int) $u['id'];
     $l = umaLinha('SELECT ' . camposC() . ' FROM carreiras WHERE usuario_id = ? AND carreira_id = ?', [$uid, $id]);
-    return $l === null ? null : carreiraC($l, idsNoHall($uid, $modoHall), ['hall_publico' => $modoHall] + $u);
+    return $l === null ? null : comProva(carreiraC($l, idsNoHall($uid, $modoHall), ['hall_publico' => $modoHall] + $u), (int) $l['id'], provasPorCarreira($uid));
+}
+
+/** v3.4: C.prova = {conquistas, unicas, verificada} da carreira-prova ou null (só com o banco da v3.4). */
+function comProva(array $c, int $pk, array $provas): array
+{
+    if (esquemaV34()) {
+        $c['prova'] = $provas[$pk] ?? null;
+    }
+    return $c;
 }
 
 // ── rotas ────────────────────────────────────────────────────────────────────────────────────────
@@ -72,8 +87,9 @@ if ($m === 'GET') {
     }
     $lista = sql('SELECT ' . camposC() . ' FROM carreiras WHERE usuario_id = ? ORDER BY salva_em DESC, id DESC', [$uid])->fetchAll();
     $noHall = idsNoHall($uid, $modoHall);
+    $provas = provasPorCarreira($uid);
     responder(200, [
-        'carreiras' => array_map(static fn(array $l): array => carreiraC($l, $noHall, $u), $lista),
+        'carreiras' => array_map(static fn(array $l): array => comProva(carreiraC($l, $noHall, $u), (int) $l['id'], $provas), $lista),
         'limite' => LIMITE_CARREIRAS,
         'hallPublico' => $modoHall,
         'hallMax' => LENDA_HALL_POR_CONTA,
@@ -121,8 +137,12 @@ if ($acao === 'salvar') {
     $agora = dt(time());
     // §E: quando a semente desta carreira saiu do servidor para a conta (null = não saiu: começou sem a conta, com a semente
     // do aparelho, ou passou do limite do dia) e o replay que chega agora (para saber se é outra carreira com o mesmo id)
-    $sementeEm = sementeEmitidaEm($uid, sementeDoReplay($h));
+    $semente = sementeDoReplay($h);
+    $sementeEm = sementeEmitidaEm($uid, $semente);
     $replayNovo = property_exists($h, 'replay') ? json($h->replay) : null;
+    // v3.4 §E: a semente desta carreira já "não bateu" na verificação por replay (a verificação do admin, guardada pela semente):
+    // ela nasce "não bateu" de novo — salvar com 1 byte diferente, com outro id ou apagar e salvar não desfaz
+    $naoBateu = naoBateuDaSemente($uid, $semente);
     // v3.3: salva num dia (Brasília) em que a conta passou do limite de partidas (hoje ou o dia em que ela terminou): não vale
     // para desafio
     $foraDesafio = null;
@@ -134,7 +154,7 @@ if ($acao === 'salvar') {
         }
         $foraDesafio = passouLimiteEm($uid, $dias) ? 'limite_diario' : null;
     }
-    [$mudouSuspeita, $mudouDados, $mudouReplay] = transacao(static function () use ($uid, $id, $como, $json, $f, $gz, $agora, $foraDesafio, $sementeEm, $replayNovo): array {
+    [$mudouSuspeita, $mudouDados, $mudouReplay] = transacao(static function () use ($uid, $id, $como, $json, $f, $gz, $agora, $foraDesafio, $sementeEm, $replayNovo, $naoBateu, $semente): array {
         sql('SELECT id FROM usuarios WHERE id = ? FOR UPDATE', [$uid]); // uma gravação por conta de cada vez
         // v3.2: carreira apagada pela moderação não volta pelo aparelho (lixeira_carreiras; o admin pode liberar)
         if (esquemaV32() && umValor('SELECT 1 FROM lixeira_carreiras WHERE usuario_id = ? AND carreira_id = ?', [$uid, $id]) !== null) {
@@ -154,10 +174,13 @@ if ($acao === 'salvar') {
         $mesma = $antes !== null && $antes['clubes'] !== null && $jsonAntes === $json;
         // §E: o replay de antes era outro (outras escolhas, outra semente, ou não havia)? Então é outra carreira com o mesmo id
         $mudouReplay = false;
+        $mudouSemente = false;
         if ($antes !== null && !$mesma) {
             $hAntes = is_string($jsonAntes) ? json_decode($jsonAntes, false, 512) : null;
             $replayAntes = $hAntes instanceof stdClass && property_exists($hAntes, 'replay') ? json($hAntes->replay) : null;
             $mudouReplay = $replayAntes !== $replayNovo;
+            // v3.4 §E: o "não bateu" de antes só deixa de valer quando é outra semente (outra carreira)
+            $mudouSemente = ($hAntes instanceof stdClass ? sementeDoReplay($hAntes) : null) !== $semente;
         }
         $suspeita = $mesma ? $antes['suspeita'] : plausibilidade($f, $uid, $id);
         // carreira que entra agora: se ela (ou o mesmo resumo com outro id) já foi escondida antes, volta escondida
@@ -187,6 +210,23 @@ if ($acao === 'salvar') {
                 WHERE usuario_id = ? AND carreira_id = ?', [$f['tem_replay'], $f['libertadores'], $novoReplay, $agora, $agora, $foraDesafio,
                 $novoReplay, $sementeEm, $sementeEm, $uid, $id]);
         }
+        if (esquemaV34()) {
+            // v3.4: os números dos critérios novos e, só na carreira-prova (Clássico, replay, semente sorteada pelo servidor para a
+            // conta), a lista de conquistas do motor. Conteúdo novo: a verificação da prova de antes não vale mais
+            sql('UPDATE carreiras SET champions = ?, n_clubes = ?, mesmo_clube = ?, copas_selecao = ?, pais_inicio = ?,
+                conquistas = IF(tem_replay = 1 AND modo = \'classico\' AND semente_em IS NOT NULL, ?, NULL),
+                conquistas_v = IF(tem_replay = 1 AND modo = \'classico\' AND semente_em IS NOT NULL, ?, NULL)
+                WHERE usuario_id = ? AND carreira_id = ?', [$f['champions'], $f['n_clubes'], $f['mesmo_clube'], $f['copas_selecao'], $f['pais_inicio'],
+                json($f['conquistas']), $f['conquistas_v'], $uid, $id]);
+            if ($naoBateu !== null) {
+                // §E: o "não bateu" da semente vale até um admin liberar ("bateu" no prova_verificar)
+                sql('UPDATE carreiras SET prova_ok = 0, prova_verificacao = ? WHERE usuario_id = ? AND carreira_id = ?', [$naoBateu, $uid, $id]);
+            } elseif ($antes !== null && !$mesma) {
+                // conteúdo novo: a verificação de antes não vale mais — menos o "não bateu" da mesma semente, que fica
+                sql('UPDATE carreiras SET prova_ok = NULL, prova_verificacao = NULL WHERE usuario_id = ? AND carreira_id = ?
+                    AND (prova_ok IS NULL OR prova_ok <> 0 OR ? = 1)', [$uid, $id, $mudouSemente ? 1 : 0]);
+            }
+        }
         return [$antes !== null && $antes['suspeita'] === null && $suspeita !== null, $antes !== null && !$mesma, $mudouReplay];
     });
     $pkSalva = (int) umValor('SELECT id FROM carreiras WHERE usuario_id = ? AND carreira_id = ?', [$uid, $id]);
@@ -197,9 +237,20 @@ if ($acao === 'salvar') {
         // v3.3: a verificação de antes não vale para o conteúdo novo. §E: e cada candidato dela é conferido de novo com o que
         // ficou guardado (outro replay: a hora do candidato recomeça)
         candidatosCarreiraMudou($pkSalva, $mudouReplay);
+        // v3.4 §E: e cada emblema que ela deu é conferido com o conteúdo de agora (não cumpre mais, virou "não bateu", ficou
+        // suspeita: passa para outra carreira-prova da conta que cumpra ou sai pelo sistema)
+        emblemasSemACarreira($pkSalva, 'A carreira foi salva de novo e não cumpre mais o desafio.', true);
     }
+    // v3.4: as provas da conta (a carreira pode provar conquistas novas) e os desafios (candidatos e emblemas)
+    $provas = recalcularProvas($uid);
     avaliarDesafiosConta($uid);
-    responder(200, ['carreira' => cDaConta($u, $id, $modoHall)]);
+    $resp = ['carreira' => cDaConta($u, $id, $modoHall)];
+    if (esquemaV34()) {
+        $resp['provasNovas'] = $provas['novas'];
+        $resp['emblemasNovos'] = array_map(static fn(array $e): array => array_intersect_key($e, array_flip(['slug', 'titulo', 'icone', 'cor', 'dificuldade'])),
+            emblemasDadosAgora());
+    }
+    responder(200, $resp);
 }
 
 if ($acao === 'apagar') {
@@ -209,12 +260,23 @@ if ($acao === 'apagar') {
     $pk = umValor('SELECT id FROM carreiras WHERE usuario_id = ? AND carreira_id = ?', [$uid, $id]);
     if ($pk !== null) {
         tirarDoHall((int) $pk);
-        transacao(static function () use ($pk): void {
+        $verificada = transacao(static function () use ($pk): bool {
+            $ok = esquemaV34() ? umValor('SELECT prova_ok FROM carreiras WHERE id = ? FOR UPDATE', [(int) $pk]) : null;
             sql('DELETE FROM denuncias WHERE carreira_pk = ?', [(int) $pk]);
             sql('DELETE FROM carreiras WHERE id = ?', [(int) $pk]);
+            return $ok !== null && (int) $ok === 1;
         });
         candidatosCarreiraApagada((int) $pk); // v3.3: o candidato dela sai da disputa
-        avaliarDesafiosConta($uid); // outra carreira pode ter entrado no lugar dela entre as 3 do perfil
+        // v3.4 §E: o emblema que ela deu fica só se ela já bateu na verificação por replay; o de uma carreira ainda não
+        // verificada passa para outra carreira-prova da conta que cumpra ou sai pelo sistema (antes ficava para sempre e,
+        // apagada a carreira, o admin não tinha mais o que verificar). Salva de novo (a semente ainda é do servidor), ela
+        // volta a ser prova e o emblema volta com ela.
+        if (!$verificada) {
+            emblemasSemACarreira((int) $pk, 'A carreira foi apagada antes de ser verificada.');
+        }
+        // v3.4: as conquistas que só ela provava voltam a "não provadas" (nada some); outra carreira pode ter entrado no lugar dela
+        // entre as 3 do perfil
+        contaMudouProvas($uid);
     }
     responder(200, ['ok' => true]);
 }

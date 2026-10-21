@@ -14,7 +14,7 @@ import { cloneState } from './engine'
 import { mem } from './memory'
 
 export { createCareerEngine, cloneState, nextDecision, applyEffects } from './engine'
-export { ACHIEVEMENTS, ACHIEVEMENT_BY_ID, detectAchievements } from './achievements'
+export { ACHIEVEMENTS, ACHIEVEMENT_BY_ID, CONQUISTAS_MUDARAM, CONQUISTAS_REGRAS_V, conquistasMudaramDesde, detectAchievements } from './achievements'
 export { EVENTS, EVENT_BY_KEY } from './events/catalog'
 export { forceEventDecision, isEventEligible, planEventSlots, slotAges, dueSlot } from './events/runtime'
 export type { EffectSpec, OptionSpec, OutcomeSpec, EventDef } from './events/types'

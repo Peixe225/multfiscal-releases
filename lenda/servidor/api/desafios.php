@@ -6,7 +6,9 @@
  *                           (público, cache de 60 s; só os ativos e os que já têm vencedor)
  *   GET desafios.php?eu=1 → a mesma lista, cada desafio com `eu` (o checklist da conta logada e o candidato dela); sem
  *                           sessão, 401. no-store.
- * O prêmio é o texto que o admin escreveu (premio).
+ *                           v3.4 (CONTRATO-v34 §A): e no topo `emblemas` (os da conta, ativos, os mais difíceis antes).
+ * O prêmio é o texto que o admin escreveu (premio). v3.4: cada desafio leva também modo, dificuldade, emblema, home e
+ * ganharam; o de emblema não tem vencedor (todo mundo que cumpre ganha).
  */
 declare(strict_types=1);
 
@@ -39,4 +41,8 @@ if ($lista) {
     }
     unset($item);
 }
-responder(200, ['desafios' => $lista]);
+$saida = ['desafios' => $lista];
+if (esquemaV34()) {
+    $saida['emblemas'] = emblemasDasContas([(int) $u['id']])[(int) $u['id']] ?? [];
+}
+responder(200, $saida);

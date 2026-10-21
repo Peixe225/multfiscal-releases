@@ -241,6 +241,44 @@ resposta disser `"faltam"` maior que 0, rode de novo (cada chamada trabalha no m
 6. O e-mail de contato do Fale conosco é o `email_remetente` da config (`contato@oprojeto.online`). As respostas da aba
    Mensagens saem por ele, com o registro no Registro → E-mails (tipo `suporte`).
 
+### 5e. Atualizar para a v3.4 (conquistas provadas, desafios de emblema, prévia de link)
+
+1. Suba a pasta `servidor/api/` **inteira** (novos: `v.php` — a prévia de link —, `_provas.php`, `_previa.php` e as
+   fontes da imagem da prévia `_fonte-barlow-condensed-500.ttf`, `_fonte-barlow-condensed-700.ttf` com a licença
+   `_fonte-OFL.txt`, negadas pelo `.htaccess` como os outros `_*`; mudaram, entre outros, o `_schema.sql`, o
+   `instalar.php`, o `_desafios.php` e o `.htaccess`), a pasta `servidor/painel/` e o `privacidade.html`. Pelo
+   `dist-site/`, o build já leva tudo.
+2. **Logo em seguida**, rode o `instalar.php` (passo 5) até `"faltam": 0`. Ele só acrescenta: nas carreiras `champions`,
+   `n_clubes`, `mesmo_clube`, `copas_selecao`, `pais_inicio` (os números dos critérios novos), `conquistas`, `prova_ok` e
+   `prova_verificacao` (a carreira-prova); em `conquistas_usuario` `prova_pk`, `provada_em` e `origem`; nos desafios
+   `modo`, `dificuldade`, `emblema` e `home`; e a tabela `emblemas_usuario`. Depois: preenche os números novos das
+   carreiras guardadas (lidos do HallEntry), guarda a lista de conquistas das carreiras-prova (Clássico, com replay e a
+   semente sorteada pelo servidor para a conta), refaz **uma vez** as provas de cada conta (o que dá para provar fica
+   provado; o resto continua na conta como "não provado": nada é apagado), semeia **uma vez** os 10 desafios de emblema
+   **ativos** (marca `_v34_emblemas`; o que você mudar ou desligar no painel nunca volta) e dá os emblemas a quem já
+   cumpre. A resposta traz `"v34": {"carreiras", "desafios": 10, "contas", "provas", "emblemas"}` (na 2ª vez, tudo 0).
+   Entre o upload e o instalar, o jogo continua como na v3.3 (sem provas nem emblemas; as telas novas do painel, `503
+   instalar`).
+3. Os 3 desafios de prêmio da v3.3 continuam desativados. O de **todas as conquistas** pode ser ativado: conta só a
+   conquista **provada** por carreira (as do aparelho, não), e o vencedor só é declarado com as 87 provadas por carreiras
+   **verificadas** no jogo (`#/verificar?conta=<id>` verifica em lote; aba Desafios → candidato → "Verificar no jogo"). O
+   regulamento guardado desse desafio é o de antes (fala só "desbloquear as 87"): atualize o texto no painel antes de ativar.
+4. A prévia de link: o jogo compartilha `https://oprojeto.online/lenda/api/v.php?id=<carreira>&c=<seu código>` (ou
+   `?c=<código>` para o perfil). As imagens ficam em `lenda-cache/previas/` **ao lado do arquivo de config** (fora do
+   `public_html`; outra pasta: `'cache_pasta' => '/caminho/absoluto'` na config); sem lugar para gravar, ela é desenhada a
+   cada pedido (o GD com FreeType vem no PHP da Hostinger). Confira com o depurador de compartilhamento do Facebook ou
+   mandando o link no WhatsApp para você mesmo. O link da prévia só vai no compartilhar quando a carreira **já está no
+   Hall público** (o `v.php` só conhece a fotografia do Hall); logo depois de terminar, vai o link de convite de sempre.
+5. **O robots.txt da raiz bloqueia `/lenda/` (decisão do dono).** Hoje `https://oprojeto.online/robots.txt` tem
+   `User-agent: *` + `Disallow: /` de propósito (o domínio é o de trabalho). Enquanto for assim: os buscadores não
+   indexam nada da pasta (o título, o JSON-LD, o `sitemap.xml` e o IndexNow não têm efeito; o Search Console acusa
+   "bloqueada pelo robots.txt") e o X não mostra o card da prévia (o Twitterbot obedece ao robots.txt; o WhatsApp monta a
+   prévia no aparelho e não é afetado). O arquivo é de outro site e nada aqui mexe nele. Para liberar só o jogo, acrescente
+   no grupo do `User-agent: *`, antes ou depois do `Disallow: /` (a regra mais longa vence): `Allow: /lenda/` — e, se
+   quiser, a linha `Sitemap: https://oprojeto.online/lenda/sitemap.xml`. Só o card do X, sem SEO: um grupo
+   `User-agent: Twitterbot` com `Allow: /lenda/` e `Disallow: /`. Depois do deploy, `node scripts/indexnow.mjs --conferir` confere a chave
+   **e** o robots.txt e diz quais robôs continuam bloqueados (e o que pedir).
+
 ### 6. Conferir
 
 ```sh
@@ -362,6 +400,12 @@ no mesmo navegador.
   servidor com milésimos); a declaração do vencedor é uma transação com trava no desafio (duas ao mesmo tempo: uma só).
   O código de confirmação do e-mail fica só como HMAC, preso à conta e ao e-mail (24 h, 5 chutes por código). O Fale
   conosco guarda o e-mail só de quem não estava logado, tem isca para robôs e limites por IP (HMAC), por conta e do site.
+- v3.4 · Conquistas provadas: só a carreira do Clássico com replay e a semente sorteada pelo servidor para a conta (sem
+  suspeita, dentro do limite do dia, sem "não bateu") prova; nada é apagado (a que perde a prova volta a "não provada").
+  Emblemas: dados sozinhos pelo servidor, um por conta e desafio (chave única: idempotente, também em paralelo); o
+  retirado pelo admin não volta sozinho; carreira que não bate na verificação ou é apagada pela moderação perde os
+  emblemas que deu. A prévia de link (`v.php`) só mostra a carreira que está no Hall público agora e o perfil aberto;
+  nada pessoal além do apelido; o resto vê a prévia genérica do LENDA.
 - Carreiras: até 128 KB comprimida, 20 MB por conta e um limite de KB salvos por conta e por IP a cada 10 min.
 - Nenhum aviso do PHP sai na resposta (`display_errors` desligado nas rotas; erro vira `500` em JSON genérico).
 - Limpeza leve (1% dos pedidos): tentativas velhas, sessões e códigos vencidos, medição com mais de 13 meses.
@@ -382,7 +426,7 @@ Precisa de `php` (8.1+, com `pdo_mysql` e `curl`) e do MariaDB instalados. O scr
    `php -S 127.0.0.1:8711` (com `display_errors` ligado de propósito);
 4. se houver Apache, sobe um na porta 8712 só para conferir as regras do `api/.htaccess`;
 5. roda `servidor/teste/teste.php` (e, dentro dele, `teste-v3.php`, `teste-v32-mod.php`, `teste-v32-acesso.php`,
-   `teste-v32-integ.php`, `teste-v32-corr.php` e `teste-v33.php`):
+   `teste-v32-integ.php`, `teste-v32-corr.php`, `teste-v33.php`, `teste-v33-corr.php`, `teste-v34.php` e `teste-v34-corr.php`):
    mais de 1.000 verificações por HTTP (curl) e no banco
    (PDO) — cadastro, entrar,
    sair, limites (429, inclusive os tetos do site inteiro e os diários), esqueci/redefinir com o código lido do
@@ -428,7 +472,19 @@ Precisa de `php` (8.1+, com `pdo_mysql` e `curl`) e do MariaDB instalados. O scr
    correções da v3.3 (`teste-v33-corr.php`, CONTRATO-v33 §E): o candidato conferido de novo (salvar sem cumprir, outro
    replay, verificar e declarar com a carreira de agora, critério mudado, requisitos na hora de declarar), a contagem de
    taças fora do formato, o bônus do replay, a semente sorteada pelo servidor (limite do dia, LGPD), o desafio de todas
-   as conquistas sem prova, os baldes dos e-mails de confirmação e o `em` real do lote ao ativar;
+   as conquistas sem prova, os baldes dos e-mails de confirmação e o `em` real do lote ao ativar; e a v3.4
+   (`teste-v34.php`, CONTRATO-v34 §A): o banco e a semeadura única dos 10 desafios de emblema, as conquistas provadas
+   (só com a semente do servidor + replay; Imersivo, sem semente e suspeita não provam; apagar e "não bateu" não apagam
+   nada), `?r=provas`, `prova_verificar` (poderes, entradas, lote), o desafio de todas as conquistas pela prova (candidato
+   só com as 87 provadas, verificado sozinho com as carreiras verificadas, vencedor), os emblemas (dados na hora,
+   idempotentes, os critérios novos — nacionalidade, Copas pela seleção, clubes, temporadas no mesmo clube, nota da
+   versão atual, gols —, sem prova não ganha, conta suspensa não ganha, retirar/devolver, lote ao ativar), emblemas no
+   perfil, no Hall e no `?eu=1`, a prévia de link (HTML e PNG 1200×630 com cache em disco; carreira pública, oculta,
+   privada, inexistente; perfil; entradas estranhas), LGPD, backup, o `.htaccess`, o banco sem o instalar da v3.4 e o
+   recálculo das contas no instalar; e as correções da v3.4 (`teste-v34-corr.php`, CONTRATO-v34 §E): apagar a carreira
+   ainda não verificada tira o emblema dela, a versão do conteúdo no `prova_verificar` ("mudou"), o "não bateu" guardado
+   pela semente, a prévia com o id do banco e o cache curto da genérica, o ícone do emblema só do mapa e o emblema que passa
+   para outra carreira-prova (ou volta com a próxima que cumprir);
 6. com Chromium (`/opt/pw-browsers/...`, ou `LENDA_CHROMIUM`), roda também o teste do painel pelo navegador
    (`teste/painel/rodar.sh`: pilha própria na porta `LENDA_TESTE_PORTA + 6`, banco `<banco>_painel`);
    `LENDA_TESTE_SEM_NAVEGADOR=1` pula;
@@ -464,7 +520,16 @@ LENDA_INTEG_SOCK=/run/mysqld/mysqld.sock PORTA=8824 LENDA_ATUALIZAR_REF=<commit 
   (`scripts/gravar/filas/classico.json`, `v-otima-04`) jogada pela tela com a semente dela (`jogarFila` do `lib.mjs`)
   que cumpre o critério e vira candidata, "Verificar no jogo" que bate, HallEntry adulterada pela API (sem replay: não
   vira candidata; com replay e taças a mais: "Não bateu" e recusada), limite de partidas por dia, vencedor declarado
-  (o jogo mostra; o recado do vencedor em Minha conta) e o perfil público pelo link do código.
+  (o jogo mostra; o recado do vencedor em Minha conta) e o perfil público pelo link do código. v3.4 (etapas `h`, e
+  nas de antes o que a v3.4 muda): os 10 desafios de emblema de fábrica valendo (a faixa da tela inicial, que some sem
+  desafio e dá lugar ao destaque de um desafio de prêmio), a carreira-prova (semente do servidor + replay) que sobe sozinha
+  quando prova conquista nova da conta (e a do aparelho que perdeu a lembrança da semente, salva pelo botão, que prova do
+  mesmo jeito), uma carreira REAL de fila (`v-otima-01`, pico 89) que dá sozinha dois emblemas fáceis (Minha conta,
+  `#/desafios`, perfil, Hall), as provadas na tela de conquistas, HallEntry adulterada (sem replay e com semente que o
+  servidor não sorteou: nem prova nem emblema; com replay e taças a mais: ganha na hora e perde no lote
+  `#/verificar?conta=` do admin), o link de compartilhar pela prévia (`api/v.php`: Open Graph, PNG 1200×630 em disco fora
+  do public_html, leva ao resumo como convidado), a cópia restaurada que volta a provar e o SEO do build (título, JSON-LD,
+  `sitemap.xml`, a chave do IndexNow e o `indexnow.mjs --seco`).
 - `carga-painel.mjs`: o `carga.mjs` (N jogadores ao mesmo tempo) com um navegador no painel, pulsando e passeando pelas
   abas: nenhum 5xx, o pulso rápido durante a carga e quanto cada pulso custa no banco (consultas e linhas lidas, antes
   e depois da carga).
@@ -473,7 +538,11 @@ LENDA_INTEG_SOCK=/run/mysqld/mysqld.sock PORTA=8824 LENDA_ATUALIZAR_REF=<commit 
   antiga some nem muda (só o número do `_esquema`), a 2ª vez não altera nada, a sessão do jogador continua e o painel
   novo lê tudo. Saindo da v3.2 (`_esquema` 32), a sessão do painel continua; para a v3.3, confere também as contas de
   antes sem o e-mail confirmado, as Libertadores lidas das carreiras guardadas, os desafios de fábrica desativados, o
-  Fale conosco e o perfil público da conta de antes.
+  Fale conosco e o perfil público da conta de antes. Para a v3.4 (saindo da v3.3: `LENDA_ATUALIZAR_REF=<commit da v3.3
+  publicada>`), uma conta de antes salva na v3.3 uma carreira começada com a semente do servidor, com o replay, e o
+  instalar novo tem de pôr na conta as conquistas que ela prova (origem `carreira`) e dar os emblemas que ela cumpre; as
+  conquistas que vieram do aparelho ficam como estavam ("não provadas"), os 10 desafios de emblema entram ativos e a 2ª
+  instalação não refaz nada.
 
 Medido aqui (MariaDB 10.11, `php -S`, 4 CPUs): fotografia de 6.000 carreiras (de 8.000, 2.000 contas) em ~0,6 s
 (leitura ~80 ms, troca ~0,5 s); `hall.php` sem filtro, por país, por clube, os dois juntos e a última página em

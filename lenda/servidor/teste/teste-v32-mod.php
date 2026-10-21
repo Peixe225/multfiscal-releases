@@ -190,7 +190,7 @@ checar('índices novos (tipo, acesso, usuario_vid, indicacoes_status, admin_log 
     && in_array('ix_usuarios_acesso', $idx('usuarios'), true) && in_array('ix_visitas_usuario_vid', $idx('visitas'), true)
     && in_array('ix_indicacoes_status', $idx('indicacoes'), true) && in_array('ix_admin_log_acao', $idx('admin_log'), true) && in_array('ix_admin_log_quem', $idx('admin_log'), true));
 checar('tabelas lixeira_carreiras e email_log', count(q("SHOW TABLES LIKE 'lixeira_carreiras'")) === 1 && count(q("SHOW TABLES LIKE 'email_log'")) === 1);
-checar('instalar gravou site_config._esquema = 33 (v3.3)', (int) v("SELECT valor FROM site_config WHERE chave = '_esquema'") === 33);
+checar('instalar gravou site_config._esquema = 34 (v3.4)', (int) v("SELECT valor FROM site_config WHERE chave = '_esquema'") === 34);
 $r = $anon->pedir('POST', '/api/instalar.php', null, ['auth' => 'Bearer ' . $PAINEL_TOKEN]);
 checar('instalar de novo: nada a alterar', $r->status === 200 && ($r->json['alteracoes'] ?? null) === [], $r->resumo());
 checar('o _schema.sql segue as regras (sem comentário no fim da linha, sem FOREIGN KEY/CHECK/FULLTEXT, coluna nova NULL ou DEFAULT)', (static function (): bool {
@@ -1237,8 +1237,8 @@ $navS22->conferir = false; // o 503 é a resposta esperada aqui (a conferência 
 $r = $navS22->pedir('GET', '/api/admin.php?r=usuarios');
 checar('admin numa tela que usa coluna nova → 503 instalar ("rode o instalar.php")', $r->status === 503 && $r->erro() === 'instalar' && str_contains((string) ($r->json['mensagem'] ?? ''), 'instalar.php'), $r->resumo());
 $r = $anon->pedir('POST', '/api/instalar.php', null, ['auth' => 'Bearer ' . $PAINEL_TOKEN]);
-checar('instalar → as colunas voltam e _esquema = 33 (v3.3); o admin volta', $r->status === 200 && count($r->json['alteracoes'] ?? []) === 3
-    && (int) v("SELECT valor FROM site_config WHERE chave = '_esquema'") === 33 && admGet('r=usuarios')->status === 200, $r->resumo());
+checar('instalar → as colunas voltam e _esquema = 34 (v3.4); o admin volta', $r->status === 200 && count($r->json['alteracoes'] ?? []) === 3
+    && (int) v("SELECT valor FROM site_config WHERE chave = '_esquema'") === 34 && admGet('r=usuarios')->status === 200, $r->resumo());
 
 // ══ 15. LGPD: o que é da conta sai com ela ══════════════════════════════════════════════════════
 

@@ -6,6 +6,26 @@
 import type { Achievement, AwardId, CareerState, Confed, SeasonRecord, TrophyWin } from '../types'
 import { evaluateLegends, evaluateRun, type RunLegacy } from '../legacy'
 
+/**
+ * Versão das regras das conquistas (v3.4, ./regrasVersao.ts). Sobe quando a regra de alguma conquista muda: a carreira
+ * guarda a versão com que terminou (HallEntry.conquistas.v) e a verificação por replay aceita, para as que mudaram, também a
+ * regra de antes (REGRAS_ANTIGAS). 1 = até a v3.3; 2 = v3.4 (as 7 de CONQUISTAS_MUDARAM[2]).
+ */
+import { CONQUISTAS_REGRAS_V } from './regrasVersao'
+export { CONQUISTAS_REGRAS_V }
+
+/** As conquistas cuja regra mudou em cada versão (a regra da versão anterior era outra). */
+export const CONQUISTAS_MUDARAM: Readonly<Record<number, readonly string[]>> = {
+  2: ['only_pele', 'ushuaia_to_darien', 'baldosero', 'world_cup_4', 'goals_1300', 'records_10', 'legacy_95'],
+}
+
+/** As conquistas cuja regra mudou desde a versão `v` (até a de agora). */
+export function conquistasMudaramDesde(v: number): Set<string> {
+  const out = new Set<string>()
+  for (let i = Math.max(1, Math.floor(v)) + 1; i <= CONQUISTAS_REGRAS_V; i++) for (const id of CONQUISTAS_MUDARAM[i] ?? []) out.add(id)
+  return out
+}
+
 interface Ctx {
   s: CareerState
   seasons: SeasonRecord[]
@@ -89,11 +109,13 @@ const DEFS: AchievementDef[] = [
   {
     id: 'only_pele',
     title: 'Só o Pelé',
-    description: 'Ganhe três Copas do Mundo e marque mais de 1.000 gols.',
+    description: 'Ganhe duas Copas do Mundo e marque mais de 800 gols — no futebol de verdade, só o Pelé conseguiu.',
     icon: 'crown',
     rarity: 'lendaria',
     hidden: true,
-    check: (c) => worldCups(c) >= 3 && c.goals > 1000,
+    // v3.4 (CONTRATO-v34 §K.2): era 3 Copas e mais de 1.000 gols (1 em 5.250 no melhor plano); a regra antiga virou o
+    // emblema lendário "Mil gols e o tri"
+    check: (c) => worldCups(c) >= 2 && c.goals > 800,
   },
   { id: 'black_spider', title: 'Aranha Negra', description: 'Ganhe seis vezes o prêmio de melhor goleiro do ano.', icon: 'hand', rarity: 'epica', check: (c) => c.wins('golden_glove') >= 6 },
   { id: 'net_terror', title: 'Terror das redes', description: 'Ganhe seis Chuteiras de Ouro.', icon: 'flame', rarity: 'epica', check: (c) => c.wins('golden_boot') >= 6 },
@@ -150,10 +172,11 @@ const DEFS: AchievementDef[] = [
   {
     id: 'ushuaia_to_darien',
     title: 'De Ushuaia a Darién',
-    description: 'Jogue em clubes de dez países diferentes da América do Sul.',
+    description: 'Jogue em clubes de nove países diferentes da América do Sul.',
     icon: 'mountain',
     rarity: 'epica',
-    check: (c) => new Set(c.seasons.filter((r) => r.confed === 'CONMEBOL').map((r) => r.country)).size >= 10,
+    // v3.4: eram os 10 países (todos os do jogo), que nunca saíram
+    check: (c) => new Set(c.seasons.filter((r) => r.confed === 'CONMEBOL').map((r) => r.country)).size >= 9,
   },
   { id: 'nomad', title: 'Nômade', description: 'Jogue em clubes das cinco confederações do jogo (Europa, América do Sul, América do Norte, Ásia e África).', icon: 'compass', rarity: 'epica', check: (c) => new Set(c.seasons.map((r) => r.confed).filter(Boolean)).size >= 5 },
   {
@@ -186,7 +209,8 @@ const DEFS: AchievementDef[] = [
     rarity: 'rara',
     check: (c) => sameSeason(c, ['league', 'domestic_cup', 'continental_primary']),
   },
-  { id: 'baldosero', title: 'Mochileiro', description: 'Jogue por 24 clubes diferentes, um por temporada (no Modo Clássico, só no ritmo Intenso).', icon: 'backpack', rarity: 'lendaria', check: (c) => clubsOf(c).size >= 24 },
+  // v3.4: eram 24 clubes (um por temporada), que nunca saíram
+  { id: 'baldosero', title: 'Mochileiro', description: 'Jogue por 23 clubes diferentes, trocando de clube quase toda temporada (no Modo Clássico, só no ritmo Intenso).', icon: 'backpack', rarity: 'lendaria', check: (c) => clubsOf(c).size >= 23 },
 
   // ─────────────── LENDA (30) ───────────────
   { id: 'first_title', title: 'Primeira taça', description: 'Conquiste o seu primeiro título.', icon: 'trophy', rarity: 'comum', check: (c) => c.trophies.length >= 1 },
@@ -282,7 +306,8 @@ const DEFS: AchievementDef[] = [
   // Copas do Mundo (1 acima: world_champion)
   { id: 'world_cup_2', title: 'Bicampeão do mundo', description: 'Ganhe duas Copas do Mundo, como Ronaldo Fenômeno e Cafu.', icon: 'globe', rarity: 'epica', check: (c) => worldCups(c) >= 2 },
   { id: 'world_cup_3', title: 'Tri, como Pelé', description: 'Ganhe três Copas do Mundo e iguale o Rei.', icon: 'crown', rarity: 'epica', check: (c) => worldCups(c) >= 3 },
-  { id: 'world_cup_4', title: 'Além do Rei', description: 'Ganhe quatro Copas do Mundo: mais que Pelé.', icon: 'crown', rarity: 'lendaria', hidden: true, check: (c) => worldCups(c) >= 4 },
+  // v3.4: eram 4 Copas (nunca saíram); o "além do Rei" passa a ser o legado
+  { id: 'world_cup_4', title: 'Além do Rei', description: 'Ganhe duas Copas do Mundo e encerre a carreira com Nota de Legado maior que a de Pelé.', icon: 'crown', rarity: 'lendaria', hidden: true, check: (c) => c.finished && worldCups(c) >= 2 && beats(c, 'pele') },
   // Chuteiras de Ouro (1 e 6 acima: golden_boot, net_terror)
   { id: 'golden_boot_3', title: 'Tri da Chuteira de Ouro', description: 'Seja o maior artilheiro da Europa em três temporadas.', icon: 'footprints', rarity: 'epica', check: (c) => c.wins('golden_boot') >= 3 },
   { id: 'golden_boot_7', title: 'Mais que Messi na Chuteira', description: 'Ganhe sete Chuteiras de Ouro ou mais.', icon: 'flame', rarity: 'lendaria', hidden: true, check: (c) => c.wins('golden_boot') >= 7 },
@@ -303,7 +328,8 @@ const DEFS: AchievementDef[] = [
   // Gols (300/500/800 acima)
   { id: 'goals_100', title: '100 gols', description: 'Marque 100 gols na carreira (clube + seleção).', icon: 'goal', rarity: 'comum', check: (c) => c.goals >= 100 },
   { id: 'goals_1000', title: 'O milésimo', description: 'Marque 1.000 gols na carreira.', icon: 'goal', rarity: 'epica', check: (c) => c.goals >= 1000 },
-  { id: 'goals_1300', title: 'Fora da curva', description: 'Marque 1.300 gols na carreira.', icon: 'flame', rarity: 'lendaria', hidden: true, check: (c) => c.goals >= 1300 },
+  // v3.4: eram 1.300 gols (o máximo do estudo foi 1.193)
+  { id: 'goals_1300', title: 'Fora da curva', description: 'Marque 1.050 gols na carreira.', icon: 'flame', rarity: 'lendaria', hidden: true, check: (c) => c.goals >= 1050 },
   // Assistências (150 acima: playmaker)
   { id: 'assists_100', title: '100 assistências', description: 'Dê 100 assistências na carreira.', icon: 'hand-helping', rarity: 'comum', check: (c) => c.assists >= 100 },
   { id: 'assists_250', title: 'Maestro', description: 'Dê 250 assistências na carreira.', icon: 'hand-helping', rarity: 'epica', check: (c) => c.assists >= 250 },
@@ -315,11 +341,13 @@ const DEFS: AchievementDef[] = [
   // Recordes históricos (contra o futebol real)
   { id: 'records_1', title: 'Recordista', description: 'Quebre um recorde histórico do futebol real (Bolas de Ouro, gols, Libertadores…).', icon: 'zap', rarity: 'epica', check: (c) => c.legacy().historic.length >= 1 },
   { id: 'records_5', title: 'Livro dos recordes', description: 'Quebre cinco recordes históricos do futebol real.', icon: 'zap', rarity: 'epica', check: (c) => c.legacy().historic.length >= 5 },
-  { id: 'records_10', title: 'Reescreveu a história', description: 'Quebre dez recordes históricos do futebol real.', icon: 'zap', rarity: 'lendaria', hidden: true, check: (c) => c.legacy().historic.length >= 10 },
+  // v3.4: eram 10 recordes (o máximo do estudo foi 9)
+  { id: 'records_10', title: 'Reescreveu a história', description: 'Quebre seis recordes históricos do futebol real.', icon: 'zap', rarity: 'lendaria', hidden: true, check: (c) => c.legacy().historic.length >= 6 },
   // Nota de Legado (ao fim da carreira)
   { id: 'legacy_60', title: 'Legado de craque', description: 'Encerre a carreira com Nota de Legado 60 ou mais.', icon: 'award', rarity: 'rara', check: (c) => c.finished && c.legacy().score >= 60 },
   { id: 'legacy_80', title: 'Legado de lenda', description: 'Encerre a carreira com Nota de Legado 80 ou mais.', icon: 'award', rarity: 'epica', check: (c) => c.finished && c.legacy().score >= 80 },
-  { id: 'legacy_95', title: 'Legado imortal', description: 'Encerre a carreira com Nota de Legado 95 ou mais.', icon: 'gem', rarity: 'lendaria', check: (c) => c.finished && c.legacy().score >= 95 },
+  // v3.4: era 95 (1 em 1.750 no melhor plano)
+  { id: 'legacy_95', title: 'Legado imortal', description: 'Encerre a carreira com Nota de Legado 94 ou mais.', icon: 'gem', rarity: 'lendaria', check: (c) => c.finished && c.legacy().score >= 94 },
   // Hall das Lendas
   { id: 'legend_top10', title: 'Entre os dez maiores', description: 'Encerre a carreira no top 10 do Hall das Lendas, acima de craques reais.', icon: 'sparkles', rarity: 'epica', check: (c) => c.finished && legendsAbove(c) < 10 },
   { id: 'beat_pele', title: 'Maior que Pelé', description: 'Encerre a carreira com Nota de Legado maior que a de Pelé.', icon: 'crown', rarity: 'lendaria', check: (c) => c.finished && beats(c, 'pele') },
@@ -367,12 +395,32 @@ const NATIONALITY_CONFED: Record<string, Confed> = Object.fromEntries([
   ...['NZL', 'FIJ', 'PNG', 'SOL', 'TAH', 'NCL', 'VAN'].map((k) => [k, 'OFC']),
 ]) as Record<string, Confed>
 
+/**
+ * As regras de antes de cada versão, para as conquistas que mudaram (só a verificação por replay usa: uma carreira jogada
+ * com as regras de antes pode ter na lista uma conquista que a regra de agora não dá — e vice-versa). Versão 1 = até a v3.3.
+ */
+const REGRAS_ANTIGAS: Readonly<Record<number, Readonly<Record<string, (c: Ctx) => boolean>>>> = {
+  1: {
+    only_pele: (c) => worldCups(c) >= 3 && c.goals > 1000,
+    ushuaia_to_darien: (c) => new Set(c.seasons.filter((r) => r.confed === 'CONMEBOL').map((r) => r.country)).size >= 10,
+    baldosero: (c) => clubsOf(c).size >= 24,
+    world_cup_4: (c) => worldCups(c) >= 4,
+    goals_1300: (c) => c.goals >= 1300,
+    records_10: (c) => c.legacy().historic.length >= 10,
+    legacy_95: (c) => c.finished && c.legacy().score >= 95,
+  },
+}
+
 /** Catálogo público (sem as regras). */
 export const ACHIEVEMENTS: Achievement[] = DEFS.map(({ check: _c, ...a }) => a)
 export const ACHIEVEMENT_BY_ID: Record<string, Achievement> = Object.fromEntries(ACHIEVEMENTS.map((a) => [a.id, a]))
 
-/** Todas as conquistas que o estado atual desbloqueia (as "de resumo" só com a carreira encerrada). */
-export function detectAchievements(s: CareerState): string[] {
+/**
+ * Todas as conquistas que o estado atual desbloqueia (as "de resumo" só com a carreira encerrada). `regras`: a versão das
+ * regras (padrão: a de agora, CONQUISTAS_REGRAS_V — é o que o motor usa); uma versão antiga troca só as conquistas que
+ * mudaram desde ela pela regra de então (a verificação por replay de uma carreira jogada antes da mudança).
+ */
+export function detectAchievements(s: CareerState, o: { regras?: number } = {}): string[] {
   const seasons = s.seasons
   const trophies = seasons.flatMap((r) => r.trophies)
   const awardWins = new Map<AwardId, number>()
@@ -401,5 +449,16 @@ export function detectAchievements(s: CareerState): string[] {
     // recordes/nota só contra o histórico real (as runs anteriores ficam no Hall, fora do estado)
     legacy: () => (legacy ??= evaluateRun({ id: s.id, identity: s.identity, seasons, national: s.national }, { finished: s.retired })),
   }
-  return DEFS.filter((d) => d.check(c)).map((d) => d.id)
+  const v = o.regras ?? CONQUISTAS_REGRAS_V
+  if (v >= CONQUISTAS_REGRAS_V) return DEFS.filter((d) => d.check(c)).map((d) => d.id)
+  // regra de cada conquista na versão v: a mais antiga que veio depois de v e ainda vale para v (REGRAS_ANTIGAS[v'] é a regra
+  // até a versão v'), senão a de agora
+  const regraEm = (id: string): ((c: Ctx) => boolean) | null => {
+    for (let i = Math.max(1, Math.floor(v)); i < CONQUISTAS_REGRAS_V; i++) {
+      const r = REGRAS_ANTIGAS[i]?.[id]
+      if (r) return r
+    }
+    return null
+  }
+  return DEFS.filter((d) => (regraEm(d.id) ?? d.check)(c)).map((d) => d.id)
 }

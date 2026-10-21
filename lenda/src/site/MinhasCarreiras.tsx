@@ -6,7 +6,7 @@
  * (seloHall).
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Cloud, CloudUpload, Crown, Eye, FolderOpen, HardDrive, LogIn, RefreshCw, ShieldAlert, Sparkles, Star, StarOff, Trash, Tv2, Users } from 'lucide-react'
+import { Cloud, CloudUpload, Crown, Eye, FolderOpen, HardDrive, LogIn, RefreshCw, ShieldAlert, ShieldCheck, Sparkles, Star, StarOff, Trash, Tv2, Users } from 'lucide-react'
 import { navigate } from '@/store/app'
 import { useCareer } from '@/store/career'
 import { Button, Flag, Modal, OvrPill, Segmented, Tabs, formatInt, toast } from '@/ui/primitives'
@@ -366,6 +366,11 @@ function Cartao({ c, naConta, hall, removida }: { c: CarreiraConta; naConta?: bo
           </span>
         )}
         {!!c.bonusOvr && <span className="sc-chip sc-chip--auto">+{c.bonusOvr} de bônus</span>}
+        {naConta && c.prova && c.prova.conquistas > 0 && (
+          <span className="sc-chip sc-chip--ok" title={`Começada com a conta: prova ${c.prova.conquistas} ${c.prova.conquistas === 1 ? 'conquista' : 'conquistas'} na conta${c.prova.verificada ? ' (já conferida pela equipe)' : ''}`}>
+            <ShieldCheck aria-hidden="true" /> Prova de {c.prova.conquistas}
+          </span>
+        )}
         {selo ? (
           <ChipHall selo={selo} />
         ) : (
@@ -399,6 +404,9 @@ function Cartao({ c, naConta, hall, removida }: { c: CarreiraConta; naConta?: bo
         <div className="sc-confirm" role="group" aria-label="Confirmar">
           <p>
             Apagar <b>{c.jogador}</b> da conta? Se ela estiver no Hall deste aparelho, continua lá.
+            {naConta && c.prova && c.prova.unicas > 0
+              ? ` Ela é a única prova de ${c.prova.unicas === 1 ? '1 conquista' : `${c.prova.unicas} conquistas`} na conta: elas voltam a “não provadas” (e um emblema que dependa dela pode sair).`
+              : ''}
           </p>
           <div className="sc-btns">
             <Button variant="danger" size="sm" icon={Trash} loading={apagando} onClick={apagar}>

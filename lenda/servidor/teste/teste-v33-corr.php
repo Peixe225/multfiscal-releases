@@ -279,27 +279,34 @@ checar('o backup não leva as sementes (como os códigos e as partidas por dia)'
 
 // ══ E.7 todas as conquistas ══════════════════════════════════════════════════════════════════════
 
-secao('v3.3 §E.7 · o desafio de todas as conquistas não tem prova: não ativa, não verifica, não declara');
+secao('v3.3 §E.7 · o desafio de todas as conquistas: as conquistas do aparelho não provam nada (v3.4: só as provadas por carreiras)');
 v33ZerarDesafios();
+// v3.4 (CONTRATO-v34 §A): o §E.7 foi trocado pela prova — o desafio ativa e um ativo pode virar o de todas as conquistas; o que
+// continua: com as conquistas só do aparelho, "Conferi as conquistas" (verificar com ok) e declarar → 409 sem_prova
 $r = v33Ativar('todas-as-conquistas');
-checar('ativar → 409 sem_prova (antes: 200)', $r->status === 409 && $r->erro() === 'sem_prova' && str_contains((string) ($r->json['mensagem'] ?? ''), 'sem prova'), $r->resumo());
+checar('v3.4: ativar → 200 (o §E.7 da v3.3 respondia 409 sem_prova)', $r->status === 200, $r->resumo());
+v33Ativar('todas-as-conquistas', false);
 $dQ = corrDesafio('corr-conq', ['copas' => 1]);
 corrAtivar($dQ);
 $r = v33Adm(['acao' => 'desafio_salvar', 'id' => $dQ, 'criterio' => ['todasConquistas' => true]]);
-checar('um desafio ativo não vira o de todas as conquistas (409 sem_prova); desativado, pode (e continua sem poder ativar)', $r->status === 409 && $r->erro() === 'sem_prova'
-    && v33Adm(['acao' => 'desafio_ativar', 'id' => $dQ, 'ativo' => false])->status === 200
-    && v33Adm(['acao' => 'desafio_salvar', 'id' => $dQ, 'criterio' => ['todasConquistas' => true]])->status === 200 && corrAtivar($dQ)->status === 409, $r->resumo());
-q("UPDATE desafios SET ativo = 1, inicio = UTC_TIMESTAMP() - INTERVAL 1 MINUTE WHERE slug = 'todas-as-conquistas'"); // ligado antes destas correções
+checar('v3.4: um desafio ativo pode virar o de todas as conquistas (a prova é a das carreiras)', $r->status === 200
+    && v33Adm(['acao' => 'desafio_ativar', 'id' => $dQ, 'ativo' => false])->status === 200, $r->resumo());
+q("UPDATE desafios SET ativo = 1, inicio = UTC_TIMESTAMP() - INTERVAL 1 MINUTE WHERE slug = 'todas-as-conquistas'");
 [$navQ, $uidQ] = v33Conta('Conquistas Corr');
 $navQ->pedir('POST', '/api/conquistas.php', ['acao' => 'sincronizar', 'conquistas' => array_map(static fn(string $id): array => ['id' => $id], $idsPhp['ids'])]);
+$semQ = corrCand(v33IdDesafio('todas-as-conquistas'), $uidQ) === [];
+// o candidato que nasceu antes da v3.4 (pelas conquistas do aparelho) continua no banco: não verifica nem vence sem a prova
+q("INSERT INTO desafio_candidatos (desafio_id, chave, usuario_id, em, estado) VALUES (?, ?, ?, UTC_TIMESTAMP(3), 'pendente')",
+    [v33IdDesafio('todas-as-conquistas'), 'u' . $uidQ, $uidQ]);
 $kQ = corrCand(v33IdDesafio('todas-as-conquistas'), $uidQ);
 $r1 = v33Adm(['acao' => 'candidato_verificar', 'id' => (int) ($kQ['id'] ?? 0), 'resultado' => ['ok' => true, 'detalhes' => ['v' => 1, 'manual' => true, 'conquistas' => true]]]);
 q("UPDATE desafio_candidatos SET estado = 'verificada' WHERE id = ?", [(int) ($kQ['id'] ?? 0)]);
 $r2 = v33Adm(['acao' => 'desafio_declarar_vencedor', 'candidatoId' => (int) ($kQ['id'] ?? 0)]);
 $r3 = v33Adm(['acao' => 'candidato_verificar', 'id' => (int) ($kQ['id'] ?? 0), 'resultado' => ['ok' => false, 'detalhes' => ['motivo' => 'Sem prova.']]]);
-checar('o "Conferi as conquistas" (verificar com ok) → 409 sem_prova; declarar → 409 sem_prova (antes: 200 e vencedor); recusar continua valendo',
-    ($kQ['estado'] ?? '') === 'pendente' && $r1->status === 409 && $r1->erro() === 'sem_prova' && $r2->status === 409 && $r2->erro() === 'sem_prova'
-    && $r3->status === 200 && v("SELECT vencido_em FROM desafios WHERE slug = 'todas-as-conquistas'") === null, $r1->resumo() . ' | ' . $r2->resumo());
+checar('as 87 só do aparelho não fazem candidato (v3.4); o candidato de antes: "Conferi as conquistas" → 409 sem_prova (com faltam); declarar → 409 sem_prova; recusar continua valendo',
+    $semQ && ($kQ['estado'] ?? '') === 'pendente' && $r1->status === 409 && $r1->erro() === 'sem_prova' && count($r1->json['faltam'] ?? []) === 87
+    && $r2->status === 409 && $r2->erro() === 'sem_prova' && $r3->status === 200 && v("SELECT vencido_em FROM desafios WHERE slug = 'todas-as-conquistas'") === null,
+    $r1->resumo() . ' | ' . $r2->resumo());
 q("UPDATE desafios SET ativo = 0, inicio = NULL WHERE slug = 'todas-as-conquistas'");
 
 // ══ E.8 e-mails de confirmação ═══════════════════════════════════════════════════════════════════

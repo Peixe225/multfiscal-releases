@@ -13,10 +13,12 @@ import { useShellSlots } from '@/ui/shell/slots'
 import { useConta } from './conta'
 import { dataBr } from './datas'
 import { useDesafios } from './desafios'
-import { linkPerfil } from './indicacao'
+import { linkPerfil, linkPrevia } from './indicacao'
 import { usePerfis } from './perfil'
+import { Emblema } from '@/ui/shared/emblemas/Emblema'
 import './site.css'
 import './v33.css'
+import './v34.css'
 
 export default function PerfilPublico() {
   const codigo = useApp((s) => s.route.query.codigo ?? '')
@@ -63,7 +65,8 @@ export default function PerfilPublico() {
   }
 
   const p = aberto.perfil
-  const link = linkPerfil(p.codigo)
+  // v3.4: compartilha o link da prévia (api/v.php?c=): quem recebe vê o cartão do perfil e cai aqui, como convidado
+  const link = linkPerfil(p.codigo) ? linkPrevia({ codigo: p.codigo }) : null
   const compartilhar = async () => {
     if (!link) return
     try {
@@ -106,7 +109,10 @@ export default function PerfilPublico() {
       <dl className="sc-stats sv-perfil__nums">
         <div className="sc-stat sc-stat--gold">
           <dt>Conquistas</dt>
-          <dd className="num">{formatInt(p.conquistas)}</dd>
+          <dd className="num">
+            {formatInt(p.conquistas)}
+            {p.conquistasProvadas !== null && <small>{formatInt(p.conquistasProvadas)} provadas</small>}
+          </dd>
         </div>
         <div className="sc-stat">
           <dt>No Hall público</dt>
@@ -121,6 +127,20 @@ export default function PerfilPublico() {
           <dd className="num">{p.carreiras.length ? Math.max(...p.carreiras.map((c) => c.nota)) : '—'}</dd>
         </div>
       </dl>
+
+      {p.emblemas.length > 0 && (
+        <>
+          <h2 className="sc-sec">Emblemas dos desafios</h2>
+          <ul className="s4-meus" aria-label="Emblemas dos desafios">
+            {p.emblemas.map((e) => (
+              <li key={e.slug}>
+                <Emblema e={e} size={22} rotulo={null} />
+                <span>{e.titulo || 'Desafio'}</span>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
 
       {p.desafiosVencidos.length > 0 && (
         <ul className="sv-vencidos" aria-label="Desafios vencidos">

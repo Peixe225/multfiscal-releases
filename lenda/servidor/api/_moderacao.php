@@ -291,6 +291,15 @@ function resolverDenunciasCarreira(int $pk, string $resultado, ?string $motivo, 
 const COLUNAS_RESTAURAR = ['usuario_id', 'carreira_id', 'modo', 'jogador', 'numero', 'pais', 'posicao', 'nota', 'nota_v', 'pico_ovr', 'temporadas',
     'gols', 'titulos', 'bolas_ouro', 'headline', 'como', 'tamanho', 'terminou_em', 'salva_em', 'publica', 'suspeita', 'clubes', 'copas',
     'bonus_ovr', 'resumo_hash'];
+/**
+ * Integração v3.4: as colunas da v3.3 (o replay, as Libertadores, a hora de entrada e a da semente do servidor) e da v3.4
+ * (os números dos critérios novos, a lista de conquistas e a verificação) também voltam da linha guardada: sem elas a
+ * carreira restaurada deixava de valer para desafio e de provar as conquistas da conta (o restaurar_carreira refaz as
+ * provas logo depois). Só entram com o banco da versão e quando a linha guardada as tem.
+ */
+const COLUNAS_RESTAURAR_V33 = ['tem_replay', 'libertadores', 'primeira_em', 'fora_desafio', 'semente_em'];
+const COLUNAS_RESTAURAR_V34 = ['champions', 'n_clubes', 'mesmo_clube', 'copas_selecao', 'pais_inicio', 'conquistas', 'conquistas_v', 'prova_ok',
+    'prova_verificacao'];
 
 const CAMPOS_LIXEIRA = 'l.id, l.carreira_pk, l.usuario_id, l.carreira_id, l.jogador, l.nota, l.motivo, l.apagada_em, l.apagada_por, l.expira_em,
     (l.dados IS NOT NULL) AS tem_copia';
@@ -361,7 +370,7 @@ function restaurarCarreira(int $lixId): int
         }
         $cols = [];
         $vals = [];
-        foreach (COLUNAS_RESTAURAR as $k) {
+        foreach (array_merge(COLUNAS_RESTAURAR, esquemaV33() ? COLUNAS_RESTAURAR_V33 : [], esquemaV34() ? COLUNAS_RESTAURAR_V34 : []) as $k) {
             if (array_key_exists($k, $linha)) {
                 $cols[] = $k;
                 $vals[] = $linha[$k];

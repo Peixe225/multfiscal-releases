@@ -21,6 +21,8 @@ import { kv, KV_KEYS } from '@/store/persist'
 import { api, ErroApi } from './api'
 import { armazem, type Armazem } from './medicao'
 import { useConta } from './conta'
+import { somarProvasNovas } from './provas'
+import { avisarEmblemasNovos } from './emblemas'
 
 export interface CarreiraConta {
   id: string
@@ -52,6 +54,27 @@ export interface CarreiraConta {
   bonusOvr: number
   /** Onde ela está em relação ao Hall público, segundo o servidor (v3.2); null = servidor antigo ou só no aparelho. */
   hall: HallDaCarreira | null
+  /**
+   * v3.4: a carreira é prova de conquistas na conta (Clássico, semente do servidor, replay): quantas ela prova, quantas só
+   * ela prova (apagar tira a prova dessas) e se já foi conferida pela equipe. null = não é prova (ou servidor antigo).
+   */
+  prova?: ProvaDaCarreira | null
+  /** v3.4, só na resposta do salvar: as conquistas que esta carreira provou agora na conta. */
+  provasNovas?: string[]
+}
+
+export interface ProvaDaCarreira {
+  conquistas: number
+  unicas: number
+  verificada: boolean | null
+}
+
+/** O `prova` do C (v3.4), conferido. */
+export function normalizarProvaDaCarreira(x: unknown): ProvaDaCarreira | null {
+  const p = x as { conquistas?: unknown; unicas?: unknown; verificada?: unknown } | null
+  if (!p || typeof p !== 'object') return null
+  const n = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) && v >= 0 ? Math.round(v) : 0)
+  return { conquistas: n(p.conquistas), unicas: n(p.unicas), verificada: typeof p.verificada === 'boolean' ? p.verificada : null }
 }
 
 /**
@@ -320,6 +343,7 @@ export function normalizarCarreira(x: unknown): CarreiraConta | null {
     suspeita: !!c.suspeita,
     bonusOvr: Math.max(0, Math.min(10, num(c.bonusOvr))),
     hall: normalizarHall(c.hall),
+    prova: normalizarProvaDaCarreira((c as { prova?: unknown }).prova),
   }
 }
 
@@ -444,8 +468,12 @@ export const useCarreiras = create<CarreirasStore>()((set, get) => ({
     set({ salvando: { ...get().salvando, [h.id]: true } })
     try {
       const corpo = corpoParaSalvar(h, como)
-      const r = await api<{ carreira?: unknown }>('carreiras.php', { corpoJson: corpo, tempo: 30_000 })
-      const c = normalizarCarreira(r.carreira) ?? { ...resumoLocal(h), como, salvaEm: new Date().toISOString() }
+      const r = await api<{ carreira?: unknown; provasNovas?: unknown; emblemasNovos?: unknown }>('carreiras.php', { corpoJson: corpo, tempo: 30_000 })
+      const c: CarreiraConta = normalizarCarreira(r.carreira) ?? { ...resumoLocal(h), como, salvaEm: new Date().toISOString() }
+      // v3.4: o que esta carreira provou agora na conta e os emblemas que ela deu (o aviso discreto sai daqui)
+      const provasNovas = somarProvasNovas(r.provasNovas, h.id)
+      if (provasNovas.length) c.provasNovas = provasNovas
+      avisarEmblemasNovos(r.emblemasNovos, useConta.getState().usuario?.id ?? null)
       const atual = get().lista
       if (atual) set({ lista: [c, ...atual.filter((x) => x.id !== c.id)] })
       // salvou: sai das pendentes e das apagadas (o jogador quis de volta)

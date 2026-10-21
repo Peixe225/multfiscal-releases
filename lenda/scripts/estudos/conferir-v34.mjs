@@ -9,7 +9,7 @@
  *
  *   node scripts/estudos/raridade.mjs pacote --destino <a>                      (o motor de antes das regras novas)
  *   node scripts/estudos/raridade.mjs pacote --destino <b> [--motor <cópia>/scripts/estudos/raridade-motor.ts]
- *   node scripts/estudos/conferir-v34.mjs --antigo <a>/motor.mjs --novo <b>/motor.mjs --dados <pastas> [--n 400]
+ *   node scripts/estudos/conferir-v34.mjs --antigo <a>/motor.mjs --novo <b>/motor.mjs --dados <pastas> [--n 400] [--parte i/k]
  *
  * Entram todas as carreiras do estudo (com os números da v3.4) que cumprem alguma regra nova; depois, até `--n`, as que
  * ficam a um passo dela e carreiras sorteadas. Sai com código 1 se alguma conferência falhar.
@@ -77,7 +77,9 @@ let s = 12345
 const rnd = () => ((s = (Math.imul(s, 1103515245) + 12345) >>> 0) / 4294967296)
 const resto = linhas.filter((r) => !perto(r))
 while (escolhidas.length < N && resto.length) escolhidas.push(resto.splice(Math.floor(rnd() * resto.length), 1)[0])
-const alvo = escolhidas.slice(0, Math.max(N, linhas.filter(cumpre).length))
+// --parte i/k: só a i-ésima de k partes (para rodar em k processos)
+const [pi, pk] = String(opt('parte', '0/1')).split('/').map(Number)
+const alvo = escolhidas.slice(0, Math.max(N, linhas.filter(cumpre).length)).filter((_, j) => j % pk === pi)
 
 let falhas = 0
 const porId = Object.fromEntries(MUDARAM.map((id) => [id, { sim: 0, nao: 0, erradas: 0 }]))

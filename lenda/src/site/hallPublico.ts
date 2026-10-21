@@ -13,6 +13,7 @@
 import { chaveFiltro, proximaVencida, useComunidade, type CarreiraAberta, type CarreiraComunidade, type FiltroHall, type PaginasComunidade } from '@/store/comunidade'
 import { api, comReintento, ErroApi } from './api'
 import { hallEntryValido } from './carreiras'
+import { normalizarEmblemas } from './emblemas'
 
 export const POR_PAGINA = 50
 /** Uma página guardada vale isto (o servidor também manda max-age=300). */
@@ -47,7 +48,17 @@ export function normalizarCarreiraPublica(x: unknown): CarreiraComunidade | null
     terminouEm: typeof c.terminouEm === 'string' ? c.terminouEm : null,
     destaque: c.destaque === true,
     perfil: typeof c.perfil === 'string' && /^[A-Za-z0-9]{4,16}$/.test(c.perfil) ? c.perfil : null,
+    // v3.4: os emblemas do dono (pequenos, ao lado do apelido)
+    ...emblemasDaLinha(c),
   }
+}
+
+/** v3.4: `emblemas: [{slug, icone, cor}]` (até 3) e `emblemasTotal` de um item do hall.php (servidor antigo: nada). */
+function emblemasDaLinha(c: Record<string, unknown>): Pick<CarreiraComunidade, 'emblemas' | 'emblemasTotal'> {
+  if (!Array.isArray(c.emblemas)) return {}
+  const emblemas = normalizarEmblemas(c.emblemas, 3).map(({ slug, icone, cor, titulo }) => ({ slug, icone, cor, titulo }))
+  const total = typeof c.emblemasTotal === 'number' && Number.isFinite(c.emblemasTotal) ? Math.max(emblemas.length, Math.round(c.emblemasTotal)) : emblemas.length
+  return { emblemas, emblemasTotal: total }
 }
 
 export interface PaginaHall {

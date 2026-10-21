@@ -20,6 +20,9 @@
     // v3.3: desafios e Fale conosco
     slug: 'desafio', novo: 'novo', campos: 'campos', candidatosNovos: 'candidatos novos', candidato: 'candidato', carreira: 'carreira',
     ok: 'bateu', status: 'situação',
+    // v3.4: as provas das conquistas e os emblemas
+    emblema: 'emblema', naoBateu: 'não bateram', candidatosRecusados: 'candidatos recusados', estado: 'estado', naoCumpre: 'não cumpre',
+    emblemasNovos: 'emblemas novos',
   };
   const ACOES_SEGURANCA = ['painel_falha', 'painel_limite', 'painel_pin_errado', 'painel_pin_travado', 'negado', 'minha_senha_falha', 'painel_entrar',
     'painel_sair', 'minha_senha', 'sair_todos', 'pin_definido', 'senha_trocada', 'sessao_encerrar', 'criar_conta', 'etapa_expirou'];
@@ -92,6 +95,8 @@
     m = /^suporte:(\d+)$/.exec(s);
     if (m) return h('a', { href: LP.hash('mensagens', { status: 'todas', mensagem: m[1] }), class: 'link-discreto' }, 'mensagem #' + m[1]);
     if (s === 'suporte') return h('a', { href: '#/mensagens', class: 'link-discreto' }, 'mensagens (lote)');
+    // v3.4: a verificação das provas de várias contas num pedido só
+    if (s === 'provas') return h('span', { class: 'texto-3' }, 'provas (várias contas)');
     m = /^admin:(\d+)$/.exec(s);
     if (m) return h('a', { href: '#/equipe', class: 'link-discreto' }, 'equipe #' + m[1]);
     if (/^alerta:/.test(s)) return h('span', { class: 'texto-3' }, 'alerta');

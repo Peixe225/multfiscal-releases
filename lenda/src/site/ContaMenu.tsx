@@ -6,7 +6,7 @@
 import { useEffect, useState, type ComponentType } from 'react'
 import { ArrowRight, ChevronRight, CloudUpload, FolderHeart, LogIn, LogOut, MessageSquareText, Swords, Trash, UserPlus, type LucideProps } from 'lucide-react'
 import { navigate } from '@/store/app'
-import { criterioEmFrase, temDesafioAtivo, useDesafios, valendo } from './desafios'
+import { criterioEmFrase, emblemasValendo, temDesafioAtivo, useDesafios, valendo } from './desafios'
 import { toast } from '@/ui/primitives'
 import { mensagemDeErro } from './api'
 import { escolherUltima, hallComUltima, idsNaConta, lerUltima, useCarreiras } from './carreiras'
@@ -36,7 +36,9 @@ function Linha({ icon: Ico, titulo, sub, onClick, tom, carregando }: { icon: Com
 /** v3.3: "Desafios" (só com um valendo) e "Fale conosco", no fim do bloco, com ou sem conta. */
 function LinhasV33({ fechar }: { fechar: () => void }) {
   const ativo = useDesafios(temDesafioAtivo)
-  const d = useDesafios((s) => s.lista.find((x) => valendo(x)) ?? null)
+  const d = useDesafios((s) => s.lista.find((x) => x.modo !== 'emblema' && valendo(x)) ?? null)
+  // v3.4: sem desafio de prêmio valendo, uma linha discreta para os de emblema
+  const nEmblemas = useDesafios((s) => emblemasValendo(s.lista).length)
   // o menu abriu: a lista vem (do cache de 60 s, quase sempre)
   useEffect(() => {
     void useDesafios.getState().carregar()
@@ -49,6 +51,17 @@ function LinhasV33({ fechar }: { fechar: () => void }) {
           tom="cta"
           titulo={d.titulo}
           sub={`Desafio valendo: ${criterioEmFrase(d.criterio)}`}
+          onClick={() => {
+            fechar()
+            navigate('/desafios')
+          }}
+        />
+      )}
+      {!(ativo && d) && nEmblemas > 0 && (
+        <Linha
+          icon={Swords}
+          titulo="Desafios"
+          sub={`${nEmblemas} ${nEmblemas === 1 ? 'desafio valendo' : 'desafios valendo'}: cumpra numa carreira e ganhe o emblema`}
           onClick={() => {
             fechar()
             navigate('/desafios')

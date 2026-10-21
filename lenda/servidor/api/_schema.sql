@@ -17,6 +17,10 @@
 -- v3.3 (CONTRATO-v33 §A): usuarios.email_verificado_em, carreiras.tem_replay, libertadores, primeira_em e fora_desafio e as
 -- tabelas verificacoes_email, partidas_dia, mensagens_suporte, desafios e desafio_candidatos.
 -- v3.3 §E (correções): carreiras.semente_em e a tabela sementes_carreira (semente sorteada pelo servidor).
+-- v3.4 (CONTRATO-v34 §A): carreiras.champions, n_clubes, mesmo_clube, copas_selecao, pais_inicio (os critérios novos dos
+-- desafios), conquistas, conquistas_v, prova_ok e prova_verificacao (conquistas provadas pela carreira), conquistas_usuario.prova_pk,
+-- provada_em e origem, desafios.modo, dificuldade, emblema e home e a tabela emblemas_usuario.
+-- v3.4 §E (correções): a tabela provas_nao_bateu (o "não bateu" da verificação guardado pela semente).
 
 CREATE TABLE IF NOT EXISTS usuarios (
   id            INT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -104,6 +108,15 @@ CREATE TABLE IF NOT EXISTS carreiras (
   primeira_em  DATETIME          NULL,
   fora_desafio VARCHAR(20)       CHARACTER SET ascii COLLATE ascii_bin NULL,
   semente_em   DATETIME(3)       NULL,
+  champions    SMALLINT UNSIGNED NULL,
+  n_clubes     SMALLINT UNSIGNED NULL,
+  mesmo_clube  SMALLINT UNSIGNED NULL,
+  copas_selecao SMALLINT UNSIGNED NULL,
+  pais_inicio  VARCHAR(8)        NULL,
+  conquistas   TEXT              CHARACTER SET ascii COLLATE ascii_bin NULL,
+  conquistas_v SMALLINT UNSIGNED NULL,
+  prova_ok     TINYINT(1)        NULL,
+  prova_verificacao TEXT         NULL,
   PRIMARY KEY (id),
   UNIQUE KEY uq_carreiras_usuario_carreira (usuario_id, carreira_id),
   KEY ix_carreiras_usuario_salva (usuario_id, salva_em),
@@ -271,13 +284,19 @@ CREATE TABLE IF NOT EXISTS denuncias (
   KEY ix_denuncias_usuario (usuario_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Conquistas de cada conta (a data mais antiga em que foi conseguida).
+-- Conquistas de cada conta (a data mais antiga em que foi conseguida). v3.4: prova_pk = a carreira-prova (Clássico, semente
+-- do servidor, replay) que tem a conquista (a verificada, senão a mais antiga), provada_em = quando a primeira prova entrou na
+-- conta, origem = de onde a linha veio primeiro (aparelho = sincronizada pelo jogo, carreira = tirada de uma carreira-prova).
 CREATE TABLE IF NOT EXISTS conquistas_usuario (
   usuario_id   INT UNSIGNED NOT NULL,
   conquista_id VARCHAR(64)  CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
   em           DATETIME     NOT NULL,
+  prova_pk     INT UNSIGNED NULL,
+  provada_em   DATETIME     NULL,
+  origem       VARCHAR(8)   CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'aparelho',
   PRIMARY KEY (usuario_id, conquista_id),
-  KEY ix_conquistas_conquista (conquista_id)
+  KEY ix_conquistas_conquista (conquista_id),
+  KEY ix_conquistas_prova (prova_pk)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Indicações: quem convidou quem. indicado_id fica NULL se a conta indicada for excluída.
@@ -431,7 +450,9 @@ CREATE TABLE IF NOT EXISTS mensagens_suporte (
   KEY ix_mensagens_email (email)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Desafios com prêmio (As Taças do Rei). criterio e requisitos em JSON. inicio NULL = começa quando for ativado.
+-- Desafios com prêmio (As Taças do Rei). criterio e requisitos em JSON. inicio NULL = começa quando for ativado. v3.4: modo
+-- primeiro (um vencedor, o prêmio do admin) ou emblema (todo mundo que cumprir ganha o emblema), dificuldade, emblema (JSON
+-- {icone, cor}) e home (aparece na faixa da tela inicial do jogo).
 CREATE TABLE IF NOT EXISTS desafios (
   id                   INT UNSIGNED NOT NULL AUTO_INCREMENT,
   slug                 VARCHAR(40)  CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
@@ -451,6 +472,10 @@ CREATE TABLE IF NOT EXISTS desafios (
   ordem                SMALLINT     NOT NULL DEFAULT 0,
   atualizado_em        DATETIME     NULL,
   vencedor_candidato   INT UNSIGNED NULL,
+  modo                 VARCHAR(10)  CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'primeiro',
+  dificuldade          VARCHAR(10)  CHARACTER SET ascii COLLATE ascii_bin NULL,
+  emblema              VARCHAR(200) NULL,
+  home                 TINYINT(1)   NOT NULL DEFAULT 0,
   PRIMARY KEY (id),
   UNIQUE KEY uq_desafios_slug (slug),
   KEY ix_desafios_ativo (ativo, ordem),
@@ -495,6 +520,43 @@ CREATE TABLE IF NOT EXISTS sementes_carreira (
   UNIQUE KEY uq_sementes_usuario (usuario_id, semente),
   KEY ix_sementes_dia (usuario_id, dia),
   KEY ix_sementes_emitida (emitida_em)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ── v3.4 ────────────────────────────────────────────────────────────────────────────────────────
+
+-- Emblemas dos desafios de modo emblema (CONTRATO-v34 §A): um por conta e desafio, dado sozinho pelo servidor quando uma
+-- carreira-prova da conta cumpre o critério. estado ativo ou retirado (com o motivo). O retirado pelo admin (quem = o código
+-- dele) não volta sozinho. O retirado pelo sistema (quem = sistema: a carreira que deu não bateu, foi apagada ou mudou) volta
+-- quando outra carreira-prova da conta cumprir (§E da v3.4).
+-- A carreira e o jogador ficam como foto (a carreira pode ser apagada depois). Some junto com a conta (excluir).
+CREATE TABLE IF NOT EXISTS emblemas_usuario (
+  id          INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  usuario_id  INT UNSIGNED NOT NULL,
+  desafio_id  INT UNSIGNED NOT NULL,
+  carreira_pk INT UNSIGNED NULL,
+  carreira_id VARCHAR(64)  CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL,
+  jogador     VARCHAR(40)  NULL,
+  em          DATETIME(3)  NOT NULL,
+  estado      VARCHAR(10)  CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'ativo',
+  motivo      VARCHAR(200) NULL,
+  retirado_em DATETIME     NULL,
+  quem        VARCHAR(20)  CHARACTER SET ascii COLLATE ascii_bin NULL,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_emblemas_conta (usuario_id, desafio_id),
+  KEY ix_emblemas_desafio (desafio_id, estado, em),
+  KEY ix_emblemas_carreira (carreira_pk)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- v3.4 §E (correções): o "não bateu" da verificação por replay guardado pela conta e pela semente da carreira (a que o servidor
+-- sorteou para ela). Salvar de novo a mesma carreira (com 1 byte diferente, outro id ou depois de apagar) não desfaz: a carreira
+-- com essa semente nasce "não bateu" até um "bateu" do admin (prova_verificar ok) tirar a linha daqui. verificacao = a do admin.
+CREATE TABLE IF NOT EXISTS provas_nao_bateu (
+  usuario_id  INT UNSIGNED NOT NULL,
+  semente     VARCHAR(16)  CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  carreira_id VARCHAR(64)  CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL,
+  em          DATETIME     NOT NULL,
+  verificacao TEXT         NULL,
+  PRIMARY KEY (usuario_id, semente)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ── admin: contas, sessões, papéis, recados (CONTRATO-v32 §B) ──────────────────────────────────

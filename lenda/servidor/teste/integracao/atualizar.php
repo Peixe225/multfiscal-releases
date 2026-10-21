@@ -143,6 +143,26 @@ if ($fase === 'antes') {
     [$st2] = adm('POST', '/api/admin.php', ['acao' => 'dar_bonus', 'id' => $a['id'], 'valor' => 2, 'motivo' => 'Presente de antes']);
     [$st3] = adm('POST', '/api/admin.php', ['acao' => 'config', 'valores' => ['aviso' => ['texto' => 'Aviso de antes', 'tipo' => 'info']]]);
     checar('admin na versão de antes: ocultar, bônus e aviso', $st === 200 && $st2 === 200 && $st3 === 200, "$st $st2 $st3");
+    // v3.4: na v3.3 (semente do servidor), a Antiga Dois salva uma carreira começada com a semente que o servidor sorteou
+    // para ela, com o replay (como as 2 contas reais depois do deploy da v3.3): o instalar da v3.4 tem de pôr na conta as
+    // conquistas que ela prova e dar os emblemas que ela cumpre, sem mexer em nada do que já existia
+    $provaAntes = null;
+    [$stS, $jS] = pedir('POST', '/api/carreiras.php', ['acao' => 'semente'], $b['cookie']);
+    if ($stS === 200 && is_array($jS['semente'] ?? null)) {
+        $fila = array_values(array_filter(json_decode((string) file_get_contents(dirname($AMOSTRAS, 3) . '/scripts/gravar/filas/classico.json'), true),
+            static fn(array $f): bool => $f['nome'] === 'v-otima-01'))[0];
+        [$s0, $s1] = array_map('intval', $jS['semente']);
+        $idProva = 'career-' . base_convert((string) $s0, 10, 36) . base_convert((string) $s1, 10, 36);
+        $hP = amostra('v-intenso-01', $idProva);
+        $hP['replay'] = ['v' => 1, 'seed' => [$s0, $s1], 'identity' => $fila['identity'], 'pace' => $fila['pace'],
+            'picks' => array_map(static fn(array $p): array => ['id' => $p['id'], 'kind' => $p['kind'], 'idx' => $p['idx'], 'pen' => $p['pen'], 'n' => $p['n']], $fila['picks']),
+            'bonusOvr' => 0, 'dados' => 'lenda-dados-teste-atualizar'];
+        [$stP, $jP] = pedir('POST', '/api/carreiras.php', ['acao' => 'salvar', 'carreira' => $hP, 'como' => 'auto'], $b['cookie']);
+        $semEm = $pdo->query("SELECT semente_em IS NOT NULL FROM carreiras WHERE carreira_id = " . $pdo->quote($idProva))->fetchColumn();
+        checar('v3.3: a Antiga Dois salva uma carreira começada com a semente do servidor, com o replay (semente_em gravado)', $stP === 200 && ($jP['carreira']['temReplay'] ?? null) === true
+            && (string) $semEm === '1', "$stP " . substr(json_encode($jP), 0, 200));
+        $provaAntes = ['id' => $idProva, 'conquistas' => array_values(array_unique($hP['career']['achievements'] ?? []))];
+    }
     [$st, , , $ckPainel] = pedir('POST', '/api/painel.php', ['acao' => 'entrar', 'senha' => $SENHA]);
     checar('painel de antes: entrou com a senha (cookie da v3)', $st === 200 && str_contains($ckPainel, 'lenda_painel='), "$st");
     $foto = fotografia($pdo);
@@ -152,7 +172,8 @@ if ($fase === 'antes') {
         $esq = $pdo->query("SELECT valor FROM site_config WHERE chave = '_esquema'")->fetchColumn();
     } catch (PDOException) {
     }
-    file_put_contents($ESTADO, json_encode(['contas' => $contas, 'painel' => $ckPainel, 'pkA2' => $pkA2, 'foto' => $foto, 'esquema' => $esq === false || $esq === null ? null : (int) $esq],
+    file_put_contents($ESTADO, json_encode(['contas' => $contas, 'painel' => $ckPainel, 'pkA2' => $pkA2, 'foto' => $foto, 'esquema' => $esq === false || $esq === null ? null : (int) $esq,
+        'provaAntes' => $provaAntes],
         JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
     echo '· guardadas ' . array_sum(array_map(static fn($t) => count($t['linhas']), $foto)) . ' linhas de ' . count($foto) . " tabelas\n";
     exit($falhas ? 1 : 0);
@@ -276,6 +297,42 @@ if ($ESQ_NOVO >= 33 && $ESQ_ANTES < 33) {
     checar('v3.3: a conta de antes manda Fale conosco (201 com protocolo)', $st === 201 && is_string($j['protocolo'] ?? null), "$st " . json_encode($j));
     [$st, $j] = pedir('GET', '/api/perfil.php?c=' . (string) $pdo->query("SELECT codigo_convite FROM usuarios WHERE id = {$a['id']}")->fetchColumn());
     checar('v3.3: o perfil público da conta de antes abre', $st === 200 && ($j['apelido'] ?? '') === 'Antiga Um', "$st");
+}
+// v3.4: o recálculo das contas no instalar (CONTRATO-v34 §A.2): o que dá para provar fica provado, nada some
+if ($ESQ_NOVO >= 34 && $ESQ_ANTES < 34) {
+    $v34a = $r1['v34'] ?? null;
+    checar('v3.4: o instalar (1ª vez) semeou os 10 desafios de emblema e recalculou as contas (v34)', is_array($v34a) && (int) ($v34a['desafios'] ?? 0) === 10
+        && (int) ($v34a['contas'] ?? 0) >= ($E['provaAntes'] ? 1 : 0), json_encode($v34a));
+    checar('v3.4: o instalar (2ª vez) não refaz nada (v34 tudo 0)', is_array($r2['v34'] ?? null) && array_sum(array_map('intval', $r2['v34'])) === 0, json_encode($r2['v34'] ?? null));
+    $ds = $pdo->query("SELECT CONCAT(slug, ':', ativo, ':', modo) FROM desafios ORDER BY ordem, id")->fetchAll(PDO::FETCH_COLUMN);
+    checar('v3.4: os 3 de prêmio continuam desativados e os 10 de emblema entram ativos', count(array_filter($ds, static fn($x) => str_ends_with($x, ':0:primeiro'))) === 3
+        && count(array_filter($ds, static fn($x) => str_ends_with($x, ':1:emblema'))) === 10, json_encode($ds));
+    [$st, $j] = pedir('GET', '/api/desafios.php');
+    checar('v3.4: desafios.php (público) → os 10 de emblema', $st === 200 && count(array_filter($j['desafios'] ?? [], static fn($d) => ($d['modo'] ?? '') === 'emblema')) === 10, "$st");
+    $a = $E['contas']['Antiga Um'];
+    $orig = $pdo->query("SELECT CONCAT(conquista_id, ':', origem, ':', prova_pk IS NULL) FROM conquistas_usuario WHERE usuario_id = {$a['id']} ORDER BY conquista_id")->fetchAll(PDO::FETCH_COLUMN);
+    checar('v3.4: as conquistas que vieram do aparelho ficam como estavam, "não provadas" (origem aparelho)', $orig === ['first_goal:aparelho:1', 'golden_ball:aparelho:1'], json_encode($orig));
+    [$st, $j] = pedir('GET', '/api/conquistas.php', null, $a['cookie']);
+    // (first_goal e golden_ball não estão entre as 87 de hoje: as contagens só contam as 87, e as duas continuam na lista)
+    checar('v3.4: conquistas.php da sessão de antes: provada/verificada/carreira e as contagens', $st === 200 && ($j['provadas'] ?? -1) === 0 && ($j['verificadas'] ?? -1) === 0
+        && ($j['total'] ?? 0) === 87 && count($j['conquistas'] ?? []) === 2 && !array_filter($j['conquistas'], static fn($c) => ($c['provada'] ?? null) !== false || !array_key_exists('carreira', $c) || $c['carreira'] !== null),
+        "$st " . substr(json_encode($j), 0, 300));
+    if ($E['provaAntes']) {
+        $b = $E['contas']['Antiga Dois'];
+        $pk = (int) $pdo->query('SELECT id FROM carreiras WHERE carreira_id = ' . $pdo->quote($E['provaAntes']['id']))->fetchColumn();
+        $lista = json_decode((string) $pdo->query("SELECT conquistas FROM carreiras WHERE id = $pk")->fetchColumn(), true);
+        $ids87 = (array) $E['provaAntes']['conquistas'];
+        sort($ids87);
+        $l2 = is_array($lista) ? $lista : [];
+        sort($l2);
+        checar('v3.4: a carreira-prova de antes ganhou a lista de conquistas (a do HallEntry guardado)', $pk > 0 && $l2 === $ids87 && count($l2) > 10, count($l2) . ' de ' . count($ids87));
+        $prov = (int) $pdo->query("SELECT COUNT(*) FROM conquistas_usuario WHERE usuario_id = {$b['id']} AND prova_pk = $pk AND origem = 'carreira'")->fetchColumn();
+        checar('v3.4: as conquistas que ela prova entraram na conta como provadas (origem carreira)', $prov === count($ids87), "$prov de " . count($ids87));
+        $emb = $pdo->query("SELECT GROUP_CONCAT(d.slug ORDER BY d.slug) FROM emblemas_usuario e JOIN desafios d ON d.id = e.desafio_id WHERE e.usuario_id = {$b['id']} AND e.estado = 'ativo' AND e.carreira_pk = $pk")->fetchColumn();
+        checar('v3.4: o lote do instalar deu os emblemas que a carreira de antes cumpre (12 Bolas de Ouro e 4 Champions: Noite de gala e Era de ouro)', $emb === 'era-de-ouro,noite-de-gala', (string) $emb);
+        [$st, $j] = pedir('GET', '/api/desafios.php?eu=1', null, $b['cookie']);
+        checar('v3.4: desafios.php?eu=1 da sessão de antes: os emblemas no topo', $st === 200 && count($j['emblemas'] ?? []) === 2, "$st " . substr(json_encode($j['emblemas'] ?? null), 0, 200));
+    }
 }
 $log = is_file("$base/php-erros.log") ? trim((string) file_get_contents("$base/php-erros.log")) : '';
 checar('log de erros do PHP vazio (antes e depois)', $log === '', substr($log, 0, 600));

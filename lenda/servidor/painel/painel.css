@@ -1084,3 +1084,113 @@ dl { margin: 0; }
   .desafio-dados { grid-template-columns: minmax(0, 1fr); }
   .cartao-desafio { padding: 12px 14px; }
 }
+
+/* ═══ v3.4: emblemas dos desafios, desafios de emblema, conquistas provadas ═══════════════════════════════════════ */
+:root { --dif-facil: #d9a877; --dif-medio: #c8d0dc; --dif-dificil: #f2c75a; --dif-lendario: #c9b8ff; --prova: #52c48e; }
+html[data-tema="claro"] { --dif-facil: #8a5a2b; --dif-medio: #4f5a6b; --dif-dificil: #8a6200; --dif-lendario: #5b45b0; --prova: #1f7a4a; }
+html[data-tema="alto"] { --dif-facil: #ffc58f; --dif-medio: #ffffff; --dif-dificil: #ffd23f; --dif-lendario: #e2d6ff; --prova: #6dffa8; }
+/* a moeda do emblema (como o jogo: src/ui/shared/emblemas/emblema.css); a cor vem pelo CSSOM em --emb */
+.emblema {
+  --emb: #b98652; flex: none; display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 999px; vertical-align: middle; color: #16120a;
+  background: var(--emb);
+  background: radial-gradient(circle at 32% 28%, color-mix(in srgb, var(--emb) 30%, #fff) 0%, var(--emb) 55%, color-mix(in srgb, var(--emb) 55%, #000) 100%);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.38), 0 2px 6px -2px color-mix(in srgb, var(--emb) 60%, transparent);
+}
+.emblema .emblema-icone { width: 54%; height: 54%; display: block; }
+.emblema-p { width: 15px; height: 15px; }
+.emblema-p .emblema-icone { width: 66%; height: 66%; }
+.emblema-g { width: 34px; height: 34px; }
+.emblema-xg { width: 60px; height: 60px; box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.42), 0 6px 18px -6px color-mix(in srgb, var(--emb) 70%, transparent); }
+.emblema-apagado { filter: grayscale(1); opacity: 0.5; }
+.chip-dif { font-weight: 650; background: transparent; }
+.chip-dif-facil { color: var(--dif-facil); border-color: color-mix(in srgb, var(--dif-facil) 45%, transparent); }
+.chip-dif-medio { color: var(--dif-medio); border-color: color-mix(in srgb, var(--dif-medio) 45%, transparent); }
+.chip-dif-dificil { color: var(--dif-dificil); border-color: color-mix(in srgb, var(--dif-dificil) 45%, transparent); }
+.chip-dif-lendario { color: var(--dif-lendario); border-color: color-mix(in srgb, var(--dif-lendario) 50%, transparent); }
+
+/* ── lista de desafios: os dois grupos ── */
+.grupo-desafios { display: grid; gap: 10px; margin-top: 18px; }
+.grupo-desafios:first-of-type { margin-top: 4px; }
+.grupo-cabeca { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
+.grupo-cabeca h2 { margin: 0; font-size: 16px; }
+.cartao-emblema .desafio-titulo { gap: 10px; }
+.cartao-emblema > .chips { gap: 6px; }
+.ficha-emblema .desafio-titulo { gap: 14px; }
+.ficha-emblema .desafio-titulo h2 { font-size: 20px; }
+.cartao-ganharam .lista tbody tr.emblema-retirado td { color: var(--texto-3); }
+.cartao-ganharam .celula-dupla .chip { justify-self: start; }
+
+/* ── editor: o seletor do emblema e o critério com os números novos ── */
+.cartao-editor-emblema { display: grid; gap: 10px; }
+.seletor-emblema { display: grid; gap: 8px; }
+.seletor-emblema > .rotulo { margin: 4px 0 0; }
+.emblema-previa { display: flex; align-items: center; gap: 14px; padding: 10px 12px; border: 1px dashed var(--borda-2); border-radius: 12px; background: var(--fundo-2); min-width: 0; }
+.emblema-previa-txt { display: grid; gap: 3px; min-width: 0; }
+.emblema-previa-txt > * { overflow-wrap: anywhere; }
+.emblema-previa-tamanhos { display: inline-flex; align-items: center; gap: 8px; margin-top: 2px; }
+.emblema-icones { display: grid; grid-template-columns: repeat(auto-fill, minmax(38px, 1fr)); gap: 6px; }
+.emblema-opcao { display: grid; place-items: center; height: 38px; border: 1px solid var(--borda); border-radius: 10px; background: var(--cartao-2); color: var(--texto-2); padding: 0; cursor: pointer; }
+.emblema-opcao .emblema-icone { width: 19px; height: 19px; }
+.emblema-opcao:hover:not(:disabled) { color: var(--texto-1); border-color: var(--texto-3); }
+.emblema-opcao[aria-pressed="true"] { background: var(--ouro-escuro); border-color: var(--ouro); color: var(--ouro-texto); }
+.emblema-cores { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.emblema-cor { --emb: #b98652; width: 30px; height: 30px; border-radius: 999px; border: 2px solid var(--borda-2); background: var(--emb); padding: 0; cursor: pointer; }
+.emblema-cor[aria-pressed="true"] { border-color: var(--texto-1); box-shadow: 0 0 0 2px var(--ouro); }
+.emblema-livre { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--texto-2); }
+.emblema-livre input[type="color"] { width: 34px; height: 30px; padding: 0 2px; min-height: 0; border-radius: 8px; cursor: pointer; }
+.emblema-hex { margin-left: 2px; }
+.grade-criterio { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 168px), 1fr)); gap: 10px 14px; margin-top: 10px; align-items: start; }
+.grade-criterio > .campo { margin-top: 0; }
+.grade-criterio .ajuda { font-size: 12px; }
+.campo-selecao { margin-top: 12px; }
+.campo-selecao .campo-linha { align-items: center; flex-wrap: wrap; }
+.campo-selecao select { flex: 1 1 220px; width: auto; min-width: 0; }
+.campo-selecao input[type="text"] { flex: 0 1 90px; width: 90px; text-transform: uppercase; }
+.selecoes-escolhidas { margin-top: 6px; }
+.chip-selecao { gap: 4px; padding-right: 3px; }
+.chip-x { border: 0; background: transparent; color: var(--texto-3); font-size: 15px; line-height: 1; width: 22px; height: 22px; border-radius: 999px; cursor: pointer; padding: 0; }
+.chip-x:hover { color: var(--perigo); background: var(--perigo-fundo); }
+
+/* ── ficha da conta: emblemas e conquistas provadas ── */
+.lista-emblemas-conta .celula-emblema { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.resumo-provas { display: grid; gap: 8px; }
+.barra-provas { display: flex; height: 10px; border-radius: 999px; overflow: hidden; background: var(--cartao-3); border: 1px solid var(--borda); }
+.barra-provas i { display: block; height: 100%; }
+.barra-provas .bp-verif { background: var(--prova); }
+.barra-provas .bp-prov { background: color-mix(in srgb, var(--prova) 45%, transparent); }
+.barra-provas .bp-nao { background: repeating-linear-gradient(135deg, var(--borda-2) 0 4px, transparent 4px 8px); }
+.legenda-provas { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 13px; color: var(--texto-2); }
+.legenda-provas b { color: var(--texto-1); font-variant-numeric: tabular-nums; }
+.legenda-provas .lp-marca { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
+.lp-marca.bp-verif { background: var(--prova); }
+.lp-marca.bp-prov { background: color-mix(in srgb, var(--prova) 45%, transparent); }
+.lp-marca.bp-nao { border: 1px dashed var(--texto-3); }
+.grupo-conquistas h3 { margin: 10px 0 6px; font-size: 13.5px; color: var(--texto-2); font-weight: 650; }
+.lista-conquistas .chip-provada { color: var(--prova); border-color: color-mix(in srgb, var(--prova) 45%, transparent); }
+.lista-conquistas .chip-provada-v { color: var(--prova); border-color: var(--prova); background: color-mix(in srgb, var(--prova) 10%, transparent); }
+.lista-conquistas .chip-aparelho { border-style: dashed; color: var(--texto-3); background: transparent; }
+.provas-carreiras .lista td.quebra { max-width: 320px; }
+.provas-acoes { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.cartao-prova-carreira .perfil-dados { margin-top: 6px; }
+@media (max-width: 760px) {
+  .emblema-icones { grid-template-columns: repeat(auto-fill, minmax(42px, 1fr)); }
+  .emblema-opcao { height: 42px; }
+  .emblema-cor { width: 36px; height: 36px; }
+  .emblema-previa { align-items: flex-start; }
+  .chip-x { width: 30px; height: 30px; }
+}
+.chip-link { text-decoration: none; border-radius: 999px; }
+.chip-link:hover .chip { border-color: var(--texto-3); color: var(--texto-1); }
+.lista tbody tr.linha-apagada td { color: var(--texto-3); }
+.detalhes-conquistas > summary, .detalhes-provas > summary { cursor: pointer; font-weight: 650; padding: 6px 0; min-height: 32px; }
+.detalhes-provas { border-top: 1px solid var(--borda); padding-top: 4px; }
+.celula-dupla > .chip { justify-self: start; }
+.cartao-prova-carreira { display: grid; gap: 10px; }
+.cartao-prova-carreira > * { margin: 0; }
+.cartao-prova-carreira > .cartao-cabeca { margin-bottom: 0; }
+.cartao-prova-carreira > details { border: 1px solid var(--borda); border-radius: 10px; padding: 6px 10px; background: var(--cartao-2); }
+.cartao-prova-carreira > details > summary { cursor: pointer; font-weight: 650; min-height: 30px; display: flex; align-items: center; }
+.cartao-prova-carreira > details .lista-conquistas { margin: 6px 0 4px; }
+/* o tipo do desafio (rótulos longos): quebra a linha dentro do botão em vez de alargar a tela */
+.editor-desafio .segmentos { max-width: 100%; }
+.editor-desafio .segmentos button { white-space: normal; text-align: left; overflow-wrap: anywhere; }

@@ -6,7 +6,7 @@
  * abertura já rolada até "Convide amigos" (o atalho do menu, X3).
  */
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { Copy, Crown, ExternalLink, FolderHeart, LogOut, MailWarning, MessageSquareText, Save, ShieldAlert, Trash } from 'lucide-react'
+import { Copy, Crown, ExternalLink, FolderHeart, LogOut, MailWarning, MessageSquareText, Save, ShieldAlert, Swords, Trash } from 'lucide-react'
 import { buildHash, navigate } from '@/store/app'
 import { Button, Modal, formatInt, toast } from '@/ui/primitives'
 import { mensagemDeErro } from './api'
@@ -18,7 +18,11 @@ import { linkPerfil } from './indicacao'
 import { FormVerificar } from './VerificarEmail'
 import { ContatoDireto } from './FaleConosco'
 import { lazySite } from '@/ui/shell/lazySite'
+import { useDesafios } from './desafios'
+import { useEmblemas } from './emblemas'
+import { Emblema } from '@/ui/shared/emblemas/Emblema'
 import './site.css'
+import './v34.css'
 
 /** O cartão de convites vem num pedaço à parte (sem rede, some sem derrubar a conta). */
 const ConvideAmigos = lazySite('ConvideAmigos', () => import('./ConvideAmigos'))
@@ -183,6 +187,8 @@ function Corpo({ u, aviso, excluirAberto, irPara }: { u: Usuario; aviso: AvisoCo
         <BotaoSair />
       </div>
 
+      <MeusEmblemas />
+
       <h3 id="sc-convite-h" className="sc-sec sc-sec--alvo" tabIndex={-1}>
         Indicações e bônus de OVR
       </h3>
@@ -204,6 +210,48 @@ function Corpo({ u, aviso, excluirAberto, irPara }: { u: Usuario; aviso: AvisoCo
 
       <h3 className="sc-sec">Zona de perigo</h3>
       <Excluir aberto={excluirAberto} />
+    </>
+  )
+}
+
+/**
+ * v3.4: os emblemas dos desafios que a conta ganhou (do desafios.php?eu=1, pedido ao abrir a Minha conta se ainda não veio).
+ * Servidor sem emblemas (antes da v3.4): a seção não aparece.
+ */
+function MeusEmblemas() {
+  const meus = useEmblemas((s) => s.meus)
+  useEffect(() => {
+    if (useEmblemas.getState().meus === null) void useDesafios.getState().carregarMeu()
+  }, [])
+  if (meus === null) return null
+  return (
+    <>
+      <h3 className="sc-sec">Seus emblemas</h3>
+      {meus.length ? (
+        <ul className="s4-meus" aria-label="Emblemas dos desafios">
+          {meus.map((e) => (
+            <li key={e.slug} title={e.em ? `Desde ${dataBr(e.em)}${e.jogador ? ` · com ${e.jogador}` : ''}` : undefined}>
+              <Emblema e={e} size={22} rotulo={null} />
+              <span>{e.titulo || 'Desafio'}</span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="sc-hint">Nenhum emblema ainda. Cumpra um desafio numa carreira do Modo Clássico começada com a conta e ele aparece aqui, no seu perfil e no Hall.</p>
+      )}
+      <div className="sc-btns" style={{ margin: '8px 0 6px' }}>
+        <Button
+          variant="ghost"
+          size="sm"
+          icon={Swords}
+          onClick={() => {
+            useSiteUi.getState().fechar()
+            navigate('/desafios')
+          }}
+        >
+          Ver os desafios
+        </Button>
+      </div>
     </>
   )
 }

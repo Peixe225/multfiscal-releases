@@ -92,6 +92,8 @@ const PODERES_ACAO = [
     'suporte_status' => 'usuarios', 'suporte_responder' => 'usuarios', 'suporte_lote' => 'usuarios', 'reenviar_verificacao' => 'usuarios',
     'candidato_verificar' => 'moderar', 'candidato_recusar' => 'moderar',
     'desafio_salvar' => 'config', 'desafio_ativar' => 'config', 'desafio_declarar_vencedor' => 'config', 'desafio_reabrir' => 'config',
+    // v3.4 (CONTRATO-v34 §A): conferir as carreiras-prova e tirar/devolver um emblema = moderar
+    'prova_verificar' => 'moderar', 'emblema_retirar' => 'moderar', 'emblema_devolver' => 'moderar',
 ];
 
 /** Ações do registro que são de acesso ao painel (bloco Segurança). */

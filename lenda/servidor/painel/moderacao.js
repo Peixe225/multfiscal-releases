@@ -1,6 +1,8 @@
 /* LENDA · painel — moderação: Hall público (no Hall, em revisão, suspeitas, denunciadas, ocultas, destaques, todas,
  * lixeira), com sinais, ações em lote e a fila ao vivo; a ficha da carreira no painel lateral (admin.php?r=carreira,
- * mesmo oculta/suspeita; carreira=<pk> no hash); e a fila de Denúncias agrupada por carreira. */
+ * mesmo oculta/suspeita; carreira=<pk> no hash); e a fila de Denúncias agrupada por carreira. v3.4: a ficha da carreira
+ * mostra a prova das conquistas (a lista guardada, se prova, a verificação por replay), os números dos critérios novos,
+ * os emblemas que ela deu e as candidaturas aos desafios. */
 'use strict';
 
 (function () {
@@ -236,12 +238,64 @@
         h('span', { class: 'texto-3' }, 'por ', LP.linkUsuario(x.denunciante), ' · ', LP.relativo(x.criadaEm))),
       x.texto ? h('p', { class: 'denuncia-texto' }, x.texto) : null))) : h('p', { class: 'texto-3' }, 'Nenhuma denúncia.');
 
-    return [topo, cSinais, acoes, h('section', { class: 'cartao' }, dados), numeros,
+    return [topo, cSinais, acoes, h('section', { class: 'cartao' }, dados), numeros, cartaoProvaDesafios(d, m, nomes),
       h('details', { class: 'cartao cartao-secundario', open: den.some((x) => x.status === 'aberta') }, h('summary', null, 'Denúncias · ' + den.length), listaDen),
       h('details', { class: 'cartao cartao-secundario' }, h('summary', null, 'Clubes · ' + clubes.length), tabClubes),
       h('details', { class: 'cartao cartao-secundario' }, h('summary', null, 'Troféus e prêmios'),
         trofeus.length ? h('div', { class: 'lista-conquistas' }, trofeus) : h('p', { class: 'texto-3' }, 'Nenhum troféu.'),
         h('h3', null, 'Prêmios individuais'), premios.length ? h('div', { class: 'lista-conquistas' }, premios) : h('p', { class: 'texto-3' }, 'Nenhum.'))];
+  }
+
+  /**
+   * v3.4: a carreira como prova das conquistas (meta.conquistas, prova, provaOk, provaVerificacao, conquistasV), os números
+   * que o servidor tirou dela para os desafios (Champions, clubes, temporadas no mesmo clube, Copas pela seleção, seleção
+   * da criação), os emblemas que ela deu e as candidaturas. Servidor de antes (sem meta.conquistas): só as candidaturas.
+   */
+  function cartaoProvaDesafios(d, m, nomes) {
+    const v34 = m.conquistas !== undefined;
+    const cands = Array.isArray(d.candidatos) ? d.candidatos : [];
+    const embs = Array.isArray(m.emblemas) ? m.emblemas : [];
+    if (!v34 && !cands.length) return null;
+    const pk = m.id || fc.pk;
+    const linhas = [];
+    if (v34) {
+      const lista = Array.isArray(m.conquistas) ? m.conquistas : null;
+      const pv = m.provaVerificacao && typeof m.provaVerificacao === 'object' ? m.provaVerificacao : null;
+      const quem = pv && pv.quem ? (pv.quem === 'sistema' ? 'sistema' : '') : '';
+      const chipProva = m.prova ? LP.chip('Prova das conquistas', 'ok', { title: 'Clássico, com replay e começada com a semente que o servidor sorteou para a conta' })
+        : lista ? LP.chip('Lista guardada, mas não prova', 'tracejado', { semPonto: true, title: m.provaOk === false ? 'Não bateu na verificação por replay' : 'Fora de desafio, suspeita ou outro motivo (veja a ficha da conta → Carreiras-prova)' })
+          : LP.chip('Não é carreira-prova', '', { semPonto: true, title: 'Sem replay ou sem a semente do servidor (ou é do Imersivo): a lista de conquistas não fica guardada' });
+      const chipVerif = m.provaOk === true ? LP.chip('Bateu no replay', 'ok', { title: pv && pv.em ? LP.dataHoraAno(pv.em) : '' })
+        : m.provaOk === false ? LP.chip('Não bateu no replay', 'perigo', { title: (pv && pv.motivo) || '' }) : lista ? LP.chip('Não verificada', 'tracejado', { semPonto: true }) : null;
+      linhas.push(h('div', { class: 'chips' }, chipProva, chipVerif, m.conquistasV === 1 ? LP.chip('Regras de antes da v3.4', '', { semPonto: true, title: 'Jogada antes das regras novas das 7 conquistas: a verificação aceita a regra de antes' }) : null));
+      if (m.provaOk === false && pv && pv.motivo) linhas.push(h('p', { class: 'moderacao-nota' }, h('b', null, 'Não bateu: '), String(pv.motivo) + (pv.em ? ' · ' + LP.dataHoraAno(pv.em) : '') + (quem ? ' · ' + quem : '')));
+      const pais = m.paisInicio ? (nomes.paises[m.paisInicio] || m.paisInicio) : null;
+      const num = (x) => (x === null || x === undefined ? '—' : LP.inteiro(x));
+      linhas.push(h('dl', { class: 'perfil-dados' },
+        LP.dado('Champions League', num(m.champions)),
+        LP.dado('Clubes diferentes', num(m.nClubes)),
+        LP.dado('Temporadas no mesmo clube', num(m.mesmoClube)),
+        LP.dado('Copas pela própria seleção', num(m.copasSelecao)),
+        LP.dado('Seleção da criação', pais ? pais + (m.paisInicio !== m.pais ? ' (terminou por ' + (nomes.paises[m.pais] || m.pais || '—') + ')' : '') : 'sem replay')));
+      if (lista) {
+        linhas.push(h('details', { class: 'cartao-secundario' }, h('summary', null, 'Conquistas guardadas desta carreira · ' + lista.length),
+          lista.length ? h('div', { class: 'lista-conquistas' }, lista.map((id) => { const n = nomes.conquistas[id]; return LP.chip(n ? n.t : id, m.prova ? 'ok' : '', { semPonto: true, title: (n ? n.d + ' · ' : '') + id }); }))
+            : h('p', { class: 'texto-3' }, 'Nenhuma.')));
+      }
+      if (embs.length) {
+        linhas.push(h('p', { class: 'chips' }, h('span', { class: 'texto-3' }, 'Emblemas que ela deu: '),
+          embs.map((e) => h('a', { href: '#/desafios?id=' + e.desafio.id + (e.estado === 'retirado' ? '&estado=retirado' : ''), class: 'link-discreto chip-link' },
+            LP.chip(e.desafio.titulo + (e.estado === 'retirado' ? ' (retirado)' : ''), e.estado === 'retirado' ? 'tracejado' : 'ok', { semPonto: e.estado === 'retirado' })))));
+      }
+    }
+    if (cands.length) {
+      linhas.push(h('p', { class: 'chips' }, h('span', { class: 'texto-3' }, 'Candidata a: '),
+        cands.map((k) => h('a', { href: '#/desafios?id=' + k.desafio.id, class: 'link-discreto chip-link' }, LP.chipCandidato ? h('span', { class: 'chips' }, k.desafio.titulo, LP.chipCandidato(k.estado)) : k.desafio.titulo))));
+    }
+    const botoes = [];
+    if (v34 && m.temReplay && LP.pode('moderar')) botoes.push(LP.linkJogo('Verificar no jogo', '#/verificar?id=' + encodeURIComponent(pk) + (m.conquistas ? '&prova=1' : ''), { tipo: 'fantasma', pequeno: true, icone: 'jogar', title: 'Abre o jogo (outra aba): refaz a carreira com as mesmas escolhas e registra se bateu' }));
+    if (m.usuario && m.usuario.id && LP.pode('moderar') && v34) botoes.push(LP.linkJogo('Verificar as provas da conta', '#/verificar?conta=' + encodeURIComponent(m.usuario.id), { tipo: 'fantasma', pequeno: true, icone: 'jogar', title: 'O lote do jogo: as carreiras-prova da conta, uma a uma' }));
+    return h('section', { class: 'cartao cartao-prova-carreira' }, h('div', { class: 'cartao-cabeca' }, h('h2', null, v34 ? 'Conquistas e desafios' : 'Desafios'), botoes.length ? h('div', { class: 'botoes' }, botoes) : null), linhas);
   }
 
   function estadoDenuncia(st) {

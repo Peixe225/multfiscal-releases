@@ -5,12 +5,14 @@
 # Monta um public_html de mentira (lenda/api, lenda/painel), um banco próprio, a config com segredos aleatórios
 # (só na pasta de trabalho), roda o instalar.php, planta dados de mentira (semente.mjs: contas, carreiras, denúncias,
 # indicações, mesmo aparelho, lixeira, bônus, e-mails, equipe, recados) e roda painel.mjs (o painel pelo navegador) e,
-# na mesma pilha, correcoes.mjs (as correções da revisão 3) e v33.mjs (v3.3: Mensagens, Desafios, e-mail confirmado e
-# partidas por dia; planta o que precisa com o semente-v33.mjs).
+# na mesma pilha, correcoes.mjs (as correções da revisão 3), v33.mjs (v3.3: Mensagens, Desafios, e-mail confirmado e
+# partidas por dia; planta o que precisa com o semente-v33.mjs), mock-v34.mjs e v34.mjs (v3.4: desafios de emblema e
+# conquistas provadas; o mock primeiro, depois a pilha real com o semente-v34.mjs).
 # Termina com PASSOU/FALHOU; código 0 só se tudo passou. Mata pelo PID só o que subiu; apaga o banco no fim.
 # Variáveis: LENDA_TESTE_PAINEL_PORTA (8717), LENDA_TESTE_PAINEL_BANCO (lenda_teste_painel),
 #   LENDA_TESTE_PAINEL_BASE (${LENDA_TESTE_BASE:-/tmp/lenda-teste}/painel), LENDA_TESTE_SOCK (/run/mysqld/mysqld.sock),
-#   LENDA_CHROMIUM, LENDA_PLAYWRIGHT, LENDA_PRINTS (pasta: tira os prints de cada aba em 1440 e 390),
+#   LENDA_CHROMIUM, LENDA_PLAYWRIGHT, LENDA_PRINTS (pasta: tira os prints de cada aba em 1440 e 390; os da v3.4 vão em
+#   <pasta>/v34 ou em LENDA_PRINTS_V34),
 #   LENDA_TESTE_PAINEL_MANTER=1 (não roda o teste do navegador: deixa a pilha de pé, para olhar à mão).
 # ─────────────────────────────────────────────────────────────────────────────────────────────
 set -u
@@ -119,6 +121,10 @@ CODIGO=$?
 node "$AQUI/correcoes.mjs" || CODIGO=1
 # v3.3: as abas Mensagens e Desafios, o e-mail confirmado e o limite de partidas por dia (com a semente própria)
 node "$AQUI/v33.mjs" || CODIGO=1
+# v3.4: contra mock (o servidor de antes e os casos de borda, sem mexer no banco) e depois contra a pilha real (desafios de
+# emblema, quem ganhou, tirar/devolver, conquistas provadas na ficha, carreiras-prova; com a semente-v34.mjs)
+node "$AQUI/mock-v34.mjs" || CODIGO=1
+node "$AQUI/v34.mjs" || CODIGO=1
 if grep -q "PHP \(Fatal\|Parse\)" "$BASE/php-erros.log" 2>/dev/null; then
   echo "  XX  erro fatal no PHP durante o teste do painel:"; grep "PHP \(Fatal\|Parse\)" "$BASE/php-erros.log" | head -5
   CODIGO=1

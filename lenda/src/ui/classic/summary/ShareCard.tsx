@@ -249,6 +249,7 @@ export function ShareActions({
   layout = 'row',
   viewRef,
   careerId,
+  previaId,
 }: {
   m: ShareModel
   get: () => Promise<Blob>
@@ -259,13 +260,18 @@ export function ShareActions({
   viewRef?: { current: (() => void) | null }
   /** Site: a carreira do próprio jogador (o compartilhamento do card final dá bônus de OVR). */
   careerId?: string
+  /** Site (v3.4): a carreira do card, para o link da prévia (também a de outro jogador, do Hall da comunidade). */
+  previaId?: string
 }) {
   const [busy, setBusy] = useState<Busy | 'link'>(null)
   // site: o link do jogo (com o código de convite) vai junto, e compartilhar o card final avisa o site
   const ponte = pontes.compartilhar
+  const idDoLink = previaId ?? careerId
+  // a carreira do próprio jogador vem com careerId; a da comunidade (de outro jogador, aberta pelo Hall público), só com previaId
+  const propria = careerId != null
   useEffect(() => {
-    ponte?.preparar()
-  }, [ponte])
+    ponte?.preparar(idDoLink, propria)
+  }, [ponte, idDoLink, propria])
   const avisar = (como: 'share' | 'link') => {
     if (careerId && m.retired) ponte?.compartilhou(careerId, como)
   }
@@ -317,7 +323,7 @@ export function ShareActions({
       const blob = await get()
       const f = new File([blob], file, { type: 'image/png' })
       // o link vai no texto: com arquivo junto, vários apps ignoram o campo `url`
-      const link = ponte?.link()
+      const link = ponte?.link(previaId ?? careerId)
       const data: ShareData = { files: [f], title: 'Minha carreira no LENDA', text: link ? `${texto} ${link}` : texto }
       if (!navigator.share || !navigator.canShare?.(data)) return openView('Este navegador não compartilha imagens como arquivo.')
       await navigator.share(data)
@@ -325,7 +331,7 @@ export function ShareActions({
     })
   const copyLink = () =>
     run('link', async () => {
-      const link = ponte?.link()
+      const link = ponte?.link(previaId ?? careerId)
       if (!link) return
       try {
         await navigator.clipboard.writeText(`${texto} ${link}`)
@@ -372,7 +378,7 @@ export function ShareActions({
 }
 
 /** Preview (scaled) + hidden export copy + name switch + actions. */
-export function SharePanel({ m, compact, careerId }: { m: ShareModel; compact?: boolean; careerId?: string }) {
+export function SharePanel({ m, compact, careerId, previaId }: { m: ShareModel; compact?: boolean; careerId?: string; previaId?: string }) {
   const [showName, setShowName] = useState(true)
   const key = `${m.surname}:${m.peakOvr}:${m.seasons}:${m.titles}:${m.goals}:${m.bonusOvr ?? 0}:${showName}`
   const { node, get } = useShareImage(key)
@@ -408,7 +414,7 @@ export function SharePanel({ m, compact, careerId }: { m: ShareModel; compact?: 
           <p className="sm-share__d">Um card no formato do feed com seu pico de OVR, números, clubes e taças. Mande no grupo e desafie os amigos a fazer melhor.</p>
         </div>
         <Switch checked={showName} onChange={setShowName} label="Mostrar sobrenome" description={showName ? `Aparece “${m.surname}” no card` : 'O card mostra “JOGADOR”'} />
-        <ShareActions m={m} get={get} fileBase={showName ? m.surname : 'jogador'} layout={compact ? 'stack' : 'row'} viewRef={view} careerId={careerId} />
+        <ShareActions m={m} get={get} fileBase={showName ? m.surname : 'jogador'} layout={compact ? 'stack' : 'row'} viewRef={view} careerId={careerId} previaId={previaId} />
       </div>
       <div className="sm-share__offscreen" aria-hidden="true">
         <ShareCardView ref={node} m={m} showName={showName} />

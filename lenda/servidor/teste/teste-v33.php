@@ -207,7 +207,7 @@ checar('usuarios.email_verificado_em; carreiras.tem_replay, libertadores, primei
     && !array_diff(['tem_replay', 'libertadores', 'primeira_em', 'fora_desafio'], $colunas('carreiras')));
 checar('tabelas verificacoes_email, partidas_dia, mensagens_suporte, desafios e desafio_candidatos', count(array_filter(['verificacoes_email', 'partidas_dia',
     'mensagens_suporte', 'desafios', 'desafio_candidatos'], static fn(string $t): bool => count(q("SHOW TABLES LIKE '$t'")) === 1)) === 5);
-checar('site_config._esquema = 33', (int) v("SELECT valor FROM site_config WHERE chave = '_esquema'") === 33);
+checar('site_config._esquema = 34 (v3.4)', (int) v("SELECT valor FROM site_config WHERE chave = '_esquema'") === 34);
 $fab = q("SELECT slug, ativo, premio, criterio, requisitos, inicio, vencido_em, regulamento FROM desafios ORDER BY ordem");
 checar('os 3 de fábrica: tacas-do-rei (3 Copas + 2 Libertadores), tacas-do-rei-copas (3 Copas), todas-as-conquistas; desativados, prêmio vazio, sem início',
     array_column($fab, 'slug') === ['tacas-do-rei', 'tacas-do-rei-copas', 'todas-as-conquistas']
@@ -642,7 +642,7 @@ foreach ([
     [['slug' => 'novo-desafio', 'criterio' => ['copas' => 1]], 'titulo'], [['slug' => 'novo-desafio', 'titulo' => 'No', 'criterio' => ['copas' => 1]], 'titulo'],
     [['slug' => 'novo-desafio', 'titulo' => 'Novo'], 'criterio'], [['slug' => 'novo-desafio', 'titulo' => 'Novo', 'criterio' => []], 'criterio'],
     [['slug' => 'novo-desafio', 'titulo' => 'Novo', 'criterio' => ['copas' => 0]], 'criterio'], [['slug' => 'novo-desafio', 'titulo' => 'Novo', 'criterio' => ['copas' => 'x']], 'criterio'],
-    [['slug' => 'novo-desafio', 'titulo' => 'Novo', 'criterio' => ['copas' => 31]], 'criterio'], [['slug' => 'novo-desafio', 'titulo' => 'Novo', 'criterio' => ['gols' => 3]], 'criterio'],
+    [['slug' => 'novo-desafio', 'titulo' => 'Novo', 'criterio' => ['copas' => 31]], 'criterio'], [['slug' => 'novo-desafio', 'titulo' => 'Novo', 'criterio' => ['assistencias' => 3]], 'criterio'], // v3.4: gols virou critério; chave desconhecida
     [['slug' => 'novo-desafio', 'titulo' => 'Novo', 'criterio' => ['copas' => 1, 'todasConquistas' => true]], 'criterio'],
     [['slug' => 'novo-desafio', 'titulo' => 'Novo', 'criterio' => [1, 2]], 'criterio'],
     [['slug' => 'novo-desafio', 'titulo' => 'Novo', 'criterio' => ['copas' => 1], 'requisitos' => ['partidasMin' => -1]], 'requisitos'],
@@ -847,11 +847,12 @@ $pubFim = v33Publico('tacas-do-rei');
 checar('depois do fim: ninguém mais vira candidato; o público mostra encerrado', count(array_filter(v33Cands('tacas-do-rei'), static fn($c) => (int) $c['usuario_id'] === $uidFim)) === 0
     && ($pubFim['encerrado'] ?? null) === true, json_encode($pubFim));
 q("UPDATE desafios SET fim = NULL WHERE slug = 'tacas-do-rei'");
-// todas as conquistas. §E: não tem prova (as conquistas vêm do aparelho) e não pode ser ativado pelo admin (409 sem_prova); a
-// contagem é conferida aqui com ele ligado direto no banco (como um desafio ativado antes destas correções)
+// todas as conquistas. v3.4 (CONTRATO-v34 §A): o §E da v3.3 (409 sem_prova ao ativar) foi trocado pela prova: o desafio
+// ativa, e só contam as conquistas PROVADAS por carreiras (as do aparelho não fazem candidato). O caminho com prova está no
+// teste-v34.php; aqui, que as do aparelho não bastam
 $r = v33Ativar('todas-as-conquistas');
-checar('§E: desafio_ativar do de todas as conquistas → 409 sem_prova (continua desativado)', $r->status === 409 && $r->erro() === 'sem_prova'
-    && (int) v("SELECT ativo FROM desafios WHERE slug = 'todas-as-conquistas'") === 0, $r->resumo());
+checar('v3.4: desafio_ativar do de todas as conquistas → 200 (antes, §E da v3.3: 409 sem_prova)', $r->status === 200
+    && (int) v("SELECT ativo FROM desafios WHERE slug = 'todas-as-conquistas'") === 1, $r->resumo());
 q("UPDATE desafios SET ativo = 1, inicio = UTC_TIMESTAMP() - INTERVAL 1 MINUTE WHERE slug = 'todas-as-conquistas'");
 [$navT, $uidT] = v33Conta('Todas Conquistas');
 $idsT = $idsPhp['ids'];
@@ -865,9 +866,9 @@ $navT2->pedir('POST', '/api/conquistas.php', ['acao' => 'sincronizar', 'conquist
 $semT2 = count(v33Cands('todas-as-conquistas')) === 0;
 $navT->pedir('POST', '/api/conquistas.php', ['acao' => 'sincronizar', 'conquistas' => [['id' => $idsT[86]]]]);
 $cT = v33Cands('todas-as-conquistas');
-checar('todas as conquistas: 86 não bastam (eu: conquistas 86 de 87); 86 de verdade + 50 inventadas também não; a 87ª sincronizada → candidato da conta (sem carreira)',
-    $r->status === 200 && $semT && $semT2 && ($euT['conquistas'] ?? 0) === 86 && ($euT['conquistasTotal'] ?? 0) === 87 && count($cT) === 1
-    && (int) $cT[0]['usuario_id'] === $uidT && $cT[0]['carreira_pk'] === null && $cT[0]['chave'] === 'u' . $uidT, json_encode($cT));
+checar('todas as conquistas (v3.4): as do aparelho não contam — 86, 86 + 50 inventadas e as 87 sincronizadas não fazem candidato (eu: conquistas provadas 0, conquistasTodas 86 de 87)',
+    $r->status === 200 && $semT && $semT2 && ($euT['conquistas'] ?? -1) === 0 && ($euT['conquistasTodas'] ?? 0) === 86 && ($euT['conquistasTotal'] ?? 0) === 87
+    && count($cT) === 0, json_encode($cT) . ' ' . json_encode($euT));
 v33Ativar('todas-as-conquistas', false);
 q("UPDATE desafios SET inicio = NULL WHERE slug = 'todas-as-conquistas'");
 q("DELETE FROM desafio_candidatos WHERE desafio_id = ?", [v33IdDesafio('todas-as-conquistas')]);
@@ -1040,9 +1041,11 @@ $codPf = (string) v('SELECT codigo_convite FROM usuarios WHERE id = ?', [$uidPf]
 $r = $anon->pedir('GET', '/api/perfil.php?c=' . strtolower($codPf));
 $chavesPf = array_keys($r->json['carreiras'][0] ?? []);
 sort($chavesPf);
-checar('perfil.php?c= (código em minúsculas também) → apelido, desde, conquistas 3, as 3 carreiras do Hall (formato do hall.php, com perfil), link',
+// v3.4: as carreiras-prova (semente do servidor + replay) também põem na conta as conquistas da lista delas (origem carreira)
+$nConqPf = (int) v('SELECT COUNT(*) FROM conquistas_usuario WHERE usuario_id = ?', [$uidPf]);
+checar('perfil.php?c= (código em minúsculas também) → apelido, desde, conquistas (as 3 do aparelho + as das carreiras-prova), as 3 carreiras do Hall (formato do hall.php, com perfil), link',
     $r->status === 200 && ($r->json['apelido'] ?? '') === 'Perfil Publico' && preg_match($RE_ISO, (string) ($r->json['desde'] ?? '')) === 1
-    && ($r->json['conquistas'] ?? 0) === 3 && array_column($r->json['carreiras'] ?? [], 'id') === ['v33-pf1', 'v33-pf2', 'v33-pf3'] && $chavesPf === CAMPOS_ITEM_HALL
+    && $nConqPf >= 3 && ($r->json['conquistas'] ?? 0) === $nConqPf && array_column($r->json['carreiras'] ?? [], 'id') === ['v33-pf1', 'v33-pf2', 'v33-pf3'] && $chavesPf === CAMPOS_ITEM_HALL
     && ($r->json['carreiras'][0]['perfil'] ?? '') === $codPf && ($r->json['desafiosVencidos'] ?? null) === [] && ($r->json['codigo'] ?? '') === $codPf
     && ($r->json['link'] ?? '') === $ORIGEM . "/lenda/?c=$codPf#/jogador/$codPf", $r->resumo());
 checar('…Cache-Control: public, max-age=120', $r->cab1('cache-control') === 'public, max-age=120', $r->cab1('cache-control'));
@@ -1170,7 +1173,7 @@ checar('salvar (C sem temReplay de verdade), listar, conta e a partida contada f
     && (int) v('SELECT COUNT(*) FROM partidas_dia WHERE usuario_id = ?', [$uidS]) === 0 && $r7->status === 503 && $r7->erro() === 'instalar',
     $r1->resumo() . ' | ' . $r3->resumo() . ' | ' . $r7->resumo());
 $r = $anon->pedir('POST', '/api/instalar.php', null, ['auth' => 'Bearer ' . $PAINEL_TOKEN]);
-checar('instalar → _esquema 33 de novo', $r->status === 200 && (int) v("SELECT valor FROM site_config WHERE chave = '_esquema'") === 33, $r->resumo());
+checar('instalar → _esquema 34 de novo (v3.4)', $r->status === 200 && (int) v("SELECT valor FROM site_config WHERE chave = '_esquema'") === 34, $r->resumo());
 
 // ── fim: desafios desativados, equipe vazia ─────────────────────────────────────────────────────
 v33Limpar();

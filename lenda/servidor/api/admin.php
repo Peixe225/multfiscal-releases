@@ -12,6 +12,8 @@
  * v3.3 (CONTRATO-v33 §A): GET ?r=desafios | desafio | suporte e POST desafio_salvar | desafio_ativar | candidato_verificar |
  *        candidato_recusar | desafio_declarar_vencedor | desafio_reabrir | suporte_status | suporte_responder | suporte_lote |
  *        reenviar_verificacao (em _desafios.php e _suporte.php); e-mail verificado na lista de contas.
+ * v3.4 (CONTRATO-v34 §A): GET ?r=provas (as carreiras-prova de uma conta) e POST prova_verificar | emblema_retirar |
+ *        emblema_devolver; a carreira (?r=carreira) e a conta (?r=usuario) trazem as provas e os emblemas.
  * Poderes: GET pede "ver" (exportar, relatório/tempo em CSV e segurança pedem o do mapa PODERES_ACAO do _admin.php);
  * cada POST pede o poder da ação no mesmo mapa (exigirAdminAcao). Tabela/coluna nova que ainda não existe (subiu os
  * arquivos e não rodou o instalar.php): 503 instalar.
@@ -447,8 +449,15 @@ function rotasGet(): never
                     'suspeita' => $l['suspeita'] !== null ? (string) $l['suspeita'] : null, 'copas' => (int) $l['copas'],
                     'destaque' => (int) $l['destaque'] === 1, 'moderacao' => moderacaoJson($l)];
             }, sql('SELECT ' . camposC() . ', destaque, motivo_admin, moderada_em FROM carreiras WHERE usuario_id = ? ORDER BY salva_em DESC, id DESC', [$uid])->fetchAll());
-            $conq = array_map(static fn(array $l): array => ['id' => (string) $l['conquista_id'], 'em' => iso($l['em'])],
-                sql('SELECT conquista_id, em FROM conquistas_usuario WHERE usuario_id = ? ORDER BY em', [$uid])->fetchAll());
+            $conq = esquemaV34()
+                // v3.4: provada (uma carreira-prova da conta tem), verificada (a prova bateu no replay) e a carreira que prova
+                ? array_map(static fn(array $l): array => ['id' => (string) $l['conquista_id'], 'em' => iso($l['em']), 'provada' => $l['prova_pk'] !== null,
+                    'verificada' => $l['prova_pk'] !== null && (int) ($l['prova_ok'] ?? 0) === 1, 'provaPk' => $l['prova_pk'] !== null ? (int) $l['prova_pk'] : null,
+                    'origem' => (string) $l['origem']],
+                    sql('SELECT cu.conquista_id, cu.em, cu.prova_pk, cu.origem, c.prova_ok FROM conquistas_usuario cu LEFT JOIN carreiras c ON c.id = cu.prova_pk
+                        WHERE cu.usuario_id = ? ORDER BY cu.em', [$uid])->fetchAll())
+                : array_map(static fn(array $l): array => ['id' => (string) $l['conquista_id'], 'em' => iso($l['em'])],
+                    sql('SELECT conquista_id, em FROM conquistas_usuario WHERE usuario_id = ? ORDER BY em', [$uid])->fetchAll());
             $feitas = array_map(static fn(array $l): array => [
                 'id' => (int) $l['id'], 'indicado' => $l['indicado_id'] !== null ? ['id' => (int) $l['indicado_id'], 'apelido' => (string) ($l['apelido'] ?? '')] : null,
                 'status' => (string) $l['status'], 'motivo' => $l['motivo'], 'criadaEm' => iso($l['criada_em']), 'validadaEm' => iso($l['validada_em']),
@@ -542,7 +551,17 @@ function rotasGet(): never
                     'tipo' => (string) $m['tipo'], 'status' => (string) $m['status'], 'criadoEm' => iso($m['criado_em'])],
                     sql('SELECT id, protocolo, tipo, status, criado_em FROM mensagens_suporte WHERE usuario_id = ? ORDER BY criado_em DESC, id DESC LIMIT 20',
                         [$uid])->fetchAll()) : [],
-            ]]);
+            ] + (esquemaV34() ? [
+                // v3.4: as provas das conquistas (o lote do #/verificar) e os emblemas (ativos e retirados)
+                'conquistasProva' => resumoProvas($uid),
+                // integração v3.4 (CONTRATO-v34 §C.6 #3): o desafio leva também o emblema {icone, cor} e a dificuldade
+                'emblemas' => array_map(static fn(array $l): array => emblemaAdmin($l) + ['desafio' => ['id' => (int) $l['desafio_id'], 'slug' => (string) $l['slug'],
+                    'titulo' => (string) $l['titulo'], 'emblema' => emblemaDe(['emblema' => $l['d_emblema'], 'modo' => $l['d_modo']]),
+                    'dificuldade' => dificuldadeDe(['dificuldade' => $l['d_dificuldade']])]],
+                    sql('SELECT e.*, d.slug, d.titulo, d.emblema AS d_emblema, d.modo AS d_modo, d.dificuldade AS d_dificuldade, u.apelido, u.status AS u_status, u.suspenso_ate AS u_suspenso_ate, c.id AS c_id FROM emblemas_usuario e
+                        JOIN desafios d ON d.id = e.desafio_id LEFT JOIN usuarios u ON u.id = e.usuario_id LEFT JOIN carreiras c ON c.id = e.carreira_pk
+                        WHERE e.usuario_id = ? ORDER BY e.em DESC, e.id DESC LIMIT 100', [$uid])->fetchAll()),
+            ] : [])]);
 
         case 'hall':
             $filtro = qs('filtro', 12) ?: 'publicas';
@@ -579,7 +598,12 @@ function rotasGet(): never
             } else {
                 $id = lerIdNumero($_GET['id'] ?? null, 'Carreira');
             }
-            $l = umaLinha(SQL_CARREIRA_ADMIN . ', c.dados' . (esquemaV33() ? ', c.tem_replay, c.libertadores' : '') . SQL_CARREIRA_ADMIN_DE . ' WHERE c.id = ?', [$id]);
+            $l = umaLinha(SQL_CARREIRA_ADMIN . ', c.dados' . (esquemaV33() ? ', c.tem_replay, c.libertadores' : '')
+                . (esquemaV34() ? ', c.conquistas AS v34_conquistas, c.prova_ok AS v34_prova_ok, c.prova_verificacao AS v34_prova_verificacao,
+                    c.semente_em AS v34_semente_em, c.fora_desafio AS v34_fora_desafio, c.suspeita AS v34_suspeita, c.modo AS v34_modo,
+                    c.champions AS v34_champions, c.n_clubes AS v34_n_clubes, c.mesmo_clube AS v34_mesmo_clube, c.copas_selecao AS v34_copas_selecao,
+                    c.pais_inicio AS v34_pais_inicio, c.conquistas_v AS v34_conquistas_v' : '')
+                . SQL_CARREIRA_ADMIN_DE . ' WHERE c.id = ?', [$id]);
             $json = $l !== null && is_string($l['dados']) ? @gzdecode($l['dados']) : false;
             if (!is_string($json) || $json === '') {
                 erro(404, 'nao_encontrada', 'Carreira não encontrada.');
@@ -587,6 +611,35 @@ function rotasGet(): never
             unset($l['dados']);
             // v3.3: o que a verificação no jogo (#/verificar) precisa: tem replay? de que desafios a carreira é candidata?
             $v33 = esquemaV33() ? ['temReplay' => (int) ($l['tem_replay'] ?? 0) === 1, 'libertadores' => (int) ($l['libertadores'] ?? 0)] : [];
+            if (esquemaV34()) {
+                // v3.4: a lista de conquistas guardada (a que a #/verificar compara com a refeita), se ela é prova e a verificação
+                // da prova; e os emblemas que ela deu
+                $pv = is_string($l['v34_prova_verificacao'] ?? null) ? json_decode((string) $l['v34_prova_verificacao'], true) : null;
+                $v33 += ['conquistas' => $l['v34_conquistas'] !== null ? listaConquistas($l['v34_conquistas']) : null,
+                    // a versão das regras das conquistas com que a carreira foi jogada (HallEntry.conquistas.v; 1 = até a v3.3)
+                    'conquistasV' => $l['v34_conquistas_v'] !== null ? (int) $l['v34_conquistas_v'] : null,
+                    'prova' => $l['v34_conquistas'] !== null && motivoProva(['modo' => $l['v34_modo'], 'tem_replay' => $l['tem_replay'] ?? 0,
+                        'semente_em' => $l['v34_semente_em'], 'fora_desafio' => $l['v34_fora_desafio'], 'suspeita' => $l['v34_suspeita'],
+                        'prova_ok' => $l['v34_prova_ok']]) === null,
+                    'provaOk' => $l['v34_prova_ok'] === null ? null : (int) $l['v34_prova_ok'] === 1, 'provaVerificacao' => is_array($pv) ? $pv : null,
+                    // §E: a versão deste conteúdo (o prova_verificar só grava o resultado se ela ainda for a do conteúdo guardado)
+                    'versao' => versaoConteudo($json),
+                    // os números dos critérios novos que o servidor tirou do HallEntry (a #/verificar compara com os refeitos)
+                    'champions' => $l['v34_champions'] !== null ? (int) $l['v34_champions'] : null,
+                    'nClubes' => $l['v34_n_clubes'] !== null ? (int) $l['v34_n_clubes'] : null,
+                    'mesmoClube' => $l['v34_mesmo_clube'] !== null ? (int) $l['v34_mesmo_clube'] : null,
+                    'copasSelecao' => $l['v34_copas_selecao'] !== null ? (int) $l['v34_copas_selecao'] : null,
+                    'paisInicio' => $l['v34_pais_inicio'],
+                    'emblemas' => array_map(static fn(array $e): array => ['id' => (int) $e['id'], 'estado' => (string) $e['estado'],
+                        'desafio' => ['id' => (int) $e['desafio_id'], 'slug' => (string) $e['slug'], 'titulo' => (string) $e['titulo']]],
+                        sql('SELECT e.id, e.estado, e.desafio_id, d.slug, d.titulo FROM emblemas_usuario e JOIN desafios d ON d.id = e.desafio_id
+                            WHERE e.carreira_pk = ? ORDER BY e.id', [$id])->fetchAll())];
+                foreach (array_keys($l) as $k) {
+                    if (str_starts_with((string) $k, 'v34_')) {
+                        unset($l[$k]);
+                    }
+                }
+            }
             $cands = esquemaV33() ? array_map(static fn(array $k): array => ['id' => (int) $k['id'], 'estado' => (string) $k['estado'], 'em' => isoMs($k['em']),
                 'desafio' => ['id' => (int) $k['desafio_id'], 'slug' => (string) $k['slug'], 'titulo' => (string) $k['titulo']]],
                 sql('SELECT k.id, k.estado, k.em, k.desafio_id, d.slug, d.titulo FROM desafio_candidatos k JOIN desafios d ON d.id = k.desafio_id
@@ -695,9 +748,11 @@ function rotasGet(): never
 
         case 'conquistas':
             $jog = (int) umValor('SELECT COUNT(DISTINCT cu.usuario_id) FROM conquistas_usuario cu JOIN usuarios u ON u.id = cu.usuario_id WHERE ' . LENDA_SQL_ATIVO);
+            // v3.4: e quantas dessas contas têm a conquista provada por uma carreira
             $itens = array_map(static fn(array $l): array => ['id' => (string) $l['conquista_id'], 'jogadores' => (int) $l['n'],
-                'pct' => $jog > 0 ? round(100 * (int) $l['n'] / $jog, 1) : 0.0, 'primeiraEm' => iso($l['p'])],
-                sql('SELECT cu.conquista_id, COUNT(*) AS n, MIN(cu.em) AS p FROM conquistas_usuario cu JOIN usuarios u ON u.id = cu.usuario_id
+                'pct' => $jog > 0 ? round(100 * (int) $l['n'] / $jog, 1) : 0.0, 'primeiraEm' => iso($l['p'])] + (esquemaV34() ? ['provadas' => (int) $l['pv']] : []),
+                sql('SELECT cu.conquista_id, COUNT(*) AS n, MIN(cu.em) AS p' . (esquemaV34() ? ', COALESCE(SUM(cu.prova_pk IS NOT NULL), 0) AS pv' : '') . '
+                    FROM conquistas_usuario cu JOIN usuarios u ON u.id = cu.usuario_id
                     WHERE ' . LENDA_SQL_ATIVO . ' GROUP BY cu.conquista_id ORDER BY n DESC, cu.conquista_id LIMIT 2000')->fetchAll());
             responder(200, ['jogadores' => $jog, 'itens' => $itens]);
 
@@ -1142,8 +1197,14 @@ function rotasPost(array $ADM, string $via): never
             $c = $r['carreira'];
             if ($acao !== 'mostrar_carreira') {
                 tirarDoHall($pk);
-            } else {
-                avaliarDesafiosConta((int) $c['usuario_id']); // v3.3: liberada, ela pode cumprir um desafio
+            }
+            if ($acao === 'apagar_carreira') {
+                // v3.4: apagada pela moderação, ela deixa de provar: os emblemas que ela deu passam para outra carreira-prova da conta
+                // que cumpra (§E) ou saem (pelo sistema), e as provas da conta são refeitas
+                retirarEmblemasDaCarreira($pk, 'A carreira foi apagada pela moderação.');
+                recalcularProvas((int) $c['usuario_id']);
+            } elseif ($acao === 'mostrar_carreira') {
+                contaMudouProvas((int) $c['usuario_id']); // v3.3: liberada, ela pode cumprir um desafio (v3.4: e provar conquistas)
             }
             if ($aviso !== null) {
                 avisarAutor((int) $c['usuario_id'], (string) $c['jogador'], $aviso);
@@ -1185,11 +1246,11 @@ function rotasPost(array $ADM, string $via): never
                 if ($fotos) {
                     tirarDoHallIds($fotos);
                 }
-            } elseif ($feitos && desafiosValendo()) {
-                // v3.3: liberadas, elas podem cumprir um desafio
+            } elseif ($feitos && (desafiosValendo() || esquemaV34())) {
+                // v3.3: liberadas, elas podem cumprir um desafio (v3.4: e provar conquistas)
                 foreach (array_unique(array_map('intval', sql('SELECT usuario_id FROM carreiras WHERE id IN (' . marcas(count($feitos)) . ')', $feitos)
                     ->fetchAll(PDO::FETCH_COLUMN))) as $dono) {
-                    avaliarDesafiosConta($dono);
+                    contaMudouProvas($dono);
                 }
             }
             registrarAdmin('carreiras_lote', 'hall', ['operacao' => $op, 'feitos' => count($feitos), 'pulados' => rotuloPulados($pulados),
@@ -1290,6 +1351,10 @@ function rotasPost(array $ADM, string $via): never
         case 'restaurar_carreira':
             $lix = lerIdNumero($j['id'] ?? null, 'Item da lixeira');
             $pk = restaurarCarreira($lix);
+            $dono = (int) umValor('SELECT usuario_id FROM carreiras WHERE id = ?', [$pk]);
+            if ($dono > 0) {
+                contaMudouProvas($dono); // v3.4: de volta na conta, ela pode provar conquistas de novo
+            }
             registrarAdmin('restaurar_carreira', 'carreira:' . $pk, ['lixeiraId' => $lix]);
             responder(200, ['ok' => true, 'pk' => $pk]);
 

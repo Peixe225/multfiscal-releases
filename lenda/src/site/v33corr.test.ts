@@ -158,6 +158,12 @@ describe('§E.1 · a resposta do candidato_verificar chega na tela', () => {
       gols: 431,
       temporadas: 24,
       bonusOvr: 0,
+      // v3.4 (CONTRATO-v34): os números dos critérios novos e a lista de conquistas; o servidor de antes não manda
+      champions: null,
+      clubes: null,
+      mesmoClube: null,
+      copasSelecao: null,
+      conquistas: null,
     })
     // servidor antigo (sem libertadores): esse número não entra na conta
     expect(numerosDoServidor({ copas: 1 }).libertadores).toBeNull()

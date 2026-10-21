@@ -2,10 +2,13 @@
  * #/desafios — os desafios do LENDA ("As Taças do Rei" e os outros que o admin criar): o que é preciso, o prêmio (o texto
  * que o admin escreve), o regulamento, o prazo, o vencedor e, para quem está logado, o checklist do que já cumpriu
  * (GET desafios.php e desafios.php?eu=1 — servidor/CONTRATO-v33.md).
+ * v3.4 (CONTRATO-v34): os desafios de EMBLEMA (todo jogador que cumprir ganha o emblema) vêm primeiro, num grade compacta:
+ * dificuldade, chance aproximada (a calibração da §K.4), quantos já têm e, para quem está logado, "você já tem". Os de
+ * prêmio continuam como eram, embaixo. `?d=<slug>` (a faixa da tela inicial) rola até o desafio.
  */
 import { useEffect, type ReactNode } from 'react'
-import { ArrowRight, CalendarClock, CircleCheck, CircleDashed, Crown, Hourglass, LogIn, Mail, MessageSquareText, ScrollText, ShieldCheck, Swords, Trophy, Users } from 'lucide-react'
-import { buildHash, navigate } from '@/store/app'
+import { ArrowRight, BadgeCheck, CalendarClock, CircleCheck, CircleDashed, Crown, Hourglass, LogIn, Mail, MessageSquareText, ScrollText, ShieldCheck, Swords, Trophy, Users } from 'lucide-react'
+import { buildHash, navigate, useApp } from '@/store/app'
 import { useCareer } from '@/store/career'
 import { Button, Skeleton, cx, formatInt } from '@/ui/primitives'
 import { useAchievementCatalog } from '@/ui/shell/achievementsRegistry'
@@ -13,11 +16,14 @@ import { PlaceholderScreen } from '@/ui/shell/Placeholder'
 import { useShellSlots } from '@/ui/shell/slots'
 import { TrophyArt } from '@/ui/trophies'
 import { useConta } from './conta'
-import { ROTULO_ESTADO, carreirasQueContam, itensRequisitos, textoCriterio, useDesafios, valendo, type Desafio, type MeuDesafio } from './desafios'
+import { ROTULO_ESTADO, carreirasQueContam, itensRequisitos, textoChance, textoCriterio, useDesafios, valendo, type Desafio, type MeuDesafio } from './desafios'
 import { dataBr } from './datas'
+import { NOME_DIFICULDADE, useEmblemas } from './emblemas'
+import { Emblema, FilaEmblemas } from '@/ui/shared/emblemas/Emblema'
 import { abrirConta, abrirSuporte, abrirVerificarEmail } from './ui'
 import './site.css'
 import './v33.css'
+import './v34.css'
 
 export default function DesafiosTela() {
   useShellSlots({ sub: '', center: <span className="sm-topbar-t">Desafios</span>, stage: { preset: 'legend' } }, [])
@@ -35,7 +41,23 @@ export default function DesafiosTela() {
     if (usuario) void useDesafios.getState().carregarMeu(true)
   }, [usuario?.id])
 
-  const visiveis = [...lista].sort((a, b) => Number(valendo(b)) - Number(valendo(a)))
+  const alvo = useApp((s) => s.route.query.d)
+  // v3.4: os de emblema (valendo) em cima; os de prêmio (ativos ou já vencidos) embaixo, como eram
+  const emblemas = lista.filter((d) => d.modo === 'emblema' && (valendo(d) || (d.ativo && !!d.inicio && Date.parse(d.inicio) > Date.now())))
+  const visiveis = lista.filter((d) => d.modo !== 'emblema').sort((a, b) => Number(valendo(b)) - Number(valendo(a)))
+  // veio da faixa da tela inicial (?d=<slug>): rola até ele
+  useEffect(() => {
+    if (!alvo || !emblemas.length) return
+    const el = document.getElementById(`d-${alvo}`)
+    if (!el) return
+    el.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    el.classList.add('is-alvo')
+    const t = window.setTimeout(() => el.classList.remove('is-alvo'), 2400)
+    return () => {
+      window.clearTimeout(t)
+      el.classList.remove('is-alvo')
+    }
+  }, [alvo, emblemas.length])
   if ((status === 'idle' || status === 'carregando') && !lista.length) {
     return (
       <main id="conteudo" tabIndex={-1} className="sv-page outline-none" aria-busy="true" aria-label="Carregando os desafios">
@@ -44,7 +66,7 @@ export default function DesafiosTela() {
       </main>
     )
   }
-  if (!visiveis.length) {
+  if (!visiveis.length && !emblemas.length) {
     return (
       <PlaceholderScreen
         eyebrow="Desafios"
@@ -72,9 +94,25 @@ export default function DesafiosTela() {
         <span className="sv-head__k">
           <Swords aria-hidden="true" /> Desafios do LENDA
         </span>
-        <h1 className="sv-head__t">Seja o primeiro</h1>
-        <p className="sv-head__p">Cada desafio tem um vencedor só: a primeira conta que cumprir tudo, com a carreira conferida pela equipe do LENDA.</p>
+        {emblemas.length ? (
+          <>
+            <h1 className="sv-head__t">Desafios</h1>
+            <p className="sv-head__p">Cumpra o desafio numa carreira do Modo Clássico começada com a conta aberta e ganhe o emblema: ele fica no seu perfil e ao lado do seu apelido no Hall. Todo mundo que cumprir ganha.</p>
+          </>
+        ) : (
+          <>
+            <h1 className="sv-head__t">Seja o primeiro</h1>
+            <p className="sv-head__p">Cada desafio tem um vencedor só: a primeira conta que cumprir tudo, com a carreira conferida pela equipe do LENDA.</p>
+          </>
+        )}
       </header>
+      {emblemas.length > 0 && <SecaoEmblemas lista={emblemas} meu={meu} logado={!!usuario} contaPronta={contaPronta} />}
+      {visiveis.length > 0 && emblemas.length > 0 && (
+        <>
+          <h2 className="s4-premio-h">Desafios com prêmio</h2>
+          <p className="sv-head__p">Cada um tem um vencedor só: a primeira conta que cumprir tudo, com a carreira conferida pela equipe do LENDA.</p>
+        </>
+      )}
       {visiveis.map((d) => (
         <CartaoDesafio key={d.slug} d={d} meu={meu?.[d.slug] ?? null} logado={!!usuario} contaPronta={contaPronta} meuCarregando={meuStatus === 'carregando'} />
       ))}
@@ -88,6 +126,84 @@ export default function DesafiosTela() {
         </span>
       </p>
     </main>
+  )
+}
+
+const PESO_DIFICULDADE = { facil: 0, medio: 1, dificil: 2, lendario: 3 } as const
+
+/** v3.4: os desafios de emblema, numa grade compacta. */
+function SecaoEmblemas({ lista, meu, logado, contaPronta }: { lista: readonly Desafio[]; meu: Record<string, MeuDesafio> | null; logado: boolean; contaPronta: boolean }) {
+  const meus = useEmblemas((s) => s.meus)
+  const ordenados = [...lista].sort((a, b) => (a.dificuldade ? PESO_DIFICULDADE[a.dificuldade] : 9) - (b.dificuldade ? PESO_DIFICULDADE[b.dificuldade] : 9))
+  const tenho = new Set((meus ?? []).map((e) => e.slug))
+  const meusAqui = (meus ?? []).filter((e) => lista.some((d) => d.slug === e.slug))
+  return (
+    <section className="sv-bloco" aria-labelledby="s4-emb-h">
+      <div className="s4-emb-head">
+        <h2 id="s4-emb-h">Ganhe emblemas</h2>
+        {logado ? (
+          meus && (
+            <span className="s4-emb-meus">
+              {meusAqui.length ? <FilaEmblemas lista={meusAqui} size={18} max={6} /> : null}
+              Você tem {meusAqui.length} de {lista.length}
+            </span>
+          )
+        ) : (
+          contaPronta && (
+            <Button variant="ghost" size="sm" icon={LogIn} onClick={() => abrirConta({ modo: 'manual', aba: 'criar' })}>
+              Criar conta para ganhar
+            </Button>
+          )
+        )}
+        <p>A chance é a de quem joga para isso (o plano certo para cada desafio, medido em mais de 69 mil carreiras simuladas); jogando ao acaso é bem menor.</p>
+      </div>
+      <ul className="s4-embs">
+        {ordenados.map((d) => (
+          <CartaoEmblema key={d.slug} d={d} meu={meu?.[d.slug] ?? null} tem={tenho.has(d.slug) || meu?.[d.slug]?.emblema?.estado === 'ativo'} logado={logado} />
+        ))}
+      </ul>
+    </section>
+  )
+}
+
+function CartaoEmblema({ d, meu, tem, logado }: { d: Desafio; meu: MeuDesafio | null; tem: boolean; logado: boolean }) {
+  const chance = textoChance(d.slug)
+  const e = meu?.emblema ?? null
+  const retirado = e?.estado === 'retirado'
+  // a carreira que cumpre mas não vale (sem a semente do servidor, sem replay, limite do dia...): diz por quê
+  const naoVale = !tem && meu ? meu.carreirasQueCumprem.find((c) => c.vale === false) : undefined
+  const comecaDepois = !!d.inicio && Date.parse(d.inicio) > Date.now()
+  return (
+    <li id={`d-${d.slug}`} className={cx('s4-emb', tem && 'is-tem', logado && !tem && 'is-off')}>
+      {d.emblema && <Emblema e={{ ...d.emblema, titulo: d.titulo }} size={40} rotulo={`Emblema: ${d.titulo}`} />}
+      <div className="s4-emb__top">
+        <h3>{d.titulo}</h3>
+        {d.dificuldade && <span className={`s4-dif s4-dif--${d.dificuldade}`}>{NOME_DIFICULDADE[d.dificuldade]}</span>}
+        {tem && (
+          <span className="s4-tem">
+            <BadgeCheck aria-hidden="true" /> Você já tem
+          </span>
+        )}
+      </div>
+      <p className="s4-emb__p">{d.descricao || textoCriterio(d.criterio)}</p>
+      <p className="s4-emb__m">
+        {comecaDepois && <span>Começa em {dataBr(d.inicio!)}</span>}
+        {chance && (
+          <span title="Chance por carreira de quem joga para este desafio (calibração do LENDA)">
+            Chance: <b>{chance}</b>
+          </span>
+        )}
+        {d.ganharam !== null && <span>{d.ganharam === 0 ? 'Ninguém tem ainda' : d.ganharam === 1 ? '1 jogador tem' : `${formatInt(d.ganharam)} jogadores têm`}</span>}
+        {tem && e?.em && <span>Desde {dataBr(e.em)}{e.jogador ? ` · com ${e.jogador}` : ''}</span>}
+        {d.fim && !comecaDepois && <span>Até {dataBr(d.fim, true)}</span>}
+      </p>
+      {retirado && <p className="s4-emb__x">O emblema foi retirado pela equipe{e?.motivo ? `: ${e.motivo}` : '.'}</p>}
+      {naoVale && (
+        <p className="s4-emb__x">
+          {naoVale.jogador} cumpre, mas não vale: {naoVale.motivo ?? 'a carreira não foi começada com a conta (a semente do servidor).'}
+        </p>
+      )}
+    </li>
   )
 }
 
@@ -298,8 +414,15 @@ export function Checklist({ d, meu }: { d: Desafio; meu: MeuDesafio }) {
       <ul className="sv-itens">
         {conquistas ? (
           <Item marca={meu.conquistas != null && meu.conquistasTotal != null && meu.conquistas >= meu.conquistasTotal ? 'ok' : 'falta'}>
-            Conquistas: <b className="num">{formatInt(meu.conquistas ?? locais)}</b> de <b className="num">{formatInt(meu.conquistasTotal ?? total)}</b>
+            {/* v3.4: contam as PROVADAS (por carreiras do Clássico começadas com a conta) */}
+            {meu.conquistasTodas != null ? 'Conquistas provadas' : 'Conquistas'}: <b className="num">{formatInt(meu.conquistas ?? locais)}</b> de <b className="num">{formatInt(meu.conquistasTotal ?? total)}</b>
             {meu.conquistas == null ? <small> (neste aparelho)</small> : null}
+            {meu.conquistasTodas != null ? (
+              <small>
+                {' '}
+                · {formatInt(meu.conquistasVerificadas ?? 0)} já conferidas · {formatInt(meu.conquistasTodas)} com as não provadas
+              </small>
+            ) : null}
           </Item>
         ) : (
           <Item marca={contam.length ? 'ok' : 'falta'}>

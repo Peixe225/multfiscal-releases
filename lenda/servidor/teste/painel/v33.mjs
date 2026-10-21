@@ -340,16 +340,20 @@ await secao(page, '4. Configurações: partidas_dia_max', async () => {
 // ═══ 5. Desafios: lista, ativar, candidatos, verificação, vencedor, reabrir, recusar ═════════
 await secao(page, '5a. Desafios: lista e ativar', async () => {
   await ir(page, '#/desafios', 2000)
-  ok(await aba(page).locator('article.cartao-desafio').count() === 3, 'Desafios: os 3 de fábrica')
-  ok(await aba(page).locator('article.cartao-desafio .chip', { hasText: 'Valendo' }).count() === 2 && await aba(page).locator('article.cartao-desafio .chip', { hasText: 'Desativado' }).count() === 1, '2 valendo e 1 desativado')
+  // CONTRATO-v34 A.14: o instalar da v3.4 semeia também os 10 de emblema, ativos (o painel os mostra num grupo à parte)
+  const premio = 'article.cartao-desafio[data-modo="primeiro"]'
+  ok(await aba(page).locator(premio).count() === 3 && await aba(page).locator('article.cartao-desafio').count() === 13, 'Desafios: os 3 de fábrica com prêmio (e os 10 de emblema da v3.4: 13 cartões)')
+  ok(await aba(page).locator(`${premio} .chip`, { hasText: 'Valendo' }).count() === 2 && await aba(page).locator(`${premio} .chip`, { hasText: 'Desativado' }).count() === 1, 'com prêmio: 2 valendo e 1 desativado')
   ok(await aba(page).locator(`article.cartao-desafio[data-id="${D.tacas}"] .desafio-premio`, { hasText: PREMIO_TESTE.slice(0, 20) }).count() === 1, 'o prêmio é o texto do admin')
   ok(await aba(page).locator(`article.cartao-desafio[data-id="${D.conquistas}"]`, { hasText: 'O prêmio deste desafio será anunciado aqui' }).count() === 1, 'prêmio vazio: o texto que o jogo mostra')
   ok(await page.locator('#acoes-aba a[href="../#/desafios"]').count() === 1, '"Ver no jogo" leva à tela Desafios do jogo')
-  // CONTRATO-v33 §E: o de todas as conquistas não tem prova (as conquistas vêm do aparelho): "Ativar" travado e o servidor recusa
+  // CONTRATO-v34 A.5/A.14 (o §E da v3.3 trocado pela prova): o de todas as conquistas conta só as conquistas PROVADAS por
+  // carreiras, então pode ser ativado — o "Ativar" não fica mais travado e o servidor ativa (aqui volta a desativar logo)
   const bConq = aba(page).locator(`article.cartao-desafio[data-id="${D.conquistas}"] button`, { hasText: 'Ativar' })
-  ok(await bConq.count() === 1 && await bConq.isDisabled() && /não pode ser ativado/.test((await bConq.getAttribute('title')) || ''), 'todas as conquistas: "Ativar" travado, com o porquê (sem prova)')
+  ok(await bConq.count() === 1 && !(await bConq.isDisabled()), 'todas as conquistas (v3.4): "Ativar" liberado (as conquistas provadas são a prova)')
   const rConq = await admin({ acao: 'desafio_ativar', id: D.conquistas, ativo: true })
-  ok(rConq.status === 409 && rConq.json?.erro === 'sem_prova' && valor(`SELECT ativo FROM desafios WHERE id = ${D.conquistas}`) === '0', `…e o servidor também não ativa (409 sem_prova: ${rConq.status})`)
+  const rConq2 = await admin({ acao: 'desafio_ativar', id: D.conquistas, ativo: false })
+  ok(rConq.status === 200 && rConq2.status === 200 && valor(`SELECT ativo FROM desafios WHERE id = ${D.conquistas}`) === '0', `…e o servidor ativa (${rConq.status}) e desativa de novo (${rConq2.status})`)
   // o diálogo de ativar, num desafio de teste sem prêmio e sem início (some no fim)
   const novo = await admin({ acao: 'desafio_salvar', slug: 'teste-painel-ativar', titulo: 'Teste de ativar', criterio: { copas: 1 } })
   const idNovo = novo.json?.desafio?.id
@@ -451,6 +455,8 @@ await secao(page, '6. editor de desafio', async () => {
   await page.unroute(/admin\.php\?r=desafio&/)
   ok(await page.locator('#dz-titulo').count() === 1 && /parte=novo/.test(await page.evaluate(() => location.hash)), 'a recarga atrasada da tela anterior não desenha por cima do editor')
   ok(await page.locator('.erro-campo:not([hidden])').count() === 0, 'formulário novo sem erro antes de mexer')
+  // v3.4: o desafio novo abre no tipo emblema; este é o de prêmio (o de sempre)
+  await aba(page).locator('.segmentos[aria-label="Tipo do desafio"] button', { hasText: 'Prêmio' }).click()
   await page.fill('#dz-titulo', 'Artilheiro do Teste')
   ok(await page.inputValue('#dz-slug') === 'artilheiro-do-teste', 'o endereço (slug) sai do título')
   await page.fill('#dz-copas', '2')

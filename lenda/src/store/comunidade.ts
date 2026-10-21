@@ -7,6 +7,7 @@
  *   useComunidade.getState().pedir?.(f)                          // o site busca (com cache por filtro)
  *   useComunidade.getState().abrir?.(id)                         // resumo completo de uma (GET hall.php?id=)
  */
+import type { EmblemaVisual } from '@/ui/shared/emblemas/Emblema'
 import { create } from 'zustand'
 import type { HallEntry } from './career'
 
@@ -42,6 +43,9 @@ export interface CarreiraComunidade {
   destaque: boolean
   /** Código do perfil público do dono (v3.3: #/jogador/<código>); null/ausente = perfil fechado ou servidor antigo. */
   perfil?: string | null
+  /** v3.4: os emblemas de desafio do dono (até 3, os mais difíceis) e quantos ele tem ao todo; ausente = servidor antigo. */
+  emblemas?: EmblemaVisual[]
+  emblemasTotal?: number
 }
 
 export interface PaginasComunidade {

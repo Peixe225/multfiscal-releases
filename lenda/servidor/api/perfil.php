@@ -6,6 +6,8 @@
  *                             [slug], link} (público, cache de 120 s)
  * Conta que escolheu não aparecer no Hall ("nao"), suspensa ou código que não existe: 404. As carreiras são as dela que
  * estão na fotografia do Hall público agora (conta tirada do Hall pelo admin: nenhuma).
+ * v3.4 (CONTRATO-v34 §A): emblemas: [{slug, titulo, icone, cor, dificuldade}] (os ativos, os mais difíceis antes) e
+ * conquistasProvadas (das 87).
  */
 declare(strict_types=1);
 
@@ -25,11 +27,21 @@ if ($u === null || ($u['hall_publico'] ?? 'auto') === 'nao' || contaSuspensa($u)
 }
 $uid = (int) $u['id'];
 $carreiras = [];
+$emblemasConta = esquemaV34() ? emblemasDasContas([$uid]) : [];
 foreach (sql('SELECT f.*, ? AS perfil_codigo FROM hall_foto f WHERE f.usuario_id = ? ORDER BY f.id LIMIT ' . LENDA_HALL_POR_CONTA, [$codigo, $uid])->fetchAll() as $l) {
-    $carreiras[] = itemHall($l, (int) $l['id']);
+    // v3.4: no formato dos itens do hall.php, com os emblemas (só os ícones)
+    $carreiras[] = itemHall($l, (int) $l['id']) + (esquemaV34() ? ['emblemas' => array_map(static fn(array $e): array => ['slug' => $e['slug'], 'icone' => $e['icone'],
+        'cor' => $e['cor']], array_slice($emblemasConta[$uid] ?? [], 0, 3)), 'emblemasTotal' => count($emblemasConta[$uid] ?? [])] : []);
 }
 $vencidos = esquemaV33() ? array_map('strval', sql('SELECT slug FROM desafios WHERE vencedor_usuario_id = ? AND vencido_em IS NOT NULL ORDER BY vencido_em',
     [$uid])->fetchAll(PDO::FETCH_COLUMN)) : [];
+$v34 = [];
+if (esquemaV34()) {
+    // v3.4: só o que identifica o emblema (nada da carreira que o deu)
+    $v34['emblemas'] = array_map(static fn(array $e): array => array_intersect_key($e, array_flip(['slug', 'titulo', 'icone', 'cor', 'dificuldade'])),
+        $emblemasConta[$uid] ?? []);
+    $v34['conquistasProvadas'] = conquistasProvadas($uid);
+}
 header('Cache-Control: public, max-age=120');
 responder(200, [
     'codigo' => $codigo,
@@ -39,4 +51,4 @@ responder(200, [
     'carreiras' => $carreiras,
     'desafiosVencidos' => $vencidos,
     'link' => linkConvite($codigo) . '#/jogador/' . $codigo,
-]);
+] + $v34);

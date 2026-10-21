@@ -10,6 +10,7 @@
  * Abrir uma carreira da comunidade leva ao resumo completo (#/resumo?id=…&de=comunidade), que o site busca
  * no servidor sem misturar com o Hall deste aparelho.
  */
+import { FilaEmblemas } from '@/ui/shared/emblemas/Emblema'
 import { memo, useEffect, useId, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent } from 'react'
 import { ArrowRight, CloudOff, Crown, Globe, RefreshCw, Search, Shield, Star, Users, X } from 'lucide-react'
 import { REAL_LEGENDS } from '@/engine/legacy'
@@ -325,6 +326,8 @@ export function LinhaComunidade({ c, rank, style }: { c: CarreiraComunidade; ran
               }
             >
               <Users size={11} aria-hidden /> {c.apelido}
+              {/* v3.4: os emblemas de desafio do dono, pequenos (até 3 e "+N") */}
+              {c.emblemas?.length ? <FilaEmblemas lista={c.emblemas} total={c.emblemasTotal} size={13} /> : null}
             </span>
             <span className="hl-dot" />
             <span>{POSITION_LABEL[c.posicaoCampo as keyof typeof POSITION_LABEL] ?? c.posicaoCampo}</span>

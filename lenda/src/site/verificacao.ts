@@ -7,6 +7,12 @@
  *   const d = await dadosParaVerificar(replay.dados, dadosDeHoje)   // §E: a versão dos dados com que a carreira foi jogada
  *   const alvo = alvoDoResultado(c.candidatos, '7')   // { id: 7 } | { carreira: 123 } | null
  *   const feitos = await mandarResultado(alvo, resultadoParaServidor(v))   // [{id, estado, motivo}] (o servidor pode recusar)
+ *
+ * v3.4 (CONTRATO-v34 §A.0): a carreira-prova (a que prova conquistas na conta) também recebe o resultado (prova_verificar),
+ * e #/verificar?conta=<id> verifica em lote as carreiras-prova de uma conta (admin.php?r=provas).
+ *
+ *   const p = await buscarProvasConta(7)                          // a conta, as conquistas e as carreiras-prova
+ *   const r = await mandarProvas([{ carreira: 123, ok: true, detalhes }])   // até 50 por pedido
  */
 import type { NumerosServidor } from '@/engine/verificar'
 import type { GameData } from '@/engine/types'
@@ -33,6 +39,35 @@ export interface CarreiraParaVerificar {
   /** §E: os números que o servidor tirou da carreira e gravou (os que decidem o critério do desafio). */
   servidor: NumerosServidor
   candidatos: CandidatoDaCarreira[]
+  /** v3.4: a carreira é prova de conquistas na conta (o servidor guardou a lista dela) e o que a verificação já disse. */
+  prova: ProvaDaCarreiraAdmin
+}
+
+export interface ProvaDaCarreiraAdmin {
+  ehProva: boolean
+  /** true = bateu · false = não bateu · null = ainda não verificada. */
+  provaOk: boolean | null
+  conquistas: string[] | null
+  /**
+   * §E: a versão do conteúdo que o servidor mandou (meta.versao, sha1 do HallEntry guardado). Vai junto no prova_verificar: se o
+   * dono salvou outro conteúdo depois, o servidor não grava o resultado (pulados: mudou). null/ausente = servidor de antes.
+   */
+  versao?: string | null
+}
+
+const ID_CONQUISTA = /^[a-z0-9_.:-]{1,64}$/
+/** Uma lista de ids de conquista (do servidor): só os válidos, sem repetir; não é lista = null. */
+export const listaDeConquistas = (x: unknown): string[] | null => (Array.isArray(x) ? [...new Set(x.filter((i): i is string => typeof i === 'string' && ID_CONQUISTA.test(i)))] : null)
+const boolOuNulo = (v: unknown) => (v === true || v === 1 ? true : v === false || v === 0 ? false : null)
+
+/** v3.4: o que o meta do ?r=carreira diz da prova (meta.prova, meta.provaOk, meta.conquistas). */
+export function provaDoMeta(meta: unknown): ProvaDaCarreiraAdmin {
+  const m = (meta ?? {}) as Record<string, unknown>
+  const conquistas = listaDeConquistas(m.conquistas)
+  const p = m.prova
+  const ehProva = p === true || p === 1 || (!!p && typeof p === 'object') || (p === undefined && conquistas !== null)
+  const versao = typeof m.versao === 'string' && /^[0-9a-f]{40}$/.test(m.versao) ? m.versao : null
+  return { ehProva, provaOk: boolOuNulo(m.provaOk), conquistas, ...(versao ? { versao } : {}) }
 }
 
 const numOuNulo = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : null)
@@ -49,6 +84,13 @@ export function numerosDoServidor(meta: unknown): NumerosServidor {
     gols: numOuNulo(m.gols),
     temporadas: numOuNulo(m.temporadas),
     bonusOvr: numOuNulo(m.bonusOvr),
+    // v3.4: os números dos critérios novos (quando o servidor manda) e a lista de conquistas que ele guardou
+    champions: numOuNulo(m.champions),
+    // (no meta, `clubes` pode ser a lista dos clubes: o número é o `nClubes`)
+    clubes: numOuNulo(m.nClubes) ?? numOuNulo(m.clubes),
+    mesmoClube: numOuNulo(m.mesmoClube) ?? numOuNulo(m.temporadasMesmoClube),
+    copasSelecao: numOuNulo(m.copasSelecao) ?? numOuNulo(m.copasPelaSelecao),
+    conquistas: listaDeConquistas(m.conquistas),
   }
 }
 
@@ -77,7 +119,7 @@ export async function buscarCarreiraAdmin(id: string): Promise<CarreiraParaVerif
   const meta = normalizarMetaAdmin(r.meta)
   if (!hallEntryValido(r.carreira) || !meta) throw new ErroApi('servidor', 200, 'Essa carreira veio incompleta do servidor.')
   const m = r.meta as { temReplay?: unknown }
-  return { entry: r.carreira, meta, temReplay: typeof m?.temReplay === 'boolean' ? m.temReplay : null, servidor: numerosDoServidor(r.meta), candidatos: normalizarCandidatos(r.candidatos) }
+  return { entry: r.carreira, meta, temReplay: typeof m?.temReplay === 'boolean' ? m.temReplay : null, servidor: numerosDoServidor(r.meta), candidatos: normalizarCandidatos(r.candidatos), prova: provaDoMeta(r.meta) }
 }
 
 /** O nome de uma versão dos dados ("2026-09-28.ff31cb13") que dá para pôr no endereço. */
@@ -141,4 +183,126 @@ export async function mandarResultado(alvo: AlvoResultado, resultado: { ok: bool
       return { id: o.id, estado: o.estado as CandidatoFeito['estado'], motivo: typeof o.motivo === 'string' && o.motivo ? o.motivo.slice(0, 200) : null }
     })
     .filter((k): k is CandidatoFeito => !!k)
+}
+
+// ───────────────────────────── v3.4: carreiras-prova de uma conta ─────────────────────────────
+
+export interface CarreiraProva {
+  pk: number
+  carreiraId: string
+  jogador: string
+  primeiraEm: string | null
+  conquistas: string[]
+  /** As que só esta carreira prova (verificar ela é o que confirma essas). */
+  unicas: string[]
+  /** Está no conjunto mínimo de carreiras que cobre todas as provadas: o lote pode verificar só essas. */
+  essencial: boolean
+  /** Vale como prova agora (o servidor diz; false = semente, limite do dia, suspeita…). */
+  vale: boolean
+  motivo: string | null
+  provaOk: boolean | null
+}
+
+export interface ProvasConta {
+  usuario: { id: number; apelido: string; status: string }
+  conquistas: { total: number; provadas: number; verificadas: number; naoProvadas: number; faltamProvar: string[]; faltamVerificar: string[] }
+  carreiras: CarreiraProva[]
+}
+
+const n0 = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) && v >= 0 ? Math.round(v) : 0)
+
+export function normalizarProvasConta(x: unknown): ProvasConta | null {
+  const r = x as Record<string, unknown> | null
+  const u = (r?.usuario ?? null) as Record<string, unknown> | null
+  if (!r || !u || typeof u.id !== 'number' || !Array.isArray(r.carreiras)) return null
+  const c = (r.conquistas ?? {}) as Record<string, unknown>
+  const carreiras = r.carreiras
+    .map((k): CarreiraProva | null => {
+      const o = k as Record<string, unknown> | null
+      if (!o || typeof o.pk !== 'number' || !Number.isInteger(o.pk) || o.pk <= 0) return null
+      return {
+        pk: o.pk,
+        carreiraId: typeof o.carreiraId === 'string' ? o.carreiraId.slice(0, 64) : '',
+        jogador: typeof o.jogador === 'string' && o.jogador ? o.jogador.slice(0, 40) : '—',
+        primeiraEm: typeof o.primeiraEm === 'string' ? o.primeiraEm : null,
+        conquistas: listaDeConquistas(o.conquistas) ?? [],
+        unicas: listaDeConquistas(o.unicas) ?? [],
+        essencial: o.essencial === true || o.essencial === 1,
+        vale: o.vale !== false && o.vale !== 0,
+        motivo: typeof o.motivo === 'string' && o.motivo ? o.motivo.slice(0, 200) : null,
+        provaOk: boolOuNulo(o.provaOk),
+      }
+    })
+    .filter((k): k is CarreiraProva => !!k)
+    .slice(0, 500)
+  return {
+    usuario: { id: u.id, apelido: typeof u.apelido === 'string' ? u.apelido.slice(0, 20) : 'Jogador', status: typeof u.status === 'string' ? u.status.slice(0, 16) : '' },
+    conquistas: {
+      total: n0(c.total),
+      provadas: n0(c.provadas),
+      verificadas: n0(c.verificadas),
+      naoProvadas: n0(c.naoProvadas),
+      faltamProvar: listaDeConquistas(c.faltamProvar) ?? [],
+      faltamVerificar: listaDeConquistas(c.faltamVerificar) ?? [],
+    },
+    carreiras,
+  }
+}
+
+/** As carreiras-prova de uma conta (admin.php?r=provas&usuario=). Lança ErroApi (401/403 = sessão do painel; 404). */
+export async function buscarProvasConta(uid: string | number): Promise<ProvasConta> {
+  const r = await api<unknown>('admin.php', { query: { r: 'provas', usuario: String(uid) }, tempo: 25_000 })
+  const p = normalizarProvasConta(r)
+  if (!p) throw new ErroApi('servidor', 200, 'A lista de carreiras-prova veio incompleta do servidor.')
+  return p
+}
+
+/**
+ * Quais carreiras o lote verifica: `essenciais` = as do conjunto mínimo que cobre as provadas (ou, sem a marca do servidor,
+ * as que provam alguma conquista sozinhas), `faltam` = só as que ainda não foram verificadas, `todas` = todas as que valem.
+ */
+export function carreirasDoLote(p: ProvasConta, modo: 'essenciais' | 'faltam' | 'todas'): CarreiraProva[] {
+  const valem = p.carreiras.filter((c) => c.vale)
+  const temMarca = valem.some((c) => c.essencial)
+  const ess = temMarca ? valem.filter((c) => c.essencial) : valem.filter((c) => c.unicas.length > 0)
+  if (modo === 'todas') return valem
+  if (modo === 'essenciais') return (ess.length ? ess : valem).filter((c) => c.provaOk !== true)
+  return valem.filter((c) => c.provaOk === null)
+}
+
+export interface ResultadoProva {
+  carreira: number
+  ok: boolean
+  detalhes: Record<string, unknown>
+  /** §E: a versão do conteúdo que foi refeito (provaDoMeta().versao); sem ela, o servidor de antes. */
+  versao?: string | null
+}
+
+/** §E: o resultado como vai para o servidor (a `versao` só quando há). */
+export const resultadoParaProva = (r: ResultadoProva) => (r.versao ? { carreira: r.carreira, ok: r.ok, detalhes: r.detalhes, versao: r.versao } : { carreira: r.carreira, ok: r.ok, detalhes: r.detalhes })
+
+export interface ProvasMandadas {
+  carreiras: { pk: number; provaOk: boolean | null }[]
+  pulados: { carreira: number; motivo: string }[]
+  conta: { provadas: number; verificadas: number; total: number } | null
+}
+
+/** Manda os resultados (prova_verificar), em pedidos de até 50. */
+export async function mandarProvas(resultados: readonly ResultadoProva[], uid?: number): Promise<ProvasMandadas> {
+  const out: ProvasMandadas = { carreiras: [], pulados: [], conta: null }
+  for (let i = 0; i < resultados.length; i += 50) {
+    const r = await api<{ carreiras?: unknown; pulados?: unknown; contas?: unknown }>('admin.php', { corpo: { acao: 'prova_verificar', resultados: resultados.slice(i, i + 50).map(resultadoParaProva) }, tempo: 30_000 })
+    for (const k of Array.isArray(r?.carreiras) ? r.carreiras : []) {
+      const o = k as Record<string, unknown> | null
+      if (o && typeof o.pk === 'number') out.carreiras.push({ pk: o.pk, provaOk: boolOuNulo(o.provaOk) })
+    }
+    for (const k of Array.isArray(r?.pulados) ? r.pulados : []) {
+      const o = k as Record<string, unknown> | null
+      if (o && typeof o.carreira === 'number') out.pulados.push({ carreira: o.carreira, motivo: typeof o.motivo === 'string' ? o.motivo.slice(0, 40) : '' })
+    }
+    const contas = (r?.contas ?? null) as Record<string, Record<string, unknown>> | null
+    const c = contas && uid !== undefined ? contas[String(uid)] : null
+    if (c && typeof c === 'object') out.conta = { provadas: n0(c.provadas), verificadas: n0(c.verificadas), total: n0(c.total) }
+  }
+  return out
 }

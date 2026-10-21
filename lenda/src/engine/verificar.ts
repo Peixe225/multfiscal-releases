@@ -16,6 +16,7 @@ import type { CareerEngine } from './api'
 import type { CareerState, CareerSummary, GameData, PlayerIdentity } from './types'
 import { DADOS_VERSAO } from '../data/versao'
 import { normalizarReplay, sementeDoPar, type CareerReplay } from './replay'
+import { ACHIEVEMENT_BY_ID, CONQUISTAS_REGRAS_V, detectAchievements } from './career/achievements'
 
 // ───────────────────────────── jogar de novo ─────────────────────────────
 
@@ -90,6 +91,14 @@ export interface NumerosCarreira {
   bolasOuro: number
   jogos: number
   temporadas: number
+  /** v3.4 (os critérios dos desafios de emblema, CONTRATO-v34 §A): Champions League. */
+  champions: number
+  /** v3.4: clubes diferentes na carreira. */
+  clubes: number
+  /** v3.4: o maior número de temporadas num mesmo clube (somadas, como o "Ídolo"). */
+  mesmoClube: number
+  /** v3.4: Copas do Mundo ganhas pela seleção da CRIAÇÃO (a do replay). */
+  copasSelecao: number
 }
 
 export const ROTULOS: Record<keyof NumerosCarreira, string> = {
@@ -102,6 +111,10 @@ export const ROTULOS: Record<keyof NumerosCarreira, string> = {
   bolasOuro: 'Bolas de Ouro',
   jogos: 'Jogos',
   temporadas: 'Temporadas',
+  champions: 'Champions League',
+  clubes: 'Clubes',
+  mesmoClube: 'Temporadas no mesmo clube',
+  copasSelecao: 'Copas pela seleção da criação',
 }
 
 const n = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : 0)
@@ -132,11 +145,27 @@ export function contagensInvalidas(s: Partial<CareerSummary> | null | undefined)
   return out.slice(0, 10)
 }
 
-/** Os números de um resumo (a mesma conta do servidor: _carreiras.php extrairCampos). */
-export function numerosDoResumo(s: Partial<CareerSummary> | null | undefined, nota: number | null): NumerosCarreira {
+/**
+ * Os números de um resumo (a mesma conta do servidor: _carreiras.php extrairCampos). `selecao`: a seleção da criação (a do
+ * replay), para as Copas ganhas por ela (v3.4); sem ela, a do resumo.
+ */
+export function numerosDoResumo(s: Partial<CareerSummary> | null | undefined, nota: number | null, selecao?: string | null): NumerosCarreira {
   const trofeus = Array.isArray(s?.trophies) ? s.trophies : []
   const premios = Array.isArray(s?.awards) ? s.awards : []
   const conta = (id: string) => trofeus.reduce((t, x) => t + (x && x.trophyId === id ? contagem(x.count) : 0), 0)
+  // clubes: os ids diferentes de summary.clubs; no mesmo clube: as temporadas de cada clube somadas (empréstimo à parte
+  // conta no clube do empréstimo), a maior
+  // (a mesma conta do servidor: o id do clube no formato do jogo, até 40 clubes; temporadas de 0 a 999)
+  const porClube = new Map<string, number>()
+  const clubesValidos = new Set<string>()
+  for (const c of Array.isArray(s?.clubs) ? s.clubs : []) {
+    if (!c || typeof c.clubId !== 'string' || !c.clubId) continue
+    if (/^[A-Za-z0-9_-]{1,16}$/.test(c.clubId) && clubesValidos.size < 40) clubesValidos.add(c.clubId)
+    const t = typeof c.seasons === 'number' && Number.isFinite(c.seasons) ? Math.max(0, Math.min(999, Math.round(c.seasons))) : 0
+    porClube.set(c.clubId, Math.min(999, (porClube.get(c.clubId) ?? 0) + t))
+  }
+  const sel = selecao ?? s?.identity?.nationality ?? ''
+  const nacionais = Array.isArray(s?.national?.trophies) ? s.national.trophies : []
   return {
     pico: n(s?.peakOvr),
     nota,
@@ -147,6 +176,10 @@ export function numerosDoResumo(s: Partial<CareerSummary> | null | undefined, no
     bolasOuro: premios.reduce((t, x) => t + (x && x.award === 'ballon_dor' ? Math.min(1000, contagem(x.count)) : 0), 0),
     jogos: n(s?.totals?.apps),
     temporadas: n(s?.seasons),
+    champions: conta('champions-league'),
+    clubes: clubesValidos.size,
+    mesmoClube: Math.max(0, ...porClube.values()),
+    copasSelecao: nacionais.filter((t) => t && (t.trophyId === 'world-cup' || t.kind === 'world_cup') && t.minor !== true && !!sel && t.teamId === sel).length,
   }
 }
 
@@ -163,6 +196,13 @@ export interface NumerosServidor {
   gols: number | null
   temporadas: number | null
   bonusOvr: number | null
+  /** v3.4 (opcionais: o servidor de antes não manda). */
+  champions?: number | null
+  clubes?: number | null
+  mesmoClube?: number | null
+  copasSelecao?: number | null
+  /** v3.4: a lista de conquistas que o servidor guardou desta carreira (carreiras.conquistas); null = não guardou. */
+  conquistas?: string[] | null
 }
 
 const ROTULOS_SERVIDOR: [keyof NumerosServidor & keyof NumerosCarreira, string][] = [
@@ -173,10 +213,32 @@ const ROTULOS_SERVIDOR: [keyof NumerosServidor & keyof NumerosCarreira, string][
   ['pico', 'Pico de OVR no servidor'],
   ['gols', 'Gols no servidor'],
   ['temporadas', 'Temporadas no servidor'],
+  ['champions', 'Champions no servidor'],
+  ['clubes', 'Clubes no servidor'],
+  ['mesmoClube', 'Temporadas no mesmo clube no servidor'],
+  ['copasSelecao', 'Copas pela seleção no servidor'],
 ]
 
+/** Um id de conquista no formato que o jogo e o servidor aceitam. */
+const ID_CONQUISTA = /^[a-z0-9_.:-]{1,64}$/
+
+/**
+ * A lista de conquistas guardada numa carreira (HallEntry.career.achievements), como o servidor lê: só os ids das conquistas
+ * do jogo, sem repetir (um id que o jogo não tem não conta na conta: fica de fora, e a verificação avisa).
+ */
+export function conquistasDaCarreira(entry: { career?: { achievements?: unknown } } | null | undefined): string[] {
+  const l = entry?.career?.achievements
+  return Array.isArray(l) ? [...new Set(l.filter((x): x is string => typeof x === 'string' && ID_CONQUISTA.test(x) && !!ACHIEVEMENT_BY_ID[x]))] : []
+}
+
+/** Ids na lista da carreira que o jogo não tem (o servidor ignora; só aviso). */
+const conquistasEstranhas = (entry: { career?: { achievements?: unknown } } | null | undefined): string[] => {
+  const l = entry?.career?.achievements
+  return Array.isArray(l) ? [...new Set(l.filter((x): x is string => typeof x === 'string' && !ACHIEVEMENT_BY_ID[x]))].map((x) => x.slice(0, 40)).slice(0, 10) : []
+}
+
 export interface Diferenca {
-  campo: keyof NumerosCarreira | 'id' | 'identidade' | 'replay' | 'trofeus' | 'contagem' | 'bonus' | 'servidor'
+  campo: keyof NumerosCarreira | 'id' | 'identidade' | 'replay' | 'trofeus' | 'contagem' | 'bonus' | 'servidor' | 'conquistas'
   rotulo: string
   guardado: string | number | null
   refeito: string | number | null
@@ -198,7 +260,7 @@ export interface CarreiraGuardada {
   identity?: Partial<PlayerIdentity>
   summary?: Partial<CareerSummary>
   legacy?: { score?: number; v?: number }
-  career?: { seasons?: unknown; national?: unknown; identity?: Partial<PlayerIdentity>; bonusOvr?: unknown }
+  career?: { seasons?: unknown; national?: unknown; identity?: Partial<PlayerIdentity>; bonusOvr?: unknown; achievements?: unknown }
   replay?: unknown
 }
 
@@ -220,6 +282,13 @@ export interface Verificacao {
    */
   dados: { carreira: string; agora: string; usada: string; exata: boolean }
   ms: number
+  /**
+   * v3.4: a lista de conquistas da carreira (as que ela prova na conta): `guardadas` (career.achievements), `refeitas` (o
+   * replay com as regras de agora), `aceitas` (as guardadas que o replay dá, com as regras de agora ou com as de antes de a
+   * regra mudar — a carreira pode ter sido jogada antes), `faltam` (guardadas que o replay não dá: não bate) e `sobram`
+   * (o replay dá e a lista não tem: só aviso). null = não comparou (não deu para verificar).
+   */
+  conquistas: { guardadas: string[]; refeitas: string[]; aceitas: string[]; faltam: string[]; sobram: string[]; regras: number } | null
 }
 
 /** A carreira foi jogada inteira com a versão `usada` dos dados? ("a>b" = atravessou um deploy: nunca é exata.) */
@@ -258,6 +327,8 @@ const bonusDaCarreira = (entry: CarreiraGuardada) => {
 export function compararNumeros(g: NumerosCarreira, r: NumerosCarreira, notaGuardadaVale = true): Diferenca[] {
   const out: Diferenca[] = []
   for (const k of Object.keys(ROTULOS) as (keyof NumerosCarreira)[]) {
+    // números que um dos lados não tem (resumo de um formato antigo): não compara
+    if (typeof g[k] === 'undefined' || typeof r[k] === 'undefined') continue
     if (k === 'nota' && (!notaGuardadaVale || g.nota === null || r.nota === null)) continue
     if (g[k] !== r[k]) out.push({ campo: k, rotulo: ROTULOS[k], guardado: g[k], refeito: r[k] })
   }
@@ -282,7 +353,7 @@ export async function refazerCarreira(engine: CareerEngine, data: GameData, repl
   } catch {
     nota = null
   }
-  return { replay, resultado, nota, numeros: numerosDoResumo(resultado.summary, nota) }
+  return { replay, resultado, nota, numeros: numerosDoResumo(resultado.summary, nota, replay.identity.nationality) }
 }
 
 /** Por que esta carreira não dá para verificar (null = dá): Imersivo, sem replay, replay estragado. */
@@ -306,7 +377,7 @@ export function compararCarreira(
 ): Verificacao {
   const replay = refeita.replay
   const r = refeita.resultado
-  const guardado = numerosDoResumo(entry.summary, notaDe(entry))
+  const guardado = numerosDoResumo(entry.summary, notaDe(entry), replay.identity.nationality)
   const diferencas: Diferenca[] = []
   const semente = sementeDoPar(replay.seed)
   if (entry.id !== `career-${semente}`) diferencas.push({ campo: 'id', rotulo: 'Semente', guardado: entry.id, refeito: `career-${semente}` })
@@ -322,7 +393,7 @@ export function compararCarreira(
   if (o.servidor)
     for (const [k, rotulo] of ROTULOS_SERVIDOR) {
       const sv = o.servidor[k]
-      if (sv !== null && sv !== guardado[k]) diferencas.push({ campo: 'servidor', rotulo, guardado: sv, refeito: refeita.numeros[k] })
+      if (sv !== null && sv !== undefined && sv !== guardado[k]) diferencas.push({ campo: 'servidor', rotulo, guardado: sv, refeito: refeita.numeros[k] })
     }
   const notaVale = o.versaoNota === undefined || entry.legacy?.v === o.versaoNota
   diferencas.push(...compararNumeros(guardado, refeita.numeros, notaVale))
@@ -337,6 +408,20 @@ export function compararCarreira(
   if (ig && (ig.nationality !== r.state.identity.nationality || ig.position !== r.state.identity.position))
     diferencas.push({ campo: 'identidade', rotulo: 'Seleção e posição', guardado: `${ig.nationality ?? '?'} ${ig.position ?? '?'}`, refeito: `${r.state.identity.nationality} ${r.state.identity.position}` })
   if (r.divergencia) diferencas.push({ campo: 'replay', rotulo: 'Replay', guardado: `${replay.picks.length} decisões`, refeito: r.divergencia.motivo })
+  // v3.4: a lista de conquistas (o que a carreira prova na conta) — cada uma guardada tem de sair no replay
+  const conquistas = compararConquistas(entry, r.state)
+  if (conquistas.faltam.length) diferencas.push({ campo: 'conquistas', rotulo: 'Conquistas da carreira', guardado: conquistas.faltam.join(', ').slice(0, 400), refeito: 'não saem no replay' })
+  const avisos = r.avisos.slice(0, 20)
+  const estranhas = conquistasEstranhas(entry)
+  if (estranhas.length) avisos.push(`A lista da carreira tem ids que o jogo não conhece (${estranhas.join(', ')}): o servidor não conta esses.`)
+  if (conquistas.sobram.length) avisos.push(`O replay também dá ${conquistas.sobram.length === 1 ? 'a conquista' : 'as conquistas'} ${conquistas.sobram.join(', ')}, que não ${conquistas.sobram.length === 1 ? 'está' : 'estão'} na lista da carreira (não vale como prova; não é trapaça).`)
+  // o servidor guardou uma lista (a que conta na conta): ela tem de ser a da carreira guardada
+  const listaServidor = o.servidor?.conquistas
+  if (listaServidor) {
+    const g = new Set(conquistas.guardadas)
+    const fora = listaServidor.filter((x) => !g.has(x))
+    if (fora.length) diferencas.push({ campo: 'servidor', rotulo: 'Conquistas no servidor', guardado: fora.join(', ').slice(0, 400), refeito: 'não estão na carreira guardada' })
+  }
   const usada = o.dadosUsados ?? DADOS_VERSAO
   const exata = dadosExatos(replay.dados, usada)
   const ok = diferencas.length === 0
@@ -348,10 +433,32 @@ export function compararCarreira(
     guardado,
     refeito: refeita.numeros,
     divergencia: r.divergencia,
-    avisos: r.avisos.slice(0, 20),
+    avisos,
     passos: r.passos,
     dados: { carreira: replay.dados, agora: DADOS_VERSAO, usada, exata },
     ms: o.ms ?? 0,
+    conquistas,
+  }
+}
+
+/**
+ * v3.4: a lista de conquistas guardada × a do replay. A refeita é a que o motor juntou decisão a decisão (as regras de agora);
+ * uma guardada que só a regra de antes dava (a carreira foi jogada antes da v3.4) também vale: ela é conferida com a regra
+ * daquela versão no estado final refeito.
+ */
+export function compararConquistas(entry: CarreiraGuardada, final: CareerState): NonNullable<Verificacao['conquistas']> {
+  const guardadas = conquistasDaCarreira(entry)
+  const refeitas = [...new Set(Array.isArray(final.achievements) ? final.achievements : [])]
+  const aceitas = new Set(refeitas)
+  for (let v = 1; v < CONQUISTAS_REGRAS_V; v++) for (const id of detectAchievements(final, { regras: v })) aceitas.add(id)
+  const g = new Set(guardadas)
+  return {
+    guardadas,
+    refeitas,
+    aceitas: guardadas.filter((id) => aceitas.has(id)),
+    faltam: guardadas.filter((id) => !aceitas.has(id)),
+    sobram: refeitas.filter((id) => !g.has(id)),
+    regras: CONQUISTAS_REGRAS_V,
   }
 }
 
@@ -391,6 +498,7 @@ export async function verificarCarreira(
     passos: 0,
     dados: { carreira: replay?.dados ?? '', agora: DADOS_VERSAO, usada, exata: !!replay && dadosExatos(replay.dados, usada) },
     ms: Math.round(agora() - t0),
+    conquistas: null,
   })
   if (sem || !replay) return vazio(sem ?? 'O replay desta carreira está incompleto ou estragado.')
   let refeita: Refeita
@@ -431,6 +539,8 @@ export function resultadoParaServidor(v: Verificacao): { ok: boolean; detalhes: 
       dadosUsados: v.dados.usada,
       dadosExatos: v.dados.exata,
       ms: v.ms,
+      // v3.4: as conquistas que a carreira prova (as aceitas) e as que não saíram no replay
+      conquistas: v.conquistas ? { regras: v.conquistas.regras, aceitas: v.conquistas.aceitas, faltam: v.conquistas.faltam, sobram: v.conquistas.sobram.slice(0, 20) } : null,
     },
   }
 }

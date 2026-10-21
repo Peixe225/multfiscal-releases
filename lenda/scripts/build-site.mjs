@@ -13,6 +13,8 @@
  *      (cache de 1 ano);
  *   3. copia a imagem de compartilhamento (scripts/site/og.jpg, 1200×630 — refaça com
  *      `node scripts/site/render-og.mjs`) e gera o apple-touch-icon.png (180×180) a partir do favicon.svg;
+ *   3b. (v3.4) SEO: título e descrição para busca, JSON-LD de VideoGame, sitemap.xml e o arquivo da chave do IndexNow
+ *      (scripts/indexnow.mjs avisa os buscadores depois do deploy);
  *   4. tira o carimbo .lenda-build (é da ponte, só faz sentido no dist/ local) e confere o resultado;
  *   5. imprime um resumo (arquivos, tamanho, os maiores).
  *   Antes do .htaccess, copia o servidor (servidor/CONTRATO.md), se já existir: servidor/api → api/ (sem
@@ -143,11 +145,93 @@ if (existsSync(join(out, 'painel'))) {
   }
 }
 
+// ── 1d. SEO (CONTRATO-v34 §B): título e descrição para busca, JSON-LD de VideoGame, sitemap.xml e a chave do IndexNow ──
+// Só na pasta /lenda/ (nada fora dela: o robots.txt da raiz do domínio é de outro site e não é mexido). ATENÇÃO (CONTRATO-v34
+// §E): hoje esse robots.txt tem `User-agent: *` + `Disallow: /` de propósito (domínio de trabalho), o que bloqueia /lenda/
+// inteira — enquanto for assim, nada disto é indexado e o X não mostra o card da prévia; `node scripts/indexnow.mjs --conferir`
+// avisa e diz o que pedir ao dono (`Allow: /lenda/` no grupo do `*`). O JSON-LD é um
+// <script type="application/ld+json">: a CSP não se aplica a ele (o navegador não executa esse tipo), então ele NÃO entra
+// nos hashes do script-src (ver INLINE_RE abaixo). O jogo usa rotas com # (#/hall…), que os buscadores não veem como
+// páginas: o sitemap tem só as páginas de verdade da pasta (o jogo e a política de privacidade).
+const SEO_TITULO = 'LENDA · Jogo de carreira de futebol online grátis'
+const SEO_DESCRICAO =
+  'Jogo de carreira de futebol online e grátis, em português: crie seu jogador, escolha clubes reais e conquiste Bolas de Ouro e Copas do Mundo dos 16 aos 40 anos.'
+const SEO_OG_TITULO = 'LENDA — jogo de carreira de futebol online grátis'
+const SEO_PALAVRAS =
+  'jogo de carreira de futebol, jogo de futebol online grátis, simulador de carreira de futebol, jogo de futebol no navegador, modo carreira, Bola de Ouro, Copa do Mundo, Libertadores'
+const { CHAVE_INDEXNOW, chaveIndexNow, arquivoDaChave } = await import('./indexnow.mjs')
+const indexNowKey = chaveIndexNow()
+{
+  if (SEO_DESCRICAO.length > 160) fail(`a descrição de SEO tem ${SEO_DESCRICAO.length} caracteres (até 160: o Google corta o resto)`)
+  const arq = join(out, 'index.html')
+  let h = readFileSync(arq, 'utf8')
+  const escAttr = (t) => t.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;')
+  const trocar = (re, novo, nome) => {
+    if (!re.test(h)) fail(`index.html sem ${nome} (o SEO não foi aplicado)`)
+    h = h.replace(re, novo)
+  }
+  trocar(/<title>[^<]*<\/title>/, `<title>${escAttr(SEO_TITULO)}</title>`, '<title>')
+  trocar(/<meta name="description" content="[^"]*"\s*\/?>/, `<meta name="description" content="${escAttr(SEO_DESCRICAO)}" />`, 'meta description')
+  // o cartão de compartilhamento (plugin lenda:site-meta) fica com o mesmo texto da busca
+  for (const [attr, k, v] of [
+    ['property', 'og:title', SEO_OG_TITULO],
+    ['property', 'og:description', SEO_DESCRICAO],
+    ['name', 'twitter:title', SEO_OG_TITULO],
+    ['name', 'twitter:description', SEO_DESCRICAO],
+  ]) {
+    trocar(new RegExp(`<meta ${attr}="${k}" content="[^"]*"\\s*/?>`), `<meta ${attr}="${k}" content="${escAttr(v)}">`, k)
+  }
+  const ld = {
+    '@context': 'https://schema.org',
+    '@type': 'VideoGame',
+    name: 'LENDA',
+    alternateName: ['LENDA — Simulador de carreira de futebol', 'LENDA jogo de futebol'],
+    description: SEO_DESCRICAO,
+    url: siteUrl,
+    image: new URL('og.jpg', siteUrl).href,
+    inLanguage: 'pt-BR',
+    genre: ['Futebol', 'Esporte', 'Simulação', 'Carreira'],
+    keywords: SEO_PALAVRAS,
+    gamePlatform: ['Navegador no computador', 'Navegador no celular'],
+    applicationCategory: 'Game',
+    operatingSystem: 'Qualquer sistema com um navegador atual',
+    playMode: 'SinglePlayer',
+    isAccessibleForFree: true,
+    offers: { '@type': 'Offer', price: '0', priceCurrency: 'BRL', availability: 'https://schema.org/InStock', url: siteUrl },
+  }
+  // "<" escapado: nenhum texto do JSON fecha o <script> antes da hora
+  const ldJson = JSON.stringify(ld).replace(/</g, '\\u003c')
+  const cabeca = [
+    `<meta name="keywords" content="${escAttr(SEO_PALAVRAS)}" />`,
+    '<meta name="robots" content="index, follow, max-image-preview:large" />',
+    `<script type="application/ld+json">${ldJson}</script>`,
+  ].join('\n    ')
+  if (!h.includes('</head>')) fail('index.html sem </head>')
+  h = h.replace(/\s*<\/head>/, `\n    ${cabeca}\n  </head>`)
+  // para quem lê sem JavaScript (alguns robôs de busca e de prévia): o que é o jogo, em texto. Quem tem JavaScript nunca vê.
+  const noscript = `<noscript><main style="max-width:640px;margin:48px auto;padding:0 16px;font:16px/1.5 system-ui,sans-serif"><h1>LENDA — jogo de carreira de futebol online grátis</h1><p>${escAttr(SEO_DESCRICAO)}</p><p>Decida a carreira inteira: clube, empréstimo, transferência, seleção. Ganhe títulos, Bolas de Ouro, Libertadores e Copas do Mundo e compare sua lenda com Pelé, Messi e Cristiano Ronaldo no Hall das Lendas.</p><p>Para jogar, ative o JavaScript do navegador.</p></main></noscript>`
+  h = h.replace(/<body>\s*/, `<body>\n    ${noscript}\n    `)
+  writeFileSync(arq, h)
+  // sitemap: só as páginas públicas de verdade desta pasta (o jogo e a política de privacidade)
+  const hoje = new Date().toISOString().slice(0, 10)
+  const paginas = [
+    { loc: siteUrl, freq: 'weekly', prio: '1.0' },
+    ...(existsSync(join(out, 'privacidade.html')) ? [{ loc: new URL('privacidade.html', siteUrl).href, freq: 'monthly', prio: '0.3' }] : []),
+  ]
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${paginas
+    .map((p) => `  <url>\n    <loc>${p.loc.replace(/&/g, '&amp;')}</loc>\n    <lastmod>${hoje}</lastmod>\n    <changefreq>${p.freq}</changefreq>\n    <priority>${p.prio}</priority>\n  </url>`)
+    .join('\n')}\n</urlset>\n`
+  writeFileSync(join(out, 'sitemap.xml'), xml)
+  // IndexNow: o arquivo da chave fica na pasta (o protocolo exige; a chave é pública). scripts/indexnow.mjs avisa os buscadores.
+  writeFileSync(join(out, arquivoDaChave(indexNowKey)), indexNowKey)
+  console.log(`  SEO: título, descrição, JSON-LD (VideoGame), sitemap.xml (${paginas.length} páginas) e ${arquivoDaChave(indexNowKey)} (IndexNow${indexNowKey === CHAVE_INDEXNOW ? '' : ', chave do LENDA_INDEXNOW_KEY'})`)
+}
+
 // ── 2. .htaccess ──
 // Vale só para public_html/lenda/ e o que está dentro: o .htaccess do public_html continua mandando no
 // resto do site, e nada daqui chega às pastas irmãs. Nenhuma RewriteRule/RewriteEngine de propósito (ver o
 // cabeçalho do arquivo). Cada bloco dentro de <IfModule>: módulo ausente = bloco ignorado, nunca erro 500.
-const TEXT_TYPES = 'text/html text/css text/javascript application/javascript application/json application/manifest+json image/svg+xml text/plain'
+const TEXT_TYPES = 'text/html text/css text/javascript application/javascript application/json application/manifest+json image/svg+xml text/plain application/xml'
 
 // CSP da pasta. O oprojeto.online manda uma CSP para o site inteiro (Header always, até nos 403) feita para
 // a página principal: connect-src sem a ESPN, img-src sem os logos dela, child-src 'self' (nada de worker
@@ -168,7 +252,8 @@ const TEXT_TYPES = 'text/html text/css text/javascript application/javascript ap
 // arquivos próprios ('self'). Se alguma tiver <script> embutido, o hash dele entra também (senão seria
 // barrado em silêncio) — e o aviso no fim lembra que o combinado é sem script embutido.
 const html0 = readFileSync(join(out, 'index.html'), 'utf8')
-const INLINE_RE = /<script\b(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi
+// sem os blocos de dados (application/ld+json, o JSON-LD do SEO): o navegador não os executa e a CSP não se aplica a eles
+const INLINE_RE = /<script\b(?![^>]*\bsrc=)(?![^>]*\btype=["']?application\/ld\+json)[^>]*>([\s\S]*?)<\/script>/gi
 const inlineScripts = [...html0.matchAll(INLINE_RE)].map((m) => m[1])
 const outrasPaginas = copiados.filter((f) => /\.html?$/i.test(f))
 const avisosCsp = []
@@ -267,7 +352,9 @@ ${regrasLinks}
   AddType image/svg+xml .svg
   AddType image/webp .webp
   AddType font/woff2 .woff2
-  AddCharset utf-8 .html .js .mjs .css .json .svg .webmanifest
+  AddType application/xml .xml
+  AddType text/plain .txt
+  AddCharset utf-8 .html .js .mjs .css .json .svg .webmanifest .xml .txt
 </IfModule>
 
 # Compressão do que é texto (HTML, JS, CSS, JSON, SVG). Imagens .webp/.jpg/.png e fontes .woff2 já vêm
@@ -390,6 +477,20 @@ rmSync(join(out, '.lenda-build'), { force: true })
 const html = readFileSync(join(out, 'index.html'), 'utf8')
 for (const need of [`<link rel="canonical" href="${siteUrl}"`, `content="${siteUrl}og.jpg"`, 'twitter:card', 'apple-touch-icon']) {
   if (!html.includes(need)) fail(`index.html sem ${need} (o plugin lenda:site-meta do vite.config.ts rodou?)`)
+}
+// SEO: o JSON-LD é JSON de verdade, o sitemap e a chave do IndexNow estão na pasta
+{
+  const m = /<script type="application\/ld\+json">([\s\S]*?)<\/script>/.exec(html)
+  let ld = null
+  try {
+    ld = m ? JSON.parse(m[1]) : null
+  } catch {
+    ld = null
+  }
+  if (!ld || ld['@type'] !== 'VideoGame') fail('index.html sem o JSON-LD de VideoGame (ou com JSON inválido)')
+  if (!html.includes(`<title>${SEO_TITULO}</title>`)) fail('index.html sem o título de SEO')
+  if (!existsSync(join(out, 'sitemap.xml')) || !readFileSync(join(out, 'sitemap.xml'), 'utf8').includes(`<loc>${siteUrl}</loc>`)) fail('sitemap.xml sem a página do jogo')
+  if (readFileSync(join(out, arquivoDaChave(indexNowKey)), 'utf8') !== indexNowKey) fail('arquivo da chave do IndexNow com outro conteúdo')
 }
 // o caminho versionado dos escudos tem que estar no JS (senão o jogo pediria crests/<liga>.webp, que não existe mais)
 const crestsRef = `crests/${crestsV}/`

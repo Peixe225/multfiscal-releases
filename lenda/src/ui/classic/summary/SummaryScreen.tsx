@@ -647,7 +647,7 @@ const SummaryBody = memo(function SummaryBody({
           )}
         </header>
         {/* o bônus de compartilhar é só do card final das SUAS carreiras */}
-        <SharePanel m={share} compact={!desktop} careerId={alheia ? undefined : career.id} />
+        <SharePanel m={share} compact={!desktop} careerId={alheia ? undefined : career.id} previaId={admin ? undefined : career.id} />
       </section>
 
       <footer className="sm-foot">

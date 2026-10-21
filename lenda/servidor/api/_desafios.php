@@ -14,7 +14,11 @@
  * decisão, pode ser declarado vencedor (numa transação: um vencedor por desafio). §E: o candidato é conferido de novo, com a
  * carreira guardada de agora e o critério de agora, ao salvar a carreira, a cada avaliação da conta, ao mudar as regras do
  * desafio, ao verificar e ao declarar (motivoCandidato); o de todas as conquistas não tem prova e não pode ser ativado.
- * Usado por carreiras.php, conquistas.php, conta.php, e.php, desafios.php, perfil.php, admin.php e instalar.php.
+ * v3.4 (CONTRATO-v34 §A): desafios de modo `emblema` (todo mundo que cumprir ganha o emblema, sozinho, na avaliação de
+ * sempre; o admin pode retirar), critérios novos (champions, bolasOuro, titulos, gols, nota, clubes, temporadasMesmoClube,
+ * nacionalidade, copasPelaSelecao) e o de todas as conquistas pelas conquistas PROVADAS (_provas.php): pode ser ativado,
+ * e só verifica e declara com as 87 provadas por carreiras verificadas no replay.
+ * Usado por carreiras.php, conquistas.php, conta.php, e.php, desafios.php, perfil.php, hall.php, admin.php e instalar.php.
  * Nunca é servido (o .htaccess nega _*.php).
  */
 declare(strict_types=1);
@@ -25,23 +29,13 @@ if (isset($_SERVER['SCRIPT_FILENAME']) && realpath((string) $_SERVER['SCRIPT_FIL
 }
 
 require_once __DIR__ . '/_hall.php';
+require_once __DIR__ . '/_provas.php';
 
 const DESAFIO_ESTADOS = ['pendente', 'verificada', 'recusada', 'vencedora'];
 const DESAFIO_SLUG_RE = '/^[a-z0-9][a-z0-9-]{1,38}[a-z0-9]$/';
 const DESAFIO_LOTE_S = 10;          // a avaliação de todas as contas (ativar/salvar) roda por no máximo 10 s
 const DESAFIO_VERIFICACAO_MAX = 8000;
-/** As 87 conquistas do jogo (ACHIEVEMENTS em src/engine/career/achievements.ts; o teste confere que batem). */
-const CONQUISTAS_IDS = ['king_of_america', 'one_club_legend', 'europe_owner', 'mr_champions', 'goat', 'only_pele', 'black_spider',
-    'net_terror', 'complete_football', 'most_decorated', 'ringless', 'national_hero', 'the_world_is_yours', 'from_the_periphery',
-    'ushuaia_to_darien', 'nomad', 'from_the_bottom', 'matagigantes', 'the_treble', 'baldosero', 'first_title', 'ballon_dor', 'ballon_tri',
-    'hexa', 'world_champion', 'tri_libertadores', 'libertadores', 'orelhuda', 'golden_boot', 'league_top_scorer', 'goals_300', 'goals_500',
-    'goals_800', 'apps_500', 'apps_1000', 'promotion_to_title', 'never_relegated', 'globetrotter', 'one_club_only', 'club_world_champion',
-    'playmaker', 'wall', 'legend_90', 'perfection', 'idol', 'continental_national', 'kopa', 'the_best', 'captain_champion', 'puskas',
-    'wc_golden_ball', 'ballon_5', 'ballon_8', 'ballon_9', 'world_cup_2', 'world_cup_3', 'world_cup_4', 'golden_boot_3', 'golden_boot_7',
-    'ucl_3', 'ucl_7', 'libertadores_5', 'libertadores_7', 'league_titles_5', 'league_titles_10', 'league_titles_20', 'clubs_3', 'clubs_6',
-    'clubs_10', 'goals_100', 'goals_1000', 'goals_1300', 'assists_100', 'assists_250', 'assists_400', 'gpg_05', 'gpg_07', 'gpg_09',
-    'records_1', 'records_5', 'records_10', 'legacy_60', 'legacy_80', 'legacy_95', 'legend_top10', 'beat_pele', 'beat_all'];
-const CONQUISTAS_TOTAL = 87;
+// CONQUISTAS_IDS e CONQUISTAS_TOTAL (as 87 do jogo) ficam no _carreiras.php desde a v3.4 (a lista de conquistas da carreira-prova).
 /**
  * Por que uma carreira que cumpre o critério não vale (eu=1) e, §E, por que um candidato não vale agora (eu=1, painel,
  * declarar, a recusa automática).
@@ -62,10 +56,31 @@ const DESAFIO_MOTIVOS = [
     'conta_excluida' => 'A conta foi excluída.',
     'partidas' => 'A conta não tem as partidas mínimas.',
     'email' => 'O e-mail da conta não está confirmado.',
-    'conquistas' => 'A conta não tem todas as conquistas.',
+    'conquistas' => 'A conta não tem todas as conquistas provadas.',
+    // v3.4: a carreira-prova que não bateu na verificação por replay
+    'nao_bateu' => 'Esta carreira não bateu na verificação por replay.',
 ];
-/** §E: por que o desafio de todas as conquistas não pode ser ativado, verificado nem ter vencedor. */
+/** v3.4: os modos (primeiro = um vencedor e o prêmio do admin; emblema = todo mundo que cumprir ganha o emblema). */
+const DESAFIO_MODOS = ['primeiro', 'emblema'];
+const DESAFIO_DIFICULDADES = ['facil', 'medio', 'dificil', 'lendario'];
+/** Os limites de cada chave numérica do critério (de 1 até isto). */
+const DESAFIO_CRITERIO_MAX = ['copas' => 30, 'libertadores' => 30, 'champions' => 30, 'bolasOuro' => 30, 'copasPelaSelecao' => 30,
+    'titulos' => 500, 'gols' => 5000, 'nota' => 100, 'clubes' => 40, 'temporadasMesmoClube' => 30];
+/** Emblema de um desafio de modo emblema sem ícone escolhido. */
+const DESAFIO_EMBLEMA_PADRAO = ['icone' => 'star', 'cor' => '#f2c75a'];
+const DESAFIO_EMBLEMA_ESTADOS = ['ativo', 'retirado'];
+/**
+ * v3.4 §E: os ícones que um emblema pode ter — os 38 do mapa das conquistas do jogo (src/ui/shared/achievements/meta.ts, sem o
+ * apelido goat), os mesmos que o editor do painel oferece. Antes valia qualquer [a-z0-9-]: "constructor" passava e, no jogo
+ * (ICONS[nome]) e no painel (ICONES[nome]), achava a função Object do protótipo e a tela caía.
+ */
+const DESAFIO_ICONES = ['arrow-up', 'award', 'baby', 'backpack', 'badge', 'brick-wall', 'calendar', 'circle-dot', 'circle-off', 'compass', 'crown',
+    'flag', 'flame', 'footprints', 'gem', 'globe', 'globe-2', 'goal', 'hand', 'hand-helping', 'heart', 'infinity', 'layers', 'map', 'medal', 'mountain',
+    'plane', 'shield', 'shield-check', 'shirt', 'sparkles', 'star', 'sunrise', 'swords', 'target', 'trending-up', 'trophy', 'zap'];
+/** §E: por que o desafio de todas as conquistas não pode ser ativado, verificado nem ter vencedor (banco de antes da v3.4). */
 const DESAFIO_SEM_PROVA = 'O desafio de todas as conquistas não tem como ser conferido: as conquistas vêm do aparelho do jogador, sem prova (não há replay das conquistas). Ele não pode ser ativado, verificado nem ter vencedor.';
+/** v3.4: o candidato ao de todas as conquistas só verifica e vence com as 87 provadas por carreiras verificadas no replay. */
+const DESAFIO_SEM_PROVA_V34 = 'Faltam conquistas provadas por carreiras verificadas no replay: verifique as carreiras-prova da conta (#/verificar em lote) antes.';
 
 // ── datas e textos ───────────────────────────────────────────────────────────────────────────────
 
@@ -132,22 +147,43 @@ function textoLongo(mixed $v): ?string
 
 // ── critério e requisitos ────────────────────────────────────────────────────────────────────────
 
-/** {copas?, libertadores?, todasConquistas?} conferido; inválido → 400 criterio. */
+/**
+ * O critério conferido; inválido → 400 criterio. Chaves numéricas de DESAFIO_CRITERIO_MAX (v3.4: além de copas e
+ * libertadores, champions, bolasOuro, copasPelaSelecao, titulos, gols, nota, clubes, temporadasMesmoClube), `nacionalidade`
+ * (lista de 1 a 30 códigos de seleção, como "BRA") ou `{todasConquistas: true}` sozinho. Pelo menos uma chave.
+ */
 function lerCriterio(mixed $v): array
 {
-    $ruim = static fn(): never => erro(400, 'criterio', 'Critério: Copas do Mundo e/ou Libertadores (de 1 a 30) ou todas as conquistas.');
-    if (!is_array($v) || ($v !== [] && array_is_list($v)) || array_diff(array_keys($v), ['copas', 'libertadores', 'todasConquistas'])) {
+    $ruim = static fn(): never => erro(400, 'criterio', 'Critério: Copas do Mundo, Libertadores, Champions, Bolas de Ouro, Copas pela seleção, títulos, gols, nota, clubes, temporadas no mesmo clube (cada um de 1 até o limite), nacionalidade (lista de seleções) ou todas as conquistas.');
+    $chaves = array_merge(array_keys(DESAFIO_CRITERIO_MAX), ['nacionalidade', 'todasConquistas']);
+    if (!is_array($v) || ($v !== [] && array_is_list($v)) || array_diff(array_keys($v), $chaves)) {
         $ruim();
     }
     $out = [];
-    foreach (['copas', 'libertadores'] as $k) {
+    foreach (DESAFIO_CRITERIO_MAX as $k => $max) {
         if (array_key_exists($k, $v) && $v[$k] !== null && $v[$k] !== 0) {
-            $n = inteiroOuNulo($v[$k], 1, 30);
+            $n = inteiroOuNulo($v[$k], 1, $max);
             if ($n === null) {
                 $ruim();
             }
             $out[$k] = $n;
         }
+    }
+    if (array_key_exists('nacionalidade', $v) && $v['nacionalidade'] !== null) {
+        $nac = $v['nacionalidade'];
+        if (!is_array($nac) || $nac === [] || !array_is_list($nac) || count($nac) > 30) {
+            $ruim();
+        }
+        $lista = [];
+        foreach ($nac as $x) {
+            if (!is_string($x) || !preg_match('/^[A-Z]{2,4}$/', $x)) {
+                $ruim();
+            }
+            if (!in_array($x, $lista, true)) {
+                $lista[] = $x;
+            }
+        }
+        $out['nacionalidade'] = $lista;
     }
     $todas = $v['todasConquistas'] ?? false;
     if (!is_bool($todas) || ($todas && $out) || (!$todas && !$out)) {
@@ -197,15 +233,92 @@ function criterioDe(array $d): array
         return ['copas' => 99];
     }
     $out = [];
-    foreach (['copas', 'libertadores'] as $k) {
+    foreach (DESAFIO_CRITERIO_MAX as $k => $max) {
         if (isset($c[$k]) && is_int($c[$k]) && $c[$k] > 0) {
             $out[$k] = $c[$k];
+        }
+    }
+    if (isset($c['nacionalidade']) && is_array($c['nacionalidade'])) {
+        $nac = array_values(array_filter($c['nacionalidade'], static fn($x): bool => is_string($x) && preg_match('/^[A-Z]{2,4}$/', $x) === 1));
+        if ($nac) {
+            $out['nacionalidade'] = $nac;
         }
     }
     if (($c['todasConquistas'] ?? false) === true && !$out) {
         $out['todasConquistas'] = true;
     }
     return $out ?: ['copas' => 99];
+}
+
+/** v3.4: o modo do desafio (primeiro | emblema); linha de antes da v3.4 = primeiro. */
+function modoDe(array $d): string
+{
+    return ($d['modo'] ?? 'primeiro') === 'emblema' ? 'emblema' : 'primeiro';
+}
+
+function eEmblema(array $d): bool
+{
+    return modoDe($d) === 'emblema';
+}
+
+/** v3.4: {icone, cor} do emblema (o guardado, ou o padrão no modo emblema); null no modo primeiro sem emblema. */
+function emblemaDe(array $d): ?array
+{
+    $e = is_string($d['emblema'] ?? null) ? json_decode((string) $d['emblema'], true) : null;
+    if (is_array($e) && is_string($e['icone'] ?? null) && preg_match('/^[a-z0-9-]{1,24}$/', $e['icone']) && is_string($e['cor'] ?? null)
+        && preg_match('/^#[0-9a-f]{6}$/', $e['cor'])) {
+        // §E: ícone fora do mapa (gravado direto no banco ou de antes da lista) → a medalha, como o jogo e o painel desenham
+        return ['icone' => in_array($e['icone'], DESAFIO_ICONES, true) ? $e['icone'] : 'medal', 'cor' => $e['cor']];
+    }
+    return eEmblema($d) ? DESAFIO_EMBLEMA_PADRAO : null;
+}
+
+function dificuldadeDe(array $d): ?string
+{
+    $x = $d['dificuldade'] ?? null;
+    return is_string($x) && in_array($x, DESAFIO_DIFICULDADES, true) ? $x : null;
+}
+
+/** O emblema mandado pelo admin: {icone (um dos DESAFIO_ICONES), cor (#rrggbb)} ou null; inválido → 400 emblema. */
+function lerEmblema(mixed $v): ?array
+{
+    if ($v === null) {
+        return null;
+    }
+    if (!is_array($v) || array_is_list($v) || array_diff(array_keys($v), ['icone', 'cor']) || !is_string($v['icone'] ?? null)
+        || !in_array($v['icone'], DESAFIO_ICONES, true) || !is_string($v['cor'] ?? null) || !preg_match('/^#[0-9a-fA-F]{6}$/', $v['cor'])) {
+        erro(400, 'emblema', 'O emblema é {"icone": um dos ícones do jogo (' . implode(', ', DESAFIO_ICONES) . '), "cor": "#rrggbb"}.');
+    }
+    return ['icone' => $v['icone'], 'cor' => strtolower($v['cor'])];
+}
+
+/** O critério em palavras ("3 Copas do Mundo e 2 Libertadores"), para o regulamento de partida. */
+function descreverCriterio(array $crit): string
+{
+    if (eDeConquistas($crit)) {
+        return 'as ' . CONQUISTAS_TOTAL . ' conquistas do jogo';
+    }
+    $nome = [
+        'copas' => ['Copa do Mundo', 'Copas do Mundo'], 'libertadores' => ['Libertadores', 'Libertadores'],
+        'champions' => ['Champions League', 'Champions League'], 'bolasOuro' => ['Bola de Ouro', 'Bolas de Ouro'],
+        'copasPelaSelecao' => ['Copa do Mundo pela seleção em que começou', 'Copas do Mundo pela seleção em que começou'],
+        'titulos' => ['título', 'títulos'], 'gols' => ['gol', 'gols'], 'clubes' => ['clube diferente', 'clubes diferentes'],
+        'temporadasMesmoClube' => ['temporada no mesmo clube', 'temporadas no mesmo clube'],
+    ];
+    $partes = [];
+    foreach ($nome as $k => [$um, $varios]) {
+        if (isset($crit[$k])) {
+            $partes[] = number_format($crit[$k], 0, ',', '.') . ' ' . ($crit[$k] === 1 ? $um : $varios);
+        }
+    }
+    if (isset($crit['nota'])) {
+        $partes[] = 'Nota de Legado ' . $crit['nota'] . ' ou mais';
+    }
+    $txt = $partes ? (count($partes) === 1 ? $partes[0] : implode(', ', array_slice($partes, 0, -1)) . ' e ' . end($partes)) : 'o critério do desafio';
+    if (isset($crit['nacionalidade'])) {
+        $txt .= ', com um jogador de ' . implode(', ', $crit['nacionalidade']) . ' (a mesma seleção do começo ao fim)';
+    }
+    return $txt;
 }
 
 function requisitosDe(array $d): array
@@ -232,22 +345,28 @@ function eDeConquistas(array $crit): bool
 
 // ── os de fábrica ────────────────────────────────────────────────────────────────────────────────
 
-/** Regulamento de partida (o admin edita no painel). Nada aqui fala do prêmio: ele é o texto que o admin escrever. */
-function regulamentoPadrao(array $crit, array $req): string
+/**
+ * Regulamento de partida (o admin edita no painel). Nada aqui fala do prêmio: ele é o texto que o admin escrever. v3.4: no
+ * modo emblema, todo mundo que cumprir ganha o emblema ($chance = a frase da calibração, nos de fábrica).
+ */
+function regulamentoPadrao(array $crit, array $req, string $modo = 'primeiro', ?string $chance = null): string
 {
     $l = [];
-    if (eDeConquistas($crit)) {
-        $l[] = 'Vale a primeira conta a desbloquear as ' . CONQUISTAS_TOTAL . ' conquistas do jogo, com todos os requisitos abaixo cumpridos. A hora que conta é a do servidor.';
-        $l[] = 'As conquistas contam pela sua conta: entre na conta no aparelho em que você joga para elas subirem.';
+    if ($modo === 'emblema') {
+        $l[] = eDeConquistas($crit) ? 'Ganha o emblema toda conta que tiver as ' . CONQUISTAS_TOTAL . ' conquistas do jogo provadas por carreiras.'
+            : 'Ganha o emblema toda conta que terminar uma carreira com ' . descreverCriterio($crit) . '. Não é corrida: todo mundo que cumprir ganha, na hora em que a carreira entra na conta.';
+        $l[] = 'Vale carreira do Modo Clássico começada com a conta aberta (a semente da carreira é sorteada pelo servidor), com os dados de replay desta versão do jogo. Vale também carreira salva antes de o desafio existir.';
+        if ($req['publicadoNoHall']) {
+            $l[] = 'A carreira tem de estar publicada no Hall das Lendas' . ($req['top3Perfil'] ? ' e entre as 3 carreiras do seu perfil público.' : '.');
+        }
+        if ($chance !== null && $chance !== '') {
+            $l[] = $chance;
+        }
+    } elseif (eDeConquistas($crit)) {
+        $l[] = 'Vale a primeira conta a ter as ' . CONQUISTAS_TOTAL . ' conquistas do jogo provadas, com todos os requisitos abaixo cumpridos. A hora que conta é a do servidor.';
+        $l[] = 'Só contam as conquistas provadas: as de carreiras do Modo Clássico começadas com a conta aberta (a semente é sorteada pelo servidor) e salvas na conta, com os dados de replay. As que vieram só do aparelho não contam.';
     } else {
-        $partes = [];
-        if (isset($crit['copas'])) {
-            $partes[] = $crit['copas'] . ($crit['copas'] === 1 ? ' Copa do Mundo' : ' Copas do Mundo');
-        }
-        if (isset($crit['libertadores'])) {
-            $partes[] = $crit['libertadores'] . ' Libertadores';
-        }
-        $l[] = 'Vale a primeira conta a terminar uma carreira com ' . implode(' e ', $partes) . ', com todos os requisitos abaixo cumpridos. A hora que conta é a do servidor.';
+        $l[] = 'Vale a primeira conta a terminar uma carreira com ' . descreverCriterio($crit) . ', com todos os requisitos abaixo cumpridos. A hora que conta é a do servidor.';
         $l[] = 'A carreira tem de ser do Modo Clássico, começada com a conta aberta (a semente da carreira é sorteada pelo servidor) e salva na conta depois do começo do desafio, nesta versão do jogo (com os dados de replay).';
         if ($req['publicadoNoHall']) {
             $l[] = 'A carreira tem de estar publicada no Hall das Lendas' . ($req['top3Perfil'] ? ' e entre as 3 carreiras do seu perfil público.' : '.');
@@ -260,10 +379,13 @@ function regulamentoPadrao(array $crit, array $req): string
         $l[] = 'A conta precisa ter pelo menos ' . $req['partidasMin'] . ' partidas jogadas com ela.';
     }
     $l[] = 'Só contam as partidas e as carreiras começadas até o limite diário do jogo; carreira salva num dia em que a conta passou desse limite não vale.';
-    if (!eDeConquistas($crit)) {
-        $l[] = 'Antes de declarar o vencedor, a equipe refaz a carreira no próprio jogo, com as mesmas escolhas. Carreira que não bater é recusada.';
+    if ($modo === 'emblema') {
+        $l[] = 'A equipe do LENDA pode conferir a carreira no próprio jogo, com as mesmas escolhas, e retirar o emblema de carreira que não bater ou de conta com trapaça.';
+    } else {
+        $l[] = eDeConquistas($crit) ? 'Antes de declarar o vencedor, a equipe refaz no próprio jogo as carreiras que provam as conquistas, com as mesmas escolhas. Carreira que não bater deixa de provar.'
+            : 'Antes de declarar o vencedor, a equipe refaz a carreira no próprio jogo, com as mesmas escolhas. Carreira que não bater é recusada.';
+        $l[] = 'A equipe do LENDA fala com o vencedor pelo e-mail da conta. Contas suspensas ou com trapaça não valem.';
     }
-    $l[] = 'A equipe do LENDA fala com o vencedor pelo e-mail da conta. Contas suspensas ou com trapaça não valem.';
     $out = [];
     foreach ($l as $i => $x) {
         $out[] = ($i + 1) . '. ' . $x;
@@ -294,6 +416,64 @@ function semearDesafios(): int
             VALUES (?, ?, ?, ?, '', ?, ?, 0, NULL, NULL, ?, ?)", [$d['slug'], $d['titulo'], $d['descricao'],
             regulamentoPadrao($d['criterio'], $d['requisitos']), json($d['criterio']), json($d['requisitos']), dt(time()), $d['ordem']])->rowCount();
     }
+    return $n;
+}
+
+/** v3.4: requisitos dos desafios de emblema de fábrica: nenhum além da carreira provada (todo mundo ganha, não é corrida). */
+function requisitosEmblema(): array
+{
+    return ['partidasMin' => 0, 'emailVerificado' => false, 'publicadoNoHall' => false, 'top3Perfil' => false];
+}
+
+/**
+ * v3.4: os 10 desafios de emblema de fábrica (calibração da §K do CONTRATO-v34: v34-desafios-emblema.json). umEm = 1 em
+ * quantas carreiras sai para quem joga para isso (o melhor plano medido); aoAcaso = para quem escolhe ao acaso (null = não saiu).
+ */
+function desafiosEmblemaDeFabrica(): array
+{
+    return [
+        ['slug' => 'noite-de-gala', 'titulo' => 'Noite de gala', 'descricao' => 'Ganhe a Bola de Ouro e a Champions League na mesma carreira.', 'dificuldade' => 'facil', 'criterio' => ['bolasOuro' => 1, 'champions' => 1], 'emblema' => ['icone' => 'star', 'cor' => '#b98652'], 'ordem' => 10, 'home' => true, 'umEm' => 12, 'aoAcaso' => 24],
+        ['slug' => 'andarilho-campeao', 'titulo' => 'Andarilho campeão', 'descricao' => 'Jogue por 12 clubes diferentes e conquiste 20 títulos na carreira.', 'dificuldade' => 'facil', 'criterio' => ['clubes' => 12, 'titulos' => 20], 'emblema' => ['icone' => 'plane', 'cor' => '#b98652'], 'ordem' => 20, 'home' => false, 'umEm' => 11, 'aoAcaso' => 74],
+        ['slug' => 'bandeira-do-clube', 'titulo' => 'Bandeira do clube', 'descricao' => 'Jogue 18 temporadas pelo mesmo clube e conquiste 20 títulos na carreira.', 'dificuldade' => 'facil', 'criterio' => ['temporadasMesmoClube' => 18, 'titulos' => 20], 'emblema' => ['icone' => 'shield', 'cor' => '#b98652'], 'ordem' => 30, 'home' => false, 'umEm' => 9, 'aoAcaso' => 417],
+        ['slug' => 'hexa-e-gloria-eterna', 'titulo' => 'Hexa e Glória Eterna', 'descricao' => 'Com um jogador brasileiro, dê o hexa ao Brasil, ganhe duas Libertadores e uma Bola de Ouro.', 'dificuldade' => 'medio', 'criterio' => ['copas' => 1, 'libertadores' => 2, 'bolasOuro' => 1, 'nacionalidade' => ['BRA'], 'copasPelaSelecao' => 1], 'emblema' => ['icone' => 'flag', 'cor' => '#c8d0dc'], 'ordem' => 40, 'home' => true, 'umEm' => 66, 'aoAcaso' => null],
+        ['slug' => 'era-de-ouro', 'titulo' => 'Era de ouro', 'descricao' => 'Ganhe cinco Bolas de Ouro e três Champions League na mesma carreira.', 'dificuldade' => 'medio', 'criterio' => ['bolasOuro' => 5, 'champions' => 3], 'emblema' => ['icone' => 'circle-dot', 'cor' => '#c8d0dc'], 'ordem' => 50, 'home' => false, 'umEm' => 79, 'aoAcaso' => 287],
+        ['slug' => 'artilheiro-do-mundo', 'titulo' => 'Artilheiro do mundo', 'descricao' => 'Marque 800 gols na carreira e ganhe uma Copa do Mundo.', 'dificuldade' => 'medio', 'criterio' => ['gols' => 800, 'copas' => 1], 'emblema' => ['icone' => 'goal', 'cor' => '#c8d0dc'], 'ordem' => 60, 'home' => false, 'umEm' => 114, 'aoAcaso' => 7740],
+        ['slug' => 'bi-do-mundo-bi-da-america', 'titulo' => 'Bi do mundo, bi da América', 'descricao' => 'Ganhe duas Copas do Mundo e duas Libertadores na mesma carreira.', 'dificuldade' => 'dificil', 'criterio' => ['copas' => 2, 'libertadores' => 2], 'emblema' => ['icone' => 'globe', 'cor' => '#f2c75a'], 'ordem' => 70, 'home' => false, 'umEm' => 350, 'aoAcaso' => null],
+        ['slug' => 'imortal', 'titulo' => 'Imortal', 'descricao' => 'Ganhe duas Copas do Mundo e encerre a carreira com Nota de Legado 92 ou mais.', 'dificuldade' => 'dificil', 'criterio' => ['copas' => 2, 'nota' => 92], 'emblema' => ['icone' => 'sparkles', 'cor' => '#f2c75a'], 'ordem' => 80, 'home' => false, 'umEm' => 583, 'aoAcaso' => null],
+        ['slug' => 'tacas-do-rei-emblema', 'titulo' => 'As Taças do Rei', 'descricao' => 'Ganhe três Copas do Mundo e duas Libertadores, como o Rei Pelé.', 'dificuldade' => 'lendario', 'criterio' => ['copas' => 3, 'libertadores' => 2], 'emblema' => ['icone' => 'crown', 'cor' => '#c9b8ff'], 'ordem' => 90, 'home' => true, 'umEm' => 9577, 'aoAcaso' => null],
+        ['slug' => 'mil-gols-e-o-tri', 'titulo' => 'Mil gols e o tri', 'descricao' => 'Ganhe três Copas do Mundo e marque mais de 1.000 gols: a marca do Rei.', 'dificuldade' => 'lendario', 'criterio' => ['copas' => 3, 'gols' => 1001], 'emblema' => ['icone' => 'gem', 'cor' => '#c9b8ff'], 'ordem' => 100, 'home' => false, 'umEm' => 5250, 'aoAcaso' => null],
+    ];
+}
+
+/** A frase da chance que vai no regulamento de partida de um emblema de fábrica. */
+function fraseChance(int $umEm, ?int $aoAcaso): string
+{
+    $n = static fn(int $x): string => number_format($x, 0, ',', '.');
+    return 'Na calibração do jogo (69 mil carreiras simuladas com o motor de verdade), sai em cerca de 1 de cada ' . $n($umEm)
+        . ' carreiras de quem joga para isso' . ($aoAcaso !== null ? ' e em 1 de cada ' . $n($aoAcaso) . ' de quem escolhe ao acaso.' : '; escolhendo ao acaso, não saiu nenhuma vez.');
+}
+
+/**
+ * v3.4: semeia os desafios de emblema de fábrica, ATIVOS (o início = agora), uma vez só: a marca _v34_emblemas em
+ * site_config. O que o admin mudar, desligar ou um dia apagar nunca volta nem é mexido (slug que já existe: INSERT IGNORE).
+ * Devolve quantos entraram.
+ */
+function semearEmblemas(): int
+{
+    if (lerEstado('_v34_emblemas') !== null) {
+        return 0;
+    }
+    $n = 0;
+    $req = requisitosEmblema();
+    $agora = dt(time());
+    foreach (desafiosEmblemaDeFabrica() as $d) {
+        $n += sql("INSERT IGNORE INTO desafios (slug, titulo, descricao, regulamento, premio, criterio, requisitos, ativo, inicio, fim, criado_em, ordem, atualizado_em,
+                modo, dificuldade, emblema, home)
+            VALUES (?, ?, ?, ?, '', ?, ?, 1, ?, NULL, ?, ?, ?, 'emblema', ?, ?, ?)", [$d['slug'], $d['titulo'], $d['descricao'],
+            regulamentoPadrao($d['criterio'], $req, 'emblema', fraseChance($d['umEm'], $d['aoAcaso'])), json($d['criterio']), json($req), $agora, $agora,
+            $d['ordem'], $agora, $d['dificuldade'], json($d['emblema']), $d['home'] ? 1 : 0])->rowCount();
+    }
+    gravarSiteConfig('_v34_emblemas', ['em' => gmdate('Y-m-d\TH:i:s\Z'), 'semeados' => $n], 'instalar');
     return $n;
 }
 
@@ -350,25 +530,52 @@ function desafiosValendo(bool $recarregar = false): array
         ORDER BY ordem, id', [$agora, $agora])->fetchAll();
 }
 
-/** [condição SQL (apelido c), params] da carreira que cumpre o critério de copas/libertadores. */
+/** v3.4: a coluna (apelido c) de cada chave numérica do critério. */
+const DESAFIO_COLUNA_CRITERIO = ['copas' => 'c.copas', 'libertadores' => 'COALESCE(c.libertadores, 0)', 'champions' => 'COALESCE(c.champions, 0)',
+    'bolasOuro' => 'c.bolas_ouro', 'titulos' => 'c.titulos', 'gols' => 'c.gols', 'clubes' => 'COALESCE(c.n_clubes, 0)',
+    'temporadasMesmoClube' => 'COALESCE(c.mesmo_clube, 0)', 'copasPelaSelecao' => 'COALESCE(c.copas_selecao, 0)'];
+
+/** O critério usa chave da v3.4 (precisa das colunas novas)? */
+function criterioV34(array $crit): bool
+{
+    return (bool) array_diff(array_keys($crit), ['copas', 'libertadores', 'todasConquistas']);
+}
+
+/**
+ * [condição SQL (apelido c), params] da carreira que cumpre o critério de carreira (todas as chaves; `nota` só com a nota da
+ * versão atual; `nacionalidade`: a seleção da criação na lista e igual à do fim). Sem o banco da v3.4, chave nova = ninguém.
+ */
 function sqlCumpreCriterio(array $crit): array
 {
+    if (criterioV34($crit) && !esquemaV34()) {
+        return ['1 = 0', []];
+    }
     $w = [];
     $p = [];
-    if (isset($crit['copas'])) {
-        $w[] = 'c.copas >= ?';
-        $p[] = $crit['copas'];
+    foreach (DESAFIO_COLUNA_CRITERIO as $k => $col) {
+        if (isset($crit[$k])) {
+            $w[] = "$col >= ?";
+            $p[] = $crit[$k];
+        }
     }
-    if (isset($crit['libertadores'])) {
-        $w[] = 'COALESCE(c.libertadores, 0) >= ?';
-        $p[] = $crit['libertadores'];
+    if (isset($crit['nota'])) {
+        $w[] = 'c.nota >= ? AND c.nota_v = ' . LENDA_NOTA_VERSAO;
+        $p[] = $crit['nota'];
+    }
+    if (isset($crit['nacionalidade'])) {
+        $w[] = 'c.pais_inicio IN (' . marcas(count($crit['nacionalidade'])) . ') AND c.pais = c.pais_inicio';
+        array_push($p, ...$crit['nacionalidade']);
     }
     return [$w ? implode(' AND ', $w) : '1 = 0', $p];
 }
 
-/** As colunas da carreira que a avaliação de desafio lê (apelido c). */
-const DESAFIO_CAMPOS_CARREIRA = 'c.id, c.usuario_id, c.carreira_id, c.jogador, c.copas, c.libertadores, c.modo, c.tem_replay, c.fora_desafio,
-    c.primeira_em, c.semente_em, c.suspeita';
+/** As colunas da carreira que a avaliação de desafio lê (apelido c); com o banco da v3.4, também as dos critérios novos e da prova. */
+function camposCarreiraDesafio(): string
+{
+    return 'c.id, c.usuario_id, c.carreira_id, c.jogador, c.copas, c.libertadores, c.modo, c.tem_replay, c.fora_desafio, c.primeira_em, c.semente_em, c.suspeita'
+        . (esquemaV34() ? ', c.salva_em, c.bolas_ouro, c.titulos, c.gols, c.nota, c.nota_v, c.pais, c.champions, c.n_clubes, c.mesmo_clube, c.copas_selecao,
+            c.pais_inicio, c.prova_ok' : '');
+}
 
 /**
  * §E: os motivos que vêm da própria carreira guardada (o conteúdo de agora, o critério de agora, a semente, o prazo). O
@@ -378,11 +585,14 @@ const DESAFIO_CAMPOS_CARREIRA = 'c.id, c.usuario_id, c.carreira_id, c.jogador, c
  * durar (uma ocultação por denúncias ou o Hall fechado por um dia não mudam quem foi o primeiro).
  */
 const DESAFIO_MOTIVOS_CARREIRA = ['criterio', 'carreira_apagada', 'imersivo', 'sem_replay', 'sem_semente', 'limite_diario', 'antes_do_inicio',
-    'depois_do_fim', 'suspeita', 'conquistas'];
+    'depois_do_fim', 'suspeita', 'conquistas', 'nao_bateu'];
 
-/** Por que a carreira (que cumpre o critério) não vale para o desafio, ou null. Sem olhar o Hall. */
+/** Por que a carreira (que cumpre o critério) não vale para o desafio, ou null. Sem olhar o Hall. v3.4: no de emblema, motivoCarreiraEmblema. */
 function motivoCarreiraDesafio(array $c, array $d): ?string
 {
+    if (eEmblema($d)) {
+        return motivoCarreiraEmblema($c, $d);
+    }
     if (($c['modo'] ?? 'classico') !== 'classico') {
         return 'imersivo';
     }
@@ -404,6 +614,10 @@ function motivoCarreiraDesafio(array $c, array $d): ?string
     if ($susp !== null && $susp !== 'revisao') {
         return 'suspeita';
     }
+    // v3.4: a carreira que não bateu na verificação por replay (prova_verificar) não vale para nada
+    if (($c['prova_ok'] ?? null) !== null && (int) $c['prova_ok'] === 0) {
+        return 'nao_bateu';
+    }
     $primeira = $c['primeira_em'] ?? null;
     if ($primeira === null || ($d['inicio'] !== null && ((string) $primeira < (string) $d['inicio'] || (string) $semente < (string) $d['inicio']))) {
         return 'antes_do_inicio';
@@ -414,13 +628,55 @@ function motivoCarreiraDesafio(array $c, array $d): ?string
     return null;
 }
 
-/** A carreira (linha de carreiras) cumpre o critério de taças do desafio? */
+/**
+ * v3.4: por que a carreira não dá o emblema: os motivos da prova (Clássico, replay, semente do servidor, limite do dia, suspeita,
+ * não bateu) e ter entrado na conta depois do fim do desafio. Não é corrida: carreira de antes do começo (ou de antes de o
+ * desafio existir) vale.
+ */
+function motivoCarreiraEmblema(array $c, array $d): ?string
+{
+    $m = motivoProva($c);
+    if ($m !== null) {
+        return $m;
+    }
+    $primeira = $c['primeira_em'] ?? null;
+    if ($d['fim'] !== null && $primeira !== null && (string) $primeira > (string) $d['fim']) {
+        return 'depois_do_fim';
+    }
+    return null;
+}
+
+/** A carreira (linha de carreiras, com camposCarreiraDesafio) cumpre o critério de carreira do desafio? */
 function cumpreCriterio(array $c, array $crit): bool
 {
-    if (eDeConquistas($crit) || (!isset($crit['copas']) && !isset($crit['libertadores']))) {
+    if (eDeConquistas($crit) || (criterioV34($crit) && !esquemaV34())) {
         return false;
     }
-    return (int) $c['copas'] >= ($crit['copas'] ?? 0) && (int) ($c['libertadores'] ?? 0) >= ($crit['libertadores'] ?? 0);
+    $valor = ['copas' => 'copas', 'libertadores' => 'libertadores', 'champions' => 'champions', 'bolasOuro' => 'bolas_ouro', 'titulos' => 'titulos',
+        'gols' => 'gols', 'clubes' => 'n_clubes', 'temporadasMesmoClube' => 'mesmo_clube', 'copasPelaSelecao' => 'copas_selecao'];
+    $alguma = false;
+    foreach ($valor as $k => $col) {
+        if (isset($crit[$k])) {
+            $alguma = true;
+            if ((int) ($c[$col] ?? 0) < $crit[$k]) {
+                return false;
+            }
+        }
+    }
+    if (isset($crit['nota'])) {
+        $alguma = true;
+        if ((int) ($c['nota'] ?? 0) < $crit['nota'] || (int) ($c['nota_v'] ?? -1) !== LENDA_NOTA_VERSAO) {
+            return false;
+        }
+    }
+    if (isset($crit['nacionalidade'])) {
+        $alguma = true;
+        $ini = $c['pais_inicio'] ?? null;
+        if (!is_string($ini) || !in_array($ini, $crit['nacionalidade'], true) || (string) ($c['pais'] ?? '') !== $ini) {
+            return false;
+        }
+    }
+    return $alguma;
 }
 
 /**
@@ -447,6 +703,15 @@ function conquistasValidas(int $uid): int
 {
     return (int) umValor('SELECT COUNT(*) FROM conquistas_usuario WHERE usuario_id = ? AND conquista_id IN (' . marcas(CONQUISTAS_TOTAL) . ')',
         array_merge([$uid], CONQUISTAS_IDS));
+}
+
+/**
+ * As conquistas que contam no desafio de todas as conquistas: v3.4, só as PROVADAS por carreiras (as do aparelho não contam);
+ * com o banco de antes da v3.4, as da conta (como na v3.3).
+ */
+function conquistasDoDesafio(int $uid): int
+{
+    return esquemaV34() ? conquistasProvadas($uid) : conquistasValidas($uid);
 }
 
 /**
@@ -496,11 +761,11 @@ function motivoCandidato(array $k, array $d, ?array $u, ?array &$hall = null): ?
     $crit = criterioDe($d);
     $c = null;
     if (eDeConquistas($crit)) {
-        if (conquistasValidas((int) $u['id']) < CONQUISTAS_TOTAL) {
+        if (conquistasDoDesafio((int) $u['id']) < CONQUISTAS_TOTAL) {
             return 'conquistas';
         }
     } else {
-        $c = $k['carreira_pk'] !== null ? umaLinha('SELECT ' . DESAFIO_CAMPOS_CARREIRA . ' FROM carreiras c WHERE c.id = ?', [(int) $k['carreira_pk']]) : null;
+        $c = $k['carreira_pk'] !== null ? umaLinha('SELECT ' . camposCarreiraDesafio() . ' FROM carreiras c WHERE c.id = ?', [(int) $k['carreira_pk']]) : null;
         if ($c === null || (int) $c['usuario_id'] !== (int) $u['id']) {
             return 'carreira_apagada';
         }
@@ -579,7 +844,8 @@ function reavaliarCandidatosDesafio(array $d): int
  * de cumprir pela carreira é recusado; a foto dos outros fica a de agora); depois cria o candidato pendente do que ela cumpre
  * agora (um por carreira; um por conta no de conquistas) ou faz voltar a pendente o que o sistema tinha recusado e voltou a
  * cumprir. $lote (ativar, salvar um desafio valendo): o `em` de quem já cumpria é a hora real em que cumpriu (emReal), não a
- * da avaliação. Devolve quantos criou ou fez voltar.
+ * da avaliação. v3.4: os de modo emblema dão o emblema (concederEmblemas). Devolve quantos candidatos criou ou fez voltar e
+ * quantos emblemas deu.
  */
 function avaliarDesafiosConta(int $uid, ?array $desafios = null, bool $lote = false): int
 {
@@ -596,7 +862,12 @@ function avaliarDesafiosConta(int $uid, ?array $desafios = null, bool $lote = fa
     }
     $criados = 0;
     $hall = null;
+    $emblemas = [];
     foreach ($ds as $d) {
+        if (eEmblema($d)) {
+            $emblemas[] = $d;
+            continue;
+        }
         reavaliarCandidatosConta($d, $u, $hall);
         $req = requisitosDe($d);
         $crit = criterioDe($d);
@@ -604,13 +875,13 @@ function avaliarDesafiosConta(int $uid, ?array $desafios = null, bool $lote = fa
             continue;
         }
         if (eDeConquistas($crit)) {
-            if (conquistasValidas($uid) >= CONQUISTAS_TOTAL) {
-                $criados += garantirCandidato($d, $uid, null, null);
+            if (conquistasDoDesafio($uid) >= CONQUISTAS_TOTAL) {
+                $criados += garantirCandidato($d, $uid, null, $lote ? emRealConquistas($u, $d, $req) : null);
             }
             continue;
         }
         [$w, $p] = sqlCumpreCriterio($crit);
-        $linhas = sql('SELECT ' . DESAFIO_CAMPOS_CARREIRA . " FROM carreiras c WHERE c.usuario_id = ? AND $w ORDER BY c.id LIMIT 200",
+        $linhas = sql('SELECT ' . camposCarreiraDesafio() . " FROM carreiras c WHERE c.usuario_id = ? AND $w ORDER BY c.id LIMIT 200",
             array_merge([$uid], $p))->fetchAll();
         foreach ($linhas as $c) {
             if (motivoCarreiraDesafio($c, $d) !== null || motivoContaDesafio($u, $req, $c, $hall) !== null) {
@@ -619,7 +890,20 @@ function avaliarDesafiosConta(int $uid, ?array $desafios = null, bool $lote = fa
             $criados += garantirCandidato($d, $uid, $c, $lote ? emReal($c, $u, $d, $req) : null);
         }
     }
+    if ($emblemas && esquemaV34()) {
+        $criados += concederEmblemas($u, $emblemas, $lote, $hall);
+    }
     return $criados;
+}
+
+/**
+ * v3.4 (lote): a hora real em que a conta passou a cumprir o desafio de todas as conquistas — a maior entre a hora em que a
+ * 87ª conquista ganhou prova, a confirmação do e-mail (quando pedida) e o começo do desafio, nunca depois de agora.
+ */
+function emRealConquistas(array $u, array $d, array $req): string
+{
+    $t = esquemaV34() ? emTodasProvadas((int) $u['id']) : null;
+    return emReal(['primeira_em' => $t], $u, $d, $req);
 }
 
 /**
@@ -674,14 +958,24 @@ function garantirCandidato(array $d, int $uid, ?array $c, ?string $em): int
  * Todas as contas que podem cumprir o desafio (ativar, salvar um ativo): as com carreira que cumpre o critério (ou com as
  * 87 conquistas), uma a uma, por até DESAFIO_LOTE_S segundos. §E: na ordem de quem cumpriu primeiro (a carreira mais antiga
  * de cada conta), com o `em` de cada uma a hora real (emReal) — antes, todas nasciam no mesmo instante na ordem do id da
- * conta, e a mais antiga sempre era "a primeira". Devolve quantos candidatos criou.
+ * conta, e a mais antiga sempre era "a primeira". v3.4: no de emblema, as contas com uma carreira-prova que cumpre o critério
+ * (de qualquer época), e o de todas as conquistas pelas provadas. Devolve quantos candidatos (ou emblemas) criou.
  */
 function avaliarDesafioTodos(array $d): int
 {
     $crit = criterioDe($d);
     if (eDeConquistas($crit)) {
-        $uids = sql('SELECT usuario_id FROM conquistas_usuario WHERE conquista_id IN (' . marcas(CONQUISTAS_TOTAL) . ')
-            GROUP BY usuario_id HAVING COUNT(*) >= ' . CONQUISTAS_TOTAL . ' ORDER BY usuario_id LIMIT 5000', CONQUISTAS_IDS)->fetchAll(PDO::FETCH_COLUMN);
+        $prova = esquemaV34() ? ' AND prova_pk IS NOT NULL' : '';
+        $uids = sql('SELECT usuario_id FROM conquistas_usuario WHERE conquista_id IN (' . marcas(CONQUISTAS_TOTAL) . ')' . $prova . '
+            GROUP BY usuario_id HAVING COUNT(*) >= ' . CONQUISTAS_TOTAL . ' ORDER BY MAX(' . (esquemaV34() ? 'provada_em' : 'em') . '), usuario_id LIMIT 5000',
+            CONQUISTAS_IDS)->fetchAll(PDO::FETCH_COLUMN);
+    } elseif (eEmblema($d)) {
+        if (!esquemaV34()) {
+            return 0;
+        }
+        [$w, $p] = sqlCumpreCriterio($crit);
+        $uids = sql('SELECT c.usuario_id FROM carreiras c WHERE ' . sqlCarreiraProva() . " AND $w GROUP BY c.usuario_id
+            ORDER BY MIN(COALESCE(c.primeira_em, c.salva_em)), c.usuario_id LIMIT 5000", $p)->fetchAll(PDO::FETCH_COLUMN);
     } else {
         [$w, $p] = sqlCumpreCriterio($crit);
         $uids = sql("SELECT c.usuario_id FROM carreiras c WHERE c.tem_replay = 1 AND c.modo = 'classico' AND c.fora_desafio IS NULL
@@ -697,6 +991,238 @@ function avaliarDesafioTodos(array $d): int
         }
     }
     return $n;
+}
+
+// ── emblemas (v3.4) ──────────────────────────────────────────────────────────────────────────────
+
+/** Os emblemas dados neste pedido (para a resposta do salvar: emblemasNovos). */
+function emblemasDadosAgora(?array $novo = null): array
+{
+    static $lista = [];
+    if ($novo !== null) {
+        $lista[] = $novo;
+    }
+    return $lista;
+}
+
+/**
+ * Dá à conta o emblema de cada desafio de emblema (valendo) que ela cumpre e ainda não tem: os requisitos da conta e uma
+ * carreira-prova que cumpre o critério (motivoCarreiraEmblema), ou as 87 conquistas provadas no de todas as conquistas. Um
+ * por conta e desafio (INSERT IGNORE na chave única: idempotente, e o retirado pelo admin não volta). $lote: o `em` é a hora em
+ * que a carreira entrou na conta (a hora real); senão, agora. Devolve quantos deu.
+ * §E: o retirado pelo SISTEMA (quem = sistema: a carreira que deu não bateu, foi apagada ou mudou, e a conta não tinha outra que
+ * cumprisse) volta, com a carreira-prova que cumpre agora; o tirado à mão pela equipe (emblema_retirar) nunca volta sozinho.
+ */
+function concederEmblemas(array $u, array $ds, bool $lote, ?array &$hall = null): int
+{
+    $uid = (int) $u['id'];
+    $tem = [];
+    $doSistema = [];
+    foreach (sql('SELECT id, desafio_id, estado, quem FROM emblemas_usuario WHERE usuario_id = ?', [$uid])->fetchAll() as $e) {
+        if ($e['estado'] === 'retirado' && $e['quem'] === 'sistema') {
+            $doSistema[(int) $e['desafio_id']] = (int) $e['id'];
+        } else {
+            $tem[(int) $e['desafio_id']] = true;
+        }
+    }
+    $carreiras = null;
+    $n = 0;
+    foreach ($ds as $d) {
+        if (isset($tem[(int) $d['id']]) || (int) $d['ativo'] !== 1) {
+            continue;
+        }
+        $volta = $doSistema[(int) $d['id']] ?? null;
+        $req = requisitosDe($d);
+        if (motivoContaDesafio($u, $req) !== null) {
+            continue;
+        }
+        $crit = criterioDe($d);
+        if (eDeConquistas($crit)) {
+            if (conquistasProvadas($uid) >= CONQUISTAS_TOTAL) {
+                $t = emTodasProvadas($uid);
+                $n += darEmblema($d, $uid, null, $lote && $t !== null ? $t . '.000' : null, $volta);
+            }
+            continue;
+        }
+        $carreiras ??= sql('SELECT ' . camposCarreiraDesafio() . ' FROM carreiras c WHERE c.usuario_id = ? AND ' . sqlCarreiraProva()
+            . ' ORDER BY COALESCE(c.primeira_em, c.salva_em), c.id LIMIT 500', [$uid])->fetchAll();
+        foreach ($carreiras as $c) {
+            if (!cumpreCriterio($c, $crit) || motivoCarreiraEmblema($c, $d) !== null || motivoContaDesafio($u, $req, $c, $hall) !== null) {
+                continue;
+            }
+            $quando = (string) ($c['primeira_em'] ?? $c['salva_em'] ?? '');
+            $n += darEmblema($d, $uid, $c, $lote && strlen($quando) >= 19 ? substr($quando, 0, 19) . '.000' : null, $volta);
+            break;
+        }
+    }
+    return $n;
+}
+
+/**
+ * Grava o emblema (só se o desafio ainda está ativo, conferido no próprio INSERT). 1 = deu agora. §E: $volta = o id do
+ * emblema retirado pelo sistema, que volta a ativo com esta carreira (só se ainda estiver retirado pelo sistema).
+ */
+function darEmblema(array $d, int $uid, ?array $c, ?string $em, ?int $volta = null): int
+{
+    $foto = [$c !== null ? (int) $c['id'] : null, $c['carreira_id'] ?? null, $c !== null ? mb_substr((string) $c['jogador'], 0, 40, 'UTF-8') : null, $em ?? agoraMs()];
+    if ($volta !== null) {
+        $n = sql("UPDATE emblemas_usuario e JOIN desafios d ON d.id = e.desafio_id SET e.estado = 'ativo', e.carreira_pk = ?, e.carreira_id = ?, e.jogador = ?,
+                e.em = ?, e.motivo = NULL, e.retirado_em = NULL, e.quem = NULL
+            WHERE e.id = ? AND e.usuario_id = ? AND e.estado = 'retirado' AND e.quem = 'sistema' AND d.ativo = 1 AND d.modo = 'emblema'",
+            array_merge($foto, [$volta, $uid]))->rowCount();
+    } else {
+        $n = sql("INSERT IGNORE INTO emblemas_usuario (usuario_id, desafio_id, carreira_pk, carreira_id, jogador, em, estado)
+            SELECT ?, d.id, ?, ?, ?, ?, 'ativo' FROM desafios d WHERE d.id = ? AND d.ativo = 1 AND d.modo = 'emblema'",
+            array_merge([$uid], $foto, [(int) $d['id']]))->rowCount();
+    }
+    if ($n === 1) {
+        emblemasDadosAgora(emblemaCurto($d) + ['carreiraId' => $c['carreira_id'] ?? null]);
+    }
+    return $n;
+}
+
+/** {slug, titulo, icone, cor, dificuldade} do emblema de um desafio (o que o jogo mostra). */
+function emblemaCurto(array $d): array
+{
+    $e = emblemaDe($d) ?? DESAFIO_EMBLEMA_PADRAO;
+    return ['slug' => (string) $d['slug'], 'titulo' => (string) $d['titulo'], 'icone' => $e['icone'], 'cor' => $e['cor'], 'dificuldade' => dificuldadeDe($d)];
+}
+
+/** Ordem dos emblemas para mostrar: os mais difíceis antes, depois os mais antigos. */
+const SQL_ORDEM_EMBLEMAS = "FIELD(d.dificuldade, 'lendario', 'dificil', 'medio', 'facil') = 0, FIELD(d.dificuldade, 'lendario', 'dificil', 'medio', 'facil'), e.em, e.id";
+
+/**
+ * Os emblemas ativos das contas (perfil, Hall, ?eu=1): uid → [{slug, titulo, icone, cor, dificuldade, em, carreiraId, jogador}],
+ * os mais difíceis antes. Vale também o emblema de um desafio já desligado (a conta ganhou).
+ */
+function emblemasDasContas(array $uids): array
+{
+    $uids = array_values(array_unique(array_filter(array_map('intval', $uids))));
+    if (!$uids || !esquemaV34()) {
+        return [];
+    }
+    $out = [];
+    foreach (sql('SELECT e.usuario_id, e.em, e.carreira_id, e.jogador, d.slug, d.titulo, d.emblema, d.dificuldade, d.modo FROM emblemas_usuario e
+        JOIN desafios d ON d.id = e.desafio_id WHERE e.usuario_id IN (' . marcas(count($uids)) . ") AND e.estado = 'ativo'
+        ORDER BY e.usuario_id, " . SQL_ORDEM_EMBLEMAS, $uids)->fetchAll() as $l) {
+        $out[(int) $l['usuario_id']][] = emblemaCurto($l) + ['em' => isoMs($l['em']), 'carreiraId' => $l['carreira_id'], 'jogador' => $l['jogador']];
+    }
+    return $out;
+}
+
+/** Quantas contas ativas têm o emblema de cada desafio (desafio_id → n). */
+function ganharamPorDesafio(array $ids): array
+{
+    if (!$ids || !esquemaV34()) {
+        return [];
+    }
+    $out = [];
+    foreach (sql("SELECT e.desafio_id, COUNT(*) AS n FROM emblemas_usuario e JOIN usuarios u ON u.id = e.usuario_id WHERE e.estado = 'ativo' AND "
+        . LENDA_SQL_ATIVO . ' AND e.desafio_id IN (' . marcas(count($ids)) . ') GROUP BY e.desafio_id', $ids) as $l) {
+        $out[(int) $l['desafio_id']] = (int) $l['n'];
+    }
+    return $out;
+}
+
+/**
+ * A carreira deixou de provar (não bateu na verificação, apagada pela moderação): os emblemas ativos que ela deu passam para
+ * outra carreira-prova da conta que cumpra o desafio ou, sem nenhuma, são retirados pelo sistema com o motivo
+ * (emblemasSemACarreira). Devolve quantos foram retirados.
+ */
+function retirarEmblemasDaCarreira(int $pk, string $motivo): int
+{
+    return emblemasSemACarreira($pk, $motivo)['retirados'];
+}
+
+/**
+ * v3.4 §E: a carreira $pk não sustenta mais os emblemas que deu — não bateu na verificação, foi apagada (pela moderação, ou pelo
+ * dono antes de ser verificada) ou foi salva de novo e não cumpre mais ($conferir: ela ainda existe, e só sai o emblema do
+ * desafio que ela deixou de cumprir). Cada emblema ativo dela passa para outra carreira-prova da conta que cumpra o desafio (a
+ * que entrou primeiro; o `em` fica o de quando a conta ganhou). Sem nenhuma, sai com o motivo e quem = sistema — e volta sozinho
+ * quando outra carreira-prova da conta cumprir (concederEmblemas). Antes o emblema ficava retirado para sempre, mesmo com outra
+ * carreira-prova (até verificada) que cumpria. Devolve ['movidos' => n, 'retirados' => n].
+ */
+function emblemasSemACarreira(int $pk, string $motivo, bool $conferir = false): array
+{
+    $out = ['movidos' => 0, 'retirados' => 0];
+    if (!esquemaV34()) {
+        return $out;
+    }
+    $es = sql("SELECT id, usuario_id, desafio_id FROM emblemas_usuario WHERE carreira_pk = ? AND estado = 'ativo' ORDER BY id", [$pk])->fetchAll();
+    if (!$es) {
+        return $out;
+    }
+    $uid = (int) $es[0]['usuario_id'];
+    $u = umaLinha('SELECT * FROM usuarios WHERE id = ?', [$uid]);
+    $carreiras = sql('SELECT ' . camposCarreiraDesafio() . ' FROM carreiras c WHERE c.usuario_id = ? AND ' . sqlCarreiraProva()
+        . ' ORDER BY COALESCE(c.primeira_em, c.salva_em), c.id LIMIT 500', [$uid])->fetchAll();
+    $hall = null;
+    $agora = dt(time());
+    foreach ($es as $e) {
+        $d = umaLinha('SELECT * FROM desafios WHERE id = ?', [(int) $e['desafio_id']]);
+        if ($d === null) {
+            continue;
+        }
+        $crit = criterioDe($d);
+        $req = requisitosDe($d);
+        $vale = static function (array $c) use ($crit, $d, $req, $u, &$hall): bool {
+            return cumpreCriterio($c, $crit) && motivoCarreiraEmblema($c, $d) === null && ($u === null || motivoContaDesafio($u, $req, $c, $hall) === null);
+        };
+        if ($conferir) {
+            foreach ($carreiras as $c) {
+                if ((int) $c['id'] === $pk && $vale($c)) {
+                    continue 2; // ela ainda cumpre: o emblema fica com ela
+                }
+            }
+        }
+        $outra = null;
+        foreach ($carreiras as $c) {
+            if ((int) $c['id'] !== $pk && $vale($c)) {
+                $outra = $c;
+                break;
+            }
+        }
+        if ($outra !== null) {
+            $out['movidos'] += sql("UPDATE emblemas_usuario SET carreira_pk = ?, carreira_id = ?, jogador = ? WHERE id = ? AND estado = 'ativo' AND carreira_pk = ?",
+                [(int) $outra['id'], $outra['carreira_id'], mb_substr((string) $outra['jogador'], 0, 40, 'UTF-8'), (int) $e['id'], $pk])->rowCount();
+            continue;
+        }
+        $out['retirados'] += sql("UPDATE emblemas_usuario SET estado = 'retirado', motivo = ?, retirado_em = ?, quem = 'sistema' WHERE id = ? AND estado = 'ativo' AND carreira_pk = ?",
+            [mb_substr($motivo, 0, 200, 'UTF-8'), $agora, (int) $e['id'], $pk])->rowCount();
+    }
+    return $out;
+}
+
+/** E: um emblema para o painel. $l = linha de emblemas_usuario com apelido, u_status, u_suspenso_ate e c_id (a carreira ainda existe). */
+function emblemaAdmin(array $l, array $nomes = []): array
+{
+    $pk = $l['carreira_pk'] !== null ? (int) $l['carreira_pk'] : null;
+    $existe = $pk !== null && ($l['c_id'] ?? null) !== null;
+    $quem = $l['quem'] !== null ? (string) $l['quem'] : null;
+    return [
+        'id' => (int) $l['id'],
+        'estado' => (string) $l['estado'],
+        'em' => isoMs($l['em']),
+        'motivo' => $l['motivo'],
+        'retiradoEm' => iso($l['retirado_em']),
+        'quem' => $quem !== null ? ['codigo' => $quem, 'nome' => $nomes[$quem] ?? ($quem === 'sistema' ? 'Sistema' : null)] : null,
+        'usuario' => ['id' => (int) $l['usuario_id'], 'apelido' => (string) ($l['apelido'] ?? ''),
+            'status' => ($l['u_status'] ?? null) !== null ? (contaSuspensa(['status' => $l['u_status'], 'suspenso_ate' => $l['u_suspenso_ate'] ?? null]) ? 'suspenso' : 'ativo') : null],
+        'carreira' => $pk === null ? null : ['pk' => $pk, 'carreiraId' => $l['carreira_id'], 'jogador' => $l['jogador'], 'existe' => $existe],
+        'links' => $existe ? ['resumo' => LENDA_CAMINHO_COOKIE . '#/resumo?id=' . $pk . '&de=admin', 'verificar' => LENDA_CAMINHO_COOKIE . '#/verificar?id=' . $pk . '&prova=1'] : null,
+    ];
+}
+
+/** O emblema (id de emblemas_usuario) para o painel. */
+function emblemaAdminPorId(int $id): ?array
+{
+    $l = umaLinha('SELECT e.*, u.apelido, u.status AS u_status, u.suspenso_ate AS u_suspenso_ate, c.id AS c_id FROM emblemas_usuario e
+        LEFT JOIN usuarios u ON u.id = e.usuario_id LEFT JOIN carreiras c ON c.id = e.carreira_pk WHERE e.id = ?', [$id]);
+    if ($l === null) {
+        return null;
+    }
+    $nomes = function_exists('nomesQuem') && is_string($l['quem']) ? nomesQuem([$l['quem']]) : [];
+    return emblemaAdmin($l, $nomes);
 }
 
 /**
@@ -814,10 +1340,13 @@ function desafiosPublicos(): array
             }
         }
     }
-    return array_map(static fn(array $d): array => desafioPublico($d, $pend[(int) $d['id']] ?? 0, $venc[(int) ($d['vencedor_candidato'] ?? 0)] ?? null), $ds);
+    $ganharam = ganharamPorDesafio($ids);
+    return array_map(static fn(array $d): array => desafioPublico($d, $pend[(int) $d['id']] ?? 0, $venc[(int) ($d['vencedor_candidato'] ?? 0)] ?? null,
+        $ganharam[(int) $d['id']] ?? 0), $ds);
 }
 
-function desafioPublico(array $d, int $pendentes, ?array $k): array
+/** Um desafio para o jogo. v3.4: modo, dificuldade, emblema, home e quantas contas já ganharam o emblema. */
+function desafioPublico(array $d, int $pendentes, ?array $k, int $ganharam = 0): array
 {
     $agora = dt(time());
     $vencedor = null;
@@ -842,6 +1371,12 @@ function desafioPublico(array $d, int $pendentes, ?array $k): array
         'encerrado' => $d['vencido_em'] !== null || ($d['fim'] !== null && (string) $d['fim'] <= $agora),
         'vencedor' => $vencedor,
         'pendentes' => $pendentes,
+        // v3.4
+        'modo' => modoDe($d),
+        'dificuldade' => dificuldadeDe($d),
+        'emblema' => emblemaDe($d),
+        'home' => (int) ($d['home'] ?? 0) === 1,
+        'ganharam' => $ganharam,
     ];
 }
 
@@ -860,11 +1395,16 @@ function euNoDesafio(array $d, array $u, ?array &$hall): array
     ];
     $lista = [];
     if (eDeConquistas($crit)) {
-        $out['conquistas'] = conquistasValidas($uid);
+        // v3.4: conquistas = as provadas (as que contam); conquistasTodas = também as que só vieram do aparelho
+        $out['conquistas'] = conquistasDoDesafio($uid);
         $out['conquistasTotal'] = CONQUISTAS_TOTAL;
+        if (esquemaV34()) {
+            $out['conquistasVerificadas'] = conquistasProvadas($uid, true);
+            $out['conquistasTodas'] = conquistasValidas($uid);
+        }
     } else {
         [$w, $p] = sqlCumpreCriterio($crit);
-        $linhas = sql('SELECT ' . DESAFIO_CAMPOS_CARREIRA . " FROM carreiras c WHERE c.usuario_id = ? AND $w ORDER BY c.nota DESC, c.id ASC LIMIT 20",
+        $linhas = sql('SELECT ' . camposCarreiraDesafio() . " FROM carreiras c WHERE c.usuario_id = ? AND $w ORDER BY c.nota DESC, c.id ASC LIMIT 20",
             array_merge([$uid], $p))->fetchAll();
         foreach ($linhas as $c) {
             $hall ??= hallParaDesafio($u);
@@ -879,6 +1419,14 @@ function euNoDesafio(array $d, array $u, ?array &$hall): array
         }
     }
     $out['carreirasQueCumprem'] = $lista;
+    if (eEmblema($d)) {
+        // v3.4: o emblema da conta neste desafio (o retirado pelo admin aparece com o motivo); não há candidato
+        $e = esquemaV34() ? umaLinha('SELECT * FROM emblemas_usuario WHERE usuario_id = ? AND desafio_id = ?', [$uid, (int) $d['id']]) : null;
+        $out['emblema'] = $e === null ? null : ['estado' => (string) $e['estado'], 'em' => isoMs($e['em']), 'carreiraId' => $e['carreira_id'],
+            'jogador' => $e['jogador'], 'motivo' => $e['estado'] === 'retirado' ? $e['motivo'] : null];
+        $out['candidato'] = null;
+        return $out;
+    }
     $k = umaLinha("SELECT * FROM desafio_candidatos WHERE desafio_id = ? AND usuario_id = ?
         ORDER BY FIELD(estado, 'vencedora', 'verificada', 'pendente', 'recusada'), em, id LIMIT 1", [(int) $d['id'], $uid]);
     $out['candidato'] = null;
@@ -903,8 +1451,8 @@ function desafioOu404(int $id, bool $travar = false): array
     return $d;
 }
 
-/** D: o desafio para o painel, com o vencedor e a contagem dos candidatos por estado. */
-function desafioAdmin(array $d, ?array $contagem = null): array
+/** D: o desafio para o painel, com o vencedor e a contagem dos candidatos por estado (v3.4: e dos emblemas). */
+function desafioAdmin(array $d, ?array $contagem = null, ?array $emblemas = null): array
 {
     $id = (int) $d['id'];
     if ($contagem === null) {
@@ -952,7 +1500,26 @@ function desafioAdmin(array $d, ?array $contagem = null): array
         'encerrado' => $d['vencido_em'] !== null || ($d['fim'] !== null && (string) $d['fim'] <= $agora),
         'vencedor' => $vencedor,
         'candidatos' => $porEstado + ['total' => array_sum($porEstado)],
+        // v3.4
+        'modo' => modoDe($d),
+        'dificuldade' => dificuldadeDe($d),
+        'emblema' => emblemaDe($d),
+        'home' => (int) ($d['home'] ?? 0) === 1,
+        'emblemas' => $emblemas ?? contagemEmblemas($id),
     ];
+}
+
+/** v3.4: {ativos, retirados} dos emblemas do desafio. */
+function contagemEmblemas(int $id): array
+{
+    $out = ['ativos' => 0, 'retirados' => 0];
+    if (!esquemaV34()) {
+        return $out;
+    }
+    foreach (sql('SELECT estado, COUNT(*) AS n FROM emblemas_usuario WHERE desafio_id = ? GROUP BY estado', [$id]) as $l) {
+        $out[$l['estado'] === 'ativo' ? 'ativos' : 'retirados'] += (int) $l['n'];
+    }
+    return $out;
 }
 
 /**
@@ -981,7 +1548,10 @@ function candidatoAdmin(array $l, array $nomes, ?int $primeiroId, string|false|n
             'copas' => $l['copas'] !== null ? (int) $l['copas'] : null, 'libertadores' => $l['libertadores'] !== null ? (int) $l['libertadores'] : null,
             'existe' => $existe, 'nota' => $existe ? (int) $l['c_nota'] : null, 'temReplay' => $existe && (int) $l['c_replay'] === 1],
         'links' => $existe ? ['resumo' => LENDA_CAMINHO_COOKIE . '#/resumo?id=' . $pk . '&de=admin',
-            'verificar' => LENDA_CAMINHO_COOKIE . '#/verificar?id=' . $pk . '&candidato=' . (int) $l['id']] : null,
+            'verificar' => LENDA_CAMINHO_COOKIE . '#/verificar?id=' . $pk . '&candidato=' . (int) $l['id']]
+            // v3.4: o de todas as conquistas verifica em lote as carreiras-prova da conta
+            : ($pk === null && esquemaV34() ? ['resumo' => null, 'verificar' => LENDA_CAMINHO_COOKIE . '#/verificar?conta=' . (int) $l['usuario_id']
+                . '&candidato=' . (int) $l['id']] : null),
         // §E: conferido agora com a carreira guardada e a conta (o declarar confere de novo): {ok, motivo, texto} | null
         'valeAgora' => $agora === false ? null : ['ok' => $agora === null, 'motivo' => $agora, 'texto' => $agora !== null ? (DESAFIO_MOTIVOS[$agora] ?? null) : null],
     ];
@@ -1003,7 +1573,7 @@ function avisoVencedor(array $d): string
 /** As rotas GET do admin.php da v3.3 (desafios e Fale conosco). Responde e termina, ou volta sem fazer nada. */
 function rotasGetV33(string $r, int $pagina): void
 {
-    if (!in_array($r, ['desafios', 'desafio', 'suporte'], true)) {
+    if (!in_array($r, ['desafios', 'desafio', 'suporte', 'provas'], true)) {
         return;
     }
     if (!esquemaV33()) {
@@ -1012,17 +1582,47 @@ function rotasGetV33(string $r, int $pagina): void
     if ($r === 'suporte') {
         rotaGetSuporte($pagina);
     }
+    if ($r === 'provas') {
+        rotaGetProvas(); // v3.4 (_provas.php)
+    }
     if ($r === 'desafios') {
         $ds = sql('SELECT * FROM desafios ORDER BY ordem, id')->fetchAll();
         $cont = [];
         foreach (sql('SELECT desafio_id, estado, COUNT(*) AS n FROM desafio_candidatos GROUP BY desafio_id, estado') as $l) {
             $cont[(int) $l['desafio_id']][(string) $l['estado']] = (int) $l['n'];
         }
-        responder(200, ['itens' => array_map(static fn(array $d): array => desafioAdmin($d, ($cont[(int) $d['id']] ?? []) + array_fill_keys(DESAFIO_ESTADOS, 0)), $ds),
+        $emb = [];
+        if (esquemaV34()) {
+            foreach (sql('SELECT desafio_id, estado, COUNT(*) AS n FROM emblemas_usuario GROUP BY desafio_id, estado') as $l) {
+                $emb[(int) $l['desafio_id']][$l['estado'] === 'ativo' ? 'ativos' : 'retirados'] = (int) $l['n'];
+            }
+        }
+        responder(200, ['itens' => array_map(static fn(array $d): array => desafioAdmin($d, ($cont[(int) $d['id']] ?? []) + array_fill_keys(DESAFIO_ESTADOS, 0),
+            ($emb[(int) $d['id']] ?? []) + ['ativos' => 0, 'retirados' => 0]), $ds),
             'partidasDiaMax' => partidasDiaMax(), 'conquistasTotal' => CONQUISTAS_TOTAL]);
     }
     $id = lerIdNumero($_GET['id'] ?? null, 'Desafio');
     $d = desafioOu404($id);
+    if (eEmblema($d) && esquemaV34()) {
+        // v3.4: no de emblema não há candidatos: quem ganhou (E), paginado, com o filtro estado=ativo|retirado
+        $estado = qs('estado', 10);
+        $onde = 'e.desafio_id = ?';
+        $params = [$id];
+        if ($estado !== '') {
+            if (!in_array($estado, DESAFIO_EMBLEMA_ESTADOS, true)) {
+                erro(400, 'filtro', 'Estado do emblema: ativo ou retirado.');
+            }
+            $onde .= ' AND e.estado = ?';
+            $params[] = $estado;
+        }
+        $total = (int) umValor("SELECT COUNT(*) FROM emblemas_usuario e WHERE $onde", $params);
+        $linhas = sql("SELECT e.*, u.apelido, u.status AS u_status, u.suspenso_ate AS u_suspenso_ate, c.id AS c_id FROM emblemas_usuario e
+            LEFT JOIN usuarios u ON u.id = e.usuario_id LEFT JOIN carreiras c ON c.id = e.carreira_pk
+            WHERE $onde ORDER BY e.em DESC, e.id DESC LIMIT " . POR_PAGINA . ' OFFSET ' . (($pagina - 1) * POR_PAGINA), $params)->fetchAll();
+        $nomes = function_exists('nomesQuem') ? nomesQuem(array_values(array_unique(array_filter(array_column($linhas, 'quem'), 'is_string')))) : [];
+        responder(200, ['desafio' => desafioAdmin($d), 'candidatos' => paginado(0, 1, []),
+            'emblemas' => paginado($total, $pagina, array_map(static fn(array $l): array => emblemaAdmin($l, $nomes), $linhas))]);
+    }
     $estado = qs('estado', 10);
     $onde = 'k.desafio_id = ?';
     $params = [$id];
@@ -1061,7 +1661,7 @@ function rotasGetV33(string $r, int $pagina): void
 function rotasPostV33(string $acao, array $j): void
 {
     $minhas = ['desafio_salvar', 'desafio_ativar', 'candidato_verificar', 'candidato_recusar', 'desafio_declarar_vencedor', 'desafio_reabrir',
-        'suporte_status', 'suporte_responder', 'suporte_lote', 'reenviar_verificacao'];
+        'suporte_status', 'suporte_responder', 'suporte_lote', 'reenviar_verificacao', 'prova_verificar', 'emblema_retirar', 'emblema_devolver'];
     if (!in_array($acao, $minhas, true)) {
         return;
     }
@@ -1070,6 +1670,12 @@ function rotasPostV33(string $acao, array $j): void
     }
     if (str_starts_with($acao, 'suporte_')) {
         acaoSuporte($acao, $j);
+    }
+    if ($acao === 'prova_verificar') {
+        acaoProvaVerificar($j); // v3.4 (_provas.php)
+    }
+    if ($acao === 'emblema_retirar' || $acao === 'emblema_devolver') {
+        acaoEmblema($acao, $j); // v3.4
     }
     switch ($acao) {
         case 'reenviar_verificacao':
@@ -1092,8 +1698,8 @@ function rotasPostV33(string $acao, array $j): void
                 erro(400, 'dados', 'Diga se o desafio fica ativo (sim) ou não.');
             }
             $antes = desafioOu404($id);
-            if ($ativo && eDeConquistas(criterioDe($antes))) {
-                erro(409, 'sem_prova', DESAFIO_SEM_PROVA); // §E
+            if ($ativo && eDeConquistas(criterioDe($antes)) && !esquemaV34()) {
+                erro(409, 'sem_prova', DESAFIO_SEM_PROVA); // §E (v3.4: a prova são as conquistas provadas pelas carreiras)
             }
             transacao(static function () use ($id, $ativo): void {
                 $d = desafioOu404($id, true);
@@ -1105,7 +1711,8 @@ function rotasPostV33(string $acao, array $j): void
             $novos = $ativo ? avaliarSeValendo($d) : 0;
             registrarAdmin('desafio_ativar', 'desafio:' . $id, ['slug' => (string) $d['slug'], 'ativo' => $ativo, 'antes' => (int) $antes['ativo'] === 1,
                 'candidatosNovos' => $novos]);
-            responder(200, ['ok' => true, 'desafio' => desafioAdmin($d), 'candidatosNovos' => $novos]);
+            // v3.4: no de emblema, candidatosNovos = quantas contas ganharam o emblema agora (também em emblemasNovos)
+            responder(200, ['ok' => true, 'desafio' => desafioAdmin($d), 'candidatosNovos' => $novos, 'emblemasNovos' => eEmblema($d) ? $novos : 0]);
 
         case 'candidato_verificar':
             $res = $j['resultado'] ?? null;
@@ -1143,7 +1750,14 @@ function rotasPostV33(string $acao, array $j): void
                     $d = umaLinha('SELECT * FROM desafios WHERE id = ?', [(int) $k['desafio_id']]) ?? [];
                     $ok = $res['ok'];
                     if ($ok && eDeConquistas(criterioDe($d))) {
-                        erro(409, 'sem_prova', DESAFIO_SEM_PROVA); // §E: "Conferi as conquistas" não conferia nada
+                        if (!esquemaV34()) {
+                            erro(409, 'sem_prova', DESAFIO_SEM_PROVA); // §E: "Conferi as conquistas" não conferia nada
+                        }
+                        // v3.4: só com as 87 provadas por carreiras verificadas no replay (prova_verificar)
+                        $faltam = faltasProvas((int) $k['usuario_id'])['faltamVerificar'];
+                        if ($faltam) {
+                            erroCom(409, 'sem_prova', DESAFIO_SEM_PROVA_V34, ['faltam' => $faltam]);
+                        }
                     }
                     $motivo = $ok ? null : (texto(is_array($det) ? ($det['motivo'] ?? null) : null, 200) ?? 'Não bateu na verificação pelo jogo.');
                     $estado = $ok ? 'verificada' : 'recusada';
@@ -1199,6 +1813,9 @@ function rotasPostV33(string $acao, array $j): void
                 // a ordem das travas é sempre desafio → candidato: duas declarações ao mesmo tempo esperam uma pela outra
                 $d = desafioOu404((int) $k0['desafio_id'], true);
                 $k = umaLinha('SELECT * FROM desafio_candidatos WHERE id = ? FOR UPDATE', [$cid]);
+                if (eEmblema($d)) {
+                    erro(409, 'emblema', 'Desafio de emblema não tem vencedor: todo mundo que cumprir ganha o emblema.');
+                }
                 if ($d['vencido_em'] !== null) {
                     erroCom(409, 'ja_tem_vencedor', 'Esse desafio já tem vencedor.', ['candidatoId' => $d['vencedor_candidato'] !== null ? (int) $d['vencedor_candidato'] : null]);
                 }
@@ -1221,7 +1838,13 @@ function rotasPostV33(string $acao, array $j): void
                     erro(409, 'carreira_apagada', 'A carreira desse candidato não existe mais.');
                 }
                 if (eDeConquistas(criterioDe($d))) {
-                    erro(409, 'sem_prova', DESAFIO_SEM_PROVA); // §E
+                    if (!esquemaV34()) {
+                        erro(409, 'sem_prova', DESAFIO_SEM_PROVA); // §E
+                    }
+                    $faltam = faltasProvas((int) $k['usuario_id'])['faltamVerificar']; // v3.4: as 87 provadas e verificadas
+                    if ($faltam) {
+                        erroCom(409, 'sem_prova', DESAFIO_SEM_PROVA_V34, ['faltam' => $faltam]);
+                    }
                 }
                 // §E: a carreira guardada AGORA cumpre o critério de AGORA, e a conta, todos os requisitos (as mesmas regras de
                 // quando o candidato nasceu)? A verificação por replay só prova que a guardada é a do motor
@@ -1256,6 +1879,9 @@ function rotasPostV33(string $acao, array $j): void
             $motivo = lerMotivo($j['motivo'] ?? null, true, 'Escreva por que o desafio volta a não ter vencedor: fica no registro.');
             $k = transacao(static function () use ($id): ?array {
                 $d = desafioOu404($id, true);
+                if (eEmblema($d)) {
+                    erro(409, 'emblema', 'Desafio de emblema não tem vencedor para tirar.');
+                }
                 if ($d['vencido_em'] === null) {
                     erro(409, 'sem_vencedor', 'Esse desafio não tem vencedor.');
                 }
@@ -1273,6 +1899,39 @@ function rotasPostV33(string $acao, array $j): void
                 'usuario' => $k !== null ? (int) $k['usuario_id'] : null, 'motivo' => $motivo]);
             responder(200, ['ok' => true, 'desafio' => desafioAdmin(desafioOu404($id))]);
     }
+}
+
+/**
+ * v3.4: emblema_retirar {id, motivo} (a conta perde o emblema; não volta sozinho) e emblema_devolver {id} (volta a ativo).
+ * Poder moderar. Registro: alvo desafio:<id>, com a conta.
+ */
+function acaoEmblema(string $acao, array $j): never
+{
+    if (!esquemaV34()) {
+        erroInstalar();
+    }
+    $id = lerIdNumero($j['id'] ?? null, 'Emblema');
+    $retirar = $acao === 'emblema_retirar';
+    $motivo = $retirar ? lerMotivo($j['motivo'] ?? null, true, 'Escreva por que o emblema sai: o jogador vê.') : lerMotivo($j['motivo'] ?? null, false);
+    $quem = admQuem();
+    $e = transacao(static function () use ($id, $retirar, $motivo, $quem): array {
+        $e = umaLinha('SELECT * FROM emblemas_usuario WHERE id = ? FOR UPDATE', [$id]);
+        if ($e === null) {
+            erro(404, 'nao_encontrado', 'Emblema não encontrado.');
+        }
+        if ($retirar && $e['estado'] === 'retirado') {
+            erro(409, 'ja_retirado', 'Esse emblema já foi retirado.');
+        }
+        if (!$retirar && $e['estado'] === 'ativo') {
+            erro(409, 'ja_ativo', 'Esse emblema já está com a conta.');
+        }
+        sql('UPDATE emblemas_usuario SET estado = ?, motivo = ?, retirado_em = ?, quem = ? WHERE id = ?',
+            [$retirar ? 'retirado' : 'ativo', $retirar ? $motivo : null, $retirar ? dt(time()) : null, $quem, $id]);
+        return $e;
+    });
+    registrarAdmin($acao, 'desafio:' . $e['desafio_id'], ['emblema' => $id, 'usuario' => (int) $e['usuario_id'],
+        'carreira' => $e['carreira_pk'] !== null ? (int) $e['carreira_pk'] : null, 'motivo' => $motivo]);
+    responder(200, ['ok' => true, 'emblema' => emblemaAdminPorId($id)]);
 }
 
 /** Avalia todas as contas se o desafio está valendo agora. */
@@ -1332,20 +1991,65 @@ function acaoDesafioSalvar(array $j): never
             $campos[$k] = $k === 'premio' ? ($t ?? '') : $t;
         }
     }
+    // v3.4: modo (primeiro | emblema), dificuldade, emblema {icone, cor} e home (a faixa da tela inicial)
+    $modo = $antes !== null ? modoDe($antes) : 'primeiro';
+    if (array_key_exists('modo', $j)) {
+        if (!esquemaV34()) {
+            erroInstalar();
+        }
+        if (!is_string($j['modo']) || !in_array($j['modo'], DESAFIO_MODOS, true)) {
+            erro(400, 'modo', 'Modo: primeiro (um vencedor, com o prêmio) ou emblema (todo mundo que cumprir ganha o emblema).');
+        }
+        if ($antes !== null && $j['modo'] !== $modo && ($antes['vencido_em'] !== null
+            || (int) umValor('SELECT COUNT(*) FROM desafio_candidatos WHERE desafio_id = ?', [(int) $antes['id']]) > 0
+            || (int) umValor('SELECT COUNT(*) FROM emblemas_usuario WHERE desafio_id = ?', [(int) $antes['id']]) > 0)) {
+            erro(409, 'modo_travado', 'O modo não muda depois que alguém virou candidato ou ganhou o emblema (crie outro desafio).');
+        }
+        $modo = $j['modo'];
+        $campos['modo'] = $modo;
+    }
+    if (array_key_exists('dificuldade', $j)) {
+        if (!esquemaV34()) {
+            erroInstalar();
+        }
+        if ($j['dificuldade'] !== null && (!is_string($j['dificuldade']) || !in_array($j['dificuldade'], DESAFIO_DIFICULDADES, true))) {
+            erro(400, 'dificuldade', 'Dificuldade: facil, medio, dificil, lendario ou vazio.');
+        }
+        $campos['dificuldade'] = $j['dificuldade'];
+    }
+    if (array_key_exists('emblema', $j)) {
+        if (!esquemaV34()) {
+            erroInstalar();
+        }
+        $e = lerEmblema($j['emblema']);
+        $campos['emblema'] = $e === null ? null : json($e);
+    }
+    if (array_key_exists('home', $j)) {
+        if (!esquemaV34()) {
+            erroInstalar();
+        }
+        if (!is_bool($j['home'])) {
+            erro(400, 'home', 'Diga se o desafio aparece na faixa da tela inicial (sim ou não).');
+        }
+        $campos['home'] = $j['home'] ? 1 : 0;
+    }
     if (array_key_exists('criterio', $j)) {
         $c = lerCriterio($j['criterio']);
+        if (criterioV34($c) && !esquemaV34()) {
+            erroInstalar();
+        }
         if ($antes !== null && $antes['vencido_em'] !== null && json($c) !== json(criterioDe($antes))) {
             erro(409, 'vencido', 'O desafio já tem vencedor: o critério não muda mais (reabra antes, se precisar).');
         }
-        if ($antes !== null && (int) $antes['ativo'] === 1 && eDeConquistas($c)) {
-            erro(409, 'sem_prova', DESAFIO_SEM_PROVA); // §E: um desafio ativo não vira o de todas as conquistas
+        if ($antes !== null && (int) $antes['ativo'] === 1 && eDeConquistas($c) && !esquemaV34()) {
+            erro(409, 'sem_prova', DESAFIO_SEM_PROVA); // §E: um desafio ativo não vira o de todas as conquistas (v3.4: pode)
         }
         $campos['criterio'] = json($c);
     }
     if (array_key_exists('requisitos', $j)) {
         $campos['requisitos'] = json(lerRequisitos($j['requisitos']));
     } elseif ($antes === null) {
-        $campos['requisitos'] = json(requisitosPadrao());
+        $campos['requisitos'] = json($modo === 'emblema' ? requisitosEmblema() : requisitosPadrao());
     }
     foreach (['inicio' => false, 'fim' => true] as $k => $fimDoDia) {
         if (array_key_exists($k, $j)) {
@@ -1369,15 +2073,20 @@ function acaoDesafioSalvar(array $j): never
         $campos['ordem'] = $o;
     }
     if ($antes === null && !array_key_exists('regulamento', $campos)) {
-        $campos['regulamento'] = regulamentoPadrao(json_decode($campos['criterio'], true), json_decode($campos['requisitos'], true));
+        $campos['regulamento'] = regulamentoPadrao(json_decode($campos['criterio'], true), json_decode($campos['requisitos'], true), $modo);
     }
     $t = dt(time());
     if ($antes === null) {
         $campos += ['descricao' => null, 'premio' => '', 'inicio' => null, 'fim' => null, 'ordem' => 0];
+        // v3.4: as colunas novas só entram com o banco da v3.4 (antes, o desafio nasce no modo de sempre)
+        $v34 = esquemaV34() ? ['modo' => $modo, 'dificuldade' => $campos['dificuldade'] ?? null,
+            'emblema' => $campos['emblema'] ?? ($modo === 'emblema' ? json(DESAFIO_EMBLEMA_PADRAO) : null), 'home' => $campos['home'] ?? 0] : [];
         try {
-            sql('INSERT INTO desafios (slug, titulo, descricao, regulamento, premio, criterio, requisitos, ativo, inicio, fim, criado_em, ordem, atualizado_em)
-                VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?)', [$campos['slug'], $campos['titulo'], $campos['descricao'], $campos['regulamento'],
-                $campos['premio'], $campos['criterio'], $campos['requisitos'], $campos['inicio'], $campos['fim'], $t, $campos['ordem'], $t]);
+            sql('INSERT INTO desafios (slug, titulo, descricao, regulamento, premio, criterio, requisitos, ativo, inicio, fim, criado_em, ordem, atualizado_em'
+                . ($v34 ? ', ' . implode(', ', array_keys($v34)) : '') . ')
+                VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?' . str_repeat(', ?', count($v34)) . ')', array_merge([$campos['slug'], $campos['titulo'],
+                $campos['descricao'], $campos['regulamento'], $campos['premio'], $campos['criterio'], $campos['requisitos'], $campos['inicio'], $campos['fim'], $t,
+                $campos['ordem'], $t], array_values($v34)));
         } catch (PDOException $e) {
             if (eChaveDuplicada($e)) {
                 erro(409, 'slug_em_uso', 'Já existe um desafio com esse endereço (slug).');
@@ -1395,7 +2104,7 @@ function acaoDesafioSalvar(array $j): never
         sql('UPDATE desafios SET ' . implode(', ', $sets) . ', atualizado_em = ? WHERE id = ?', array_merge($p, [$t, $id]));
     }
     $d = desafioOu404($id);
-    $mudouRegra = $antes !== null && array_intersect(array_keys($campos), ['criterio', 'requisitos', 'inicio', 'fim']);
+    $mudouRegra = $antes !== null && array_intersect(array_keys($campos), ['criterio', 'requisitos', 'inicio', 'fim', 'modo']);
     // §E: mudou o critério, os requisitos ou o prazo: os candidatos que já existiam são conferidos com as regras novas (o que
     // não cumpre mais pela carreira é recusado: "O desafio mudou: …"); num desafio valendo, quem passou a cumprir vira
     // candidato agora

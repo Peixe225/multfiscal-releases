@@ -48,3 +48,14 @@
 
 /* site: quantos jogadores têm a conquista */
 .ac-pct { display: inline-flex; align-items: center; height: 18px; padding: 0 7px; border-radius: 6px; font-size: 10.5px; font-weight: 700; color: var(--text-2); background: var(--surface-2, rgba(255, 255, 255, .06)); border: 1px solid var(--border); white-space: nowrap; }
+
+/* v3.4: conquistas provadas na conta (por uma carreira do Clássico começada com a conta) */
+.ac-prova { display: flex; align-items: center; gap: 6px 14px; flex-wrap: wrap; margin: 0; font-size: 12px; font-weight: 600; color: var(--text-2); }
+.ac-prova__i { display: inline-flex; align-items: center; gap: 6px; }
+.ac-prova__i b { font: 700 14px/1 var(--font-num); color: var(--text); font-variant-numeric: tabular-nums; }
+.ac-prova__i.is-ok svg { color: #8fe3b0; }
+.ac-prova__q { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 999px; color: var(--text-3); background: transparent; border: 1px solid var(--border); cursor: help; }
+.ac-prova__q:hover, .ac-prova__q:focus-visible { color: var(--text); border-color: var(--border-strong); }
+.ac-ppill { display: inline-flex; align-items: center; gap: 4px; height: 18px; padding: 0 7px; border-radius: 6px; font-size: 10.5px; font-weight: 700; color: var(--text-3); border: 1px dashed var(--border-strong); white-space: nowrap; flex: none; }
+.ac-ppill.is-ok { color: #b9f1cf; border: 1px solid rgba(120, 220, 160, .35); background: rgba(120, 220, 160, .1); }
+.ac-cell__prova { position: absolute; left: 5px; bottom: 5px; color: #8fe3b0; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, .6)); }

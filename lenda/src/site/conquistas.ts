@@ -9,12 +9,14 @@
  *   rede) e sobe 3 s depois (junta várias num pedido). Falhou: tenta de novo com espera crescente, quando a
  *   internet volta e na próxima abertura.
  * - Raridade ("12% dos jogadores"): GET ?raridade=1, público, com cache de 1 h (no servidor e aqui).
+ * - v3.4: cada resposta da conta diz quais estão PROVADAS (src/site/provas.ts → useConquistasSite.provadas).
  */
 import { useCareer, type AchievementUnlock } from '@/store/career'
 import { useConquistasSite, type Raridade } from '@/store/conquistasSite'
 import { api, comReintento, ErroApi, esperaReintento, valeTentar } from './api'
 import { aoEntrar, useConta } from './conta'
 import { armazem, type Armazem } from './medicao'
+import { aplicarProvas } from './provas'
 
 export const ID_CONQUISTA = /^[a-z0-9_.:-]{1,64}$/
 export const POR_ENVIO = 500
@@ -122,6 +124,9 @@ async function sincronizar(itens: readonly ConquistaConta[]): Promise<ConquistaC
   for (const p of pedacos) {
     const r = await api<unknown>('conquistas.php', { corpo: { acao: 'sincronizar', conquistas: p } })
     uniao = mesclarConquistas(uniao, normalizarConquistas(r)).uniao
+    // v3.4: a resposta traz também as provadas (a conta inteira, a cada pedaço)
+    aplicarProvas(r)
+    provadasEm = Date.now()
   }
   return uniao
 }
@@ -206,8 +211,11 @@ export async function sincronizarAoEntrar(como: 'cadastro' | 'login' | 'redefini
     if (como === 'sessao') {
       const lida = Number(ls.get(CHAVE_LIDA)?.split(':')[1])
       if (ls.get(CHAVE_LIDA)?.split(':')[0] === String(u.id) && Number.isFinite(lida) && Date.now() - lida < RELER_MS) return void enviarFila()
-      const conta = normalizarConquistas(await comReintento(() => api<unknown>('conquistas.php', { tempo: 10_000 }), { tentativas: 2 }))
+      const resp = await comReintento(() => api<unknown>('conquistas.php', { tempo: 10_000 }), { tentativas: 2 })
+      const conta = normalizarConquistas(resp)
       if (useConta.getState().usuario?.id !== u.id) return
+      aplicarProvas(resp)
+      provadasEm = Date.now()
       ls.set(CHAVE_LIDA, `${u.id}:${Date.now()}`)
       const { subir } = mesclarConquistas(locais, conta)
       descerParaOAparelho(conta)
@@ -228,6 +236,45 @@ export async function sincronizarAoEntrar(como: 'cadastro' | 'login' | 'redefini
     atualizarPendentes()
   }
 }
+
+// ───────────────────────── provadas (v3.4) ─────────────────────────
+
+let provadasEm = 0
+let provadasNoAr: Promise<boolean> | null = null
+/** As provadas guardadas valem isto (o salvar de uma carreira-prova soma as novas na hora: src/site/provas.ts). */
+const PROVADAS_MS = 60_000
+
+/**
+ * Lê da conta quais conquistas estão provadas (GET conquistas.php), no máximo uma vez por minuto, um pedido de cada vez.
+ * Devolve se o servidor sabe de provas (false: sem conta, sem rede, servidor antigo).
+ */
+export function carregarProvadas(forcar = false): Promise<boolean> {
+  const u = useConta.getState().usuario
+  if (!u) return Promise.resolve(false)
+  if (!forcar && useConquistasSite.getState().provadas && Date.now() - provadasEm < PROVADAS_MS) return Promise.resolve(true)
+  if (provadasNoAr) return provadasNoAr
+  provadasNoAr = (async () => {
+    try {
+      const r = await comReintento(() => api<unknown>('conquistas.php', { tempo: 10_000 }), { tentativas: 2 })
+      if (useConta.getState().usuario?.id !== u.id) return false
+      provadasEm = Date.now()
+      return aplicarProvas(r)
+    } catch (err) {
+      if (err instanceof ErroApi && err.status === 401) useConta.getState().sessaoExpirou()
+      return false
+    } finally {
+      provadasNoAr = null
+    }
+  })()
+  return provadasNoAr
+}
+
+// v3.4: saiu ou trocou de conta: as provadas eram da outra
+useConta.subscribe((s, p) => {
+  if (s.usuario?.id === p.usuario?.id) return
+  provadasEm = 0
+  if (useConquistasSite.getState().provadas || useConquistasSite.getState().contagemProva) useConquistasSite.setState({ provadas: null, contagemProva: null })
+})
 
 // ───────────────────────── raridade ─────────────────────────
 
@@ -265,7 +312,7 @@ let iniciado = false
 export function iniciarConquistas() {
   if (iniciado || typeof window === 'undefined') return
   iniciado = true
-  useConquistasSite.setState({ pedirRaridade: () => void pedirRaridade(), naConta: !!useConta.getState().usuario })
+  useConquistasSite.setState({ pedirRaridade: () => void pedirRaridade(), pedirProvadas: () => void carregarProvadas(), naConta: !!useConta.getState().usuario })
 
   // conquista nova no jogo: com conta, vai para a fila e sobe daqui a pouco (várias juntas)
   useCareer.subscribe((s, p) => {

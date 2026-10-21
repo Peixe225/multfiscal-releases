@@ -6,6 +6,7 @@
  *   GET  hall.php?pais=BOL&clube=<clubId>&pagina=1 → {atualizadoEm, proximaEm, total, pagina, porPagina, itens}
  *   GET  hall.php?id=<HallEntry.id>                → {carreira: HallEntry, apelido, posicao, destaque, perfil} (só se está na foto)
  * v3.3: cada item (e o ?id=) leva `perfil` = o código de convite da conta (o link #/jogador/CODIGO do perfil público).
+ * v3.4: cada item (e o ?id=) leva `emblemas` = [{slug, icone, cor}] (até 3, os mais difíceis) e `emblemasTotal` da conta.
  *   POST hall.php {"acao":"denunciar","id","motivo":"nome"|"trapaca"|"outro","texto"?} → {ok: true} (logado)
  * Contrato: servidor/CONTRATO-v3.md §4.
  */
@@ -14,6 +15,7 @@ declare(strict_types=1);
 require __DIR__ . '/_lib.php';
 require __DIR__ . '/_hall.php';
 require __DIR__ . '/_celular.php';
+require __DIR__ . '/_desafios.php';
 
 cabecalhos();
 
@@ -26,6 +28,17 @@ const DENUNCIANTE_IDADE_S = 86400;
 const DENUNCIANTE_PARTIDAS = 3;
 /** As 10 primeiras do Hall geral nunca saem só pelas denúncias: quem decide é o admin (a fila do painel mostra). */
 const DENUNCIA_TOPO_PROTEGIDO = 10;
+
+/** v3.4: {emblemas: [{slug, icone, cor}] (até 3, os mais difíceis), emblemasTotal} da conta, para o item do Hall (leve). */
+function emblemasItem(array $porConta, int $uid): array
+{
+    if (!esquemaV34()) {
+        return [];
+    }
+    $l = $porConta[$uid] ?? [];
+    return ['emblemas' => array_map(static fn(array $e): array => ['slug' => $e['slug'], 'icone' => $e['icone'], 'cor' => $e['cor']], array_slice($l, 0, 3)),
+        'emblemasTotal' => count($l)];
+}
 
 function lerIdHall(mixed $v): string
 {
@@ -61,7 +74,7 @@ if ($m === 'GET') {
     if (isset($_GET['id'])) {
         $id = lerIdHall($_GET['id']);
         // v3.2 (H12): o selo "Destaque" também no resumo aberto pelo link (só com o banco da v3.2, S22)
-        $l = umaLinha('SELECT f.id AS posicao, f.apelido, u.codigo_convite, ' . (esquemaV32() ? 'f.destaque' : '0 AS destaque') . ', c.dados FROM hall_foto f
+        $l = umaLinha('SELECT f.id AS posicao, f.apelido, f.usuario_id, u.codigo_convite, ' . (esquemaV32() ? 'f.destaque' : '0 AS destaque') . ', c.dados FROM hall_foto f
             JOIN carreiras c ON c.id = f.carreira_pk JOIN usuarios u ON u.id = c.usuario_id
             WHERE f.carreira_id = ? AND ' . sqlCarreiraVisivel() . ' AND ' . LENDA_SQL_ATIVO . ' AND ' . sqlContaNoHall() . "
               AND (u.hall_publico = 'auto' OR (u.hall_publico = 'manual' AND c.publica = 1))", [$id]);
@@ -69,8 +82,10 @@ if ($m === 'GET') {
         if (!is_string($json) || $json === '') {
             erro(404, 'nao_encontrada', 'Essa carreira não está no Hall público.');
         }
+        $emb = emblemasItem(emblemasDasContas([(int) $l['usuario_id']]), (int) $l['usuario_id']);
         responderHall('{"carreira":' . $json . ',"apelido":' . json((string) $l['apelido']) . ',"posicao":' . (int) $l['posicao']
             . ',"destaque":' . ((int) $l['destaque'] === 1 ? 'true' : 'false') . ',"perfil":' . json($l['codigo_convite'] !== null ? (string) $l['codigo_convite'] : null)
+            . ($emb ? ',"emblemas":' . json($emb['emblemas']) . ',"emblemasTotal":' . (int) $emb['emblemasTotal'] : '')
             . '}', $refazer);
     }
 
@@ -103,8 +118,9 @@ if ($m === 'GET') {
     $linhas = sql("SELECT f.*, u.codigo_convite AS perfil_codigo FROM $de LEFT JOIN usuarios u ON u.id = f.usuario_id$w ORDER BY $ordem LIMIT "
         . HALL_POR_PAGINA . ' OFFSET ' . $offset, $params)->fetchAll();
     $itens = [];
+    $emblemas = emblemasDasContas(array_column($linhas, 'usuario_id'));
     foreach ($linhas as $i => $l) {
-        $itens[] = itemHall($l, $offset + $i + 1);
+        $itens[] = itemHall($l, $offset + $i + 1) + emblemasItem($emblemas, (int) $l['usuario_id']);
     }
     $em = $e !== null ? (string) ($e['em'] ?? '') : '';
     $t = $em !== '' ? strtotime($em) : false;

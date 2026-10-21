@@ -13,10 +13,13 @@ import { toast } from '@/ui/primitives'
 import { api, ErroApi, valeTentar } from './api'
 import { proximoBonus, ROTULO_ORIGEM, textoFaltam, useBonus, usarBonus } from './bonus'
 import { aoEntrar, useConta } from './conta'
-import { capturarConvite, enderecoDoJogo, limparConviteDaUrl, linkConvite } from './indicacao'
+import { capturarConvite, enderecoDoJogo, limparConviteDaUrl, linkConvite, linkPrevia } from './indicacao'
 import { armazem } from './medicao'
 import { track } from './medicao'
 import { abrirConta } from './ui'
+import { lembrarSementeDoServidor } from './provas'
+import { useCarreiras } from './carreiras'
+import { sementeDoPar } from '@/engine/replay'
 
 const ls = armazem(() => (typeof window !== 'undefined' ? window.localStorage : undefined))
 const CHAVE_PENDENTE = 'lenda:compartilhei-pendente'
@@ -64,6 +67,58 @@ function pendente(): { carreiraId: string; em: number } | null {
 
 let avisouSemConta = false
 
+/**
+ * v3.4 §E: as carreiras que estão no Hall público AGORA. Só elas levam o link da prévia: o v.php só conhece a carreira da
+ * fotografia do Hall, e logo depois de terminar (quando o jogador compartilha) ela ainda não está lá — o link da prévia saía
+ * com o cartão genérico e levava para a tela inicial, e os robôs das redes guardavam esse cartão pela URL (dias). Fora do
+ * Hall: o link de convite de sempre.
+ */
+const noHallPublico = new Map<string, boolean>()
+const conferindoHall = new Set<string>()
+/**
+ * A lista da conta mais velha que isto é pedida de novo antes de decidir (a fotografia do Hall é refeita de tempos em tempos e
+ * o `hall` do C de antes pode estar velho). Um pedido por card que aparece, no máximo.
+ */
+const LISTA_VELHA_MS = 5_000
+
+/**
+ * Confere se a carreira do card já está no Hall público; nada de esperar no clique: o link é na hora, com o que já se sabe.
+ * `propria` = a carreira é do jogador (o card do resumo dele): decide o `hall` do C da conta (`no_hall` = na fotografia; a
+ * lista é pedida de novo se tiver mais de 5 s). A de outro jogador (o resumo da comunidade) abriu pelo hall.php?id=: está no
+ * Hall. Sem pedido ao hall.php (um 404 a cada card de carreira fora do Hall).
+ */
+export async function conferirNoHall(id: string, propria: boolean) {
+  if (!id) return
+  if (!propria) {
+    noHallPublico.set(id, true)
+    return
+  }
+  const estado = () => useCarreiras.getState().lista?.find((c) => c.id === id)?.hall?.estado
+  if (estado() !== 'no_hall' && !conferindoHall.has(id)) {
+    const s = useCarreiras.getState()
+    if (!s.lista || Date.now() - s.carregadaEm > LISTA_VELHA_MS) {
+      conferindoHall.add(id)
+      try {
+        await s.carregar(true)
+      } catch {
+        /* sem rede: fica o que já se sabia */
+      } finally {
+        conferindoHall.delete(id)
+      }
+    }
+  }
+  noHallPublico.set(id, estado() === 'no_hall')
+}
+
+/** Para os testes: esquece o que já conferiu. */
+export const esquecerNoHall = () => noHallPublico.clear()
+
+/** O link que vai no compartilhar: a prévia só com conta, código e a carreira já no Hall público; senão o de sempre. */
+export function linkDoCompartilhar(o: { carreiraId?: string | null; codigo?: string | null; logado: boolean; linkConvite?: string | null }): string {
+  if (o.carreiraId && o.codigo && o.logado && noHallPublico.get(o.carreiraId) === true) return linkPrevia({ id: o.carreiraId, codigo: o.codigo })
+  return o.linkConvite ?? (o.codigo ? linkConvite(o.codigo) : enderecoDoJogo())
+}
+
 /** §E: [a0, a1] da resposta do servidor (dois inteiros de 32 bits) ou null. */
 export function parDaResposta(x: unknown): [number, number] | null {
   const ok = (v: unknown): v is number => typeof v === 'number' && Number.isInteger(v) && v >= 0 && v < 0x1_0000_0000
@@ -76,10 +131,15 @@ export function parDaResposta(x: unknown): [number, number] | null {
  * a semente do aparelho e não vale para desafio).
  */
 export async function pedirSementeCarreira(): Promise<[number, number] | null> {
-  if (!useConta.getState().usuario) return null
+  const u = useConta.getState().usuario
+  if (!u) return null
   try {
     const r = await api<{ semente?: unknown }>('carreiras.php', { corpo: { acao: 'semente' }, tempo: ESPERA_SEMENTE_MS })
-    return parDaResposta(r?.semente)
+    const par = parDaResposta(r?.semente)
+    // v3.4: o aparelho lembra que esta semente veio do servidor para esta conta (a carreira dela pode provar conquistas:
+    // src/site/provas.ts); se a resposta chegar tarde e a carreira começar com a do aparelho, a lembrada nunca casa
+    if (par) lembrarSementeDoServidor(u.id, sementeDoPar(par))
+    return par
   } catch (err) {
     if (err instanceof ErroApi && err.status === 401) useConta.getState().sessaoExpirou()
     return null
@@ -127,13 +187,19 @@ export function iniciarPontes() {
   })
 
   pontes.compartilhar = {
-    link: () => {
+    link: (carreiraId) => {
       const d = useBonus.getState().dados
       const codigo = d?.codigoConvite ?? useConta.getState().usuario?.codigoConvite
-      return d?.linkConvite ?? (codigo ? linkConvite(codigo) : enderecoDoJogo())
+      // v3.4: com a conta e a carreira do card JÁ NO HALL PÚBLICO (§E), o link da prévia (api/v.php: o cartão com o resumo dela
+      // no WhatsApp, X, Facebook…), com o código de convite de quem compartilha; senão (sem conta, fora do Hall, ainda não
+      // conferido) o de sempre
+      return linkDoCompartilhar({ carreiraId, codigo, logado: !!useConta.getState().usuario, linkConvite: d?.linkConvite })
     },
-    preparar: () => {
-      if (useConta.getState().usuario) void useBonus.getState().carregar()
+    preparar: (carreiraId, propria) => {
+      if (!useConta.getState().usuario) return
+      void useBonus.getState().carregar()
+      // §E: a carreira do card já está no Hall público? (o link da prévia só vale para ela)
+      if (carreiraId) void conferirNoHall(carreiraId, propria !== false)
     },
     compartilhou: (carreiraId, como) => {
       track('compartilhar', null, { acao: como === 'share' ? 'card_ok' : 'link_ok', rota: '/resumo' })

@@ -2,7 +2,9 @@
  * (admin.php?r=usuarios); e a ficha de cada conta no painel lateral (?r=usuario, aberta pelo hash conta=<id> em
  * qualquer aba), com as ações de moderação (suspender, reativar, deslogar, renomear, tipo de conta, anotação interna,
  * tirar do Hall, código de troca de senha, bônus, excluir). v3.3: e-mail confirmado (filtro, coluna, "Reenviar a
- * confirmação") e, na ficha, as candidaturas aos desafios e as mensagens do Fale conosco da conta. */
+ * confirmação") e, na ficha, as candidaturas aos desafios e as mensagens do Fale conosco da conta. v3.4 (CONTRATO-v34 §C):
+ * na ficha, os emblemas dos desafios (com "Tirar"/"Devolver") e as conquistas provadas, conferidas e só do aparelho, com
+ * as carreiras-prova (?r=provas, ao abrir) e "Verificar as provas no jogo" (o #/verificar?conta= do jogo, em lote). */
 'use strict';
 
 (function () {
@@ -233,7 +235,7 @@
   LP.recarregarListaUsuarios = () => { if (LP.visivel(lista.corpo)) carregar(); };
 
   // ═══ ficha da conta (painel lateral) ═══════════════════════════════════════════════════════
-  const det = { id: 0, corpo: null, u: null, pedido: 0 };
+  const det = { id: 0, corpo: null, u: null, pedido: 0, desafios: {}, voltarDoJogo: false };
 
   LP.abrirFichaConta = function (id) {
     det.id = parseInt(id, 10) || 0;
@@ -270,6 +272,8 @@
       if (n !== det.pedido || !corpo.isConnected) return;
       if (!d.usuario) throw new LP.ErroApi(500, 'formato', 'Resposta sem o usuário.');
       if (d.usuario.tipo == null) d.usuario.tipo = await tipoDaLista(d.usuario);
+      // v3.4: com emblemas, a moeda (ícone e cor) de cada desafio vem da lista dos desafios (guardada por 60 s)
+      det.desafios = Array.isArray(d.usuario.emblemas) && d.usuario.emblemas.length && LP.mapaDesafios ? await LP.mapaDesafios().catch(() => ({})) : {};
       if (n !== det.pedido || !corpo.isConnected) return;
       const rolagem = corpo.scrollTop;
       det.u = d.usuario;
@@ -296,6 +300,12 @@
     if (m && m.aoMudarFora) m.aoMudarFora();
   }
   LP.recarregarFicha = () => { if (det.corpo && det.corpo.isConnected) carregarFicha(); };
+  // v3.4: voltou da aba do jogo depois de "Verificar as provas no jogo": a ficha vem com as provas conferidas
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden || !det.voltarDoJogo || !det.corpo || !det.corpo.isConnected || LP.dialogoAberto()) return;
+    det.voltarDoJogo = false;
+    carregarFicha();
+  });
 
   function cartao(id, titulo, extra, botoes, conteudo) {
     return h('section', { class: 'cartao ancora', id: id, 'aria-labelledby': id + '-t' },
@@ -401,6 +411,8 @@
 
     // ── números ──
     const conq = Array.isArray(u.conquistas) ? u.conquistas : [];
+    // v3.4: {provadas, verificadas, naoProvadas, total} (o servidor de antes não manda: a ficha fica como na v3.3)
+    const cp = u.conquistasProva && typeof u.conquistasProva === 'object' ? u.conquistasProva : null;
     const L = LP.ladrilho;
     const tp = u.tempo || {};
     const numeros = h('div', { class: 'ladrilhos ladrilhos-pequenos' },
@@ -410,7 +422,8 @@
       L('Melhor nota', s.melhorNota === null || s.melhorNota === undefined ? '—' : LP.inteiro(s.melhorNota), s.melhorJogador || ''),
       L('Esta semana', LP.tempo(tp.semana), 'com a aba visível'),
       L('Semana passada', LP.tempo(tp.semanaPassada), 'total: ' + LP.tempo(tp.total)),
-      L('Conquistas', LP.inteiro(conq.length), 'na conta'),
+      L('Conquistas', LP.inteiro(conq.length), cp ? LP.inteiro(cp.provadas) + ' provadas · ' + LP.inteiro(cp.verificadas) + ' conferidas' : 'na conta'),
+      Array.isArray(u.emblemas) ? L('Emblemas', LP.inteiro(u.emblemas.filter((e) => e.estado === 'ativo').length), 'dos desafios' + (u.emblemas.some((e) => e.estado === 'retirado') ? ' · ' + LP.plural(u.emblemas.filter((e) => e.estado === 'retirado').length, 'retirado', 'retirados') : '')) : null,
       L('Denúncias', LP.inteiro(den.recebidas), 'recebidas · ' + LP.inteiro(den.feitas) + ' feitas'));
     const porModo = tp.porModo && typeof tp.porModo === 'object' ? Object.keys(tp.porModo).filter((k) => tp.porModo[k] > 0) : [];
     const modos = porModo.length ? h('p', { class: 'texto-3' }, 'Jogando por modo: ' + porModo.map((k) => (LP.NOMES_MODO[k] || k) + ' ' + LP.tempo(tp.porModo[k])).join(' · ')) : null;
@@ -419,11 +432,12 @@
       secaoCarreiras(u),
       secaoLixeira(u),
       secaoDesafios(u),
+      secaoEmblemas(u),
       secaoMensagens(u),
       secaoBonus(u, cfgBonus, faltam),
       secaoIndicacoes(u, cfgBonus),
       secaoAcesso(u, sessoes),
-      secundario('Conquistas', LP.inteiro(conq.length), secaoConquistas(conq, nomes)),
+      cp ? secaoConquistasProva(u, conq, cp, nomes) : secundario('Conquistas', LP.inteiro(conq.length), secaoConquistas(conq, nomes)),
       secundario('Últimas visitas', (u.visitas || []).length ? 'as ' + u.visitas.length + ' mais recentes' : '', secaoVisitas(u.visitas || [])),
       secundario('Últimos eventos', (u.eventos || []).length ? 'os ' + u.eventos.length + ' mais recentes' : '', secaoEventos(u.eventos || [])));
   }
@@ -438,8 +452,11 @@
     const [t, cor] = mapa[e] || [e, ''];
     return LP.chip(t, cor, { title: m || '', semPonto: e === 'fora' });
   }
-  function chipsCarreira(c) {
+  function chipsCarreira(c, provas) {
     const chips = [chipHall(c)];
+    // v3.4: de quantas conquistas da conta esta carreira é a prova (a verificada, senão a que entrou primeiro)
+    const np = provas && provas[c.pk];
+    if (np) chips.push(LP.chip('Prova de ' + LP.plural(np, 'conquista', 'conquistas'), 'ok', { semPonto: true, title: 'A carreira que prova essas conquistas na conta (semente do servidor + replay). Apagar tira a prova delas.' }));
     if (c.publica) chips.push(LP.chip('Escolhida', 'ouro', { title: 'O jogador marcou esta para o Hall', semPonto: true }));
     if (c.destaque) chips.push(LP.chip('Destaque', 'ouro', { semPonto: true }));
     if (c.oculta === 1) chips.push(LP.chip('Oculta (moderação)', ''));
@@ -452,6 +469,8 @@
 
   function secaoCarreiras(u) {
     const cs = Array.isArray(u.carreiras) ? u.carreiras : [];
+    const provas = {};
+    (Array.isArray(u.conquistas) ? u.conquistas : []).forEach((x) => { if (x.provaPk) provas[x.provaPk] = (provas[x.provaPk] || 0) + 1; });
     const conteudo = cs.length ? LP.lista({
       itens: cs,
       chave: (c) => c.pk,
@@ -465,7 +484,7 @@
         { rotulo: 'Temp.', num: true, celula: (c) => LP.inteiro(c.temporadas) },
         { rotulo: 'Gols', num: true, celula: (c) => LP.inteiro(c.gols) },
         { rotulo: 'Bônus', num: true, celula: (c) => (c.bonusOvr ? '+' + c.bonusOvr : '—') },
-        { rotulo: 'Hall', classe: 'situacao', celula: chipsCarreira },
+        { rotulo: 'Hall', classe: 'situacao', celula: (c) => chipsCarreira(c, provas) },
         { rotulo: 'Decisão', classe: 'quebra', celula: (c) => (c.moderacao ? h('span', { class: 'texto-3' }, (c.moderacao.motivo || 'sem motivo escrito') + ' · ' + LP.relativo(c.moderacao.em)) : '—') },
         { rotulo: 'Salva', celula: (c) => h('span', { class: 'chips' }, h('span', { class: 'selo' + (c.como === 'auto' ? ' selo-auto' : '') }, c.como === 'auto' ? 'auto' : 'manual'), LP.quando(c.salvaEm)) },
         { rotulo: 'Ações', acoes: true, celula: (c) => LP.botoesCarreira({ id: c.pk, carreiraId: c.id, jogador: c.jogador, oculta: c.oculta, suspeita: c.suspeita, noHall: c.noHall, destaque: c.destaque, usuario: { id: u.id, apelido: u.apelido } }, depois) },
@@ -579,6 +598,135 @@
         return LP.chip(n ? n.t : c.id, tipo, { semPonto: true, title: (n ? n.d + ' · ' : '') + c.id + ' · ' + LP.dataHoraAno(c.em) });
       }))
       : h('p', { class: 'texto-3' }, 'Nenhuma conquista sincronizada com a conta ainda.');
+  }
+
+  // ── v3.4: conquistas provadas (as carreiras-prova da conta) e os emblemas ──────────────────
+  /** Conquistas: provadas e conferidas, provadas, só do aparelho; e as que faltam provar para as 87. */
+  function secaoConquistasProva(u, conq, cp, nomes) {
+    const total = cp.total || 87;
+    const verif = conq.filter((x) => x.provada && x.verificada);
+    const prov = conq.filter((x) => x.provada && !x.verificada);
+    const aparelho = conq.filter((x) => !x.provada);
+    const temIds = new Set(conq.filter((x) => x.provada).map((x) => x.id));
+    const todas = Object.keys(nomes.conquistas || {});
+    const faltam = todas.filter((id) => !temIds.has(id));
+    // a barra das 87: conferidas (verde cheio), provadas (verde claro), só do aparelho (listrado), o resto vazio
+    const barra = h('div', { class: 'barra-provas', role: 'img', 'aria-label': LP.inteiro(cp.verificadas) + ' conferidas, ' + LP.inteiro(cp.provadas - cp.verificadas) + ' provadas sem conferir e ' + LP.inteiro(cp.naoProvadas) + ' só do aparelho, de ' + total });
+    [['bp-verif', cp.verificadas], ['bp-prov', cp.provadas - cp.verificadas], ['bp-nao', cp.naoProvadas]].forEach(([cl, n]) => {
+      if (n <= 0) return;
+      const i = h('i', { class: cl });
+      i.style.width = Math.min(100, (n / total) * 100) + '%';
+      barra.appendChild(i);
+    });
+    const legenda = h('p', { class: 'legenda-provas' },
+      h('span', null, h('span', { class: 'lp-marca bp-verif', 'aria-hidden': 'true' }), h('b', null, LP.inteiro(cp.verificadas)), ' conferidas no replay'),
+      h('span', null, h('span', { class: 'lp-marca bp-prov', 'aria-hidden': 'true' }), h('b', null, LP.inteiro(cp.provadas - cp.verificadas)), ' provadas, sem conferir'),
+      h('span', null, h('span', { class: 'lp-marca bp-nao', 'aria-hidden': 'true' }), h('b', null, LP.inteiro(cp.naoProvadas)), ' só do aparelho (não provadas)'),
+      h('span', { class: 'texto-3' }, 'de ' + LP.inteiro(total) + ' no jogo'));
+    const titulo = (x) => {
+      const n = nomes.conquistas[x.id];
+      return (n ? n.d + ' · ' : '') + x.id + ' · ' + LP.dataHoraAno(x.em) + (x.provaPk ? ' · prova: carreira #' + x.provaPk : ' · veio do aparelho, sem carreira que prove') + (x.origem === 'carreira' ? ' · entrou pela carreira-prova (o aparelho não tinha mandado)' : '');
+    };
+    const chip = (x, cl) => {
+      const n = nomes.conquistas[x.id];
+      const c = LP.chip(n ? n.t : x.id, '', { semPonto: true, classe: cl, title: titulo(x) });
+      return x.provaPk ? h('a', { href: LP.hashGaveta('carreira', x.provaPk), class: 'link-discreto chip-link', title: 'Abrir a carreira que prova' }, c) : c;
+    };
+    const grupo = (rotulo, lista, cl, vazio) => h('div', { class: 'grupo-conquistas' }, h('h3', null, rotulo + ' · ' + LP.inteiro(lista.length)),
+      lista.length ? h('div', { class: 'lista-conquistas' }, lista.slice().sort((a, b) => String(a.em).localeCompare(String(b.em))).map((x) => chip(x, cl))) : h('p', { class: 'texto-3' }, vazio));
+    const chipsFaltam = faltam.length && faltam.length < todas.length ? h('div', { class: 'grupo-conquistas' }, h('h3', null, 'Faltam provar para as ' + LP.inteiro(total) + ' · ' + LP.inteiro(faltam.length)),
+      h('div', { class: 'lista-conquistas' }, faltam.map((id) => LP.chip(nomes.conquistas[id].t, 'tracejado', { semPonto: true, title: nomes.conquistas[id].d + ' · ' + id + (aparelho.some((x) => x.id === id) ? ' · a conta tem, só do aparelho' : '') })))) : null;
+    const lista = h('details', { class: 'detalhes-conquistas' }, h('summary', null, 'Ver as conquistas da conta (' + LP.inteiro(conq.length) + ')'),
+      grupo('Provadas e conferidas no replay', verif, 'chip-provada-v', 'Nenhuma conferida ainda.'),
+      grupo('Provadas, ainda não conferidas', prov, 'chip-provada', 'Nenhuma.'),
+      grupo('Só do aparelho (não provadas)', aparelho, 'chip-aparelho', 'Nenhuma: tudo o que a conta tem está provado.'),
+      chipsFaltam);
+    // as carreiras-prova (?r=provas): só quando abre
+    const carreiras = h('div', { class: 'provas-carreiras' });
+    const blocoCarreiras = h('details', { class: 'detalhes-provas' }, h('summary', null, 'Carreiras-prova da conta'), carreiras);
+    blocoCarreiras.addEventListener('toggle', () => { if (blocoCarreiras.open && !carreiras.dataset.carregado) carregarProvas(u, carreiras, nomes); });
+    const botoes = [];
+    if (LP.pode('moderar')) {
+      const lote = LP.linkJogo('Verificar as provas no jogo', '#/verificar?conta=' + u.id, { tipo: cp.provadas > cp.verificadas ? 'ouro' : 'fantasma', icone: 'jogar',
+        title: 'Abre o jogo (outra aba): ele refaz, uma a uma, as carreiras que provam as conquistas da conta e registra aqui as que bateram (as que não batem saem das provas)' });
+      lote.addEventListener('click', () => { det.voltarDoJogo = true; });
+      botoes.push(lote);
+    }
+    const ajuda = h('p', { class: 'ajuda' }, 'Provada = uma carreira do Clássico começada com a conta (a semente que o servidor sorteou) e com o replay tem a conquista. Conferida = a equipe refez essa carreira no jogo e bateu. As que vieram só do aparelho continuam aparecendo para o jogador, mas não contam para o desafio de todas as conquistas.');
+    return cartao('u-conquistas', 'Conquistas', LP.inteiro(cp.provadas) + ' provadas de ' + LP.inteiro(total) + ' · ' + LP.inteiro(cp.verificadas) + ' conferidas · ' + LP.inteiro(cp.naoProvadas) + ' só do aparelho', botoes,
+      h('div', { class: 'resumo-provas' }, barra, legenda, ajuda, lista, blocoCarreiras));
+  }
+  async function carregarProvas(u, caixa, nomes) {
+    caixa.dataset.carregado = '1';
+    LP.trocar(caixa, LP.estadoCarregando(3));
+    try {
+      const d = await LP.adminGet('provas', { usuario: u.id });
+      if (!caixa.isConnected) return;
+      const cs = Array.isArray(d.carreiras) ? d.carreiras : [];
+      const c = d.conquistas || {};
+      const nome = (id) => (nomes.conquistas[id] ? nomes.conquistas[id].t : id);
+      const verificacao = (x) => {
+        const v = x.verificacao || {};
+        const quando = v.em ? ' · ' + LP.relativo(v.em) : '';
+        if (x.provaOk === true) return h('div', { class: 'celula-dupla' }, LP.chip('Bateu', 'ok'), h('span', { class: 'texto-3' }, 'no replay' + quando));
+        if (x.provaOk === false) return h('div', { class: 'celula-dupla' }, LP.chip('Não bateu', 'perigo'), h('span', { class: 'texto-3' }, (v.motivo || 'tirada das provas') + quando));
+        return LP.chip('Não verificada', 'tracejado', { semPonto: true });
+      };
+      const tabela = cs.length ? LP.lista({
+        itens: cs,
+        chave: (x) => x.pk,
+        aoClicar: (x) => LP.abrirCarreira(x.pk),
+        rotuloLinha: (x) => 'Abrir a carreira ' + x.jogador,
+        classeLinha: (x) => (x.vale ? null : 'linha-apagada'),
+        colunas: [
+          { rotulo: 'Carreira', principal: true, celula: (x) => h('div', { class: 'celula-dupla' }, h('span', null, x.jogador || '—'), h('span', null, 'entrou ' + LP.dataHoraAno(x.primeiraEm) + (x.conquistasV === 1 ? ' · regras de antes da v3.4' : ''))) },
+          { rotulo: 'Prova', classe: 'situacao quebra', celula: (x) => h('span', { class: 'chips' },
+            x.vale ? LP.chip('Prova', 'ok', { semPonto: true }) : LP.chip('Não vale: ' + (x.motivoTexto || x.motivo || '—'), 'tracejado', { semPonto: true, title: x.motivoTexto || x.motivo || '' }),
+            x.essencial ? LP.chip('Essencial', 'ouro', { semPonto: true, title: 'Está no conjunto mínimo de carreiras que cobre as provadas: o lote verifica estas primeiro' }) : null) },
+          { rotulo: 'Conquistas', num: true, celula: (x) => h('span', { title: (x.conquistas || []).map(nome).join(', ') }, LP.inteiro((x.conquistas || []).length)) },
+          { rotulo: 'Só ela prova', classe: 'quebra', celula: (x) => ((x.unicas || []).length ? h('span', { class: 'texto-2', title: x.unicas.map(nome).join(', ') }, LP.inteiro(x.unicas.length) + ': ' + x.unicas.slice(0, 3).map(nome).join(', ') + (x.unicas.length > 3 ? '…' : '')) : '—') },
+          { rotulo: 'Verificação', celula: verificacao },
+          { rotulo: 'Ações', acoes: true, celula: (x) => [x.links && x.links.verificar && LP.pode('moderar') && x.vale ? LP.linkJogoAbs('Verificar no jogo', x.links.verificar, { tipo: x.provaOk === null && x.essencial ? 'ouro' : 'fantasma', pequeno: true, icone: 'jogar', title: 'Refaz esta carreira no jogo (outra aba) e registra se bateu' }) : null,
+            x.links && x.links.resumo ? LP.linkJogoAbs('Abrir', x.links.resumo, { tipo: 'fantasma', pequeno: true, title: 'O resumo da carreira no jogo (outra aba)' }) : null] },
+        ],
+      }) : LP.estadoVazio('Nenhuma carreira-prova', 'As carreiras do Clássico começadas com a conta (semente do servidor) e salvas com o replay aparecem aqui.');
+      const faltam = Array.isArray(c.faltamVerificar) ? c.faltamVerificar.length : null;
+      LP.trocar(caixa, h('p', { class: 'texto-3' }, LP.plural(cs.length, 'carreira com a lista guardada', 'carreiras com a lista guardada') + ' · ' + LP.plural(cs.filter((x) => x.essencial).length, 'essencial', 'essenciais')
+        + (faltam !== null ? ' · faltam conferir ' + LP.inteiro(faltam) + ' das ' + LP.inteiro(c.total || 87) : '')), tabela);
+    } catch (e) {
+      if (!caixa.isConnected || (e && e.status === 401)) return;
+      delete caixa.dataset.carregado;
+      LP.trocar(caixa, LP.estadoErro(e, () => carregarProvas(u, caixa, nomes)));
+    }
+  }
+  /** Os emblemas da conta (E + desafio), os mais novos primeiro, com "Tirar"/"Devolver". */
+  function secaoEmblemas(u) {
+    if (!Array.isArray(u.emblemas)) return null;
+    const es = u.emblemas;
+    const ativos = es.filter((e) => e.estado === 'ativo').length;
+    const conteudo = es.length ? LP.lista({
+      itens: es,
+      classe: 'lista-emblemas-conta',
+      chave: (e) => e.id,
+      classeLinha: (e) => (e.estado === 'retirado' ? 'emblema-retirado' : null),
+      aoClicar: (e) => { location.hash = '#/desafios?id=' + e.desafio.id; },
+      rotuloLinha: (e) => 'Abrir o desafio ' + e.desafio.titulo,
+      colunas: [
+        { rotulo: 'Desafio', principal: true, celula: (e) => {
+          // o ?r=usuario manda só {id, slug, titulo} do desafio: o ícone, a cor e a dificuldade vêm da lista dos desafios
+          const D = Object.assign({}, e.desafio, det.desafios[e.desafio.id] || {});
+          return h('span', { class: 'celula-emblema' }, LP.emblema(D.emblema || null, { rotulo: null, apagado: e.estado === 'retirado' }),
+            h('span', { class: 'celula-dupla' }, h('a', { href: '#/desafios?id=' + e.desafio.id, class: 'link-discreto' }, e.desafio.titulo),
+              D.dificuldade ? h('span', null, LP.NOMES_DIFICULDADE[D.dificuldade] || D.dificuldade) : null));
+        } },
+        { rotulo: 'Carreira', celula: (e) => (e.carreira ? (e.carreira.existe ? LP.linkCarreira(e.carreira.pk, e.carreira.jogador || 'carreira #' + e.carreira.pk) : h('span', { class: 'chips' }, e.carreira.jogador || 'carreira', LP.chip('apagada', '', { semPonto: true }))) : '—') },
+        { rotulo: 'Ganhou', celula: (e) => LP.quando(e.em) },
+        { rotulo: 'Situação', classe: 'situacao quebra', celula: (e) => h('div', { class: 'celula-dupla' }, LP.chipEstadoEmblema(e.estado),
+          e.estado === 'retirado' ? h('span', { class: 'texto-3' }, (e.motivo || 'sem motivo') + (e.quem && e.quem.nome ? ' · ' + e.quem.nome : '')) : null) },
+        { rotulo: 'Ações', acoes: true, celula: (e) => (LP.botoesEmblema ? LP.botoesEmblema(e, u.apelido, depois).filter((b) => !/Abrir a carreira/.test(b.textContent)) : null) },
+      ],
+    }) : LP.estadoVazio('Nenhum emblema ainda', 'Quem salva uma carreira-prova que cumpre um desafio de emblema ganha sozinho.', h('a', { href: '#/desafios', class: 'botao-fantasma' }, 'Ver os desafios'));
+    return cartao('u-emblemas', 'Emblemas', es.length ? LP.plural(ativos, 'emblema', 'emblemas') + (es.length > ativos ? ' · ' + LP.plural(es.length - ativos, 'retirado', 'retirados') : '') : '', null, conteudo);
   }
 
   function secaoVisitas(vs) {
@@ -804,7 +952,8 @@
         h('li', null, 'as carreiras salvas e o lugar no Hall público;'),
         h('li', null, 'as conquistas, os bônus e as indicações feitas;'),
         h('li', null, 'as denúncias feitas, a anotação interna e a lixeira dela;'),
-        h('li', null, 'as mensagens do Fale conosco e as candidaturas aos desafios (um desafio que ela venceu continua vencido, sem o nome).')),
+        h('li', null, 'as mensagens do Fale conosco e as candidaturas aos desafios (um desafio que ela venceu continua vencido, sem o nome);'),
+        h('li', null, 'os emblemas dos desafios, as provas das conquistas e as imagens das prévias de link dela.')),
       h('p', { class: 'faixa faixa-perigo' }, 'Não dá para desfazer. As visitas ficam, sem ligação com ninguém.'));
     const r = await LP.dialogo({
       titulo: 'Excluir a conta de @' + u.apelido,

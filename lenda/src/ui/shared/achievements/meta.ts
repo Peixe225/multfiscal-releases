@@ -87,7 +87,12 @@ const ICONS: Record<string, IconType> = {
   zap: Zap,
 }
 
-export const achievementIcon = (a: Pick<Achievement, 'icon'>): IconType => ICONS[a.icon] ?? Medal
+/**
+ * O ícone pelo nome; fora do mapa, a medalha. v3.4 §E: só as chaves do PRÓPRIO mapa — `ICONS['constructor']` achava a função
+ * Object do protótipo (o `??` não pegava) e quem desenhava o emblema de um desafio com esse ícone caía no "Algo deu errado".
+ */
+export const achievementIcon = (a: Pick<Achievement, 'icon'>): IconType =>
+  typeof a.icon === 'string' && Object.prototype.hasOwnProperty.call(ICONS, a.icon) ? ICONS[a.icon] : Medal
 
 export type Rarity = Achievement['rarity']
 

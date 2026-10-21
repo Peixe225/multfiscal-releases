@@ -244,8 +244,9 @@ function conferirResposta(Resposta $r, string $caminho): void
     if ($r->status >= 500) {
         checar("sem erro 500 ($caminho)", false, $r->resumo());
     }
+    // v3.4: a prévia de link (v.php) é HTML ou PNG, pública e com cache (o teste-v34.php confere os cabeçalhos dela)
     if (str_contains($caminho, '/api/') && !str_contains($caminho, '_lib.php') && !str_contains($caminho, '/api/_') && $r->status !== 204 && $r->status > 0
-        && !str_contains($caminho, 'r=exportar')) {
+        && !str_contains($caminho, 'r=exportar') && !str_contains($caminho, '/api/v.php')) {
         $chave = $caminho . $r->status;
         // hall.php (GET 200), a raridade das conquistas, os desafios (sem ?eu=1) e o perfil público são públicos e ficam em
         // cache (v3.3); o resto, no-store
@@ -373,7 +374,7 @@ function cEsperado(stdClass $h, string $como): array
 }
 
 const CAMPOS_C = ['bolasOuro', 'bonusOvr', 'como', 'gols', 'hall', 'headline', 'id', 'jogador', 'modo', 'noHall', 'nota', 'notaV', 'numero', 'pais',
-    'picoOvr', 'posicao', 'publica', 'salvaEm', 'temReplay', 'temporadas', 'terminouEm', 'titulos']; // v3.2 (CONTRATO-v32 §A, X2): hall; v3.3: temReplay
+    'picoOvr', 'posicao', 'prova', 'publica', 'salvaEm', 'temReplay', 'temporadas', 'terminouEm', 'titulos']; // v3.2 (CONTRATO-v32 §A, X2): hall; v3.3: temReplay; v3.4: prova
 
 function conferirC(string $nome, mixed $c, array $esperado): void
 {
@@ -1847,6 +1848,8 @@ require __DIR__ . '/teste-v32-integ.php'; // v3.2: o que a integração acrescen
 require __DIR__ . '/teste-v32-corr.php'; // v3.2 rev3: correções confirmadas do servidor (CONTRATO-v32 §E.7)
 require __DIR__ . '/teste-v33.php'; // v3.3: e-mail verificado, Fale conosco, limite diário, replay, desafios e perfil público (CONTRATO-v33 §A)
 require __DIR__ . '/teste-v33-corr.php'; // v3.3 §E: correções confirmadas (candidato reconferido, contagem, bônus, semente do servidor, conquistas, e-mails, em real)
+require __DIR__ . '/teste-v34.php'; // v3.4: conquistas provadas, desafios de emblema, critérios novos e a prévia de link (CONTRATO-v34 §A)
+require __DIR__ . '/teste-v34-corr.php'; // v3.4 §E: correções confirmadas (apagar sem verificação, versão no prova_verificar, não bateu pela semente, prévia, ícone, emblema que troca de carreira)
 
 // ══ 9. .htaccess no Apache ═══════════════════════════════════════════════════════════════════════
 

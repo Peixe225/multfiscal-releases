@@ -16,6 +16,7 @@ import type { CareerEngine, RevealScript } from '@/engine/api'
 import type { CareerState, CareerSummary, GameData, GameMode, Pace, PlayerIdentity } from '@/engine/types'
 import { escolhaDoReplay, novoReplay, type CareerReplay } from '@/engine/replay'
 import { DADOS_VERSAO } from '@/data/versao'
+import { CONQUISTAS_REGRAS_V } from '@/engine/career/regrasVersao'
 // só a constante (score.ts é leve); o motor de legado inteiro vem por import dinâmico
 import { LEGACY_VERSION } from '@/engine/legacy/score'
 import { kv, KV_KEYS } from './persist'
@@ -49,6 +50,13 @@ export interface HallEntry {
    * do Imersivo, do motor de exemplo ou que começou numa versão e terminou em outra.
    */
   replay?: CareerReplay
+  /**
+   * (v3.4) A versão das regras das conquistas com que a carreira terminou (CONQUISTAS_REGRAS_V de
+   * src/engine/career/achievements.ts; o servidor guarda em carreiras.conquistas_v). A LISTA das conquistas da carreira é
+   * o `career.achievements` que o motor juntou (é ela que prova as conquistas na conta e que a verificação por replay refaz).
+   * Sem o campo: carreira de antes da v3.4 (regras da versão 1).
+   */
+  conquistas?: { v: number }
 }
 
 type LegacyRecord = NonNullable<HallEntry['legacy']>
@@ -322,6 +330,8 @@ export const useCareer = create<CareerStore>()((set, get) => {
       legacy,
     }
     if (state.replay && kind === 'real') entry.replay = state.replay
+    // v3.4: a versão das regras das conquistas (a lista é o career.achievements)
+    entry.conquistas = { v: CONQUISTAS_REGRAS_V }
     // corte do Hall: saem as de menor Nota de Legado (a nota de uma run não depende das outras; as
     // gravadas com pesos antigos são recalculadas antes de comparar)
     if (get().isFixture) {

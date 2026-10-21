@@ -192,15 +192,16 @@ const PLANOS_NOMEADOS = {
   'cacador-ESP': { nome: 'caçador espanhol', f: (r) => r.plano === 'cacador' && r.nat === 'ESP' },
   'cacador-ARG-meio': { nome: 'caçador argentino, meio-campo', f: (r) => r.plano === 'cacador' && r.nat === 'ARG' && r.grupo === 'meio' },
   'cacador-ARG-ataque': { nome: 'caçador argentino, atacante', f: (r) => r.plano === 'cacador' && r.nat === 'ARG' && r.grupo === 'ataque' },
-  'cacador-sul': { nome: 'caçador sul-americano (Brasil e Argentina)', f: (r) => r.plano === 'cacador' && (r.nat === 'ARG' || r.nat === 'BRA') },
-  'recordista-ARG': { nome: 'recordista argentino (atacante)', f: (r) => r.plano === 'recordista' && r.nat === 'ARG' },
-  'recordista-BRA': { nome: 'recordista brasileiro (atacante)', f: (r) => r.plano === 'recordista' && r.nat === 'BRA' },
+  'cacador-sul': { nome: 'caçador brasileiro ou argentino', f: (r) => r.plano === 'cacador' && (r.nat === 'ARG' || r.nat === 'BRA') },
+  'recordista-ARG': { nome: 'recordista argentino, atacante', f: (r) => r.plano === 'recordista' && r.nat === 'ARG' },
+  'recordista-BRA': { nome: 'recordista brasileiro, atacante', f: (r) => r.plano === 'recordista' && r.nat === 'BRA' },
   'guloso-ESP': { nome: 'guloso espanhol', f: (r) => r.plano === 'gananciosa' && r.nat === 'ESP' && r.grupo !== 'goleiro' },
-  'chuteira-ENG-ESP': { nome: 'artilheiro na Europa, Inglaterra e Espanha (atacante)', f: (r) => r.plano === 'chuteira' && (r.nat === 'ENG' || r.nat === 'ESP') },
-  'chuteira-ESP-FRA-ENG': { nome: 'artilheiro na Europa, Espanha/França/Inglaterra (atacante)', f: (r) => r.plano === 'chuteira' && ['ESP', 'FRA', 'ENG'].includes(r.nat) },
-  'goleador-COL': { nome: 'goleador colombiano (atacante)', f: (r) => r.plano === 'goleador' && r.nat === 'COL' },
-  'goleador-sul': { nome: 'goleador sul-americano (atacante)', f: (r) => r.plano === 'goleador' },
-  'gol-rec-BRA': { nome: 'goleador ou recordista brasileiro (atacante)', f: (r) => (r.plano === 'goleador' || r.plano === 'recordista') && r.nat === 'BRA' },
+  'guloso-ataque': { nome: 'guloso (o clube mais forte), atacante', f: (r) => r.plano === 'gananciosa' && r.grupo === 'ataque' },
+  'chuteira-ENG-ESP': { nome: 'artilheiro na Europa, atacante inglês ou espanhol', f: (r) => r.plano === 'chuteira' && (r.nat === 'ENG' || r.nat === 'ESP') },
+  'chuteira-ESP-FRA-ENG': { nome: 'artilheiro na Europa, atacante espanhol, francês ou inglês', f: (r) => r.plano === 'chuteira' && ['ESP', 'FRA', 'ENG'].includes(r.nat) },
+  'goleador-COL': { nome: 'goleador colombiano, atacante', f: (r) => r.plano === 'goleador' && r.nat === 'COL' },
+  'goleador-sul': { nome: 'goleador sul-americano, atacante', f: (r) => r.plano === 'goleador' },
+  'gol-rec-BRA': { nome: 'goleador ou recordista brasileiro, atacante', f: (r) => (r.plano === 'goleador' || r.plano === 'recordista') && r.nat === 'BRA' },
   mochileiro: { nome: 'mochileiro no Intenso', f: (r) => r.plano === 'mochileiro' },
   'sulamericano-gk': { nome: 'sul-americano no Intenso, goleiro', f: (r) => r.plano === 'sulamericano' && r.grupo === 'goleiro' },
   sulamericano: { nome: 'sul-americano no Intenso', f: (r) => r.plano === 'sulamericano' },
@@ -606,7 +607,7 @@ function predCriterio(c) {
 for (const d of ESCOLHA.emblemas) {
   const pred = predCriterio(d.criterio)
   const m = melhor(pred, { minN: d.minN ?? 500 })
-  const ded = d.plano ? nomeado(d.plano, pred) : null
+  const ded = d.plano ? [].concat(d.plano).map((pl) => nomeado(pl, pred)).reduce((a, b) => (b.lo > a.lo || (b.lo === a.lo && b.n > a.n) ? b : a)) : null
   // o que é raro demais para a contagem direta (as Taças do Rei) usa a decomposição do Desafio do Rei
   let chanceEstimada
   if (d.estimativa) {
@@ -640,6 +641,7 @@ for (const [id, e] of Object.entries(ESCOLHA.conquistas)) {
     regra: e.regra,
     parametros: e.parametros,
     check: o.check,
+    porque: e.porque,
     antes: DESCRICAO[id],
     raridade: e.raridade,
     oculta: e.oculta,

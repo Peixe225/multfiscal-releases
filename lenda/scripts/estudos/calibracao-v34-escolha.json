@@ -14,7 +14,7 @@
     },
     "ushuaia_to_darien": {
       "parametros": {
-        "paises": 8
+        "paises": 9
       },
       "plano": [
         "sulamericano-gk",
@@ -22,8 +22,9 @@
       ],
       "raridade": "epica",
       "oculta": false,
-      "descricao": "Jogue em clubes de oito países diferentes da América do Sul.",
-      "regra": "Países diferentes (confederação CONMEBOL) entre os clubes da carreira ≥ 8."
+      "descricao": "Jogue em clubes de nove países diferentes da América do Sul.",
+      "regra": "Países diferentes (confederação CONMEBOL) entre os clubes da carreira ≥ 9.",
+      "porque": "Os 10 países são todos os da América do Sul no jogo e 10 nunca saiu. Nove saiu 4 vezes em 4.500 carreiras do goleiro sul-americano que troca de país a cada proposta (o goleiro recebe mais propostas de fora; o jogador de linha chega a 9 bem mais raramente); oito seria ~1 em 110, fácil demais para o espírito de cruzar o continente."
     },
     "baldosero": {
       "parametros": {
@@ -46,7 +47,7 @@
       "oculta": true,
       "descricao": "Ganhe duas Copas do Mundo e encerre a carreira com Nota de Legado maior que a de Pelé.",
       "regra": "Carreira encerrada, Copas do Mundo ≥ 2 e nota bruta de legado maior que a de Pelé (o mesmo teste da “Maior que Pelé”).",
-      "porque": "Quatro Copas nunca saíram e três já são ~1 em 800 para o melhor plano. O “além do Rei” passa a ser o legado: duas Copas e a nota acima da do Pelé (três Copas com a nota acima saiu uma vez no estudo, ~1 em 3.000 ou mais)."
+      "porque": "Quatro Copas nunca saíram e três já são ~1 em 1.000 para o melhor plano. O “além do Rei” passa a ser o legado: duas Copas e a nota acima da do Pelé (três Copas com a nota acima saiu uma vez em todo o estudo)."
     },
     "goals_1300": {
       "parametros": {
@@ -61,7 +62,7 @@
       "oculta": true,
       "descricao": "Marque 1.050 gols na carreira.",
       "regra": "Gols na carreira (clube + seleção) ≥ 1.050.",
-      "porque": "O máximo do estudo foi 1.193 gols e 1.100 sai ~1 vez em 2.500; 1.050 é passar dos mil com folga, ainda para quem monta a carreira para isso (o goleador colombiano)."
+      "porque": "O máximo do estudo foi 1.193 gols; 1.100 saiu 3 vezes em 39.600 carreiras da v3.4 (nenhuma no goleador colombiano). 1.050 é passar dos mil com folga, para quem monta a carreira para isso (o goleador colombiano)."
     },
     "records_10": {
       "parametros": {
@@ -76,7 +77,22 @@
       "oculta": true,
       "descricao": "Quebre seis recordes históricos do futebol real.",
       "regra": "Recordes históricos quebrados (os da Nota de Legado, contra o futebol real) ≥ 6.",
-      "porque": "São 19 recordes possíveis e a carreira mais completa quebrou 9; dez nunca saiu e sete saiu 2 vezes em ~25 mil carreiras da v3.4. Seis fica um degrau acima do “Livro dos recordes” (cinco)."
+      "porque": "São 19 recordes possíveis e a carreira mais completa quebrou 9; dez nunca saiu e sete saiu 4 vezes em 39.600 carreiras da v3.4. Seis fica um degrau acima do “Livro dos recordes” (cinco)."
+    },
+    "legacy_95": {
+      "parametros": {
+        "nota": 94
+      },
+      "plano": [
+        "chuteira-ESP-FRA-ENG",
+        "chuteira-ENG-ESP",
+        "cacador-ARG-ataque"
+      ],
+      "raridade": "lendaria",
+      "oculta": false,
+      "descricao": "Encerre a carreira com Nota de Legado 94 ou mais.",
+      "regra": "Carreira encerrada e Nota de Legado ≥ 94.",
+      "porque": "95 saiu 3 vezes em 5.250 carreiras do artilheiro na Europa (~1 em 1.750, abaixo da faixa); 94 fica em ~1 em 700. A nota que passa todas as lendas reais continua sendo a da “Acima de todos”."
     }
   },
   "emblemas": [
@@ -94,7 +110,13 @@
         "cor": "#b98652"
       },
       "ordem": 10,
-      "home": true
+      "home": true,
+      "plano": [
+        "guloso-ataque",
+        "guloso-ESP",
+        "chuteira-ESP-FRA-ENG",
+        "cacador-ARG"
+      ]
     },
     {
       "slug": "andarilho-campeao",
@@ -109,7 +131,11 @@
         "icone": "plane",
         "cor": "#b98652"
       },
-      "ordem": 20
+      "ordem": 20,
+      "plano": [
+        "sulamericano",
+        "mochileiro"
+      ]
     },
     {
       "slug": "bandeira-do-clube",
@@ -124,16 +150,22 @@
         "icone": "shield",
         "cor": "#b98652"
       },
-      "ordem": 30
+      "ordem": 30,
+      "plano": [
+        "recordista-BRA",
+        "gol-rec-BRA",
+        "recordista-ARG"
+      ]
     },
     {
       "slug": "hexa-e-gloria-eterna",
       "titulo": "Hexa e Glória Eterna",
-      "descricao": "Com um jogador brasileiro, dê ao Brasil a Copa do Mundo e ganhe duas Libertadores.",
+      "descricao": "Com um jogador brasileiro, dê o hexa ao Brasil, ganhe duas Libertadores e uma Bola de Ouro.",
       "dificuldade": "medio",
       "criterio": {
         "copas": 1,
         "libertadores": 2,
+        "bolasOuro": 1,
         "nacionalidade": [
           "BRA"
         ],
@@ -144,22 +176,32 @@
         "cor": "#c8d0dc"
       },
       "ordem": 40,
-      "home": true
+      "home": true,
+      "plano": [
+        "cacador-BRA",
+        "recordista-BRA"
+      ]
     },
     {
       "slug": "era-de-ouro",
       "titulo": "Era de ouro",
-      "descricao": "Ganhe cinco Bolas de Ouro e quatro Champions League na mesma carreira.",
+      "descricao": "Ganhe cinco Bolas de Ouro e três Champions League na mesma carreira.",
       "dificuldade": "medio",
       "criterio": {
         "bolasOuro": 5,
-        "champions": 4
+        "champions": 3
       },
       "emblema": {
         "icone": "circle-dot",
         "cor": "#c8d0dc"
       },
-      "ordem": 50
+      "ordem": 50,
+      "plano": [
+        "guloso-ataque",
+        "guloso-ESP",
+        "chuteira-ESP-FRA-ENG",
+        "cacador-ARG"
+      ]
     },
     {
       "slug": "artilheiro-do-mundo",
@@ -174,7 +216,12 @@
         "icone": "goal",
         "cor": "#c8d0dc"
       },
-      "ordem": 60
+      "ordem": 60,
+      "plano": [
+        "goleador-COL",
+        "gol-rec-BRA",
+        "chuteira-ESP-FRA-ENG"
+      ]
     },
     {
       "slug": "bi-do-mundo-bi-da-america",
@@ -1115,6 +1162,65 @@
         "bolasOuro": 8,
         "champions": 4,
         "copas": 1
+      }
+    },
+    {
+      "slug": "bra-copa-lib3",
+      "criterio": {
+        "copas": 1,
+        "libertadores": 3,
+        "nacionalidade": [
+          "BRA"
+        ],
+        "copasPelaSelecao": 1
+      }
+    },
+    {
+      "slug": "bra-copa-lib2-bola1",
+      "criterio": {
+        "copas": 1,
+        "libertadores": 2,
+        "bolasOuro": 1,
+        "nacionalidade": [
+          "BRA"
+        ],
+        "copasPelaSelecao": 1
+      }
+    },
+    {
+      "slug": "bra-copa-lib2-bola3",
+      "criterio": {
+        "copas": 1,
+        "libertadores": 2,
+        "bolasOuro": 3,
+        "nacionalidade": [
+          "BRA"
+        ],
+        "copasPelaSelecao": 1
+      }
+    },
+    {
+      "slug": "bra-copa-lib3-bola1",
+      "criterio": {
+        "copas": 1,
+        "libertadores": 3,
+        "bolasOuro": 1,
+        "nacionalidade": [
+          "BRA"
+        ],
+        "copasPelaSelecao": 1
+      }
+    },
+    {
+      "slug": "bra-copa-lib2-tit30",
+      "criterio": {
+        "copas": 1,
+        "libertadores": 2,
+        "titulos": 30,
+        "nacionalidade": [
+          "BRA"
+        ],
+        "copasPelaSelecao": 1
       }
     }
   ]

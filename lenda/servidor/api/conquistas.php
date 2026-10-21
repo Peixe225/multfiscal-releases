@@ -5,6 +5,10 @@
  *   POST {"acao":"sincronizar","conquistas":[{id, em}]} → a união, com a data mais antiga (logado)
  *   GET  conquistas.php?raridade=1   → {jogadores, porConquista: {id: n}, atualizadoEm} (público, cache de 1 h)
  * v3.3: depois de sincronizar, confere os desafios da conta (o de todas as conquistas, CONTRATO-v33 §A).
+ * v3.4 (CONTRATO-v34 §A): cada conquista diz se é provada (por uma carreira-prova da conta: Clássico, semente do servidor,
+ * replay), se a prova foi verificada no replay e qual carreira (HallEntry.id) prova; e as contagens das 87:
+ *   {conquistas: [{id, em, provada, verificada, carreira}], provadas, verificadas, naoProvadas, total: 87}
+ * O que vem do aparelho continua entrando (como "não provada").
  */
 declare(strict_types=1);
 
@@ -20,11 +24,14 @@ const RARIDADE_TTL_S = 3600;
 const RARIDADE_MAX_IDS = 1500;
 const DATA_MINIMA = 1735689600; // 2025-01-01: data mais velha que isso é inventada
 
-/** Lista de conquistas da conta, a mais antiga primeiro. */
-function conquistasDe(int $uid): array
+/** A resposta da conta: a lista (a mais antiga primeiro) e, v3.4, as provas. */
+function respostaConquistas(int $uid): array
 {
-    return array_map(static fn(array $l): array => ['id' => (string) $l['conquista_id'], 'em' => iso($l['em'])],
-        sql('SELECT conquista_id, em FROM conquistas_usuario WHERE usuario_id = ? ORDER BY em, conquista_id', [$uid])->fetchAll());
+    $out = ['conquistas' => conquistasComProva($uid)];
+    if (esquemaV34()) {
+        $out += resumoProvas($uid);
+    }
+    return $out;
 }
 
 /** Conta quantas contas ativas têm cada conquista (só ids que passam pelo filtro de palavras). */
@@ -77,7 +84,7 @@ $u = exigirUsuario();
 $uid = (int) $u['id'];
 
 if ($m === 'GET') {
-    responder(200, ['conquistas' => conquistasDe($uid)]);
+    responder(200, respostaConquistas($uid));
 }
 
 $acao = is_string($j['acao'] ?? null) ? $j['acao'] : '';
@@ -132,4 +139,4 @@ if ($novas) {
     });
     avaliarDesafiosConta($uid);
 }
-responder(200, ['conquistas' => conquistasDe($uid)]);
+responder(200, respostaConquistas($uid));

@@ -12,7 +12,7 @@
   const conq = { pedido: 0, corpo: null, tabela: null, itens: null, jogadores: 0, q: '', raridade: '', ordem: { chave: 'jogadores', dir: 'desc' } };
 
   // a busca, a raridade e a ordem ficam no hash (#/conquistas?q=&raridade=&ordem=&dir=): recarregar volta igual
-  const ORDENS_CONQ = ['nome', 'raridade', 'jogadores', 'pct', 'primeira'];
+  const ORDENS_CONQ = ['nome', 'raridade', 'jogadores', 'pct', 'provadas', 'primeira'];
   const dirPadrao = (k) => (k === 'nome' || k === 'primeira' ? 'asc' : 'desc');
   function lerRotaConquistas(rota) {
     const q = (rota && rota.query) || {};
@@ -46,8 +46,11 @@
       conq.itens = todos.map((id) => {
         const x = porId[id] || {};
         const nm = nomes.conquistas[id];
-        return { id: id, nome: nm ? nm.t : id, descricao: nm ? nm.d : '', raridade: nm ? nm.r : '', jogadores: x.jogadores || 0, pct: x.pct || 0, primeiraEm: x.primeiraEm || null, conhecida: !!nm };
+        return { id: id, nome: nm ? nm.t : id, descricao: nm ? nm.d : '', raridade: nm ? nm.r : '', jogadores: x.jogadores || 0, pct: x.pct || 0, primeiraEm: x.primeiraEm || null, conhecida: !!nm,
+          // v3.4: quantas dessas contas têm a conquista provada por uma carreira (o servidor de antes não manda)
+          provadas: typeof x.provadas === 'number' ? x.provadas : null };
       });
+      conq.comProvas = (Array.isArray(d.itens) ? d.itens : []).some((x) => typeof x.provadas === 'number');
       desenharConquistas();
     } catch (e) {
       if (n !== conq.pedido || (e && e.status === 401)) return;
@@ -82,7 +85,7 @@
     let itens = (conq.itens || []).filter((x) => (!conq.raridade || x.raridade === conq.raridade) &&
       (!q || x.nome.toLowerCase().includes(q) || x.id.toLowerCase().includes(q) || x.descricao.toLowerCase().includes(q)));
     const { chave, dir } = conq.ordem;
-    const val = (x) => (chave === 'nome' ? x.nome.toLowerCase() : chave === 'raridade' ? ORDEM_RARIDADE[x.raridade] || 0 : chave === 'primeira' ? x.primeiraEm || '9999' : x.jogadores);
+    const val = (x) => (chave === 'nome' ? x.nome.toLowerCase() : chave === 'raridade' ? ORDEM_RARIDADE[x.raridade] || 0 : chave === 'primeira' ? x.primeiraEm || '9999' : chave === 'provadas' ? x.provadas || 0 : x.jogadores);
     itens = itens.slice().sort((a, b) => {
       const va = val(a);
       const vb = val(b);
@@ -112,6 +115,7 @@
           b.firstChild.style.width = Math.round((x.jogadores / max) * 100) + '%';
           return h('span', null, b, conq.jogadores ? LP.pct(x.jogadores, conq.jogadores) : '—');
         } },
+        conq.comProvas ? { rotulo: 'Provadas', num: true, ordenar: 'provadas', celula: (x) => h('span', { title: 'Contas com esta conquista provada por uma carreira-prova (semente do servidor + replay)' }, LP.inteiro(x.provadas || 0)) } : null,
         { rotulo: 'Primeira vez', ordenar: 'primeira', celula: (x) => (x.primeiraEm ? LP.quando(x.primeiraEm) : '—') },
       ],
     }));

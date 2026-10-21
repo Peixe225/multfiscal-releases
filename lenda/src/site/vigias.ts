@@ -38,7 +38,10 @@ import { abrirCarreiras, abrirConta, abrirPerfil, useSiteUi } from './ui'
 import { comReintento, esperaReintento, valeTentar } from './api'
 import { useAcesso } from '@/store/acesso'
 import { iniciarAcesso } from './acesso'
-import { iniciarConquistas } from './conquistas'
+import { carregarProvadas, iniciarConquistas } from './conquistas'
+import { conquistasNovasParaProvar, ehCarreiraProva, uidDasSementes } from './provas'
+import { useConquistasSite } from '@/store/conquistasSite'
+import { useAchievementCatalog } from '@/ui/shell/achievementsRegistry'
 import { iniciarHallPublico } from './hallPublico'
 import { iniciarResumoAdmin } from './resumoAdmin'
 import { iniciarPontes } from './pontes'
@@ -85,23 +88,80 @@ export function telaAtual(): string {
 
 const notaDe = (h: HallEntry) => (typeof h.legacy?.score === 'number' ? h.legacy.score : Math.round(h.summary?.legacyScore ?? 0))
 
-/** Salva na conta (como "auto") uma carreira 90+ que acabou de terminar. */
+/** Os ids do catálogo das conquistas (as 87 do jogo, quando o catálogo real já carregou). */
+const catalogo = () => new Set(useAchievementCatalog.getState().list.map((a) => a.id))
+
+/**
+ * v3.4: a carreira prova alguma conquista que a conta ainda não tem provada? (Clássico, replay, a semente que o servidor
+ * sorteou para esta conta.) Lê as provadas da conta se elas tiverem mais de 1 min; sem saber (servidor antigo, sem rede),
+ * não sobe por isso.
+ */
+async function provaAlgoNovo(h: HallEntry, uid: number): Promise<string[]> {
+  if (!ehCarreiraProva(h, uid)) return []
+  await carregarProvadas()
+  return conquistasNovasParaProvar(h, useConquistasSite.getState().provadas, catalogo())
+}
+
+/**
+ * v3.4 §E: os desafios de emblema valendo que a carreira-prova cumpre e cujo emblema a conta ainda não tem (slugs). A lista é
+ * a pública (cache de 60 s); os emblemas da conta, os que a sessão já leu (senão o ?eu=1). Sem saber os emblemas da conta
+ * (sem rede): conta como não tem — o servidor decide, e salvar de novo é idempotente. Os módulos dos desafios só carregam
+ * aqui (no fim de uma carreira-prova), nunca na abertura do jogo.
+ */
+export async function emblemasQueDaria(h: HallEntry, uid: number): Promise<string[]> {
+  if (!ehCarreiraProva(h, uid)) return []
+  const [{ useDesafios, emblemasQueACarreiraDa }, { useEmblemas }] = await Promise.all([import('./desafios'), import('./emblemas')])
+  const lista = await useDesafios.getState().carregar()
+  if (!emblemasQueACarreiraDa(h, lista, new Set()).length) return []
+  const meus = () => (useEmblemas.getState().uid === uid ? useEmblemas.getState().meus : null)
+  if (!meus()) await useDesafios.getState().carregarMeu()
+  return emblemasQueACarreiraDa(h, lista, new Set((meus() ?? []).map((e) => e.slug))).map((d) => d.slug)
+}
+
+/**
+ * v3.4 §E: as frases do aviso. As novas desta carreira ("+3 conquistas provadas na conta") e o total da conta ("Agora são 41
+ * conquistas provadas na conta") — antes as duas eram "N conquistas provadas na conta", e quem tinha 40 lia "2" como o total.
+ */
+export const textoProvasNovas = (n: number) => (n === 1 ? '+1 conquista provada na conta' : `+${n} conquistas provadas na conta`)
+export const textoProvasTotal = (n: number) => (n === 1 ? 'Agora é 1 conquista provada na conta' : `Agora são ${n} conquistas provadas na conta`)
+
+/**
+ * Salva na conta (como "auto") uma carreira 90+ que acabou de terminar ou (v3.4) que prova conquista nova da conta ou (§E) dá
+ * um emblema que a conta ainda não tem.
+ */
 async function salvarSozinha(h: HallEntry) {
   const conta = useConta.getState()
   if (!conta.usuario) {
     // a conta não respondeu agora (servidor lento), mas este aparelho já entrou: a 90+ espera na fila e sobe quando
     // a conta for confirmada (o GET conta.php tenta de novo sozinho)
-    if (conta.lembrado && salvaSozinha(h) && !apagadasNoAparelho().has(h.id)) marcarPendente(h.id)
+    if (conta.lembrado && !apagadasNoAparelho().has(h.id)) {
+      // v3.4: a carreira começada com a semente do servidor (da conta deste aparelho) também espera: pode provar conquistas
+      const uid = uidDasSementes()
+      if (salvaSozinha(h) || (uid !== null && ehCarreiraProva(h, uid))) marcarPendente(h.id)
+    }
     return
   }
   const carreiras = useCarreiras.getState()
-  if (!deveSalvarSozinha(h, { logado: true, naConta: idsNaConta(carreiras.lista), apagadas: apagadasNoAparelho() })) return
+  const naConta = idsNaConta(carreiras.lista)
+  const apagadas = apagadasNoAparelho()
+  const por90 = deveSalvarSozinha(h, { logado: true, naConta, apagadas })
+  // v3.4: a carreira-prova que desbloqueou uma conquista que a conta ainda não tem provada também sobe sozinha
+  const fora = por90 || naConta.has(h.id) || apagadas.has(h.id)
+  const provas = fora ? [] : await provaAlgoNovo(h, conta.usuario.id)
+  // §E: e a que cumpre um desafio de emblema valendo cujo emblema a conta ainda não tem (o emblema só sai no servidor, no
+  // salvar: antes ela ficava no aparelho e o "concedido sozinho" não acontecia)
+  const emblemas = fora || provas.length ? [] : await emblemasQueDaria(h, conta.usuario.id).catch(() => [])
+  if (!por90 && !provas.length && !emblemas.length) return
   try {
     // salvar é idempotente (grava ou atualiza pelo id): sem rede, tenta de novo com espera crescente
     const c = await comReintento(() => useCarreiras.getState().salvar(h, 'auto'), { tentativas: 3, base: 2000 })
     // nota alta: o Hall público espera a conferência do admin — o jogador fica sabendo aqui, sem alarde
     const revisao = avisoAoSalvar(c)
-    toast.success('Salva na sua conta', `${h.identity.surname} · pico ${h.summary.peakOvr}${revisao ? `. ${revisao}` : ''}`, { key: `conta-salva-${h.id}` })
+    const provou = c.provasNovas?.length ?? 0
+    const total = useConquistasSite.getState().contagemProva?.provadas ?? 0
+    if (por90) toast.success('Salva na sua conta', `${h.identity.surname} · pico ${h.summary.peakOvr}${provou ? ` · ${textoProvasNovas(provou)}${total > provou ? ` (${total} no total)` : ''}` : ''}${revisao ? `. ${revisao}` : ''}`, { key: `conta-salva-${h.id}` })
+    else if (provou) toast.success(textoProvasNovas(provou), `${h.identity.surname} foi para a sua conta como prova (é ela que vale para os desafios).${total > provou ? ` ${textoProvasTotal(total)}.` : ''}`, { key: `conta-salva-${h.id}` })
+    // só pelo emblema: o aviso dourado do emblema novo sai do próprio salvar (emblemasNovos)
   } catch (err) {
     // removida pela moderação (409 apagada): é final, já saiu das filas (useCarreiras.salvar)
     if (codigoDeErro(err) === 'apagada') return
@@ -166,7 +226,46 @@ export async function sincronizarAoEntrar(salvarId?: string) {
     const h = hall.find((x) => x.id === salvarId)
     if (h) await salvarManual(h)
   }
-  const subir = paraSubirAoEntrar(hall, idsNaConta(useCarreiras.getState().lista), apagadasNoAparelho())
+  const naContaAgora = idsNaConta(useCarreiras.getState().lista)
+  const subir = paraSubirAoEntrar(hall, naContaAgora, apagadasNoAparelho())
+  // v3.4: e as carreiras-prova do aparelho (começadas com esta conta) que provam conquista que a conta ainda não tem provada
+  const u = useConta.getState().usuario
+  if (u && hall.some((h) => ehCarreiraProva(h, u.id) && !naContaAgora.has(h.id)) && (await carregarProvadas(true))) {
+    const ja = new Set(subir.map((h) => h.id))
+    const apagadas = apagadasNoAparelho()
+    const faltam = new Set<string>()
+    const provadas = useConquistasSite.getState().provadas
+    for (const h of hall) {
+      if (ja.has(h.id) || naContaAgora.has(h.id) || apagadas.has(h.id) || !ehCarreiraProva(h, u.id)) continue
+      // uma carreira por conquista que falta: a primeira que a tiver (as outras não acrescentam nada)
+      const novas = conquistasNovasParaProvar(h, provadas, catalogo()).filter((id) => !faltam.has(id))
+      if (!novas.length) continue
+      for (const id of novas) faltam.add(id)
+      subir.push(h)
+    }
+  }
+  // §E: e as carreiras-prova do aparelho que dão um emblema que a conta ainda não tem (uma por desafio)
+  if (u && hall.some((h) => ehCarreiraProva(h, u.id) && !naContaAgora.has(h.id))) {
+    try {
+      const [{ useDesafios, emblemasQueACarreiraDa }, { useEmblemas }] = await Promise.all([import('./desafios'), import('./emblemas')])
+      const lista = await useDesafios.getState().carregar()
+      if (lista.some((d) => d.modo === 'emblema')) {
+        if (useEmblemas.getState().uid !== u.id || !useEmblemas.getState().meus) await useDesafios.getState().carregarMeu()
+        const tem = new Set(useEmblemas.getState().uid === u.id ? (useEmblemas.getState().meus ?? []).map((e) => e.slug) : [])
+        const ja = new Set(subir.map((h) => h.id))
+        const apagadas = apagadasNoAparelho()
+        for (const h of hall) {
+          if (ja.has(h.id) || naContaAgora.has(h.id) || apagadas.has(h.id) || !ehCarreiraProva(h, u.id)) continue
+          const ds = emblemasQueACarreiraDa(h, lista, tem)
+          if (!ds.length) continue
+          for (const d of ds) tem.add(d.slug)
+          subir.push(h)
+        }
+      }
+    } catch {
+      /* sem a lista dos desafios agora: as outras sobem do mesmo jeito */
+    }
+  }
   let n = 0
   let emRevisao = 0
   for (let i = 0; i < subir.length; i++) {
@@ -188,7 +287,11 @@ export async function sincronizarAoEntrar(salvarId?: string) {
   }
   if (n) {
     const rev = revisaoNoLote(n, emRevisao)
-    toast.success(n === 1 ? '1 carreira 90+ foi para a sua conta' : `${n} carreiras 90+ foram para a sua conta`, `As outras ficam em "Minhas carreiras", com o botão de salvar.${rev ? ` ${rev}` : ''}`, {
+    // v3.4: com carreiras-prova no lote, o título não fala só das 90+
+    const so90 = subir.every((h) => salvaSozinha(h))
+    const titulo = so90 ? (n === 1 ? '1 carreira 90+ foi para a sua conta' : `${n} carreiras 90+ foram para a sua conta`) : n === 1 ? '1 carreira foi para a sua conta' : `${n} carreiras foram para a sua conta`
+    const provou = useConquistasSite.getState().contagemProva
+    toast.success(titulo, `${so90 ? '' : `As 90+ e as que provam conquistas ou dão emblema.${provou ? ` ${textoProvasTotal(provou.provadas)}.` : ''} `}As outras ficam em "Minhas carreiras", com o botão de salvar.${rev ? ` ${rev}` : ''}`, {
       action: { label: 'Ver minhas carreiras', onClick: () => abrirCarreiras('conta'), icon: ArrowRight },
     })
   }

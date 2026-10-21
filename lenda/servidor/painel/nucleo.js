@@ -185,6 +185,8 @@
     candidato_verificar: 'Verificou candidato no jogo', candidato_recusar: 'Recusou candidato', desafio_vencedor: 'Declarou o vencedor',
     desafio_reabrir: 'Reabriu desafio', suporte_status: 'Mudou a situação de mensagem', suporte_lote: 'Mensagens em lote',
     suporte_responder: 'Respondeu mensagem',
+    // v3.4: as provas das conquistas (o lote do #/verificar) e os emblemas dos desafios
+    prova_verificar: 'Verificou provas', emblema_retirar: 'Retirou emblema', emblema_devolver: 'Devolveu emblema',
   };
   // v3.3: Fale conosco (mensagens_suporte) e desafios (desafio_candidatos)
   LP.NOMES_TIPO_SUPORTE = { duvida: 'Dúvida', ideia: 'Ideia', problema: 'Problema', recomendacao: 'Recomendação', outro: 'Outro assunto' };
@@ -223,7 +225,7 @@
   let nomesPromessa = null;
   LP.nomes = function () {
     if (!nomesPromessa) {
-      nomesPromessa = fetch('nomes.json?v=3.3.0', { credentials: 'same-origin' })
+      nomesPromessa = fetch('nomes.json?v=3.4.0', { credentials: 'same-origin' })
         .then((r) => (r.ok ? r.json() : null))
         .catch(() => null)
         .then((j) => {

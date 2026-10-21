@@ -19,7 +19,8 @@
  * partidas por aparelho, vínculo aparelho-conta, a config do site (sem o estado interno), a lixeira (com a cópia, em
  * base64, desde a rev3; os backups de antes vêm sem ela), as marcas das contas excluídas, o registro do admin (90 dias),
  * a equipe (sem senha nem PIN), os papéis e os recados; com medicao=1, as visitas e os eventos dos últimos 30 dias. v3.3:
- * os desafios, os candidatos e as mensagens do Fale conosco. Fica de fora: sessões, códigos de troca de senha e de
+ * os desafios, os candidatos e as mensagens do Fale conosco. v3.4: os emblemas (as provas vêm nas colunas das carreiras e das
+ * conquistas). Fica de fora: sessões, códigos de troca de senha e de
  * confirmação do e-mail, partidas por dia, tentativas e o arquivo de config.
  *
  * Cópias no servidor: numa pasta FORA do public_html, ao lado do arquivo de config (lenda-copias/) ou em backup_pasta
@@ -43,7 +44,7 @@ const COPIA_PEDACO = 256 * 1024;              // cada membro gzip
 /** Tabelas que a restauração "substituir" apaga e regrava (as outras só completam o que falta). */
 const COPIA_SUBSTITUIVEIS = ['usuarios', 'carreiras', 'conquistas_usuario', 'indicacoes', 'bonus', 'denuncias', 'carreiras_moderacao',
     'partidas_vid', 'visitantes_usuarios', 'site_config', 'lixeira_carreiras', 'admin_papeis', 'admin_recados', 'desafios', 'desafio_candidatos',
-    'mensagens_suporte'];
+    'mensagens_suporte', 'emblemas_usuario', 'provas_nao_bateu'];
 const COPIA_SO_COMPLETAR = ['admin_log', 'admin_contas', 'visitas', 'eventos', 'contas_excluidas'];
 /** Colunas binárias que vão em base64 (as únicas aceitas no "binarios" do arquivo). */
 const COPIA_BINARIOS = ['carreiras' => ['dados'], 'lixeira_carreiras' => ['dados']];
@@ -84,6 +85,10 @@ function backupTabelas(bool $medicao): array
         ['desafios', ['id'], null, [], 200],
         ['desafio_candidatos', ['id'], null, [], 1000],
         ['mensagens_suporte', ['id'], null, [], 500],
+        // v3.4
+        ['emblemas_usuario', ['id'], null, [], 1000],
+        // v3.4 §E: o "não bateu" guardado pela semente (sem ele, uma cópia restaurada deixava a carreira provar de novo)
+        ['provas_nao_bateu', ['usuario_id', 'semente'], null, [], 1000],
     ];
     if ($medicao) {
         $l[] = ['visitas', ['sid'], ['inicio >= ?', [dt($t - 30 * 86400)]], [], 1000];
@@ -596,9 +601,11 @@ function restaurarCopia(string $caminho, string $modo): array
     }
     $gravadas = [];
     $puladas = 0;
-    transacao(static function () use ($caminho, $modo, $colunas, $excluidas, &$gravadas, &$puladas): void {
+    $contasProva = []; // integração v3.4: as contas com carreira-prova no arquivo (as provas delas são refeitas no fim)
+    transacao(static function () use ($caminho, $modo, $colunas, $excluidas, &$gravadas, &$puladas, &$contasProva): void {
         $gravadas = [];
         $puladas = 0;
+        $contasProva = [];
         if ($modo === 'substituir') {
             foreach (array_keys($colunas) as $t) {
                 if ($t === 'site_config') {
@@ -656,7 +663,7 @@ function restaurarCopia(string $caminho, string $modo): array
             $gravadas[$loteTabela] = ($gravadas[$loteTabela] ?? 0) + $n;
             $lote = [];
         };
-        lerBackup($caminho, static function (string $t, array $r) use ($colunas, $excluidas, &$lote, &$loteTabela, &$loteCols, $descarregar, &$puladas): void {
+        lerBackup($caminho, static function (string $t, array $r) use ($colunas, $excluidas, &$lote, &$loteTabela, &$loteCols, $descarregar, &$puladas, &$contasProva): void {
             if (!isset($colunas[$t])) {
                 return; // tabela que não se restaura (ou que este banco não tem)
             }
@@ -692,6 +699,9 @@ function restaurarCopia(string $caminho, string $modo): array
             if ($r === []) {
                 return;
             }
+            if ($t === 'carreiras' && ($r['conquistas'] ?? null) !== null && isset($r['usuario_id'])) {
+                $contasProva[(int) $r['usuario_id']] = true;
+            }
             $cols = array_keys($r);
             // carreiras levam o HallEntry (até 128 KB): lotes pequenos para caber no max_allowed_packet do banco
             $max = isset(COPIA_BINARIOS[$t]) ? 10 : 200;
@@ -717,6 +727,18 @@ function restaurarCopia(string $caminho, string $modo): array
         sql("DELETE FROM site_config WHERE chave IN ('_hall_foto', '_raridade', '_atencao', '_multicontas') OR LEFT(chave, 7) = '_painel'");
     });
     esquecerSiteConfig();
+    // integração v3.4: a carreira-prova que voltou pela cópia volta a provar as conquistas da conta (o "completar" não mexe
+    // nas linhas de conquistas_usuario que já existem, então o prova_pk delas ficava vazio até a conta salvar outra carreira)
+    if ($contasProva && function_exists('esquemaV34') && esquemaV34()) {
+        require_once __DIR__ . '/_desafios.php'; // contaMudouProvas (_provas.php) — o equipe.php não carrega
+        foreach (array_keys($contasProva) as $uid) {
+            try {
+                contaMudouProvas($uid);
+            } catch (Throwable $e) {
+                error_log('LENDA restaurar: provas da conta ' . $uid . ': ' . $e->getMessage());
+            }
+        }
+    }
     return ['antes' => $antes['arquivo'], 'contagem' => $conf['contagem'], 'gravadas' => $gravadas, 'puladas' => $puladas,
         'geradoEm' => $conf['cabecalho']['geradoEm']];
 }

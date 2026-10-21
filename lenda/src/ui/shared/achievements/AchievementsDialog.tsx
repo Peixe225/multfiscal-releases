@@ -6,7 +6,7 @@
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { motion } from 'motion/react'
-import { ArrowDownAZ, CalendarArrowDown, CalendarArrowUp, Gem, LayoutGrid, List, Lock } from 'lucide-react'
+import { ArrowDownAZ, CalendarArrowDown, CalendarArrowUp, CircleDashed, Gem, Info, LayoutGrid, List, Lock, ShieldCheck } from 'lucide-react'
 import type { Achievement } from '@/engine/types'
 import { useCareer } from '@/store/career'
 import { textoRaridade, useConquistasSite } from '@/store/conquistasSite'
@@ -70,9 +70,13 @@ export default function AchievementsDialog({ open, onClose }: { open: boolean; o
   const naConta = useConquistasSite((s) => s.naConta)
   const pendentes = useConquistasSite((s) => s.pendentes)
   const pedirRaridade = useConquistasSite((s) => s.pedirRaridade)
+  // v3.4: quais estão provadas na conta (por uma carreira do Clássico começada com a conta); null = não sabe
+  const provadas = useConquistasSite((s) => s.provadas)
+  const pedirProvadas = useConquistasSite((s) => s.pedirProvadas)
   useEffect(() => {
     if (open) pedirRaridade?.()
-  }, [open, pedirRaridade])
+    if (open && naConta) pedirProvadas?.()
+  }, [open, naConta, pedirRaridade, pedirProvadas])
 
   // remember what was new when the dialog opened, then clear the top-bar dot
   const booted = useCareer((s) => s.status === 'ready')
@@ -94,6 +98,8 @@ export default function AchievementsDialog({ open, onClose }: { open: boolean; o
   }
 
   const done = list.filter((a) => unlocked[a.id]).length
+  const nProvadas = provadas ? list.filter((a) => provadas[a.id]).length : 0
+  const prova = (id: string): 'provada' | 'nao' | null => (!provadas || !naConta ? null : provadas[id] ? 'provada' : unlocked[id] ? 'nao' : null)
   const pct = list.length ? done / list.length : 0
   const byRarity = RARITIES.map((r) => ({ r, total: list.filter((a) => a.rarity === r).length, done: list.filter((a) => a.rarity === r && unlocked[a.id]).length })).filter((x) => x.total)
 
@@ -154,6 +160,31 @@ export default function AchievementsDialog({ open, onClose }: { open: boolean; o
             </span>
           ))}
         </div>
+        {provadas && naConta && (
+          <p className="ac-prova">
+            <span className="ac-prova__i is-ok">
+              <ShieldCheck size={14} aria-hidden="true" /> <b>{nProvadas}</b> provadas na conta
+            </span>
+            <span className="ac-prova__i">
+              <CircleDashed size={14} aria-hidden="true" /> <b>{Math.max(0, done - nProvadas)}</b> não provadas
+            </span>
+            <Tooltip
+              tapToShow
+              content={
+                <span className="block max-w-[260px]">
+                  <b className="block">Provada</b>
+                  <span className="text-text-2">Saiu numa carreira do Modo Clássico começada com a conta aberta: a carreira fica na conta e a equipe pode conferir pelo replay. É a que vale para os desafios.</span>
+                  <b className="block mt-1.5">Não provada</b>
+                  <span className="text-text-2">Desbloqueada antes, sem a conta, ou em outra versão. Continua sua; para provar, é só conseguir de novo numa carreira com a conta.</span>
+                </span>
+              }
+            >
+              <button type="button" className="ac-prova__q" aria-label="O que é conquista provada?">
+                <Info size={14} aria-hidden="true" />
+              </button>
+            </Tooltip>
+          </p>
+        )}
       </div>
 
       <div className="ac-toolbar">
@@ -208,12 +239,14 @@ export default function AchievementsDialog({ open, onClose }: { open: boolean; o
                       <b className="block">{secret ? 'Conquista secreta' : a.title}</b>
                       {!secret && <span className="text-text-2">{a.description}</span>}
                       {!secret && textoRaridade(raridade, a.id) && <span className="block text-text-3 mt-1">{textoRaridade(raridade, a.id)}</span>}
+                      {prova(a.id) && <span className="block text-text-3 mt-1">{prova(a.id) === 'provada' ? 'Provada na conta' : 'Não provada na conta'}</span>}
                     </span>
                   }
                 >
                   <button type="button" className={cx('ac-cell', u && 'is-on')} aria-label={label}>
                     <AchTile a={a} on={!!u} size={56} />
                     {u && freshRef.current.has(a.id) && <span className="ac-new ac-new--dot" />}
+                    {prova(a.id) === 'provada' && <ShieldCheck className="ac-cell__prova" size={14} aria-hidden="true" />}
                   </button>
                 </Tooltip>
               </li>
@@ -244,6 +277,16 @@ export default function AchievementsDialog({ open, onClose }: { open: boolean; o
                   <div className="ac-item__m">
                     {fresh && <span className="ac-new">Nova</span>}
                     <span className={cx('ac-rpill', `ac-rpill--${a.rarity}`)}>{r.label}</span>
+                    {prova(a.id) === 'provada' && (
+                      <span className="ac-ppill is-ok" title={provadas?.[a.id]?.verificada ? 'Provada por uma carreira da conta, já conferida pela equipe' : 'Provada por uma carreira da conta'}>
+                        <ShieldCheck size={11} aria-hidden="true" /> Provada
+                      </span>
+                    )}
+                    {prova(a.id) === 'nao' && (
+                      <span className="ac-ppill" title="Desbloqueada sem uma carreira começada com a conta">
+                        Não provada
+                      </span>
+                    )}
                     {!secret && textoRaridade(raridade, a.id) && (
                       <span className="ac-pct" title="Jogadores com conta que já desbloquearam">
                         {textoRaridade(raridade, a.id)}

@@ -1,0 +1,95 @@
+/* LENDA · site v3.4 — conquistas provadas, verificação em lote, desafios de emblema e a faixa da tela inicial
+   (prefixo s4-; só no build do site). Usa os tokens do tema ativo, como o site.css e o v33.css. */
+
+/* ── verificação: prova e lista de conquistas ── */
+.s4-prova { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; font-size: 13.5px; line-height: 1.45; color: var(--text-2); }
+.s4-conq { margin: 0; display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 10px; padding: 12px 14px; border-radius: var(--radius-md, 14px); font-size: 13px; line-height: 1.5; color: var(--text-2); background: var(--surface); border: 1px solid var(--border); overflow-wrap: anywhere; }
+.s4-conq > svg { width: 20px; height: 20px; margin-top: 1px; }
+.s4-conq b { display: block; color: var(--text); font-size: 14px; }
+.s4-conq.is-ok > svg { color: var(--positive, #3ee6a4); }
+.s4-conq.is-nao { background: rgba(255, 94, 120, .08); border-color: var(--nx-negative-line, rgba(255, 94, 120, .3)); }
+.s4-conq.is-nao > svg { color: var(--negative, #ff5e78); }
+
+/* ── verificação em lote ── */
+.s4-lote__nums { display: flex; flex-wrap: wrap; gap: 8px 18px; padding: 12px 14px; border-radius: var(--radius-lg, 18px); background: var(--surface); border: 1px solid var(--border); font-size: 13px; color: var(--text-2); }
+.s4-lote__nums b { font-family: var(--font-num); font-size: 20px; font-weight: 800; color: var(--text); margin-right: 3px; }
+.s4-lote__cand { color: var(--nx-gold-soft, #ffe39a); font-weight: 700; }
+.s4-lote__barra { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; justify-content: space-between; }
+.s4-lote { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.s4-lote__i { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 4px 10px; align-items: start; padding: 10px 12px; border-radius: var(--radius-md, 12px); background: var(--surface); border: 1px solid var(--border); font-size: 13.5px; }
+.s4-lote__i.is-lote { border-color: var(--border-strong); }
+.s4-lote__i.is-bateu { border-color: var(--nx-positive-line, rgba(62, 230, 164, .3)); }
+.s4-lote__i.is-nao_bateu, .s4-lote__i.is-erro { border-color: var(--nx-negative-line, rgba(255, 94, 120, .3)); background: rgba(255, 94, 120, .05); }
+.s4-lote__ico svg { width: 18px; height: 18px; margin-top: 1px; color: var(--text-3); }
+.s4-lote__i.is-bateu .s4-lote__ico svg { color: var(--positive, #3ee6a4); }
+.s4-lote__i.is-nao_bateu .s4-lote__ico svg, .s4-lote__i.is-erro .s4-lote__ico svg { color: var(--negative, #ff5e78); }
+.s4-lote__t { min-width: 0; display: grid; gap: 2px; }
+.s4-lote__t b { font-family: var(--font-display); font-weight: 900; text-transform: uppercase; color: var(--text); overflow-wrap: anywhere; }
+.s4-lote__t small { font-size: 12px; color: var(--text-3); overflow-wrap: anywhere; }
+.s4-lote__x { color: var(--nx-negative-soft, #ffc3cd) !important; }
+.s4-lote__e { grid-column: 2; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+.s4-lote__e .sv-link { font-size: 12.5px; }
+@media (min-width: 45rem) { .s4-lote__i { grid-template-columns: 22px minmax(0, 1fr) auto; align-items: center; } .s4-lote__e { grid-column: 3; justify-content: flex-end; } }
+
+/* ── faixa discreta de desafios na tela inicial (uma linha) ── */
+.s4-faixa { display: flex; align-items: center; gap: 10px; width: 100%; max-width: 600px; margin-top: 12px; padding: 7px 8px 7px 12px; border-radius: 999px; background: rgba(255, 255, 255, .04); border: 1px solid var(--border); min-width: 0; overflow: hidden; }
+.s4-faixa__k { flex: none; font-size: 10.5px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--text-3); }
+.s4-faixa__c { display: none; }
+/* os desafios: só os que cabem inteiros (os que não cabem descem para uma 2ª linha, escondida) */
+.s4-faixa__l { flex: 1 1 auto; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 0 4px; height: 28px; overflow: hidden; }
+.s4-faixa__d { flex: none; display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 9px 0 4px; border-radius: 999px; font: 650 12.5px/1 var(--font-ui); color: var(--text-2); background: transparent; border: 0; cursor: pointer; white-space: nowrap; }
+.s4-faixa__d:hover, .s4-faixa__d:focus-visible { color: var(--text); background: rgba(255, 255, 255, .06); }
+.s4-faixa__d:focus-visible, .s4-faixa__todos:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.s4-faixa__d.is-tem { color: var(--text); }
+.s4-faixa__d.is-tem::after { content: '✓'; font-size: 11px; color: var(--positive, #3ee6a4); }
+.s4-faixa__todos { flex: none; display: inline-flex; align-items: center; gap: 4px; height: 28px; padding: 0 10px; border-radius: 999px; font: 750 12px/1 var(--font-ui); color: var(--nx-gold-soft, #ffe39a); background: rgba(255, 200, 87, .08); border: 1px solid rgba(255, 200, 87, .22); cursor: pointer; white-space: nowrap; }
+.s4-faixa__todos svg { width: 13px; height: 13px; }
+.s4-faixa__todos:hover { background: rgba(255, 200, 87, .14); }
+/* no celular: os emblemas (sem os nomes), "Desafios com emblema" e "Ver todos" — numa linha só */
+@media (max-width: 34rem) {
+  .s4-faixa { gap: 8px; }
+  .s4-faixa__k { order: 2; letter-spacing: .02em; text-transform: none; font-size: 12.5px; font-weight: 700; color: var(--text-2); }
+  .s4-faixa__c { display: inline; order: 3; flex: 1 1 auto; min-width: 0; font-size: 12.5px; font-weight: 600; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-left: -4px; }
+  .s4-faixa__l { order: 1; flex: none; gap: 0 2px; }
+  .s4-faixa__d { padding: 0 2px; }
+  .s4-faixa__n { display: none; }
+  .s4-faixa__d.is-tem::after { display: none; }
+  .s4-faixa__todos { order: 4; }
+  /* §E: a frase não coube inteira (320–388 px): fica só "Desafios" (nada de "Desafios c…"; quem mede é o medirFaixa) */
+  .s4-faixa.is-curta .s4-faixa__c { display: none; }
+}
+/* §E: o desafio que desceu para a 2ª linha (escondida): também fora do Tab e do leitor de tela (medirFaixa) */
+.s4-faixa__d.is-fora { visibility: hidden; }
+
+/* ── #/desafios: os de emblema ── */
+.s4-emb-head { display: flex; align-items: center; justify-content: space-between; gap: 8px 12px; flex-wrap: wrap; }
+.s4-emb-head h2 { margin: 0; font-family: var(--font-display); font-weight: 900; font-size: clamp(20px, 5vw, 24px); letter-spacing: -.02em; color: var(--text); }
+.s4-emb-head p { margin: 2px 0 0; font-size: 13px; line-height: 1.45; color: var(--text-3); flex-basis: 100%; }
+.s4-emb-meus { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 12.5px; color: var(--text-2); }
+.s4-embs { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 45rem) { .s4-embs { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.s4-emb { position: relative; display: grid; grid-template-columns: 44px minmax(0, 1fr); align-content: start; gap: 4px 12px; padding: 13px 14px; border-radius: var(--radius-lg, 18px); background: linear-gradient(180deg, rgba(255, 255, 255, .05), rgba(255, 255, 255, .015)); border: 1px solid var(--border); min-width: 0; }
+.s4-emb.is-tem { border-color: var(--nx-positive-line, rgba(62, 230, 164, .32)); background: linear-gradient(180deg, rgba(62, 230, 164, .07), rgba(62, 230, 164, .015)); }
+.s4-emb.is-off .lx-emblema { filter: grayscale(.6) brightness(.8); }
+.s4-emb > .lx-emblema { grid-row: span 3; align-self: start; margin-top: 2px; }
+.s4-emb__top { display: flex; align-items: center; gap: 6px 8px; flex-wrap: wrap; min-width: 0; }
+.s4-emb__top h3 { margin: 0; font-family: var(--font-display); font-weight: 900; font-size: 16.5px; line-height: 1.15; letter-spacing: -.01em; color: var(--text); min-width: 0; overflow-wrap: anywhere; }
+.s4-dif { display: inline-flex; align-items: center; height: 19px; padding: 0 7px; border-radius: 6px; font-size: 9.5px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; flex: none; border: 1px solid transparent; }
+.s4-dif--facil { color: #f1caa3; background: rgba(214, 150, 90, .12); border-color: rgba(214, 150, 90, .28); }
+.s4-dif--medio { color: #dfe6f0; background: rgba(200, 210, 225, .1); border-color: rgba(200, 210, 225, .26); }
+.s4-dif--dificil { color: #ffe39a; background: rgba(255, 200, 90, .12); border-color: rgba(255, 200, 90, .3); }
+.s4-dif--lendario { color: #e7dbff; background: linear-gradient(90deg, rgba(200, 170, 255, .16), rgba(159, 243, 220, .12)); border-color: rgba(214, 190, 255, .35); }
+.s4-emb__p { margin: 0; font-size: 13px; line-height: 1.45; color: var(--text-2); overflow-wrap: anywhere; }
+.s4-emb__m { margin: 0; display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 12px; color: var(--text-3); }
+.s4-emb__m b { color: var(--text-2); font-weight: 700; }
+.s4-tem { display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 8px; border-radius: 999px; font-size: 11.5px; font-weight: 800; color: var(--nx-positive-soft, #b4f7da); background: var(--positive-bg, rgba(62, 230, 164, .12)); border: 1px solid var(--nx-positive-line, rgba(62, 230, 164, .3)); }
+.s4-tem svg { width: 13px; height: 13px; }
+.s4-emb__x { margin: 0; font-size: 12px; line-height: 1.4; color: #ffd59a; overflow-wrap: anywhere; grid-column: 2; } /* integração: na coluna do texto (o emblema só ocupa 3 linhas) */
+.s4-emb__q { margin: 0; font-size: 12px; color: var(--text-3); }
+.s4-premio-h { margin: 8px 0 0; font-family: var(--font-display); font-weight: 900; font-size: clamp(20px, 5vw, 24px); letter-spacing: -.02em; color: var(--text); }
+
+/* ── emblemas na Minha conta e no perfil ── */
+.s4-meus { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.s4-meus li { display: inline-flex; align-items: center; gap: 7px; height: 32px; padding: 0 11px 0 5px; border-radius: 999px; font-size: 12.5px; font-weight: 700; color: var(--text); background: var(--surface); border: 1px solid var(--border); max-width: 100%; }
+.s4-meus li span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.s4-emb.is-alvo { box-shadow: 0 0 0 2px rgba(255, 214, 110, .7), 0 18px 40px -24px rgba(255, 200, 87, .6); transition: box-shadow .3s; }
