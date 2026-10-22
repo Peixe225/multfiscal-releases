@@ -44,9 +44,10 @@ export function useOutrosQueValem(): Cupom[] {
 
 /**
  * Aplica sozinho o cupom que vale neste pedido (src/lib/cupom-automatico.ts), quando nenhum está aplicado ou quando o
- * que entrou sozinho deixou de valer e outro vale. O que o cliente escolheu fica; o que ele tirou não volta (a sacola
- * guarda); o pedido que já foi pro WhatsApp com esta mesma sacola (o "Já mandou?") não muda sozinho. Devolve o código
- * aplicado, ou null.
+ * aplicado entrou sozinho: esse é escolhido de novo a cada mudança (deixou de valer e outro vale; voltou a valer um que
+ * vence antes; chegou um prêmio que vence antes), pra ficar sempre o que vence primeiro. O que o cliente escolheu (à
+ * mão, no "Usar cupom" ou no "Trocar") fica; o que ele tirou não volta (a sacola guarda); o pedido que já foi pro
+ * WhatsApp com esta mesma sacola (o "Já mandou?") não muda sozinho. Devolve o código aplicado, ou null.
  */
 export function aplicarCupomAutomatico(linhas: LinhaSacola[], uf: string | null, agora: number): string | null {
   const s = useSacola.getState()
@@ -56,11 +57,10 @@ export function aplicarCupomAutomatico(linhas: LinhaSacola[], uf: string | null,
   const doPedido = linhas.filter((l) => l.disponivel)
   if (!doPedido.length) return null
   if (pedido.enviada !== null && !codigoVencido(pedido) && pedido.sacola === chaveDaSacola(uf, doPedido)) return null
+  // o escolhido pelo cliente nunca é trocado; o que entrou sozinho é reescolhido (revisão de 22/10: com ele valendo,
+  // não era, e um cupom que vence antes ficava de fora até vencer)
+  if (s.cupom && !s.cupomAuto) return null
   const vale = (c: Cupom) => situacaoNoPedido(c, linhas, uf, agora).tipo === 'ok'
-  if (s.cupom) {
-    const aplicado = atual.cupons.find((c) => c.codigo === s.cupom)
-    if (!s.cupomAuto || (aplicado && vale(aplicado))) return null
-  }
   const escolhido = escolherCupomAutomatico(atual.cupons, vale, s.cupomRecusados)
   if (!escolhido || escolhido.codigo === s.cupom) return null
   s.aplicarCupom(escolhido.codigo, true)

@@ -6,6 +6,10 @@
 // estava), contar o estoque, copiar de outro estado, as conferências da folha (sem estado, sem número), o teclado (Tab,
 // Espaço e Enter, sem mouse) no computador e o celular de 360×740 (sem rolagem lateral, a barra e a folha cabem). Cada
 // passo é conferido no admin-loja (o que o painel guarda) e no GET loja (o que o site lê).
+// Revisão de 22/10: o teclado vai só por Tab, setas e Enter (sem .focus() em cada botão) e confere onde o foco cai
+// (entrar e sair da seleção, o "Confere antes" e o "Voltar e mudar"; dois Enter não ficam indo e voltando); o produto
+// apagado noutro aparelho com a confirmação aberta (a lista é relida e a nova tentativa passa) e antes do Desfazer (o
+// resto volta e o recado diz); a caixa de cada produto lida uma vez só pelo leitor de tela.
 
 export async function fluxoMassa({ p, BASE, ok, print, axe, novoContexto, entrar }) {
   const admin = async (pg = p) => (await pg.evaluate(async () => (await (await fetch('../api/index.php?r=admin-loja', { credentials: 'same-origin' })).json()).loja))
@@ -32,6 +36,9 @@ export async function fluxoMassa({ p, BASE, ok, print, axe, novoContexto, entrar
   await caixas.first().waitFor()
   const nLista = await p.locator('.pn-lista-prod > li').count()
   ok((await caixas.count()) === nLista && (await p.locator('.pn-lista-prod .pn-chip-est:is(button)').count()) === 0, `Selecionar: cada linha vira uma caixa de marcar e os chips só mostram como está (${nLista} linhas)`)
+  // o leitor de tela lê o como está em cada estado uma vez: no nome da caixa, sem repetir na descrição (revisão de 22/10)
+  const leitura = await caixas.evaluateAll((xs) => xs.map((x) => ({ desc: x.getAttribute('aria-describedby'), nome: x.closest('label')?.textContent?.replace(/\s+/g, ' ') ?? '' })))
+  ok(leitura.every((x) => !x.desc && (x.nome.match(/RJ: /g) ?? []).length === 1), `Selecionar: a caixa diz os estados uma vez só, no nome (sem aria-describedby repetindo) (${JSON.stringify(leitura[0])})`)
   // o toque na linha marca (não abre o produto)
   const url0 = p.url()
   await p.locator('.pn-lista-prod > li').first().locator('label').tap()
@@ -51,7 +58,10 @@ export async function fluxoMassa({ p, BASE, ok, print, axe, novoContexto, entrar
   ok((await p.locator('.pn-lista-prod input[type="checkbox"]:checked').count()) === nSedas && new RegExp(`${nSedas} marcados`).test(await p.locator('.pn-sel-conta').innerText()), `marcou as ${nSedas} sedas`)
   await axe(p, 'produtos selecionando')
   await print(p, 'massa-390-selecionando')
-  const ids = await p.locator('.pn-lista-prod > li input[type="checkbox"]:checked').evaluateAll((xs) => xs.map((x) => x.getAttribute('aria-describedby')?.replace(/^sel-/, '')))
+  // o id de cada caixa: o data-id (desde a revisão de 22/10; antes ele vinha no aria-describedby, que lia os estados duas
+  // vezes) — os dois, pra que este teste rode igual no código de antes e mostre lá só as falhas que são dele
+  const idsMarcados = () => p.locator('.pn-lista-prod > li input[type="checkbox"]:checked').evaluateAll((xs) => xs.map((x) => x.dataset.id || x.getAttribute('aria-describedby')?.replace(/^sel-/, '')))
+  const ids = await idsMarcados()
   const ufs = ['rj', 'sp']
   const antes = estadosDe(await admin(), ids, ufs)
 
@@ -132,45 +142,153 @@ export async function fluxoMassa({ p, BASE, ok, print, axe, novoContexto, entrar
   // a Atividade diz o que foi feito
   const ev = await p.evaluate(async () => (await (await fetch('../api/index.php?r=admin-eventos', { credentials: 'same-origin' })).json()).eventos)
   ok(ev.some((e) => e.acao === 'produtos-em-massa' && /^Em massa: copiou MG pra ES/.test(e.texto)), 'a Atividade: "Em massa: copiou MG pra ES (…)"')
+
+  // revisão de 22/10: produto apagado noutro aparelho. Com a confirmação aberta: o erro relê a lista (ele sai dos
+  // marcados, o resumo conta sem ele) e a nova tentativa passa. Entre a mudança e o Desfazer: o resto volta e o recado diz.
+  {
+    const post = (rota, corpo) =>
+      p.evaluate(
+        async ([r, c]) => {
+          const csrf = (await (await fetch('../api/index.php?r=admin-sessao', { credentials: 'same-origin' })).json()).csrf
+          const x = await fetch(`../api/index.php?r=${r}`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF': csrf }, body: JSON.stringify(c), credentials: 'same-origin' })
+          return { status: x.status, json: await x.json().catch(() => null) }
+        },
+        [rota, corpo],
+      )
+    const novo = async (nome) => (await post('admin-produto-salvar', { nome, tamanho: '', categoria: 'sedas', preco: 10, ativo: true, arte: { tipo: 'lata', corpo: '#00aa55' }, cor: '#00aa55' })).json?.produto?.id ?? null
+    const idA = await novo('Seda apagada no meio')
+    const idB = await novo('Seda apagada antes do desfazer')
+    // à venda no RJ (o produto novo nasce fora de venda): o "tirar de venda" muda os dois, e o Desfazer tem o que pular
+    const noRj = [await post('admin-produto-estado', { id: idA, uf: 'rj', disponivel: true }), await post('admin-produto-estado', { id: idB, uf: 'rj', disponivel: true })]
+    ok(!!idA && !!idB && noRj.every((r) => r.status === 200 && r.json?.produto?.estados?.rj?.disponivel === true), `dois produtos novos nas sedas, à venda no RJ, pra apagar no meio (${idA}, ${idB})`)
+    // a lista relê a loja de minuto em minuto: recarrega pra ver os dois (a seleção começa de novo)
+    await p.reload()
+    await p.getByRole('heading', { name: 'Produtos', level: 1 }).waitFor()
+    await p.getByRole('button', { name: 'Selecionar vários' }).tap()
+    await caixas.first().waitFor()
+    await p.locator('.pn-filtros-cat').getByRole('button', { name: /^Sedas/ }).tap()
+    await p.waitForTimeout(300)
+    const n2 = await p.locator('.pn-lista-prod > li').count()
+    await p.getByRole('button', { name: `Marcar todos os ${n2} da lista` }).tap()
+    const ids2 = await idsMarcados()
+    ok(ids2.includes(idA) && ids2.includes(idB), `os ${n2} marcados têm os dois novos`)
+    const antes2 = estadosDe(await admin(), ids2, ['rj'])
+    await p.getByRole('button', { name: 'Mudar nos estados' }).tap()
+    const f2 = p.getByRole('dialog', { name: `Mudar ${n2} produtos` })
+    await f2.waitFor()
+    await f2.getByRole('button', { name: 'Rio de Janeiro' }).tap()
+    await f2.getByText('Tirar de venda', { exact: true }).tap()
+    await f2.getByRole('button', { name: 'Continuar' }).tap()
+    await conf.waitFor()
+    ok((await post('admin-produto-apagar', { id: idA })).status === 200, 'apagou um deles noutro aparelho, com a confirmação aberta')
+    await conf.getByRole('button', { name: 'Tirar de venda', exact: true }).tap()
+    await conf.getByText(/apagado noutro aparelho/).waitFor().catch(() => {})
+    const leu = await esperar(async () => (await conf.locator('.pn-massa-resumo').innerText()).trim() === `${n2 - 1} produtos · RJ · tirar de venda`, 6000)
+    ok(leu && /apagado noutro aparelho/.test(await conf.innerText()), `apagado com a confirmação aberta: o aviso diz e o resumo já conta sem ele (a lista foi relida) ("${(await conf.innerText().catch(() => '')).replace(/\s+/g, ' ').slice(0, 200)}")`)
+    await print(p, 'massa-390-apagado-no-meio')
+    await conf.getByRole('button', { name: 'Tirar de venda', exact: true }).tap()
+    const passou = await conf.waitFor({ state: 'detached', timeout: 6000 }).then(() => true).catch(() => false)
+    ok(passou && (await r1.getByText(/fora de venda em RJ/).count()) > 0, 'a nova tentativa passa (sem recarregar a página)')
+    ok((await p.locator('.pn-lista-prod').getByText('Seda apagada no meio').count()) === 0 && (await p.locator('.pn-lista-prod input[type="checkbox"]:checked').count()) === n2 - 1, 'o apagado saiu da lista e dos marcados; os outros seguem marcados')
+    if (!passou) await p.keyboard.press('Escape')
+    // o Desfazer com outro apagado no meio: os outros voltam, e o recado conta o que foi apagado
+    ok((await post('admin-produto-apagar', { id: idB })).status === 200, 'apagou outro noutro aparelho, antes do Desfazer')
+    const desf = r1.getByRole('button', { name: 'Desfazer' })
+    if (await desf.count()) await desf.last().tap()
+    const txtD = await r1
+      .getByText(/Desfeito|Não deu pra desfazer/)
+      .last()
+      .innerText()
+      .catch(() => '')
+    ok(/^Desfeito: .*\(1 foi apagado noutro aparelho\)\.$/.test(txtD.trim()), `Desfazer com um apagado no meio: o recado diz ("${txtD.trim()}")`)
+    const resto = ids2.filter((id) => id !== idA && id !== idB)
+    ok(await esperar(async () => {
+      const e = estadosDe(await admin(), resto, ['rj'])
+      return resto.every((id) => JSON.stringify(e[id].rj) === JSON.stringify(antes2[id].rj))
+    }), `Desfazer com um apagado no meio: os outros ${resto.length} voltam como estavam em RJ`)
+    await print(p, 'massa-390-desfeito-apagado')
+  }
+
   // volta ES como estava antes (Desfazer do copiar e do contar, pela API, pra não mexer no resto do teste)
   await p.getByRole('button', { name: 'Sair da seleção' }).tap()
   ok((await p.locator('.pn-lista-prod input[type="checkbox"]').count()) === 0 && (await p.getByRole('button', { name: 'Selecionar vários' }).count()) === 1, 'Sair da seleção: a lista volta com a troca rápida')
 
-  // teclado, no computador: Tab, Espaço e Enter, sem mouse
+  // teclado, no computador: Tab, setas, Espaço e Enter, sem mouse e sem .focus() no meio do caminho (só no começo); onde
+  // o foco cai depois de cada Enter (revisão de 22/10: caía no <body> ao entrar e sair da seleção, e no "Voltar e mudar"
+  // depois do "Continuar", e dois Enter ficavam indo e voltando)
   {
     const c = await novoContexto(1280, 800, false)
     const t = await c.newPage()
     await entrar(t)
     await t.goto(`${BASE}/painel/#/produtos`)
     await t.getByRole('heading', { name: 'Produtos', level: 1 }).waitFor()
+    const foco = () =>
+      t.evaluate(() => {
+        const a = document.activeElement
+        const d = a?.closest('[role="dialog"], [role="alertdialog"]')
+        return {
+          tag: a?.tagName.toLowerCase() ?? '',
+          tipo: a?.getAttribute('type') ?? '',
+          nome: (a?.getAttribute('aria-label') || a?.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 60),
+          dialogo: d ? `${d.getAttribute('role')}: ${d.querySelector('.pn-folha-titulo')?.textContent?.trim()}` : '',
+        }
+      })
+    /** Tab (ou Shift+Tab) até o foco chegar no que `achou` quer, no máximo `max` vezes. */
+    const tabAte = async (achou, max = 60, tecla = 'Tab') => {
+      for (let i = 0; i < max; i++) {
+        const f = await foco()
+        if (achou(f)) return f
+        await t.keyboard.press(tecla)
+      }
+      return foco()
+    }
     await t.getByRole('button', { name: 'Selecionar vários' }).focus()
     await t.keyboard.press('Enter')
     const primeira = t.locator('.pn-lista-prod input[type="checkbox"]').first()
     await primeira.waitFor()
-    await primeira.focus()
+    let f = await foco()
+    ok(/^Marcar todos os \d+ da lista$/.test(f.nome), `teclado: Enter no "Selecionar vários" leva o foco pro "Marcar todos" (${JSON.stringify(f)})`)
+    f = await tabAte((x) => x.tipo === 'checkbox')
     await t.keyboard.press('Space')
-    ok(await primeira.isChecked(), 'teclado: Espaço marca o produto')
-    const id1 = (await primeira.getAttribute('aria-describedby'))?.replace(/^sel-/, '')
+    ok(f.tipo === 'checkbox' && (await primeira.isChecked()), 'teclado: Tab chega na primeira caixa e o Espaço marca')
+    const id1 = (await primeira.getAttribute('data-id')) || (await primeira.getAttribute('aria-describedby'))?.replace(/^sel-/, '')
     const antesT = estadosDe(await admin(t), [id1], ['sc'])
-    await t.getByRole('button', { name: 'Mudar nos estados' }).focus()
+    f = await tabAte((x) => x.nome === 'Mudar nos estados')
     await t.keyboard.press('Enter')
-    const f = t.getByRole('dialog', { name: 'Mudar 1 produto' })
-    await f.waitFor()
-    await f.getByRole('button', { name: 'Santa Catarina' }).focus()
+    const fo = t.getByRole('dialog', { name: 'Mudar 1 produto' })
+    await fo.waitFor()
+    f = await tabAte((x) => x.nome === 'Santa Catarina')
     await t.keyboard.press('Enter')
-    await f.getByRole('radio', { name: /Esgotado/ }).focus()
-    await t.keyboard.press('Space')
-    await f.getByRole('button', { name: 'Continuar' }).focus()
+    // o grupo de opções: Tab entra no primeiro, as setas escolhem (Pôr à venda → Tirar de venda → Esgotado)
+    f = await tabAte((x) => x.tipo === 'radio')
+    await t.keyboard.press('ArrowDown')
+    await t.keyboard.press('ArrowDown')
+    ok(await fo.getByRole('radio', { name: /Esgotado/ }).isChecked(), 'teclado: Tab chega nas opções e as setas escolhem "Esgotado"')
+    f = await tabAte((x) => x.nome === 'Continuar')
     await t.keyboard.press('Enter')
     const cf = t.getByRole('alertdialog', { name: 'Confere antes' })
     await cf.waitFor()
-    await cf.getByRole('button', { name: 'Marcar esgotado' }).focus()
+    f = await foco()
+    ok(f.tag === 'h2' && f.dialogo === 'alertdialog: Confere antes', `teclado: depois do "Continuar", o foco vai pro título "Confere antes" (o leitor de tela lê o passo novo) (${JSON.stringify(f)})`)
+    await print(t, 'massa-1280-confere-foco')
+    // um segundo Enter não volta pra escolha (antes caía no "Voltar e mudar")
+    await t.keyboard.press('Enter')
+    await t.waitForTimeout(300)
+    ok((await cf.count()) === 1, `teclado: um segundo Enter não volta pra escolha (${JSON.stringify(await foco())})`)
+    f = await tabAte((x) => x.nome === 'Voltar e mudar')
+    await t.keyboard.press('Enter')
+    await fo.waitFor()
+    f = await foco()
+    ok(f.nome === 'Continuar' && f.dialogo === 'dialog: Mudar 1 produto', `teclado: "Voltar e mudar" volta com o foco no "Continuar" (${JSON.stringify(f)})`)
+    await t.keyboard.press('Enter')
+    await cf.waitFor()
+    f = await tabAte((x) => x.nome === 'Marcar esgotado')
     await t.keyboard.press('Enter')
     await cf.waitFor({ state: 'detached' })
     ok(await esperar(async () => {
       const e = estadosDe(await admin(t), [id1], ['sc'])[id1].sc
       return e.disponivel === true && e.estoque === 0
-    }), 'teclado: Tab/Espaço/Enter fazem o caminho inteiro (esgotado em SC)')
+    }), 'teclado: Tab/setas/Espaço/Enter fazem o caminho inteiro (esgotado em SC)')
     const txt1280 = await t.locator('.pn-recado').innerText()
     ok(/1 produto esgotado em SC/.test(txt1280), `1280: o recado no singular com 1 produto ("${txt1280.replace(/\s+/g, ' ')}")`)
     const c1280 = await cobre(t)
@@ -179,6 +297,12 @@ export async function fluxoMassa({ p, BASE, ok, print, axe, novoContexto, entrar
     await t.locator('.pn-recados').getByRole('button', { name: 'Desfazer' }).focus()
     await t.keyboard.press('Enter')
     ok(await esperar(async () => JSON.stringify(estadosDe(await admin(t), [id1], ['sc'])) === JSON.stringify(antesT)), 'teclado: o Desfazer pelo Enter volta como estava')
+    // sair da seleção: o foco volta pro "Selecionar vários"
+    f = await tabAte((x) => x.nome === 'Sair da seleção', 80, 'Shift+Tab')
+    await t.keyboard.press('Enter')
+    await primeira.waitFor({ state: 'detached' })
+    f = await foco()
+    ok(f.nome === 'Selecionar vários', `teclado: Enter no "Sair da seleção" volta o foco pro "Selecionar vários" (${JSON.stringify(f)})`)
     await c.close()
   }
 

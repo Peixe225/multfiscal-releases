@@ -2,9 +2,12 @@
 // "Selecionar" marca vários produtos e a folha daqui escolhe os estados e o que fazer neles — pôr à venda, tirar de
 // venda, esgotado, contar o estoque, sem contagem ou copiar de outro estado —, com a confirmação curta ("12 produtos ·
 // RJ e SP · pôr à venda") antes e o recado com "Desfazer" depois. Tudo vai num pedido só (admin-produtos-em-massa, numa
-// transação no servidor), e o Desfazer manda de volta o "antes" que a resposta trouxe.
+// transação no servidor), e o Desfazer manda de volta o "antes" que a resposta trouxe (compacto, pra caber no corpo).
+// Revisão de 22/10: o foco vai pro título do "Confere antes" (dois Enter não ficam indo e voltando) e, ao voltar, pro
+// "Continuar"; um produto apagado noutro aparelho faz a lista ser relida (e a nova tentativa passa); o Desfazer pula o
+// produto que foi apagado depois e diz isso.
 import { useEffect, useId, useRef, useState } from 'react'
-import { mensagemDe } from '../api'
+import { ErroApi, mensagemDe } from '../api'
 import type { Leitura } from '../dados'
 import { Folha } from '../Folha'
 import { recado } from '../recado'
@@ -123,15 +126,20 @@ export function FolhaMassa({
   const [ocupado, setOcupado] = useState(false)
   const trava = useRef(false)
   const campo = useRef<HTMLInputElement>(null)
+  // "Voltar e mudar": o foco volta pro "Continuar" (ao abrir e no confere, quem recebe é o título)
+  const continuarRef = useRef<HTMLButtonElement>(null)
+  const [voltou, setVoltou] = useState(false)
   const id = useId()
   // abriu: o estado do filtro da lista já vem marcado
   useEffect(() => {
-    if (!aberta) return
+    // fechou: o passo volta pro começo (a folha não abre de novo mostrando o "Confere antes" de antes)
+    if (!aberta) return setPasso('escolher')
     setUfs(ufInicial ? [ufInicial] : [])
     setAcao(null)
     setEstoque('')
     setDe(null)
     setPasso('escolher')
+    setVoltou(false)
     setErro(null)
   }, [aberta, ufInicial])
   // o estado de onde copia não pode ser um dos que recebem
@@ -164,6 +172,7 @@ export function FolhaMassa({
 
   const fazer = async () => {
     if (!acao || trava.current) return
+    if (!ids.length) return setErro('Nenhum produto marcado. Fecha e marca de novo.')
     trava.current = true
     setOcupado(true)
     setErro(null)
@@ -180,14 +189,23 @@ export function FolhaMassa({
       // pôr à venda com 0 no estoque continua esgotado (sai do site): o recado diz
       const seguem = acao === 'vender' ? new Set(r.mudancas.filter((m) => m.depois.estoque === 0).map((m) => m.id)).size : 0
       const texto = fraseFeito(acao, mudaram, listaUfs(ordem), numero, de) + (seguem ? ` (${seguem === 1 ? '1 segue esgotado' : `${seguem} seguem esgotados`}: 0 no estoque)` : '')
-      const antes = r.mudancas.map((m) => ({ id: m.id, uf: m.uf, ...m.antes }))
+      // o antes de cada mudança, compacto (produto → estado → [à venda, estoque]): o Desfazer da maior mudança cabe
+      const antes: api.EstadosDefinir = {}
+      for (const m of r.mudancas) (antes[m.id] ??= {})[m.uf] = [m.antes.disponivel, m.antes.estoque]
+      const nAntes = Object.keys(antes).length
       recado(texto, {
         desfazer: {
           acao: async () => {
             try {
               const d = await api.emMassa({ acao: 'definir', estados: antes })
               aplicarResposta(leitura, d)
-              recado(`Desfeito: ${produtos(new Set(antes.map((a) => a.id)).size)} de volta como estavam em ${listaUfs(ordem)}.`)
+              // o produto apagado noutro aparelho depois da mudança fica de fora (não há o que desfazer nele)
+              const pulados = d.pulados ?? 0
+              const voltaram = nAntes - pulados
+              if (pulados) void leitura.recarregar()
+              const apagados = pulados === 1 ? '1 foi apagado' : `${pulados} foram apagados`
+              if (!voltaram) recado(`Nada pra desfazer: ${pulados === 1 ? 'o produto foi apagado' : `os ${pulados} produtos foram apagados`} noutro aparelho.`, { tipo: 'info' })
+              else recado(`Desfeito: ${produtos(voltaram)} de volta como estavam em ${listaUfs(ordem)}${pulados ? ` (${apagados} noutro aparelho)` : ''}.`)
             } catch (e) {
               recado(`Não deu pra desfazer: ${mensagemDe(e)}`, { tipo: 'erro' })
               void leitura.recarregar()
@@ -196,7 +214,11 @@ export function FolhaMassa({
         },
       })
     } catch (e) {
-      setErro(mensagemDe(e))
+      // produto apagado noutro aparelho: relê a loja (a lista e os marcados ficam sem ele) e a nova tentativa passa
+      if (e instanceof ErroApi && e.dados.motivo === 'apagado') {
+        void leitura.recarregar()
+        setErro('Algum produto da lista foi apagado noutro aparelho e saiu dela. Confere o resumo e confirma de novo.')
+      } else setErro(mensagemDe(e))
     } finally {
       trava.current = false
       setOcupado(false)
@@ -210,22 +232,34 @@ export function FolhaMassa({
       aoFechar={aoFechar}
       preso={ocupado}
       papel={passo === 'confirmar' ? 'alertdialog' : 'dialog'}
+      passo={passo}
+      focoInicial={passo === 'escolher' && voltou ? continuarRef : undefined}
       titulo={passo === 'confirmar' ? 'Confere antes' : `Mudar ${produtos(n)}`}
       sub={passo === 'confirmar' ? undefined : 'Escolhe os estados e o que fazer neles.'}
       rodape={
         passo === 'confirmar' ? (
           <div className="pn-botoes">
-            <Botao largo ocupado={ocupado} onClick={() => void fazer()}>
+            {/* chaves próprias: o React não reaproveita o botão de um passo no outro (o foco ficava nele) */}
+            <Botao key="fazer" largo ocupado={ocupado} onClick={() => void fazer()}>
               {acao ? botaoDa(acao, numero, de) : 'Fazer'}
             </Botao>
-            <Botao variante="texto" largo disabled={ocupado} onClick={() => setPasso('escolher')}>
+            <Botao
+              key="voltar"
+              variante="texto"
+              largo
+              disabled={ocupado}
+              onClick={() => {
+                setVoltou(true)
+                setPasso('escolher')
+              }}
+            >
               Voltar e mudar
             </Botao>
           </div>
         ) : (
           <div className="pn-botoes">
             {erro && <Aviso tipo="erro">{erro}</Aviso>}
-            <Botao largo onClick={continuar}>
+            <Botao key="continuar" ref={continuarRef} largo onClick={continuar}>
               Continuar
             </Botao>
           </div>

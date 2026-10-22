@@ -771,6 +771,9 @@ export async function testarContas(t) {
       const copiaRj = await gerenteMg.post('admin-produtos-em-massa', { ids: prods, ufs: ['mg'], acao: 'copiar', de: 'rj' })
       igual(copiaRj.status, 200, 'em massa: o gerente de MG copia o que tá no RJ pra MG (ler outro estado pode; mexer, só no dele)')
       erro(await atendente2.post('admin-produtos-em-massa', { ids: prods, ufs: ['rj'], acao: 'vender' }), 403, 'sem-permissao', 'em massa: a atendente não mexe no estoque')
+      // o Desfazer (definir, compacto desde a revisão de 22/10) tem a mesma regra: o gerente de MG não desfaz no RJ
+      const desfazRj = await gerenteMg.post('admin-produtos-em-massa', { acao: 'definir', estados: { [prods[0]]: { mg: [true, null], rj: [false, null] } } })
+      igual([desfazRj.status, desfazRj.json?.erro, desfazRj.json?.motivo], [403, 'sem-permissao', 'estado'], 'em massa: o Desfazer do gerente de MG num par do RJ é recusado (e nada muda)')
       const ev = (await dono.get('admin-eventos')).json.eventos
       ok(ev.some((e) => e.acao === 'produtos-em-massa' && e.usuario === 'estoque.mg' && e.texto === 'Em massa: 6 un. no estoque em MG (2 produtos)'), 'em massa: a Atividade diz quem fez e o quê')
       igual((await dono.post('admin-produtos-em-massa', { ids: prods, ufs: ['mg'], acao: 'sem-contagem' })).status, 200, 'o dono volta o estoque de MG pra sem contagem')

@@ -888,10 +888,10 @@ function desenhar(pedacos: Pedaco[], estilos: Record<string, (valor: string) => 
 
 const codigoPixel = (v: string) => <span className="px px-16">{v}</span>
 
-function Chips({ chips }: { chips: Chip[] }) {
+function Chips({ chips, classe }: { chips: Chip[]; classe?: string }) {
   if (!chips.length) return null
   return (
-    <div className="dm-chips" role="group" aria-label="Respostas rápidas">
+    <div className={classe ? `dm-chips ${classe}` : 'dm-chips'} role="group" aria-label="Respostas rápidas">
       {chips.map((c, i) => (
         <button key={`${i}·${c.rotulo}`} type="button" className="dm-chip toque" onClick={c.acao}>
           {c.rotulo}
@@ -1034,6 +1034,27 @@ function Resumo({
   const [pix, setPix] = useState<{ n: number; era: FormaPagamento | null; trocou: boolean } | null>(null)
   const zap = useRef<HTMLAnchorElement>(null)
   const respostaPix = useRef<HTMLDivElement>(null)
+  // Teclado e leitor de tela no cupom do resumo: o chip tocado some ("Trocar cupom", o cupom escolhido, "Fica esse") e o
+  // foco caía no <body> (revisão de 22/10). Abriu a pergunta: o foco vai pro primeiro cupom dela; escolheu ou ficou: volta
+  // pro "Trocar cupom". Só quando o foco se perdeu, e não na chegada ao resumo (quem cuida dela é a folha).
+  const raiz = useRef<HTMLDivElement>(null)
+  const montou = useRef(false)
+  useEffect(() => {
+    if (!montou.current) {
+      montou.current = true
+      return
+    }
+    const id = requestAnimationFrame(() => {
+      const r = raiz.current
+      const ativo = document.activeElement
+      if (!r || (ativo && ativo !== document.body)) return
+      const trocar = [...r.querySelectorAll<HTMLButtonElement>('.dm-chip')].find((b) => b.textContent === t('cupom.trocar'))
+      const alvo = (trocandoCupom ? r.querySelector<HTMLButtonElement>('.dm-cupom-qual .dm-chip') : null) ?? trocar ?? zap.current
+      alvo?.focus({ preventScroll: true })
+    })
+    return () => cancelAnimationFrame(id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trocandoCupom, cupom?.codigo])
   const aceitaPix = canal.pagamento.opcoes.includes('pix')
   const travado = !encomenda && minimo.tipo === 'falta'
   const cupomOk = cupom?.situacao.tipo === 'ok'
@@ -1071,7 +1092,7 @@ function Resumo({
   }, [pix])
 
   return (
-    <div className="dm-troca dm-atual">
+    <div ref={raiz} className="dm-troca dm-atual">
       <BolhaLoja>{t(encomenda ? 'enc.resumo' : 'resumo.pedido', { nome })}</BolhaLoja>
       <pre className="dm-mensagem" aria-label="Mensagem que vai pro WhatsApp">
         {mensagem}
@@ -1086,6 +1107,7 @@ function Resumo({
         <>
           <BolhaLoja>{t('cupom.qual')}</BolhaLoja>
           <Chips
+            classe="dm-cupom-qual"
             chips={[
               ...outros.map((o) => ({
                 rotulo: `${o.codigo} · ${o.titulo}`,

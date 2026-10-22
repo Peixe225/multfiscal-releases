@@ -37,13 +37,19 @@ export interface MudancaMassa {
   depois: NoEstado
 }
 
+/** O Desfazer, compacto pra caber no corpo: produto → estado → [disponível, estoque] (o `antes` de cada mudança). */
+export type EstadosDefinir = Record<string, Record<string, [boolean, number | null]>>
+
 export type CorpoMassa =
   | { ids: string[]; ufs: string[]; acao: 'vender' | 'tirar' | 'esgotado' | 'contar' | 'sem-contagem' | 'copiar'; estoque?: number; de?: string }
-  | { acao: 'definir'; estados: ({ id: string; uf: string } & NoEstado)[] }
+  | { acao: 'definir'; estados: EstadosDefinir }
 
-/** Produtos → Selecionar: a mesma troca em vários produtos e estados de uma vez (tudo ou nada, a versão sobe uma vez). */
+/**
+ * Produtos → Selecionar: a mesma troca em vários produtos e estados de uma vez (tudo ou nada, a versão sobe uma vez).
+ * No `definir`, `pulados` conta os produtos apagados depois da mudança (não há mais o que desfazer neles).
+ */
 export const emMassa = (c: CorpoMassa) =>
-  pedir<Ok<{ acao: string; marcados: number; mudancas: MudancaMassa[]; produtos: ProdutoAdmin[] }>>('POST', 'admin-produtos-em-massa', { corpo: c })
+  pedir<Ok<{ acao: string; marcados: number; mudancas: MudancaMassa[]; produtos: ProdutoAdmin[]; pulados?: number }>>('POST', 'admin-produtos-em-massa', { corpo: c })
 
 export const apagarProduto = (id: string) => pedir<Ok<object>>('POST', 'admin-produto-apagar', { corpo: { id } })
 

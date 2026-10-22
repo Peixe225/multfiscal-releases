@@ -331,6 +331,15 @@ const casosCupom = [
   ['tirou e ganhou outro depois: o novo entra sozinho', escolha([kc('SORTE-AAA3', 5), kc('SORTE-HHH4', 7)], todos, ['SORTE-AAA3']), 'SORTE-HHH4'],
   ['a mesma lista em outra ordem dá o mesmo cupom', escolha([kc('SORTE-DDD7', 2, 'raro'), kc('SORTE-CCC6', 2, 'lendario'), kc('SORTE-BBB4', 2, 'comum')]), 'SORTE-CCC6'],
 ]
+// a linha diz "é o que vence primeiro" só quando o aplicado vem antes de todos os outros que valem (revisão de 22/10: um
+// cupom que o cliente tirou pode vencer antes do que entrou sozinho depois)
+const antes = (aplicado, outros) => (typeof ca.venceAntesDeTodos === 'function' ? ca.venceAntesDeTodos(aplicado, outros) : 'sem venceAntesDeTodos')
+casosCupom.push(
+  ['"vence primeiro": o aplicado vence antes dos outros', antes(kc('SORTE-BBB4', 2), [kc('SORTE-AAA3', 5)]), true],
+  ['"vence primeiro": não, se outro que vale vence antes (o que o cliente tirou)', antes(kc('SORTE-HHH4', 7), [kc('SORTE-AAA3', 2)]), false],
+  ['"vence primeiro": vencendo juntos, o mais raro vem antes', antes(kc('SORTE-CCC6', 2, 'lendario'), [kc('SORTE-BBB4', 2, 'comum')]), true],
+  ['"vence primeiro": vencendo juntos, o menos raro não', antes(kc('SORTE-BBB4', 2, 'comum'), [kc('SORTE-CCC6', 2, 'lendario')]), false],
+)
 for (const [rotulo, veio, esperado] of casosCupom) if (veio !== esperado) problemas.push(`cupom automático: ${rotulo}: esperado ${esperado}, veio ${veio}`)
 // o que entrou sozinho vai na mensagem como qualquer cupom: a linha de sempre, nas duas (guiado e sacola)
 const auto = ca.escolherCupomAutomatico([{ ...kc('SORTE-K8EA', 5), regra: 'Leva 4 Seda OCB Premium Slim e paga 3' }], todos, [])
@@ -343,6 +352,6 @@ if (problemas.length) {
   console.error(problemas.join('\n\n'))
   process.exit(1)
 }
-console.log(`cupom automático ok: ${casosCupom.length} casos (o que vence primeiro, a raridade no empate, o que não vale, o que o cliente tirou, o ganho depois) e a linha nas duas mensagens:\n${linhaAuto}\n`)
+console.log(`cupom automático ok: ${casosCupom.length} casos (o que vence primeiro, a raridade no empate, o que não vale, o que o cliente tirou, o ganho depois, o "é o que vence primeiro" só quando é) e a linha nas duas mensagens:\n${linhaAuto}\n`)
 console.log(`sacola ok: igual ao modelo (scripts/mensagem-sacola-referencia.txt); com o código, o cupom, o nome da conta e a entrega como o estado diz:\n${m.montarPedidoSacola({ ...sacola, codigo: 'GC-7KD2X', cupom, nome: 'Ana Souza', canal: { ...canal, taxaEntrega: { valor: 15.5, demo: false } } })}\n\npedido mínimo ok: ${casos.length} casos (falta, fecha, a consultar, cupom)\n`)
 console.log(`mensagem ok: sem cupom igual à referência; com a taxa do painel e no dia da entrega grátis, só a Entrega muda (${comTaxa[iEnt]} · ${naSexta}); com cupom, +1 linha depois do Subtotal:\n${com}\n\ncom o código do pedido (+1 linha depois do cabeçalho):\n${codigoECupom.join('\n')}\n\nencomenda com o código:\n${encCom.join('\n')}\n\nrateio (vaga reservada):\n${rateioCom}\n\nrateio (sem servidor):\n${rateioSem}\n\nrateio (já tenho vaga):\n${rateioJa}\n\nrateio (loja fora do ar):\n${foraAba}\n\n${foraPagina}`)

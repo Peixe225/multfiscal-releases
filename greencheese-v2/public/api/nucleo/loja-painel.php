@@ -413,6 +413,14 @@ function gc_rota_admin_produtos_ordem(): array
 /** O que o "Selecionar" de Produtos faz nos marcados, em cada estado escolhido. */
 const GC_ACOES_EM_MASSA = ['vender', 'tirar', 'esgotado', 'contar', 'sem-contagem', 'copiar', 'definir'];
 
+/**
+ * Trocas (produto × estado) de uma vez, na mudança e no Desfazer: com o `definir` compacto, o Desfazer da maior mudança
+ * cabe no corpo de GC_CORPO_EM_MASSA (2.000 produtos de id longo × 5 estados dá uns 360 KB). Revisão de 22/10: com o
+ * `definir` em lista e o corpo de 64 KB, uma mudança de uns 190 produtos × 5 estados não dava pra desfazer (413).
+ */
+const GC_TROCAS_EM_MASSA = 10000;
+const GC_CORPO_EM_MASSA = 524288;
+
 /** Os estados que a loja tem (no site ou fora: os dados ficam guardados). @return array<string, true> */
 function gc_loja_ufs_da_loja(): array
 {
@@ -425,15 +433,18 @@ function gc_loja_ufs_da_loja(): array
  * { ids, ufs, acao, estoque?, de? }: acao 'vender' (liga; o estoque fica), 'tirar' (desliga; o estoque fica), 'esgotado'
  * (liga com 0 no estoque: sai do site e volta sozinho quando o estoque sobe), 'contar' (estoque = `estoque`, de 0 a
  * 99.999; quem conta mais de 0 liga junto, como na folha do estoque), 'sem-contagem' (para de contar; o ligado fica) ou
- * 'copiar' (o ligado e o estoque do estado `de` viram os de cada um dos `ufs`). { acao: 'definir', estados: [{ id, uf,
- * disponivel, estoque }] }: põe cada um como veio (o Desfazer manda o `antes` da resposta). Responde as mudanças (antes
- * e depois de cada produto+estado que mudou), os produtos que mudaram e a versão da loja, que sobe uma vez só. A
- * permissão é a da troca rápida ('produtos'): o gerente só nos estados dele.
+ * 'copiar' (o ligado e o estoque do estado `de` viram os de cada um dos `ufs`). `ids` e `ufs` repetidos contam uma vez;
+ * até 2.000 produtos e GC_TROCAS_EM_MASSA trocas (produtos × estados). { acao: 'definir', estados: { id: { uf:
+ * [disponivel, estoque] } } }: põe cada um como veio (o Desfazer manda o `antes` da resposta, compacto pra caber); o
+ * produto apagado depois da mudança é pulado (não há mais o que desfazer nele) e a resposta conta quantos (`pulados`).
+ * Responde as mudanças (antes e depois de cada produto+estado que mudou), os produtos que mudaram e a versão da loja,
+ * que sobe uma vez só. A permissão é a da troca rápida ('produtos'): o gerente só nos estados dele. O corpo pode ter
+ * até GC_CORPO_EM_MASSA (a sessão é conferida antes de ler).
  */
 function gc_rota_admin_produtos_em_massa(): array
 {
     gc_exigir_dono();
-    $c = gc_corpo();
+    $c = gc_corpo(null, GC_CORPO_EM_MASSA);
     gc_loja_exigir_semeada();
     return gc_transacao(static function () use ($c): array {
         $acao = is_string($c['acao'] ?? null) ? $c['acao'] : '';
@@ -447,7 +458,10 @@ function gc_rota_admin_produtos_em_massa(): array
         }
         $porUf = gc_loja_por_uf();
         $vazio = ['disponivel' => false, 'estoque' => null];
-        $sumiu = static fn (): ErroApi => gc_invalido('ids', 'Algum produto da lista não existe mais (apagado em outro aparelho). Recarrega e tenta de novo.');
+        // `motivo: 'apagado'`: o painel relê a loja (o apagado sai dos marcados) e a nova tentativa passa; os outros erros
+        // de `ids` (lista vazia, demais) não são de produto apagado
+        $sumiu = static fn (): ErroApi => gc_invalido('ids', 'Algum produto da lista não existe mais (apagado em outro aparelho). Recarrega e tenta de novo.', ['motivo' => 'apagado']);
+        $torta = static fn (): ErroApi => gc_invalido('estados', 'A lista do que desfazer veio torta. Recarrega e tenta de novo.');
         $estoque = static fn (mixed $v): ?int => $v === null ? null : (gc_inteiro($v, 0, 99999) ?? throw gc_invalido('estoque', 'Estoque de 0 a 99.999 unidades (número inteiro), ou sem contar.'));
         /** @var array<string, array<string, array{disponivel: bool, estoque: int|null}>> $novos produto → uf → novo */
         $novos = [];
@@ -455,29 +469,47 @@ function gc_rota_admin_produtos_em_massa(): array
         $ufs = [];
         $de = null;
         $n = null;
+        $pulados = [];
         if ($acao === 'definir') {
-            $lista = $c['estados'] ?? null;
-            if (!is_array($lista) || !array_is_list($lista) || $lista === [] || count($lista) > 20000) {
-                throw gc_invalido('estados', 'A lista do que desfazer veio torta. Recarrega e tenta de novo.');
+            // { id: { uf: [disponivel, estoque] } }: o formato é conferido inteiro (tudo ou nada); o produto que já não
+            // existe é pulado, porque não há mais o que desfazer nele (revisão de 22/10: um apagado no meio recusava o
+            // lote todo, e os outros ficavam mudados)
+            $mapa = $c['estados'] ?? null;
+            if (!is_array($mapa) || $mapa === [] || array_is_list($mapa)) {
+                throw $torta();
             }
-            foreach ($lista as $e) {
-                $id = is_array($e) ? ($e['id'] ?? null) : null;
-                if (!is_string($id) || !isset($produtos[$id])) {
-                    throw $sumiu();
+            $trocas = 0;
+            $vistos = [];
+            foreach ($mapa as $id => $porEstado) {
+                $id = (string) $id;
+                if (!gc_id_valido($id) || !is_array($porEstado) || $porEstado === [] || array_is_list($porEstado)) {
+                    throw $torta();
                 }
-                $uf = gc_uf($e['uf'] ?? null);
-                if ($uf === null || !isset($daLoja[$uf])) {
-                    throw gc_invalido('ufs', 'Estado que a loja não atende.');
+                foreach ($porEstado as $u => $par) {
+                    $uf = gc_uf((string) $u);
+                    if ($uf === null || !isset($daLoja[$uf])) {
+                        throw gc_invalido('ufs', 'Estado que a loja não atende.');
+                    }
+                    if (!is_array($par) || !array_is_list($par) || count($par) !== 2 || !is_bool($par[0])) {
+                        throw $torta();
+                    }
+                    if (++$trocas > GC_TROCAS_EM_MASSA) {
+                        throw gc_invalido('estados', 'Muita coisa pra desfazer de uma vez. Recarrega e confere na Atividade.');
+                    }
+                    // "rj" e "RJ" no mesmo produto
+                    if (isset($vistos[$id][$uf])) {
+                        throw gc_invalido('estados', 'O mesmo produto veio duas vezes no mesmo estado.');
+                    }
+                    $vistos[$id][$uf] = true;
+                    $novo = ['disponivel' => $par[0], 'estoque' => $estoque($par[1])];
+                    if (!isset($produtos[$id])) {
+                        $pulados[$id] = true;
+                        continue;
+                    }
+                    $novos[$id][$uf] = $novo;
+                    $ids[$id] = true;
+                    $ufs[$uf] = true;
                 }
-                if (!is_bool($e['disponivel'] ?? null) || !array_key_exists('estoque', $e)) {
-                    throw gc_invalido('estados', 'A lista do que desfazer veio torta. Recarrega e tenta de novo.');
-                }
-                if (isset($novos[$id][$uf])) {
-                    throw gc_invalido('estados', 'O mesmo produto veio duas vezes no mesmo estado.');
-                }
-                $novos[$id][$uf] = ['disponivel' => $e['disponivel'], 'estoque' => $estoque($e['estoque'])];
-                $ids[$id] = true;
-                $ufs[$uf] = true;
             }
         } else {
             $lidos = $c['ids'] ?? null;
@@ -503,6 +535,9 @@ function gc_rota_admin_produtos_em_massa(): array
                     throw gc_invalido('ufs', 'Estado que a loja não atende' . (is_string($u) && $u !== '' ? ': ' . strtoupper(substr(preg_replace('/[^a-zA-Z]/', '', $u) ?? '', 0, 4)) : '') . '.');
                 }
                 $ufs[$uf] = true;
+            }
+            if (count($ids) * count($ufs) > GC_TROCAS_EM_MASSA) {
+                throw gc_invalido('ids', 'Muita coisa de uma vez: até ' . number_format(GC_TROCAS_EM_MASSA, 0, ',', '.') . ' trocas (produtos × estados). Marca menos produtos ou menos estados.');
             }
             if ($acao === 'contar') {
                 if (!array_key_exists('estoque', $c) || $c['estoque'] === null) {
@@ -572,7 +607,7 @@ function gc_rota_admin_produtos_em_massa(): array
             'marcados' => count($ids),
             'mudancas' => $mudancas,
             'produtos' => array_map(static fn (array $p): array => gc_loja_produto_admin($p, $porUfDepois[$p['id']] ?? [], $usos[$p['id']] ?? []), $linhas),
-        ] + gc_loja_carimbo();
+        ] + ($acao === 'definir' ? ['pulados' => count($pulados)] : []) + gc_loja_carimbo();
     });
 }
 

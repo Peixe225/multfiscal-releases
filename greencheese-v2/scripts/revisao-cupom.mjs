@@ -1,7 +1,9 @@
 // O cupom direto no pedido (rodada do scripts/revisao.mjs; pedido do Ian em 22/10: "Quando fechar o pedido tem que ir
 // com o cupom diretamente"). O cupom ativo da conta que vale pra esta sacola neste estado entra sozinho, sem o cliente
 // tocar em "Usar cupom": ao abrir a sacola, ao chegar no resumo do pedido guiado e na hora de fechar. Com mais de um, o
-// que vence primeiro (empate: o de maior raridade). A linha do cupom diz que ele entrou sozinho e deixa trocar ou tirar;
+// que vence primeiro (empate: o de maior raridade), escolhido de novo a cada mudança enquanto foi ele que entrou sozinho
+// (a OCB cai pra 3 e volta pra 4; chega um prêmio que vence antes). A linha do cupom diz que ele entrou sozinho (e "é o
+// que vence primeiro" só quando é) e deixa trocar ou tirar, também pelo teclado (o foco não cai no <body>);
 // o que o cliente tirou não volta sozinho naquele pedido (volta depois que a sacola é limpa); o que não vale pra esta
 // sacola (falta produto, outro estado, vencido) não entra, e a dica de como usar continua. A mensagem do WhatsApp (sacola
 // e guiado) leva a linha do cupom, a cópia que vai pro servidor leva o código e o "Já mandei"/"Mandei" marca o cupom
@@ -221,6 +223,91 @@ export async function rodadaCupom({ browser, base, contexto, conferir, foto, vig
     }
   })
 
+  // ── 2b) o que entrou sozinho é reescolhido: a OCB cai pra 3 e volta pra 4 → fica de novo o que vence primeiro ─────
+  // (revisão de 22/10: com o automático ainda valendo, ele não era reescolhido, e a linha dizia "é o que vence
+  // primeiro" de um cupom que vencia depois)
+  const bandeja = { id: 'bandeja-raw-pequena', variacao: null, qtd: 1 }
+  const noZap = (s) => mensagemDe(s.href).split('\n').filter((l) => l.startsWith('Cupom')).join(' / ') || 'sem cupom'
+  await cenario('o automático é reescolhido', async () => {
+    const cupons = [cupom('SORTE-AAA3', 'ocb', Date.now() + 2 * DIA), cupom('SORTE-BBB4', 'bandeja', Date.now() + 5 * DIA)]
+    const { ctx } = await montar({ conta: contaLocal(cupons), sacola: [ocb(4), bandeja] })
+    const page = await ctx.newPage()
+    vigiarSemRede(page, 'cupom-reescolhe')
+    await page.goto(`${base}?uf=mg`)
+    await page.waitForTimeout(1200)
+    await abrirSacola(page)
+    const grupo = page.locator('[role="group"][aria-label="Quantidade de Seda OCB Premium Slim"]')
+    let s = await naSacola(page)
+    conferir(/SORTE-AAA3/.test(s.cupom?.texto ?? ''), `reescolhe: com as 4 OCB entra o que vence primeiro (SORTE-AAA3) (${s.cupom?.texto ?? 'nenhum'})`)
+    await grupo.getByRole('button', { name: 'Menos um' }).click()
+    await page.waitForTimeout(500)
+    s = await naSacola(page)
+    conferir(/SORTE-BBB4/.test(s.cupom?.texto ?? '') && mensagemDe(s.href).split('\n').includes(linhaDo('SORTE-BBB4', 'bandeja')), `reescolhe: com 3 OCB o da OCB deixa de valer e entra o da bandeja (${noZap(s)})`)
+    await grupo.getByRole('button', { name: 'Mais um' }).click()
+    await page.waitForTimeout(500)
+    s = await naSacola(page)
+    const linhas = mensagemDe(s.href).split('\n')
+    conferir(
+      /SORTE-AAA3/.test(s.cupom?.texto ?? '') && /vence primeiro/.test(s.cupom?.texto ?? '') && linhas.includes(linhaDo('SORTE-AAA3', 'ocb')) && !linhas.some((l) => l.includes('SORTE-BBB4')),
+      `reescolhe: com as 4 OCB de volta, o automático volta pro que vence primeiro (SORTE-AAA3) e a mensagem leva ele (${s.cupom?.texto ?? 'nenhum'} · ${noZap(s)})`,
+    )
+    await foto(page, 'cupom-02a-sacola-reescolhe')
+    await fecharSacola(page)
+    await abrirSacola(page)
+    s = await naSacola(page)
+    conferir(/SORTE-AAA3/.test(s.cupom?.texto ?? ''), `reescolhe: fechar e abrir a sacola fica no SORTE-AAA3 (${s.cupom?.texto ?? 'nenhum'})`)
+  })
+
+  // ── 2c) com o automático na sacola, o jogo guarda um prêmio que vence antes (validade de 1 dia): ele entra no lugar ─
+  await cenario('prêmio novo que vence antes', async () => {
+    const { ctx } = await montar({ viewport: { width: 360, height: 740 }, conta: contaLocal([cupom('SORTE-AAA3', 'ocb', Date.now() + 6 * DIA)]), sacola: [ocb(4), bandeja] })
+    const page = await ctx.newPage()
+    vigiarSemRede(page, 'cupom-premio-novo')
+    await page.goto(`${base}?uf=mg`)
+    await page.waitForTimeout(1200)
+    await abrirSacola(page)
+    let s = await naSacola(page)
+    conferir(/SORTE-AAA3/.test(s.cupom?.texto ?? '') && /[Ee]ntrou sozinho/.test(s.cupom?.texto ?? ''), `prêmio novo: antes, o SORTE-AAA3 entrou sozinho (${s.cupom?.texto ?? 'nenhum'})`)
+    await fecharSacola(page)
+    const conta = await guardado(page, 'gc-conta')
+    conta.contas[ZAP_CLIENTE].cupons.push(cupom('SORTE-BBB4', 'bandeja', Date.now() + DIA, { ganhoEm: Date.now() }))
+    await page.evaluate((st) => localStorage.setItem('gc-conta', JSON.stringify({ state: st, version: 1 })), conta)
+    await page.reload()
+    await page.waitForTimeout(1500)
+    await abrirSacola(page)
+    s = await naSacola(page)
+    conferir(
+      /SORTE-BBB4/.test(s.cupom?.texto ?? '') && /Entrou sozinho: é o que vence primeiro/.test(s.cupom?.texto ?? '') && mensagemDe(s.href).split('\n').includes(linhaDo('SORTE-BBB4', 'bandeja')),
+      `prêmio novo: o que vence amanhã (SORTE-BBB4) entra no lugar do automático, e a mensagem leva ele (${s.cupom?.texto ?? 'nenhum'} · ${noZap(s)})`,
+    )
+    await foto(page, 'cupom-02b-sacola-premio-novo-360')
+  })
+
+  // ── 2d) a linha só diz "é o que vence primeiro" quando é: o cliente tirou um que vence antes e ganhou outro depois ──
+  await cenario('vence primeiro só quando é', async () => {
+    const { ctx } = await montar({ conta: contaLocal([cupom('SORTE-AAA3', 'ocb', Date.now() + 2 * DIA)]), sacola: [ocb(4), bandeja] })
+    const page = await ctx.newPage()
+    vigiarSemRede(page, 'cupom-vence-primeiro')
+    await page.goto(`${base}?uf=mg`)
+    await page.waitForTimeout(1200)
+    await abrirSacola(page)
+    await page.getByRole('button', { name: 'Tirar o cupom SORTE-AAA3', exact: true }).click()
+    await page.waitForTimeout(400)
+    await fecharSacola(page)
+    const conta = await guardado(page, 'gc-conta')
+    conta.contas[ZAP_CLIENTE].cupons.push(cupom('SORTE-CCC5', 'bandeja', Date.now() + 5 * DIA, { ganhoEm: Date.now() }))
+    await page.evaluate((st) => localStorage.setItem('gc-conta', JSON.stringify({ state: st, version: 1 })), conta)
+    await page.reload()
+    await page.waitForTimeout(1500)
+    await abrirSacola(page)
+    const s = await naSacola(page)
+    conferir(
+      /SORTE-CCC5/.test(s.cupom?.texto ?? '') && /[Ee]ntrou sozinho/.test(s.cupom?.texto ?? '') && !/vence primeiro/.test(s.cupom?.texto ?? ''),
+      `tirou o que vence antes e ganhou outro: o novo entra sozinho, e a linha não diz que ele "é o que vence primeiro" (o tirado vence antes) (${s.cupom?.texto ?? 'nenhum'})`,
+    )
+    await foto(page, 'cupom-02c-sacola-sem-vence-primeiro')
+  })
+
   // ── 3) tirou: não volta sozinho naquele pedido (nem recarregando); volta depois que a sacola é limpa ─────────────
   await cenario('tirou o cupom', async () => {
     const { ctx } = await montar({ conta: contaLocal([cupom('SORTE-K8EA', 'ocb', Date.now() + 5 * DIA)]), sacola: [ocb(4)] })
@@ -370,12 +457,21 @@ export async function rodadaCupom({ browser, base, contexto, conferir, foto, vig
     await page.waitForTimeout(800)
     const msg = () => page.evaluate(() => document.querySelector('.folha-chat pre.dm-mensagem')?.textContent ?? '')
     conferir((await msg()).includes('Cupom: SORTE-K8EA'), 'guiado com dois: entra o que vence primeiro (SORTE-K8EA)')
-    await clicar('Trocar cupom')
+    // pelo teclado: o chip tocado some com o toque, e o foco não pode cair no <body> (revisão de 22/10)
+    const focado = () => page.evaluate(() => ({ txt: document.activeElement?.textContent?.trim().slice(0, 80) ?? '', tag: document.activeElement?.tagName, naFolha: !!document.activeElement?.closest('.folha-chat') }))
+    await page.getByRole('button', { name: 'Trocar cupom', exact: true }).last().focus()
+    await page.keyboard.press('Enter')
+    await page.waitForTimeout(450)
+    const f1 = await focado()
+    conferir(f1.naFolha && f1.txt.startsWith('SORTE-BBB4'), `guiado, teclado: "Trocar cupom" leva o foco pro 1º cupom da pergunta (${JSON.stringify(f1)})`)
     const qual = await page.evaluate(() => [...document.querySelectorAll('.folha-chat .dm-atual .dm-loja')].some((b) => /Qual cupom vai nesse pedido/.test(b.textContent ?? '')))
     conferir(qual, 'guiado: "Trocar cupom" pergunta qual cupom vai')
     await foto(page, 'cupom-06b-guiado-trocar')
-    await page.locator('.folha-chat .dm-atual .dm-chip', { hasText: 'SORTE-BBB4' }).last().click()
+    if (f1.txt.startsWith('SORTE-BBB4')) await page.keyboard.press('Enter')
+    else await page.locator('.folha-chat .dm-atual .dm-chip', { hasText: 'SORTE-BBB4' }).last().click()
     await page.waitForTimeout(600)
+    const f2 = await focado()
+    conferir(f2.naFolha && f2.txt === 'Trocar cupom', `guiado, teclado: escolhido o cupom, o foco volta pro "Trocar cupom" (${JSON.stringify(f2)})`)
     const m2 = await msg()
     const href = mensagemDe(await page.evaluate(() => document.querySelector('.folha-chat a.dm-zap')?.getAttribute('href') ?? ''))
     conferir(m2.split('\n').includes(linhaDo('SORTE-BBB4', 'bandeja')) && !m2.includes('SORTE-K8EA') && href === m2, `guiado: o escolhido vai na mensagem no lugar do automático ("${m2.replace(/\n/g, ' / ')}")`)
@@ -481,5 +577,20 @@ export async function rodadaCupom({ browser, base, contexto, conferir, foto, vig
     })
     conferir(!!g.c && g.c.l >= -0.5 && g.c.r <= g.w + 0.5 && !g.lateral && g.alvos.every((a) => a >= 24), `${vp.width}: a linha do cupom cabe, sem rolagem lateral, os botões dá pra tocar (${JSON.stringify(g)})`)
     await foto(page, `cupom-09-sacola-${vp.width}`)
+    if (vp.width >= 1024) {
+      // teclado: "Trocar" → o 1º cupom → Enter; o foco fica na linha do cupom novo, no "Trocar" dele (revisão de 22/10:
+      // o chip escolhido sumia e o foco caía no <body>)
+      const focado = () => page.evaluate(() => ({ rotulo: document.activeElement?.getAttribute('aria-label') || document.activeElement?.textContent?.trim().slice(0, 40), naLinha: !!document.activeElement?.closest('.cupom-sacola'), naSacola: !!document.activeElement?.closest('.sacola, .folha') }))
+      await page.getByRole('button', { name: 'Trocar o cupom SORTE-CCC6', exact: true }).focus()
+      await page.keyboard.press('Enter')
+      await page.waitForTimeout(400)
+      const f1 = await focado()
+      conferir(f1.naLinha && /^SORTE-AAA3/.test(f1.rotulo ?? ''), `${vp.width}, teclado: "Trocar" leva o foco pro 1º cupom da lista (${JSON.stringify(f1)})`)
+      await page.keyboard.press('Enter')
+      await page.waitForTimeout(500)
+      const f2 = await focado()
+      conferir(f2.naSacola && f2.rotulo === 'Trocar o cupom SORTE-AAA3', `${vp.width}, teclado: escolhido no "Trocar por", o foco fica na linha do cupom novo ("Trocar o cupom SORTE-AAA3") (${JSON.stringify(f2)})`)
+      await foto(page, `cupom-09b-sacola-${vp.width}-teclado`)
+    }
   })
 }

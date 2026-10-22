@@ -1030,7 +1030,7 @@ campo ausente fica como está.
 | POST `admin-produto-estado` | `{ id, uf, disponivel?, estoque? }` | `{ produto, versao, atualizadoEm }` |
 | POST `admin-produto-apagar` | `{ id }` | `{ versao, atualizadoEm }` |
 | POST `admin-produtos-ordem` | `{ ids: string[] }` | `{ ordem, versao, atualizadoEm }` |
-| POST `admin-produtos-em-massa` | `{ ids: string[], ufs: string[], acao, estoque?, de? }` ou `{ acao: 'definir', estados: [{ id, uf, disponivel, estoque }] }` | `{ acao, marcados, mudancas: [{ id, uf, antes, depois }], produtos: ProdutoAdmin[], versao, atualizadoEm }` |
+| POST `admin-produtos-em-massa` | `{ ids: string[], ufs: string[], acao, estoque?, de? }` ou `{ acao: 'definir', estados: { [id]: { [uf]: [disponivel, estoque] } } }` (corpo até 512 KB) | `{ acao, marcados, mudancas: [{ id, uf, antes, depois }], produtos: ProdutoAdmin[], pulados? (só no definir), versao, atualizadoEm }` |
 | POST `admin-categoria-salvar` | `{ id?, nome, curto?, icone, bebida?, alcool? }` | 201 ou 200 `{ categoria, versao, atualizadoEm }` |
 | POST `admin-categoria-apagar` | `{ id }` | `{ versao, atualizadoEm }` |
 | POST `admin-categorias-ordem` | `{ ids: string[] }` | `{ ordem, versao, atualizadoEm }` |
@@ -1077,10 +1077,19 @@ Regras (o servidor confere; o painel mostra o mesmo enquanto a pessoa digita):
   `acao`: `vender` (disponível; o estoque fica), `tirar` (fora do site; o estoque fica), `esgotado` (estoque 0, sai do
   disponível), `contar` (`estoque` de 0 a 99.999: `0` = esgotado, mais que 0 liga o disponível), `sem-contagem`
   (estoque `null`, o disponível fica) e `copiar` (o disponível e o estoque do estado `de` vão pros `ufs`; `de` não pode
-  estar nos `ufs`). `ids` 1–2000 produtos que existem (o que sumiu → 400 `campo: 'ids'`, nada muda), `ufs` estados da
-  loja sem repetir (400 `campo: 'ufs'`); estoque fora da faixa → 400 `campo: 'estoque'`; `de` faltando, de fora da loja
-  ou dentro dos `ufs` → 400 `campo: 'de'`. `definir` é o **Desfazer** do painel: manda de volta o `antes` de cada
-  `mudancas` (lista de até 20.000, sem repetir produto e estado → senão 400 `campo: 'estados'`). Permissão `produtos`
+  estar nos `ufs`). `ids` 1–2000 produtos que existem (o que sumiu → 400 `campo: 'ids'` com `motivo: 'apagado'`, nada
+  muda; o painel relê a loja só nesse caso e a nova tentativa passa), `ufs` estados da loja (fora da loja → 400 `campo: 'ufs'`); repetido, nos `ids` ou nos
+  `ufs` (até `rj` e `RJ`), conta uma vez, sem erro; `ids` × `ufs` até 10.000 trocas (senão 400 `campo: 'ids'`); estoque
+  fora da faixa → 400 `campo: 'estoque'`; `de` faltando, de fora da loja ou dentro dos `ufs` → 400 `campo: 'de'`.
+  `definir` é o **Desfazer** do painel: manda de volta o `antes` de cada `mudancas`, compacto (`{ [id]: { [uf]:
+  [disponivel, estoque] } }`, uns 20 bytes por troca: o Desfazer da maior mudança, 2.000 produtos × 5 estados, dá uns
+  300 KB e cabe no corpo de até 512 KB desta rota; as outras seguem com 64 KB → 413). O formato é conferido inteiro
+  (lista, par torto, id torto ou o mesmo produto duas vezes no mesmo estado → 400 `campo: 'estados'`; estado de fora →
+  `ufs`; estoque → `estoque`; mais de 10.000 trocas → `estados`), mas o produto que **foi apagado** depois da mudança é
+  **pulado** (não há mais o que desfazer nele): os outros voltam e a resposta conta os pulados em `pulados` (todos
+  pulados → 200 sem mudança, a versão não sobe). Revisão de 22/10: era uma lista `[{ id, uf, disponivel, estoque }]` de
+  até 20.000 que recusava o lote todo por um apagado, e o corpo de 64 KB não deixava desfazer uma mudança de uns 190
+  produtos × 5 estados (a rota nova nunca foi pro ar, então não há painel de antes mandando a lista). Permissão `produtos`
   (a da troca rápida): o gerente só nos estados dele; um estado de fora → 403 `sem-permissao` `motivo: 'estado'` e nada
   muda. A versão sobe uma vez só (nada mudou → não sobe), e a Atividade ganha uma linha (`produtos-em-massa`: "Em
   massa: pôs à venda em RJ e SP (12 produtos)"). `mudancas` traz só os pares produto × estado que mudaram, com o antes

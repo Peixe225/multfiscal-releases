@@ -54,8 +54,8 @@ interface SacolaState {
   cupom: string | null
   /**
    * O cupom aplicado entrou sozinho (o que vale e vence primeiro: src/lib/cupom-automatico.ts), sem o cliente escolher.
-   * A linha do cupom diz isso; o que entrou sozinho e deixou de valer dá lugar a outro que vale. Sacola guardada antes
-   * disso não tem (false).
+   * A linha do cupom diz isso; o que entrou sozinho é escolhido de novo a cada mudança (deixou de valer, ou outro que
+   * vence antes passou a valer). Sacola guardada antes disso não tem (false).
    */
   cupomAuto: boolean
   /**

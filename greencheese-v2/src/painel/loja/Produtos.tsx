@@ -5,7 +5,7 @@
 // site) e o selo "não salvo" no produto que tem mudança guardada só no aparelho.
 // "Selecionar" (pedido do Ian em 22/10, "Classificar em massa por estado"): marca vários produtos (ou todos os da lista,
 // com o filtro de agora) e muda o à venda e o estoque de uma vez, em um ou vários estados (massa.tsx).
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import * as apiBase from '../api'
 import { brl } from '../formato'
 import { lembrar, lido, lidoJson } from '../lembrar'
@@ -102,7 +102,9 @@ function LinhaSelecao({ p, l, uf, nomeCategoria, marcado, aoMarcar }: { p: Produ
   return (
     <li className={`pn-prod pn-prod-sel${marcado ? ' on' : ''}${apagado ? ' pn-prod-off' : ''}`}>
       <label className="pn-marcar pn-sel-linha">
-        <input type="checkbox" checked={marcado} onChange={(ev) => aoMarcar(ev.target.checked)} aria-describedby={`sel-${p.id}`} />
+        {/* o nome da caixa é a linha inteira (com o como está em cada estado, no sr-only): sem aria-describedby, que lia
+            os estados duas vezes (revisão de 22/10) */}
+        <input type="checkbox" checked={marcado} onChange={(ev) => aoMarcar(ev.target.checked)} data-id={p.id} />
         <span className="pn-marcar-caixa" aria-hidden="true">
           {marcado && <Ic nome="check" tamanho={16} />}
         </span>
@@ -129,9 +131,7 @@ function LinhaSelecao({ p, l, uf, nomeCategoria, marcado, aoMarcar }: { p: Produ
               )
             })}
           </span>
-          <span id={`sel-${p.id}`} className="sr-only">
-            {leitura}
-          </span>
+          <span className="sr-only">{leitura}</span>
         </span>
       </label>
     </li>
@@ -223,6 +223,16 @@ export function Produtos({ ver }: { ver: VerProdutos | null }) {
   const [selecionando, setSelecionando] = useState(false)
   const [marcados, setMarcados] = useState<ReadonlySet<string>>(new Set())
   const [massa, setMassa] = useState(false)
+  // teclado e leitor de tela: o botão tocado some ao entrar e ao sair da seleção (o foco caía no <body>); entrou, o foco
+  // vai pro "Marcar todos"; saiu, volta pro "Selecionar vários" (revisão de 22/10)
+  const marcarTodosRef = useRef<HTMLButtonElement>(null)
+  const selecionarRef = useRef<HTMLButtonElement>(null)
+  const selecionouAntes = useRef(selecionando)
+  useEffect(() => {
+    if (selecionouAntes.current === selecionando) return
+    selecionouAntes.current = selecionando
+    ;(selecionando ? marcarTodosRef : selecionarRef).current?.focus({ preventScroll: true })
+  }, [selecionando])
   useRestaurarRolagem(!!l)
   const setUf = (x: string | null) => {
     setUfBruto(x)
@@ -383,6 +393,7 @@ export function Produtos({ ver }: { ver: VerProdutos | null }) {
                 <div className="pn-sel-botoes">
                   {lista.length > 0 && (
                     <button
+                      ref={marcarTodosRef}
                       type="button"
                       className="pn-botao pn-botao-cinza pn-botao-p"
                       aria-pressed={todosMarcados}
@@ -404,7 +415,7 @@ export function Produtos({ ver }: { ver: VerProdutos | null }) {
               </p>
             )}
             {!selecionando && lista.length > 0 && (
-              <button type="button" className="pn-botao pn-botao-cinza pn-botao-p pn-sel-entrar" onClick={() => setSelecionando(true)}>
+              <button ref={selecionarRef} type="button" className="pn-botao pn-botao-cinza pn-botao-p pn-sel-entrar" onClick={() => setSelecionando(true)}>
                 <Ic nome="check" tamanho={16} />
                 <span className="pn-botao-txt">Selecionar vários</span>
               </button>

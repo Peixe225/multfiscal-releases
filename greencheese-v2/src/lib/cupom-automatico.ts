@@ -35,3 +35,8 @@ export function escolherCupomAutomatico<T extends CupomCandidato>(cupons: readon
   const candidatos = cupons.filter((c) => !fora.has(c.codigo) && vale(c))
   return candidatos.length ? [...candidatos].sort(ordemAutomatica)[0] : null
 }
+
+/** O cupom vem antes de todos os `outros` na ordem do automático (a linha só diz "é o que vence primeiro" quando é). */
+export function venceAntesDeTodos(cupom: CupomCandidato, outros: readonly CupomCandidato[]): boolean {
+  return outros.every((o) => o.codigo === cupom.codigo || ordemAutomatica(cupom, o) < 0)
+}

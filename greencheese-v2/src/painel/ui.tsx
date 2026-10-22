@@ -1,5 +1,5 @@
 // Peças pequenas do painel: ícone em pixel, campo com rótulo e erro ligados, aviso, carregando e botões.
-import { useEffect, useRef, type ButtonHTMLAttributes, type ReactNode } from 'react'
+import { useEffect, useRef, type ButtonHTMLAttributes, type ReactNode, type Ref } from 'react'
 import { PixelArte } from '../arte/PixelArte'
 import { grade } from './icones'
 
@@ -155,7 +155,7 @@ export function Botao({
   className,
   disabled,
   ...resto
-}: ButtonHTMLAttributes<HTMLButtonElement> & { ocupado?: boolean; variante?: 'cheio' | 'cinza' | 'contorno' | 'texto' | 'perigo'; largo?: boolean; icone?: string }) {
+}: ButtonHTMLAttributes<HTMLButtonElement> & { ref?: Ref<HTMLButtonElement>; ocupado?: boolean; variante?: 'cheio' | 'cinza' | 'contorno' | 'texto' | 'perigo'; largo?: boolean; icone?: string }) {
   return (
     <button
       type="button"

@@ -6,6 +6,7 @@ import { T } from '../interativos/sorte/textos'
 import { formatarAte } from '../lib/cupom'
 import { useEffect, useRef, useState } from 'react'
 import { tirarCupomDoPedido, useCupomNoPedido, useOutrosQueValem } from '../lib/cupom-pedido'
+import { venceAntesDeTodos } from '../lib/cupom-automatico'
 import type { Cupom } from '../store/conta'
 import { fraseDoPremio, nomeCategoria, type Situacao } from '../lib/cupom-uso'
 import { raridadeDoRetrato, SeloRaridade } from '../interativos/sorte/SeloRaridade'
@@ -13,7 +14,6 @@ import { depoisDoHistorico } from '../lib/historico'
 import type { Produto } from '../lib/tipos'
 import { cabemMais } from '../lib/estoque'
 import { disponivelEm, restamEm } from '../store/catalogo'
-import type { RetratoPremio } from '../store/conta'
 import { useLinhasSacola } from '../store/derivados'
 import { nomeCidade, useLocal } from '../store/local'
 import { useLojaMarca } from '../store/loja'
@@ -31,6 +31,13 @@ import './CupomSacola.css'
 
 const DESCONTO_LOJA = 'desconto confirmado pela loja'
 
+// Teclado e leitor de tela: o chip escolhido ("Usar cupom", "Trocar por") some com a escolha e o foco caía no <body>.
+// Quem escolhe marca aqui, e a linha do cupom novo pega o foco no primeiro botão dela (o "Trocar", que diz o código).
+let focarLinha = false
+function escolheuAqui() {
+  focarLinha = true
+}
+
 function abrirJogo(tela?: TelaInterativo) {
   useUI.getState().setSacola(false)
   depoisDoHistorico(() => useUI.getState().abrirInterativo(ID_SORTE, tela))
@@ -38,8 +45,7 @@ function abrirJogo(tela?: TelaInterativo) {
 
 export function CupomSacola({ compacta = false }: { compacta?: boolean }) {
   const { cupom, situacao, auto } = useCupomNoPedido()
-  if (cupom && situacao)
-    return <CupomAplicado codigo={cupom.codigo} retrato={cupom.retrato} exemplo={cupom.demo && config.carimboDeExemplo} situacao={situacao} compacta={compacta} auto={auto} />
+  if (cupom && situacao) return <CupomAplicado cupom={cupom} exemplo={cupom.demo && config.carimboDeExemplo} situacao={situacao} compacta={compacta} auto={auto} />
   if (compacta) return null
   return <ConviteCupom />
 }
@@ -49,7 +55,8 @@ function Exemplo() {
   return <span className="carimbo cs-exemplo">{T.exemplo}</span>
 }
 
-function CupomAplicado({ codigo, retrato, exemplo, situacao, compacta, auto }: { codigo: string; retrato: RetratoPremio; exemplo: boolean; situacao: Situacao; compacta: boolean; auto: boolean }) {
+function CupomAplicado({ cupom, exemplo, situacao, compacta, auto }: { cupom: Cupom; exemplo: boolean; situacao: Situacao; compacta: boolean; auto: boolean }) {
+  const { codigo, retrato } = cupom
   const adicionar = useSacola((s) => s.adicionar)
   const aplicar = useSacola((s) => s.aplicarCupom)
   const avisar = useUI((s) => s.avisar)
@@ -64,6 +71,14 @@ function CupomAplicado({ codigo, retrato, exemplo, situacao, compacta, auto }: {
     trocar.current.scrollIntoView({ block: 'nearest', behavior: reduzido ? 'auto' : 'smooth' })
     trocar.current.querySelector<HTMLButtonElement>('.cs-chip')?.focus({ preventScroll: true })
   }, [trocando])
+  // escolheu um cupom (aqui no "Trocar por" ou no "Usar cupom"): o foco vem pro primeiro botão da linha nova
+  const raiz = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!focarLinha || compacta) return
+    focarLinha = false
+    const id = requestAnimationFrame(() => raiz.current?.querySelector<HTMLButtonElement>('.cs-acoes button')?.focus({ preventScroll: true }))
+    return () => cancelAnimationFrame(id)
+  }, [codigo, compacta])
   const { todas } = useLinhasSacola()
   const { uf, cidade, cidadeInformada } = useLocal()
   const canal = canalDa(uf)
@@ -128,10 +143,11 @@ function CupomAplicado({ codigo, retrato, exemplo, situacao, compacta, auto }: {
   switch (situacao.tipo) {
     case 'ok':
       return (
-        <div className="cupom-sacola cs-ok">
+        <div ref={raiz} className="cupom-sacola cs-ok">
           <div className="cs-txt">
             {linha}
-            <p className="legenda cs-nota">{auto ? `Entrou sozinho${outros.length ? ': é o que vence primeiro' : ''} · ${DESCONTO_LOJA}` : DESCONTO_LOJA}</p>
+            {/* "é o que vence primeiro" só quando é mesmo (um cupom que o cliente tirou antes pode vencer antes) */}
+            <p className="legenda cs-nota">{auto ? `Entrou sozinho${outros.length && venceAntesDeTodos(cupom, outros) ? ': é o que vence primeiro' : ''} · ${DESCONTO_LOJA}` : DESCONTO_LOJA}</p>
           </div>
           <div className="cs-acoes">
             {outros.length > 0 && (
@@ -147,6 +163,7 @@ function CupomAplicado({ codigo, retrato, exemplo, situacao, compacta, auto }: {
               <ChipsCupons
                 cupons={outros}
                 aoEscolher={(c) => {
+                  escolheuAqui()
                   aplicar(c.codigo)
                   setTrocando(false)
                   avisar(T.cupomAplicado(c.codigo))
@@ -185,7 +202,7 @@ function CupomAplicado({ codigo, retrato, exemplo, situacao, compacta, auto }: {
       return null
   }
   return (
-    <div className="cupom-sacola cs-aviso">
+    <div ref={raiz} className="cupom-sacola cs-aviso">
       <div className="cs-txt">
         {linha}
         <p className="cs-nota">{texto}</p>
@@ -243,6 +260,7 @@ function ConviteCupom() {
           <ChipsCupons
             cupons={r.ativos.slice(0, 3)}
             aoEscolher={(c) => {
+              escolheuAqui()
               aplicar(c.codigo)
               avisar(T.cupomAplicado(c.codigo))
             }}

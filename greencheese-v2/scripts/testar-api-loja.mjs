@@ -509,6 +509,12 @@ export async function loja(t, { nomesUf }) {
   parte('loja: em massa por estado (admin-produtos-em-massa, Produtos → Selecionar)')
   {
     const massa = (corpo, opcoes) => dono.post('admin-produtos-em-massa', corpo, opcoes)
+    // o Desfazer, compacto (revisão de 22/10): produto → estado → [à venda, estoque], do `antes` de cada mudança
+    const desfazer = (mudancas) => {
+      const e = {}
+      for (const m of mudancas ?? []) (e[m.id] ??= {})[m.uf] = [m.antes.disponivel, m.antes.estoque]
+      return { acao: 'definir', estados: e }
+    }
     const l0 = await adm()
     const ids = l0.produtos.filter((p) => p.ativo).slice(0, 3).map((p) => p.id)
     const ufs = ['rj', 'sp']
@@ -562,8 +568,9 @@ export async function loja(t, { nomesUf }) {
     await temEvento('produtos-em-massa', 'Em massa: copiou MG pra RJ e SP (3 produtos)', 'copiar')
     // o Desfazer: manda o antes de cada mudança
     const v1 = await versao()
-    x = await massa({ acao: 'definir', estados: (x.json.mudancas ?? []).map((m) => ({ id: m.id, uf: m.uf, ...m.antes })) })
+    x = await massa(desfazer(x.json.mudancas))
     igual(x.status, 200, 'desfazer (definir com o antes)')
+    igual(x.json.pulados, 0, 'desfazer: nenhum produto pulado (nenhum foi apagado)')
     igual(await estadosDe(), antesCopiar, 'desfazer: volta exatamente como estava antes de copiar')
     igual(await versao(), v1 + 1, 'desfazer: a versão sobe uma vez')
     await temEvento('produtos-em-massa', 'Em massa: desfez a mudança em RJ e SP (3 produtos)', 'desfazer')
@@ -588,25 +595,96 @@ export async function loja(t, { nomesUf }) {
       [{ ids, ufs, acao: 'copiar' }, 'de', 'copiar sem o estado de origem'],
       [{ ids, ufs, acao: 'copiar', de: 'rj' }, 'de', 'copiar de um estado que também recebe'],
       [{ ids, ufs, acao: 'copiar', de: 'ba' }, 'de', 'copiar de estado que a loja não tem'],
-      [{ acao: 'definir', estados: [] }, 'estados', 'desfazer sem nada'],
-      [{ acao: 'definir', estados: [{ id: ids[0], uf: 'rj', disponivel: 'sim', estoque: null }] }, 'estados', 'desfazer com disponível que não é sim/não'],
-      [{ acao: 'definir', estados: [{ id: ids[0], uf: 'rj', disponivel: true }] }, 'estados', 'desfazer sem o estoque'],
-      [{ acao: 'definir', estados: [{ id: ids[0], uf: 'rj', disponivel: true, estoque: -2 }] }, 'estoque', 'desfazer com estoque negativo'],
-      [{ acao: 'definir', estados: [{ id: 'nao-existe', uf: 'rj', disponivel: true, estoque: null }] }, 'ids', 'desfazer num produto apagado'],
-      [{ acao: 'definir', estados: [{ id: ids[0], uf: 'rj', disponivel: true, estoque: null }, { id: ids[0], uf: 'rj', disponivel: false, estoque: null }] }, 'estados', 'o mesmo produto duas vezes no mesmo estado'],
+      [{ acao: 'definir', estados: {} }, 'estados', 'desfazer sem nada'],
+      [{ acao: 'definir', estados: [{ id: ids[0], uf: 'rj', disponivel: true, estoque: null }] }, 'estados', 'desfazer no formato de lista (o de antes da revisão de 22/10)'],
+      [{ acao: 'definir', estados: { [ids[0]]: { rj: ['sim', null] } } }, 'estados', 'desfazer com disponível que não é sim/não'],
+      [{ acao: 'definir', estados: { [ids[0]]: { rj: [true] } } }, 'estados', 'desfazer sem o estoque'],
+      [{ acao: 'definir', estados: { [ids[0]]: { rj: { disponivel: true, estoque: null } } } }, 'estados', 'desfazer com o par em objeto'],
+      [{ acao: 'definir', estados: { [ids[0]]: {} } }, 'estados', 'desfazer com produto sem estado'],
+      [{ acao: 'definir', estados: { 'Não É Id': { rj: [true, null] } } }, 'estados', 'desfazer com id torto'],
+      [{ acao: 'definir', estados: { [ids[0]]: { rj: [true, -2] } } }, 'estoque', 'desfazer com estoque negativo'],
+      [{ acao: 'definir', estados: { [ids[0]]: { ba: [true, null] } } }, 'ufs', 'desfazer num estado que a loja não atende'],
+      [{ acao: 'definir', estados: { [ids[0]]: { rj: [true, null], RJ: [false, null] } } }, 'estados', 'o mesmo produto duas vezes no mesmo estado'],
+      [{ acao: 'definir', estados: { [ids[0]]: { rj: [true, null] }, 'nao-existe': { rj: [true, 'x'] } } }, 'estoque', 'o formato é conferido inteiro, até no produto apagado'],
     ]) {
       const y = await massa(corpo)
       erro(y, 400, 'invalido', `em massa: ${msg}`)
       igual(y.json.campo, campo, `em massa: campo (${msg})`)
     }
+    // o produto apagado noutro aparelho tem motivo próprio (o painel relê a loja só nele; revisão de 22/10)
+    const apagadoNoMeio = await massa({ ids: [...ids, 'nao-existe'], ufs, acao: 'vender' })
+    const semMarcar = await massa({ ids: [], ufs, acao: 'vender' })
+    igual([apagadoNoMeio.json.campo, apagadoNoMeio.json.motivo, semMarcar.json.campo, semMarcar.json.motivo ?? null], ['ids', 'apagado', 'ids', null], 'em massa: o produto que sumiu vem com motivo "apagado" (e a lista vazia, sem)')
     igual([await versao(), await estadosDe()], [vAntes, fotoAntes], 'em massa: nada recusado mexeu em nada (nem a versão)')
     erro(await massa({ ids, ufs, acao: 'vender' }, { csrf: null }), 403, 'csrf', 'em massa sem CSRF')
     erro(await new Cliente().post('admin-produtos-em-massa', { ids, ufs, acao: 'vender' }), 401, 'sem-sessao', 'em massa sem sessão')
     // as rotas de antes continuam iguais: a troca rápida de um produto com o corpo de antes (campo ausente fica como está)
     const um = await dono.post('admin-produto-estado', { id: ids[0], uf: 'rj', estoque: 2 })
     igual(um.json.produto.estados.rj, { disponivel: fotoAntes[ids[0]].rj.disponivel, estoque: 2 }, 'a troca rápida de antes: só o estoque muda, o à venda fica')
+    // ids e ufs repetidos contam uma vez (o API.md diz isso desde a revisão de 22/10; nada de 400)
+    x = await massa({ ids: [ids[0], ids[0]], ufs: ['rj', 'RJ'], acao: 'contar', estoque: 5 })
+    igual([x.status, x.json.marcados, x.json.mudancas?.length, x.json.mudancas?.[0]?.uf], [200, 1, 1, 'rj'], 'em massa: o mesmo produto e o mesmo estado repetidos contam uma vez')
+    await massa(desfazer(x.json.mudancas))
+
+    // revisão de 22/10: um produto apagado entre a mudança e o Desfazer é pulado (não há o que desfazer nele); os
+    // outros voltam e a resposta conta quantos foram pulados
+    {
+      const novo = await dono.post('admin-produto-salvar', { nome: 'Seda do teste em massa', tamanho: '', categoria: 'sedas', preco: 10, ativo: true, arte: { tipo: 'lata', corpo: '#00aa55' }, cor: '#00aa55' })
+      igual(novo.status, 201, 'um produto novo pra apagar no meio')
+      const idNovo = novo.json.produto.id
+      const tres = [idNovo, ids[0], ids[1]]
+      const antes3 = await estadosDe(tres, ufs)
+      const m = await massa({ ids: tres, ufs, acao: 'contar', estoque: 42 })
+      igual([m.status, m.json.mudancas?.length], [200, 6], 'contar 42 nos 3, em RJ e SP')
+      igual((await dono.post('admin-produto-apagar', { id: idNovo })).status, 200, 'apagou um deles noutro aparelho')
+      const vD = await versao()
+      const d = await massa(desfazer(m.json.mudancas))
+      igual([d.status, d.json.pulados, d.json.mudancas?.length, d.json.marcados], [200, 1, 4, 2], 'desfazer com um apagado: 200, 1 pulado, os outros 2 voltam (4 mudanças)')
+      const depois2 = await estadosDe([ids[0], ids[1]], ufs)
+      igual(depois2, { [ids[0]]: antes3[ids[0]], [ids[1]]: antes3[ids[1]] }, 'desfazer com um apagado: os outros voltam exatamente como estavam')
+      igual(await versao(), vD + 1, 'desfazer com um apagado: a versão sobe uma vez')
+      // só o apagado: nada a fazer, 200, sem mexer na versão
+      const so = await massa({ acao: 'definir', estados: { [idNovo]: { rj: [false, null] } } })
+      igual([so.status, so.json.pulados, so.json.mudancas?.length, await versao()], [200, 1, 0, vD + 1], 'desfazer só do apagado: 200, 1 pulado, nada muda (nem a versão)')
+    }
+
+    // revisão de 22/10: o Desfazer de uma mudança grande cabe. 2.000 produtos (de id comprido) × os 5 estados = 10.000
+    // trocas: a mudança passa e o Desfazer (o corpo compacto, uns 300 KB) volta tudo; acima de 10.000, 400; corpo acima
+    // de 512 KB, 413. Os 2.000 entram e saem direto no banco (pela API seriam uns 50 s).
+    {
+      const banco = join(t.dados ?? join(t.tmp, 'dados'), 'loja.sqlite')
+      const sql = (q) => execFileSync(t.PHP, ['-r', '$d = new PDO("sqlite:" . $argv[1]); $d->exec("PRAGMA busy_timeout = 5000"); $d->exec($argv[2]);', banco, q])
+      const prefixo = 'massa-desfazer-'
+      sql(`WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < 2000)
+        INSERT INTO loja_produtos (id, nome, categoria_id, ativo, ordem, criado_em, atualizado_em)
+        SELECT printf('${prefixo}%04d-com-um-nome-bem-comprido-pra-pesar-no-corpo', i), printf('Massa desfazer %04d', i), 'acessorios', 0, 100000 + i, 0, 0 FROM n`)
+      const todos5 = (await adm()).estados.map((e) => e.uf)
+      const grandes = (await adm()).produtos.filter((p) => p.id.startsWith(prefixo)).map((p) => p.id)
+      igual([grandes.length, todos5.length], [2000, 5], '2.000 produtos de teste e os 5 estados da loja')
+      const m = await massa({ ids: grandes, ufs: todos5, acao: 'contar', estoque: 7 })
+      igual([m.status, m.json.mudancas?.length], [200, 10000], 'a maior mudança: 2.000 produtos × 5 estados (10.000 trocas)')
+      const corpo = desfazer(m.json.mudancas)
+      const tam = JSON.stringify(corpo).length
+      ok(tam > 65536 && tam < 524288, `o Desfazer dela tem ${tam} bytes (mais que os 64 KB de antes, menos que os 512 KB da rota)`)
+      const d = await massa(corpo)
+      igual([d.status, d.json.mudancas?.length, d.json.pulados], [200, 10000, 0], 'o Desfazer da maior mudança passa (era 413)')
+      const voltou = (await adm()).produtos.filter((p) => p.id.startsWith(prefixo))
+      ok(voltou.every((p) => todos5.every((u) => !p.estados[u]?.disponivel && (p.estados[u]?.estoque ?? null) === null)), 'e cada um dos 2.000 volta como estava nos 5 estados')
+      // 10.001 trocas no Desfazer: 400 (2.001 produtos × 5)
+      const demais = { acao: 'definir', estados: Object.fromEntries([...grandes, `${prefixo}a-mais`].map((id) => [id, Object.fromEntries(todos5.map((u) => [u, [false, null]]))])) }
+      const dm = await massa(demais)
+      erro(dm, 400, 'invalido', 'desfazer com mais de 10.000 trocas')
+      igual(dm.json.campo, 'estados', 'desfazer com mais de 10.000 trocas: campo')
+      // corpo de mais de 512 KB: 413 (e com 64 KB+ numa rota que não pediu mais, continua 413)
+      const gordo = JSON.stringify({ ids: [ids[0]], ufs: ['rj'], acao: 'vender', lixo: 'x'.repeat(530000) })
+      erro(await massa(gordo), 413, 'invalido', 'em massa: corpo de mais de 512 KB')
+      erro(await dono.post('admin-produto-estado', JSON.stringify({ id: ids[0], uf: 'rj', lixo: 'x'.repeat(70000) })), 413, 'invalido', 'as outras rotas seguem com o teto de 64 KB')
+      sql(`DELETE FROM loja_produto_estados WHERE produto_id LIKE '${prefixo}%'; DELETE FROM loja_produtos WHERE id LIKE '${prefixo}%'`)
+      igual((await adm()).produtos.filter((p) => p.id.startsWith(prefixo)).length, 0, 'os 2.000 de teste saem')
+    }
+
     // volta como a semente deixou (o resto do teste conta com ela)
-    await massa({ acao: 'definir', estados: Object.entries(l0.produtos.filter((p) => ids.includes(p.id)).reduce((a, p) => ({ ...a, [p.id]: p.estados }), {})).flatMap(([id, e]) => ufs.map((u) => ({ id, uf: u, ...(e[u] ?? { disponivel: false, estoque: null }) }))) })
+    await massa({ acao: 'definir', estados: Object.fromEntries(l0.produtos.filter((p) => ids.includes(p.id)).map((p) => [p.id, Object.fromEntries(ufs.map((u) => [u, [p.estados[u]?.disponivel ?? false, p.estados[u]?.estoque ?? null]]))])) })
     igual(await estadosDe(), Object.fromEntries(ids.map((id) => [id, Object.fromEntries(ufs.map((u) => [u, l0.produtos.find((p) => p.id === id).estados[u] ?? { disponivel: false, estoque: null }]))])), 'em massa: volta como a semente deixou')
   }
 
