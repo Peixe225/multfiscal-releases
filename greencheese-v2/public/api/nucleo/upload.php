@@ -2,17 +2,19 @@
 declare(strict_types=1);
 defined('GC_API') || exit;
 
-// Envio de imagem do painel → <site>/uploads/. Só JPEG, PNG e WebP de verdade (finfo + getimagesize), até 8 MB
-// (ou menos, se o PHP da hospedagem deixar menos). Nome aleatório. Com GD + WebP, recodifica em WebP com o lado
-// maior até 1600 px (some qualquer coisa escondida no arquivo e a foto do celular fica leve); sem WebP, recodifica
-// no formato original; sem GD, guarda o original já conferido.
+// Envio de imagem do painel → <site>/uploads/. Só JPEG, PNG e WebP de verdade (finfo + getimagesize), até 32 MB
+// (pedido do Ian em 22/10; era 8 MB. Ou menos, se o PHP da hospedagem deixar menos). Nome aleatório. Com GD + WebP,
+// recodifica em WebP com o lado maior até 1600 px (some qualquer coisa escondida no arquivo e a foto do celular fica
+// leve); sem WebP, recodifica no formato original; sem GD, guarda o original já conferido. O site nunca serve o arquivo
+// que chegou, só o recodificado: o limite maior não pesa nada pra quem abre o site. O painel já reduz a foto no
+// celular antes de subir (2000 px; src/painel/imagem.ts), então os 32 MB são a folga pra quando o celular não consegue.
 // Envio de vídeo (a thumb animada do produto, já tratada no painel) → uploads/<nome>.mp4|webm: até 6 MB, conferido
 // pelos bytes (MP4: caixas do começo ao fim, a primeira 'ftyp' com marca conhecida; WebM: cabeçalho EBML com DocType
 // webm e o Segment), sem nada de página ou script dentro. A hospedagem não tem ffmpeg: o vídeo não é recodificado,
 // então a conferência é estrita e ele só é servido como vídeo (o .htaccess de uploads/).
 // Arquivo trocado ou de produto apagado sai da pasta quando ninguém mais cita (gc_uploads_soltos).
 
-const GC_ENVIO_MAXIMO = 8 * 1048576;
+const GC_ENVIO_MAXIMO = 32 * 1048576;
 const GC_LADO_MAXIMO = 1600;
 const GC_MEGAPIXELS_MAXIMO = 40;
 const GC_TIPOS_IMAGEM = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp'];
@@ -83,7 +85,7 @@ function gc_ini_bytes(string $chave): int
     };
 }
 
-/** O maior envio que passa: 8 MB, ou o limite do PHP se for menor. */
+/** O maior envio que passa: 32 MB, ou o limite do PHP se for menor. */
 function gc_envio_maximo(): int
 {
     $limites = array_filter([GC_ENVIO_MAXIMO, gc_ini_bytes('upload_max_filesize'), gc_ini_bytes('post_max_size')]);

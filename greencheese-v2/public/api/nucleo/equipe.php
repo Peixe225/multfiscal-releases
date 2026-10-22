@@ -80,6 +80,8 @@ const GC_PERMISSAO_ROTA = [
     // resto (produto, categorias, estados, stories, textos, Teste minha sorte) é do dono
     'admin-loja' => 'produtos',
     'admin-produto-estado' => 'produtos',
+    // a mesma troca em vários produtos e estados de uma vez (Produtos → Selecionar): o gerente só nos estados dele
+    'admin-produtos-em-massa' => 'produtos',
     'admin-loja-salvar' => 'loja',
     'admin-loja-exemplos-apagar' => 'loja',
     'admin-produto-salvar' => 'loja',

@@ -80,7 +80,8 @@ async function subirPhp(porta, env, args) {
   // porta ocupada (um servidor velho) daria falso positivo: confere antes
   const ocupada = await fetch(`http://127.0.0.1:${porta}/`).then(() => true, () => false)
   if (ocupada) throw new Error(`a porta ${porta} já está em uso`)
-  const filho = spawn(PHP, ['-d', 'display_errors=0', '-d', 'upload_max_filesize=16M', '-d', 'post_max_size=20M', '-S', `127.0.0.1:${porta}`, ...args], {
+  // o limite da foto é 32 MB (22/10): o PHP do teste deixa passar mais que isso (40 e 48 MB), pra quem recusa ser o servidor
+  const filho = spawn(PHP, ['-d', 'display_errors=0', '-d', 'upload_max_filesize=40M', '-d', 'post_max_size=48M', '-S', `127.0.0.1:${porta}`, ...args], {
     env: { ...process.env, PHP_CLI_SERVER_WORKERS: '8', ...env },
     stdio: ['ignore', 'ignore', 'pipe'],
     detached: true,
@@ -102,6 +103,50 @@ async function subirPhp(porta, env, args) {
 }
 
 // PNG de verdade, feito aqui (sem dependência): w×h de uma cor só, com alfa
+/**
+ * PNG grande de verdade sem pesar no teste: um degradê com o deflate guardado sem comprimir (4 bytes por pixel), pra
+ * chegar no servidor com o tamanho de uma foto pesada de celular.
+ */
+function pngPesado(w, h) {
+  const cru = Buffer.alloc(h * (1 + w * 4))
+  for (let y = 0; y < h; y++) {
+    const o = y * (1 + w * 4)
+    for (let x = 0; x < w; x++) cru.set([(x * 255) / w, (y * 255) / h, 120, 255], o + 1 + x * 4)
+  }
+  const pedaco = (tipo, dados) => {
+    const t = Buffer.from(tipo, 'latin1')
+    const tam = Buffer.alloc(4)
+    tam.writeUInt32BE(dados.length)
+    const c = Buffer.alloc(4)
+    c.writeUInt32BE(crc32(Buffer.concat([t, dados])) >>> 0)
+    return Buffer.concat([tam, t, dados, c])
+  }
+  const ihdr = Buffer.alloc(13)
+  ihdr.writeUInt32BE(w, 0)
+  ihdr.writeUInt32BE(h, 4)
+  ihdr[8] = 8
+  ihdr[9] = 6
+  return Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), pedaco('IHDR', ihdr), pedaco('IDAT', deflateSync(cru, { level: 0 })), pedaco('IEND', Buffer.alloc(0))])
+}
+
+/** Só o cabeçalho de um PNG de w×h (uma linha de pixels): o servidor recusa pelos pixels antes de abrir. */
+function pngCabecalho(w, h) {
+  const pedaco = (tipo, dados) => {
+    const t = Buffer.from(tipo, 'latin1')
+    const tam = Buffer.alloc(4)
+    tam.writeUInt32BE(dados.length)
+    const c = Buffer.alloc(4)
+    c.writeUInt32BE(crc32(Buffer.concat([t, dados])) >>> 0)
+    return Buffer.concat([tam, t, dados, c])
+  }
+  const ihdr = Buffer.alloc(13)
+  ihdr.writeUInt32BE(w, 0)
+  ihdr.writeUInt32BE(h, 4)
+  ihdr[8] = 8
+  ihdr[9] = 6
+  return Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), pedaco('IHDR', ihdr), pedaco('IDAT', deflateSync(Buffer.alloc(1 + w * 4))), pedaco('IEND', Buffer.alloc(0))])
+}
+
 function png(w, h, cor = [0, 170, 90, 255]) {
   const linha = Buffer.alloc(1 + w * 4)
   for (let x = 0; x < w; x++) linha.set(cor, 1 + x * 4)
@@ -925,10 +970,24 @@ try {
     erro(await enviar(Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" onload="alert(1)"/>'), 'x.svg', 'image/svg+xml'), 415, 'tipo-invalido', 'SVG recusado')
     erro(await enviar(Buffer.from('GIF89a\x01\x00\x01\x00\x80\x00\x00\x00\x00\x00\xff\xff\xff!\xf9\x04\x01\x00\x00\x00\x00,\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02D\x01\x00;', 'latin1'), 'x.gif', 'image/gif'), 415, 'tipo-invalido', 'GIF recusado')
     erro(await enviar(Buffer.from('<!doctype html><script>alert(1)</script>'), 'x.html', 'text/html'), 415, 'tipo-invalido', 'HTML recusado')
-    const grande = await enviar(Buffer.alloc(9 * 1048576, 1), 'grande.png', 'image/png')
-    erro(grande, 413, 'grande-demais', 'maior que 8 MB')
-    igual(grande.json.limite, 8 * 1048576, 'limite de 8 MB no erro')
-    erro(await enviar(Buffer.alloc(21 * 1048576, 1), 'enorme.png', 'image/png'), 413, 'grande-demais', 'maior que o post_max_size do PHP')
+    // o limite da foto: 32 MB (pedido do Ian em 22/10; era 8). A foto pesada de celular passa e o site recebe a de 1600 px
+    const pesado = pngPesado(2900, 2340)
+    ok(pesado.length > 25 * 1048576 && pesado.length < 32 * 1048576, `foto pesada de teste com ${(pesado.length / 1048576).toFixed(1)} MB (mais de 25)`)
+    const rp = await enviar(pesado, 'foto-pesada.png', 'image/png')
+    igual(rp.status, 201, `foto de ${(pesado.length / 1048576).toFixed(1)} MB entra (antes do 22/10: 413, o limite era 8 MB)`)
+    if (rp.status === 201) {
+      const servido = readFileSync(join(uploads, rp.json.imagem.slice('uploads/'.length)))
+      ok(temGd ? Math.max(rp.json.largura, rp.json.altura) === 1600 && servido.length < 1048576 : servido.length === pesado.length, `o que o site serve: ${rp.json.largura}×${rp.json.altura}, ${servido.length} bytes (chegaram ${pesado.length})`)
+    }
+    const grande = await enviar(Buffer.alloc(33 * 1048576, 1), 'grande.png', 'image/png')
+    erro(grande, 413, 'grande-demais', 'maior que 32 MB')
+    igual(grande.json.limite, 32 * 1048576, 'limite de 32 MB no erro')
+    ok(/até 32 MB/.test(grande.json.mensagem ?? ''), `a frase diz o limite novo ("${grande.json.mensagem}")`)
+    erro(await enviar(Buffer.alloc(49 * 1048576, 1), 'enorme.png', 'image/png'), 413, 'grande-demais', 'maior que o post_max_size do PHP')
+    // pixel demais: a foto de 50 MP só entra reduzida (o painel reduz no celular); a original o servidor recusa
+    // (o servidor confere os pixels pelo cabeçalho, antes de abrir: basta um PNG com o IHDR de 8200×6100)
+    const mp50 = pngCabecalho(8200, 6100)
+    erro(await enviar(mp50, 'foto-50mp.png', 'image/png'), 413, 'imagem-grande', 'foto de 50 megapixels sem reduzir: recusada (o painel reduz antes)')
     const vazio = new FormData()
     erro(await dono.post('admin-upload', vazio), 400, 'invalido', 'sem arquivo')
     const semCsrf = new FormData()
@@ -1082,7 +1141,8 @@ try {
     const d = await dono.get('admin-diagnostico')
     igual(d.status, 200, 'diagnóstico')
     igual([d.json.php.ok, d.json.extensoes.pdo_sqlite, d.json.dados.gravavel, d.json.dados.diario, d.json.instalacao.codigoDev], [true, true, true, 'wal', false], 'PHP, SQLite em WAL, pasta gravável')
-    igual(d.json.limites.envioMaximo, 8 * 1048576, 'envio máximo')
+    igual(d.json.limites.envioMaximo, 32 * 1048576, 'envio máximo: 32 MB (o menor entre ele e o do PHP)')
+    igual(d.json.limites.envioMaximoTexto, '32 MB', 'envio máximo em texto')
     igual([d.json.rede?.proxyNaFrente, d.json.rede?.certo, d.json.rede?.cabecalhos], [false, true, []], 'sem CDN na frente: vê o IP de quem acessa')
     ok(!d.json.avisos.some((a) => /CDN|mesmo IP/.test(a)), 'sem aviso de CDN')
     igual(d.json.web.testado, true, `testou pela web (${d.json.web.motivo})`)

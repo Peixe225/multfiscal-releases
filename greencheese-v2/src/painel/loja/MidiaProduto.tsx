@@ -7,6 +7,7 @@
 import { lazy, Suspense, useRef, useState, type ReactNode } from 'react'
 import * as apiBase from '../api'
 import { urlImagem } from '../Arte'
+import { dePe, medirCabecalho } from '../foto-medida'
 import { prepararFoto } from '../imagem'
 import { Aviso, Ic, Pontinhos } from '../ui'
 import { ArteProduto } from './Arte'
@@ -22,10 +23,12 @@ const TIPOS_FOTO = /^image\/(jpeg|png|webp)$/
 export const FOTO_MINIMA = 600
 
 /**
- * Largura e altura da imagem, já de pé (EXIF), sem decodificar os pixels (a foto de 50 MP não pesa aqui); null se o
- * navegador não abrir (o Estúdio diz o porquê).
+ * Largura e altura da imagem, já de pé (EXIF), sem decodificar os pixels: do cabeçalho do arquivo (a foto de 200 MP não
+ * pesa aqui) e, se ele não disser, do <img>; null se o navegador não abrir (o Estúdio diz o porquê).
  */
-function medir(b: Blob): Promise<{ w: number; h: number } | null> {
+async function medir(b: Blob): Promise<{ w: number; h: number } | null> {
+  const m = await medirCabecalho(b)
+  if (m) return dePe(m)
   return new Promise((ok) => {
     const url = URL.createObjectURL(b)
     const img = new Image()

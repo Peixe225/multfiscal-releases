@@ -17,8 +17,9 @@ const env = {
 }
 const args = [
   '-d', 'display_errors=0',
-  '-d', 'upload_max_filesize=8M',
-  '-d', 'post_max_size=10M',
+  // o limite da foto é 32 MB (22/10): o PHP de desenvolvimento deixa passar um pouco mais (quem recusa é o servidor)
+  '-d', 'upload_max_filesize=40M',
+  '-d', 'post_max_size=48M',
   '-S', `127.0.0.1:${porta}`,
   '-t', join(raiz, 'public'),
   join(raiz, 'scripts', 'api-dev.php'),

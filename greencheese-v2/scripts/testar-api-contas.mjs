@@ -758,6 +758,22 @@ export async function testarContas(t) {
       erro(await atendente2.get('admin-loja'), 403, 'sem-permissao', 'a atendente não lê a loja do painel')
       igual((await dono.post('admin-produto-estado', { id: prod, uf: 'rj', estoque: null })).status, 200, 'o dono mexe em qualquer estado')
       await dono.post('admin-produto-estado', { id: prod, uf: 'mg', estoque: null })
+      // em massa (Produtos → Selecionar): a mesma permissão da troca rápida; o gerente só nos estados dele, tudo ou nada
+      const prods = (l.json?.loja?.produtos ?? []).slice(0, 2).map((p) => p.id)
+      const emMg = await gerenteMg.post('admin-produtos-em-massa', { ids: prods, ufs: ['mg'], acao: 'contar', estoque: 6 })
+      igual([emMg.status, emMg.json?.mudancas?.every((m) => m.uf === 'mg' && m.depois.estoque === 6)], [200, true], 'em massa: o gerente de MG conta o estoque de MG de vários produtos')
+      const antesRj = (await dono.get('admin-loja')).json.loja.produtos.filter((p) => prods.includes(p.id)).map((p) => [p.estados.mg, p.estados.rj])
+      const vAntes = (await dono.get('admin-loja')).json.loja.versao
+      const misto = await gerenteMg.post('admin-produtos-em-massa', { ids: prods, ufs: ['mg', 'rj'], acao: 'contar', estoque: 9 })
+      igual([misto.status, misto.json?.erro, misto.json?.motivo], [403, 'sem-permissao', 'estado'], 'em massa: MG e RJ juntos, o gerente de MG é recusado (RJ não é dele)')
+      const depoisRj = (await dono.get('admin-loja')).json.loja
+      igual([depoisRj.versao, depoisRj.produtos.filter((p) => prods.includes(p.id)).map((p) => [p.estados.mg, p.estados.rj])], [vAntes, antesRj], 'em massa: recusado, nem MG mudou (tudo ou nada) e a versão ficou')
+      const copiaRj = await gerenteMg.post('admin-produtos-em-massa', { ids: prods, ufs: ['mg'], acao: 'copiar', de: 'rj' })
+      igual(copiaRj.status, 200, 'em massa: o gerente de MG copia o que tá no RJ pra MG (ler outro estado pode; mexer, só no dele)')
+      erro(await atendente2.post('admin-produtos-em-massa', { ids: prods, ufs: ['rj'], acao: 'vender' }), 403, 'sem-permissao', 'em massa: a atendente não mexe no estoque')
+      const ev = (await dono.get('admin-eventos')).json.eventos
+      ok(ev.some((e) => e.acao === 'produtos-em-massa' && e.usuario === 'estoque.mg' && e.texto === 'Em massa: 6 un. no estoque em MG (2 produtos)'), 'em massa: a Atividade diz quem fez e o quê')
+      igual((await dono.post('admin-produtos-em-massa', { ids: prods, ufs: ['mg'], acao: 'sem-contagem' })).status, 200, 'o dono volta o estoque de MG pra sem contagem')
 
       // a sorte desligada no painel: o servidor não sorteia; ligada, as regras do painel valem no giro
       igual((await dono.post('admin-sorte-salvar', { ligado: false })).status, 200, 'o dono desliga a sorte')

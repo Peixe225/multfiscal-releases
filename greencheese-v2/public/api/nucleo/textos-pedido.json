@@ -488,6 +488,28 @@
       "tipo": "botao",
       "marcadores": []
     },
+    "cupom.sozinho": {
+      "padrao": "Teu cupom {cupom} entrou sozinho no pedido: desconto confirmado pela loja no WhatsApp.",
+      "tipo": "fala",
+      "marcadores": [
+        "cupom"
+      ]
+    },
+    "cupom.trocar": {
+      "padrao": "Trocar cupom",
+      "tipo": "botao",
+      "marcadores": []
+    },
+    "cupom.qual": {
+      "padrao": "Qual cupom vai nesse pedido?",
+      "tipo": "fala",
+      "marcadores": []
+    },
+    "cupom.manter": {
+      "padrao": "Fica esse",
+      "tipo": "botao",
+      "marcadores": []
+    },
     "pix.comPix": {
       "padrao": "O Pix direto no site chega em breve. Por enquanto, fecha no WhatsApp: a loja te passa a chave Pix lá.",
       "tipo": "fala",

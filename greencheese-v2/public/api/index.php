@@ -76,6 +76,7 @@ $rotas = [
     'admin-produto-estado' => ['POST', 'gc_rota_admin_produto_estado'],
     'admin-produto-apagar' => ['POST', 'gc_rota_admin_produto_apagar'],
     'admin-produtos-ordem' => ['POST', 'gc_rota_admin_produtos_ordem'],
+    'admin-produtos-em-massa' => ['POST', 'gc_rota_admin_produtos_em_massa'],
     'admin-categoria-salvar' => ['POST', 'gc_rota_admin_categoria_salvar'],
     'admin-categoria-apagar' => ['POST', 'gc_rota_admin_categoria_apagar'],
     'admin-categorias-ordem' => ['POST', 'gc_rota_admin_categorias_ordem'],

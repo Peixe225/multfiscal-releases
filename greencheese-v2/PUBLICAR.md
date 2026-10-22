@@ -129,7 +129,11 @@ antes de salvar um produto: o painel de antes, numa aba que não recarregou, man
 o formulário tinha na tela (nos 4, a de fábrica que a 106 tirou). O painel novo só manda a mídia que mudou no formulário.
 
 Peça ao Ian para abrir o painel → **Diagnóstico** (tudo tem de dar "fechado" e a lista de avisos vazia) e fazer um
-pedido de teste pelo celular, pelo link da bio.
+pedido de teste pelo celular, pelo link da bio. Desde 22/10 a foto do painel vai até 32 MB: no Diagnóstico, a linha
+"Foto de até …" tem de dizer 32 MB; se disser menos (com aviso), o PHP da hospedagem limita (`upload_max_filesize` e
+`post_max_size`: subir pra 40M ou mais no hPanel → Avançado → Configuração do PHP; nada no `.htaccess`). O painel
+aberto desde antes da publicação: recarregar, pra pegar o "Selecionar vários" de Produtos e a foto pesada que abre
+já reduzida.
 
 ### 8. Se algo der errado
 

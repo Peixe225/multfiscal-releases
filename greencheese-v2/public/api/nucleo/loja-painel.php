@@ -410,6 +410,201 @@ function gc_rota_admin_produtos_ordem(): array
     });
 }
 
+/** O que o "Selecionar" de Produtos faz nos marcados, em cada estado escolhido. */
+const GC_ACOES_EM_MASSA = ['vender', 'tirar', 'esgotado', 'contar', 'sem-contagem', 'copiar', 'definir'];
+
+/** Os estados que a loja tem (no site ou fora: os dados ficam guardados). @return array<string, true> */
+function gc_loja_ufs_da_loja(): array
+{
+    return array_fill_keys(array_map(static fn (array $l): string => (string) $l['uf'], gc_todos('SELECT uf FROM loja_estados')), true);
+}
+
+/**
+ * POST admin-produtos-em-massa (pedido do Ian em 22/10, "Classificar em massa por estado"): a mesma troca do
+ * admin-produto-estado em vários produtos e vários estados de uma vez, numa transação só (ou vai tudo, ou nada).
+ * { ids, ufs, acao, estoque?, de? }: acao 'vender' (liga; o estoque fica), 'tirar' (desliga; o estoque fica), 'esgotado'
+ * (liga com 0 no estoque: sai do site e volta sozinho quando o estoque sobe), 'contar' (estoque = `estoque`, de 0 a
+ * 99.999; quem conta mais de 0 liga junto, como na folha do estoque), 'sem-contagem' (para de contar; o ligado fica) ou
+ * 'copiar' (o ligado e o estoque do estado `de` viram os de cada um dos `ufs`). { acao: 'definir', estados: [{ id, uf,
+ * disponivel, estoque }] }: põe cada um como veio (o Desfazer manda o `antes` da resposta). Responde as mudanças (antes
+ * e depois de cada produto+estado que mudou), os produtos que mudaram e a versão da loja, que sobe uma vez só. A
+ * permissão é a da troca rápida ('produtos'): o gerente só nos estados dele.
+ */
+function gc_rota_admin_produtos_em_massa(): array
+{
+    gc_exigir_dono();
+    $c = gc_corpo();
+    gc_loja_exigir_semeada();
+    return gc_transacao(static function () use ($c): array {
+        $acao = is_string($c['acao'] ?? null) ? $c['acao'] : '';
+        if (!in_array($acao, GC_ACOES_EM_MASSA, true)) {
+            throw gc_invalido('acao', 'Escolhe o que fazer: pôr à venda, tirar de venda, esgotado, contar o estoque, sem contagem ou copiar de outro estado.');
+        }
+        $daLoja = gc_loja_ufs_da_loja();
+        $produtos = [];
+        foreach (gc_todos('SELECT id, nome FROM loja_produtos') as $l) {
+            $produtos[(string) $l['id']] = (string) $l['nome'];
+        }
+        $porUf = gc_loja_por_uf();
+        $vazio = ['disponivel' => false, 'estoque' => null];
+        $sumiu = static fn (): ErroApi => gc_invalido('ids', 'Algum produto da lista não existe mais (apagado em outro aparelho). Recarrega e tenta de novo.');
+        $estoque = static fn (mixed $v): ?int => $v === null ? null : (gc_inteiro($v, 0, 99999) ?? throw gc_invalido('estoque', 'Estoque de 0 a 99.999 unidades (número inteiro), ou sem contar.'));
+        /** @var array<string, array<string, array{disponivel: bool, estoque: int|null}>> $novos produto → uf → novo */
+        $novos = [];
+        $ids = [];
+        $ufs = [];
+        $de = null;
+        $n = null;
+        if ($acao === 'definir') {
+            $lista = $c['estados'] ?? null;
+            if (!is_array($lista) || !array_is_list($lista) || $lista === [] || count($lista) > 20000) {
+                throw gc_invalido('estados', 'A lista do que desfazer veio torta. Recarrega e tenta de novo.');
+            }
+            foreach ($lista as $e) {
+                $id = is_array($e) ? ($e['id'] ?? null) : null;
+                if (!is_string($id) || !isset($produtos[$id])) {
+                    throw $sumiu();
+                }
+                $uf = gc_uf($e['uf'] ?? null);
+                if ($uf === null || !isset($daLoja[$uf])) {
+                    throw gc_invalido('ufs', 'Estado que a loja não atende.');
+                }
+                if (!is_bool($e['disponivel'] ?? null) || !array_key_exists('estoque', $e)) {
+                    throw gc_invalido('estados', 'A lista do que desfazer veio torta. Recarrega e tenta de novo.');
+                }
+                if (isset($novos[$id][$uf])) {
+                    throw gc_invalido('estados', 'O mesmo produto veio duas vezes no mesmo estado.');
+                }
+                $novos[$id][$uf] = ['disponivel' => $e['disponivel'], 'estoque' => $estoque($e['estoque'])];
+                $ids[$id] = true;
+                $ufs[$uf] = true;
+            }
+        } else {
+            $lidos = $c['ids'] ?? null;
+            if (!is_array($lidos) || !array_is_list($lidos) || $lidos === []) {
+                throw gc_invalido('ids', 'Marca pelo menos um produto.');
+            }
+            if (count($lidos) > 2000) {
+                throw gc_invalido('ids', 'Produtos demais de uma vez (até 2.000).');
+            }
+            foreach ($lidos as $id) {
+                if (!is_string($id) || !isset($produtos[$id])) {
+                    throw $sumiu();
+                }
+                $ids[$id] = true;
+            }
+            $lidas = $c['ufs'] ?? null;
+            if (!is_array($lidas) || !array_is_list($lidas) || $lidas === []) {
+                throw gc_invalido('ufs', 'Escolhe pelo menos um estado.');
+            }
+            foreach ($lidas as $u) {
+                $uf = gc_uf($u);
+                if ($uf === null || !isset($daLoja[$uf])) {
+                    throw gc_invalido('ufs', 'Estado que a loja não atende' . (is_string($u) && $u !== '' ? ': ' . strtoupper(substr(preg_replace('/[^a-zA-Z]/', '', $u) ?? '', 0, 4)) : '') . '.');
+                }
+                $ufs[$uf] = true;
+            }
+            if ($acao === 'contar') {
+                if (!array_key_exists('estoque', $c) || $c['estoque'] === null) {
+                    throw gc_invalido('estoque', 'Põe quantas unidades tem (de 0 a 99.999).');
+                }
+                $n = $estoque($c['estoque']);
+            }
+            if ($acao === 'copiar') {
+                $de = gc_uf($c['de'] ?? null);
+                if ($de === null || !isset($daLoja[$de])) {
+                    throw gc_invalido('de', 'Escolhe de qual estado copiar.');
+                }
+                if (isset($ufs[$de])) {
+                    throw gc_invalido('de', 'O estado de onde copia não pode estar entre os que recebem.');
+                }
+            }
+            foreach (array_keys($ids) as $id) {
+                foreach (array_keys($ufs) as $uf) {
+                    $a = $porUf[$id][$uf] ?? $vazio;
+                    $novos[$id][$uf] = match ($acao) {
+                        'vender' => ['disponivel' => true, 'estoque' => $a['estoque']],
+                        'tirar' => ['disponivel' => false, 'estoque' => $a['estoque']],
+                        'esgotado' => ['disponivel' => true, 'estoque' => 0],
+                        'contar' => ['disponivel' => $a['disponivel'] || $n > 0, 'estoque' => $n],
+                        'sem-contagem' => ['disponivel' => $a['disponivel'], 'estoque' => null],
+                        'copiar' => $porUf[$id][$de] ?? $vazio,
+                    };
+                }
+            }
+        }
+        // o gerente só mexe nos estados dele (o dono, em todos): tudo ou nada
+        if (function_exists('gc_exigir_uf')) {
+            foreach (array_keys($ufs) as $uf) {
+                gc_exigir_uf($uf, 'O estoque de ' . strtoupper($uf));
+            }
+        }
+        $mudancas = [];
+        $mudaram = [];
+        $agora = gc_agora();
+        foreach ($novos as $id => $porEstado) {
+            $antes = $porUf[$id] ?? [];
+            foreach (gc_loja_gravar_por_uf($id, $porEstado) as $uf) {
+                $mudancas[] = ['id' => $id, 'uf' => $uf, 'antes' => $antes[$uf] ?? $vazio, 'depois' => $porEstado[$uf]];
+                $mudaram[$id] = true;
+            }
+        }
+        if ($mudaram !== []) {
+            $marcas = implode(', ', array_fill(0, count($mudaram), '?'));
+            gc_sql("UPDATE loja_produtos SET atualizado_em = ? WHERE id IN ($marcas)", [$agora, ...array_keys($mudaram)]);
+            gc_loja_mudou();
+            gc_evento('painel', 'produtos-em-massa', 'loja', [
+                'acao' => $acao,
+                'ufs' => array_keys($ufs),
+                'de' => $de,
+                'estoque' => $n,
+                'marcados' => count($ids),
+                'produtos' => count($mudaram),
+                'mudancas' => count($mudancas),
+                'nomes' => array_map(static fn (string $id): string => $produtos[$id], array_slice(array_keys($mudaram), 0, 5)),
+            ]);
+        }
+        $porUfDepois = gc_loja_por_uf();
+        $usos = gc_loja_usos();
+        $linhas = $mudaram === [] ? [] : gc_todos('SELECT * FROM loja_produtos WHERE id IN (' . implode(', ', array_fill(0, count($mudaram), '?')) . ') ORDER BY ordem, id', array_keys($mudaram));
+        return [
+            'acao' => $acao,
+            'marcados' => count($ids),
+            'mudancas' => $mudancas,
+            'produtos' => array_map(static fn (array $p): array => gc_loja_produto_admin($p, $porUfDepois[$p['id']] ?? [], $usos[$p['id']] ?? []), $linhas),
+        ] + gc_loja_carimbo();
+    });
+}
+
+/** "RJ", "RJ e SP", "RJ, SP e MG" (a Atividade da mudança em massa). @param list<string> $ufs */
+function gc_loja_lista_ufs(array $ufs): string
+{
+    $u = array_map('strtoupper', array_values(array_filter($ufs, 'is_string')));
+    if (count($u) <= 1) {
+        return $u[0] ?? '';
+    }
+    $ultimo = array_pop($u);
+    return implode(', ', $u) . ' e ' . $ultimo;
+}
+
+/** A frase da Atividade pra mudança em massa. @param array<string, mixed> $d */
+function gc_loja_texto_em_massa(array $d): string
+{
+    $ufs = gc_loja_lista_ufs(is_array($d['ufs'] ?? null) ? $d['ufs'] : []);
+    $p = gc_loja_plural((int) ($d['produtos'] ?? 0), 'produto', 'produtos');
+    $p = $p === '' ? 'nenhum produto' : $p;
+    return match ($d['acao'] ?? '') {
+        'vender' => "Em massa: pôs à venda em $ufs ($p)",
+        'tirar' => "Em massa: tirou de venda em $ufs ($p)",
+        'esgotado' => "Em massa: esgotado (0 un.) em $ufs ($p)",
+        'contar' => 'Em massa: ' . (int) ($d['estoque'] ?? 0) . " un. no estoque em $ufs ($p)",
+        'sem-contagem' => "Em massa: parou de contar o estoque em $ufs ($p)",
+        'copiar' => 'Em massa: copiou ' . strtoupper((string) ($d['de'] ?? '')) . " pra $ufs ($p)",
+        'definir' => "Em massa: desfez a mudança em $ufs ($p)",
+        default => "Em massa: mudou $p",
+    };
+}
+
 // ─── categorias ─────────────────────────────────────────────────────────────────────────────────────────────────
 
 /** POST admin-categoria-salvar { id?, nome, curto, icone, bebida, alcool }: sem id cria (id = slug do nome), com id edita. */
@@ -964,6 +1159,7 @@ function gc_loja_evento_texto(string $acao, array $d): ?string
         'produto-estado' => "$uf: $nome " . $estado($d['agora'] ?? null),
         'produto-apagado' => "Apagou o produto $nome",
         'produtos-ordem' => 'Mudou a ordem dos produtos',
+        'produtos-em-massa' => gc_loja_texto_em_massa($d),
         'categoria-criada' => "Criou a categoria $nome",
         'categoria-editada' => "Editou a categoria $nome",
         'categoria-apagada' => "Apagou a categoria $nome",

@@ -12,8 +12,10 @@
 // campos de senha com "Mostrar", os textos do Entrar e do Esqueci a senha e a lateral no tablet (768).
 // Também confere o HTML do painel (noindex, título, manifesto, caminhos relativos, sem o CSS do site) e que o site
 // não carrega nada do painel. A loja (produtos, estoque, foto, estado novo, story, prêmio, textos) fica em
-// scripts/testar-painel-loja.mjs, e o Teste minha sorte (frequência, chances, raridade, simular, teste da animação) em
-// scripts/testar-painel-sorte.mjs, chamados daqui.
+// scripts/testar-painel-loja.mjs, a mudança em massa por estado (Selecionar vários, a folha, a confirmação curta, o
+// Desfazer, teclado e 360 px) em scripts/testar-painel-massa.mjs, a foto pesada do celular (50 MP e 25 MB: abre
+// reduzida, sobe e o site serve a do tamanho de hoje) em scripts/testar-painel-foto.mjs, e o Teste minha sorte (frequência, chances, raridade,
+// simular, teste da animação) em scripts/testar-painel-sorte.mjs, chamados daqui.
 // Uso: node scripts/testar-painel.mjs <pasta-do-build>   (termina com "painel ok")
 // GC_TESTE_PORTA = porta do PHP (a do preview é a seguinte, ou GC_TESTE_PORTA_SITE); as contas sobem outro PHP e outro
 // preview (GC_TESTE_PORTA_CONTAS e GC_TESTE_PORTA_CONTAS_SITE, ou portas livres); GC_PRINTS=<pasta> guarda os prints; GC_AXE=<axe.min.js>
@@ -26,6 +28,8 @@ import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { fluxoLoja, ROTAS_LOJA } from './testar-painel-loja.mjs'
 import { fluxoSorte } from './testar-painel-sorte.mjs'
+import { fluxoMassa } from './testar-painel-massa.mjs'
+import { fluxoFoto } from './testar-painel-foto.mjs'
 
 const raiz = fileURLToPath(new URL('..', import.meta.url))
 const build = process.argv[2] ? resolve(process.argv[2]) : null
@@ -95,7 +99,7 @@ process.on('exit', derrubar)
 for (const s of ['SIGINT', 'SIGTERM']) process.on(s, () => process.exit(1))
 
 // GC_TESTE=1: a hora do servidor vem do X-GC-Agora quando o teste manda (a lista de pedidos que vira na meia-noite)
-const php = spawn(PHP, ['-d', 'display_errors=0', '-d', 'upload_max_filesize=8M', '-d', 'post_max_size=10M', '-S', `127.0.0.1:${portaPhp}`, '-t', join(raiz, 'public'), join(raiz, 'scripts', 'api-dev.php')], {
+const php = spawn(PHP, ['-d', 'display_errors=0', '-d', 'upload_max_filesize=40M', '-d', 'post_max_size=48M', '-S', `127.0.0.1:${portaPhp}`, '-t', join(raiz, 'public'), join(raiz, 'scripts', 'api-dev.php')], {
   env: { ...process.env, PHP_CLI_SERVER_WORKERS: '4', GC_TESTE: '1', GC_DADOS: dados, GC_UPLOADS: join(dados, 'uploads') },
   stdio: 'ignore',
   detached: true,
@@ -394,6 +398,17 @@ try {
   ok(true, 'Esc fecha a folha')
 
   await fluxoLoja({ p, BASE, ok, print, axe, foto, fotoClara, videos, browser, sharp })
+  // classificar em massa por estado (22/10): Selecionar vários, a folha, a confirmação, o Desfazer, teclado e 360 px
+  const entrarDono = async (pg) => {
+    await pg.goto(`${BASE}/painel/`)
+    await pg.getByLabel('Login').fill('dono')
+    await pg.getByLabel('Senha', { exact: true }).fill('senha-forte-123')
+    await pg.getByRole('button', { name: 'Entrar', exact: true }).click()
+    await pg.getByText('Oi, Dono.').waitFor()
+  }
+  await fluxoMassa({ p, BASE, ok, print, axe, novoContexto, entrar: entrarDono })
+  // a foto pesada do celular (22/10, limite de 32 MB): abre reduzida, sobe e o site serve a do tamanho de hoje
+  await fluxoFoto({ BASE, ok, print, novoContexto, entrar: entrarDono, sharp, pasta: dados })
   // o Teste minha sorte: frequência, chances, raridade, chance real, simular e o teste da animação
   await fluxoSorte({ p, BASE, ok, print, axe, browser })
 

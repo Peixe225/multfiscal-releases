@@ -3,7 +3,9 @@
 // troca deixa o recado embaixo com "Desfazer" (as peças são as mesmas do Estoque do gerente: troca-ui.tsx). Busca,
 // categoria, os recortes do Resumo (esgotados, acabando, fora do site, exemplo), "Organizar" (a ordem da grade do
 // site) e o selo "não salvo" no produto que tem mudança guardada só no aparelho.
-import { useMemo, useState } from 'react'
+// "Selecionar" (pedido do Ian em 22/10, "Classificar em massa por estado"): marca vários produtos (ou todos os da lista,
+// com o filtro de agora) e muda o à venda e o estoque de uma vez, em um ou vários estados (massa.tsx).
+import { useEffect, useMemo, useState } from 'react'
 import * as apiBase from '../api'
 import { brl } from '../formato'
 import { lembrar, lido, lidoJson } from '../lembrar'
@@ -14,9 +16,10 @@ import { useRestaurarRolagem, useTitulo } from '../telas/comum'
 import { Aviso, Botao, Carregando, Ic, TituloTela } from '../ui'
 import * as api from './api'
 import { ArteProduto, NomeProduto } from './Arte'
-import { aVenda, casa, contagens, estadosNoSite, guardarLoja, situacao, useLoja } from './dados'
+import { aVenda, casa, contagens, estadosNoSite, guardarLoja, noEstado, situacao, useLoja } from './dados'
+import { FolhaMassa } from './massa'
 import { nomeUf } from './nomes'
-import { ChipsEstados, ControleEstado, FolhaEstoque, LegendaChips, useTrocaComRecado } from './troca-ui'
+import { ChipsEstados, ControleEstado, FolhaEstoque, frase, LegendaChips, useTrocaComRecado } from './troca-ui'
 import type { EstadoAdmin, LojaAdmin, ProdutoAdmin } from './tipos'
 import { lerPreco } from './validar'
 
@@ -87,6 +90,50 @@ function LinhaProduto({
       {p.ativo && !e && (
         <ChipsEstados p={p} estados={estados} restamAte={l.ajustes.restamAte} salvando={(x) => trocas.salvando.has(`${p.id}|${x}`)} aoMudar={(x, n) => trocas.mudar(p, x, n)} />
       )}
+    </li>
+  )
+}
+
+/** No "Selecionar": a linha vira uma caixa de marcar (o toque marca, não abre o produto) e os chips só mostram como está. */
+function LinhaSelecao({ p, l, uf, nomeCategoria, marcado, aoMarcar }: { p: ProdutoAdmin; l: LojaAdmin; uf: string | null; nomeCategoria: string; marcado: boolean; aoMarcar: (on: boolean) => void }) {
+  const estados = estadosNoSite(l).filter((e) => !uf || e.uf === uf)
+  const apagado = !p.ativo
+  const leitura = estados.map((e) => `${e.uf.toUpperCase()}: ${frase(situacao(p, e.uf, l.ajustes.restamAte), noEstado(p, e.uf))}`).join('; ')
+  return (
+    <li className={`pn-prod pn-prod-sel${marcado ? ' on' : ''}${apagado ? ' pn-prod-off' : ''}`}>
+      <label className="pn-marcar pn-sel-linha">
+        <input type="checkbox" checked={marcado} onChange={(ev) => aoMarcar(ev.target.checked)} aria-describedby={`sel-${p.id}`} />
+        <span className="pn-marcar-caixa" aria-hidden="true">
+          {marcado && <Ic nome="check" tamanho={16} />}
+        </span>
+        <ArteProduto produto={p} largura={40} halo={false} cinza={apagado} />
+        <span className="pn-prod-txt">
+          <span className="pn-prod-nome">
+            <strong>{p.nome}</strong>
+            {p.tamanho && <span className="pn-prod-tam"> {p.tamanho}</span>}
+          </span>
+          <span className="pn-prod-sub">
+            {p.preco == null ? 'Consultar' : brl(p.preco)} · {nomeCategoria}
+            {!p.ativo && ' · fora do site'}
+          </span>
+          <span className="pn-sel-estados" aria-hidden="true">
+            {estados.map((e) => {
+              const ne = noEstado(p, e.uf)
+              const st = situacao(p, e.uf, l.ajustes.restamAte)
+              return (
+                <span key={e.uf} className={`pn-chip-est px pn-chip-mini${ne.disponivel ? ' on' : ''}${st === 'esgotado' ? ' esgotado' : ''}`}>
+                  {ne.disponivel && ne.estoque == null && <Ic nome="check" tamanho={16} />}
+                  <span className="pn-chip-est-uf">{e.uf.toUpperCase()}</span>
+                  {ne.estoque != null && <span className="pn-chip-est-n">{ne.estoque}</span>}
+                </span>
+              )
+            })}
+          </span>
+          <span id={`sel-${p.id}`} className="sr-only">
+            {leitura}
+          </span>
+        </span>
+      </label>
     </li>
   )
 }
@@ -172,6 +219,10 @@ export function Produtos({ ver }: { ver: VerProdutos | null }) {
   const [cat, setCat] = useState<string | null>(null)
   const [organizando, setOrganizando] = useState(false)
   const [estoque, setEstoque] = useState<{ p: ProdutoAdmin; e: EstadoAdmin } | null>(null)
+  // o "Selecionar": os marcados (só os da lista de agora contam) e a folha da mudança em massa
+  const [selecionando, setSelecionando] = useState(false)
+  const [marcados, setMarcados] = useState<ReadonlySet<string>>(new Set())
+  const [massa, setMassa] = useState(false)
   useRestaurarRolagem(!!l)
   const setUf = (x: string | null) => {
     setUfBruto(x)
@@ -187,12 +238,39 @@ export function Produtos({ ver }: { ver: VerProdutos | null }) {
     const ufs = estadosNoSite(l).map((e) => e.uf)
     return l.produtos.filter((p) => (!cat || p.categoria === cat) && (!ver || passaNoVer(p, ver, ufs, l.ajustes.restamAte)) && casa(p, busca, nomesCat.get(p.categoria) ?? ''))
   }, [l, cat, ver, busca, nomesCat])
+  // mudou o filtro (estado, categoria, busca): o que saiu da lista sai dos marcados (a ação vale só pro que tá à vista)
+  useEffect(() => {
+    setMarcados((m) => {
+      const na = new Set(lista.map((p) => p.id))
+      const f = [...m].filter((id) => na.has(id))
+      return f.length === m.size ? m : new Set(f)
+    })
+  }, [lista])
+  // enquanto seleciona, o recado (com Desfazer) sobe pra cima da barra dos marcados (loja.css: html.pn-selecionando)
+  useEffect(() => {
+    document.documentElement.classList.toggle('pn-selecionando', selecionando)
+    return () => document.documentElement.classList.remove('pn-selecionando')
+  }, [selecionando])
+  const nMarcados = lista.filter((p) => marcados.has(p.id)).length
+  const todosMarcados = lista.length > 0 && nMarcados === lista.length
+  const sairDaSelecao = () => {
+    setSelecionando(false)
+    setMarcados(new Set())
+  }
+  const marcar = (id: string, on: boolean) =>
+    setMarcados((m) => {
+      const n = new Set(m)
+      if (on) n.add(id)
+      else n.delete(id)
+      return n
+    })
 
   const topo = (
     <Topo
       titulo={<TituloTela>Produtos</TituloTela>}
       acoes={
-        !organizando && (
+        !organizando &&
+        !selecionando && (
           <>
             {l && l.produtos.length > 1 && (
               <button type="button" className="pn-botao pn-botao-cinza pn-botao-p pn-so-icone-celular pn-botao-organizar" onClick={() => setOrganizando(true)} aria-label="Organizar a ordem da grade">
@@ -299,20 +377,63 @@ export function Produtos({ ver }: { ver: VerProdutos | null }) {
                 </Link>
               </p>
             )}
-            <p className="pn-dica-bloco pn-prod-dica">
-              {ufValida
-                ? `Em ${nomeUf(ufValida)}: o interruptor tira ou põe à venda; − e + mexem no estoque. Errou? “Desfazer” no recado embaixo.`
-                : 'Toca no estado pra pôr à venda ou tirar (o recado embaixo tem “Desfazer”). Pra contar o estoque, escolhe o estado aqui em cima.'}
-            </p>
+            {selecionando ? (
+              <div className="pn-sel-topo">
+                <p className="pn-dica-bloco pn-prod-dica">Marca os produtos e toca em “Mudar nos estados”. Errou? “Desfazer” no recado embaixo.</p>
+                <div className="pn-sel-botoes">
+                  {lista.length > 0 && (
+                    <button
+                      type="button"
+                      className="pn-botao pn-botao-cinza pn-botao-p"
+                      aria-pressed={todosMarcados}
+                      onClick={() => setMarcados(todosMarcados ? new Set() : new Set(lista.map((p) => p.id)))}
+                    >
+                      <span className="pn-botao-txt">{todosMarcados ? 'Desmarcar todos' : `Marcar todos os ${lista.length} da lista`}</span>
+                    </button>
+                  )}
+                  <button type="button" className="pn-botao pn-botao-texto pn-botao-p" onClick={sairDaSelecao}>
+                    <span className="pn-botao-txt">Sair da seleção</span>
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <p className="pn-dica-bloco pn-prod-dica">
+                {ufValida
+                  ? `Em ${nomeUf(ufValida)}: o interruptor tira ou põe à venda; − e + mexem no estoque. Errou? “Desfazer” no recado embaixo.`
+                  : 'Toca no estado pra pôr à venda ou tirar (o recado embaixo tem “Desfazer”). Pra contar o estoque, escolhe o estado aqui em cima.'}
+              </p>
+            )}
+            {!selecionando && lista.length > 0 && (
+              <button type="button" className="pn-botao pn-botao-cinza pn-botao-p pn-sel-entrar" onClick={() => setSelecionando(true)}>
+                <Ic nome="check" tamanho={16} />
+                <span className="pn-botao-txt">Selecionar vários</span>
+              </button>
+            )}
             {!ufValida && <LegendaChips />}
             {lista.length === 0 ? (
               <p className="pn-vazio">{l.produtos.length === 0 ? 'Nenhum produto ainda. Cria o primeiro no “Novo produto”.' : busca ? `Nada com “${busca}”.` : 'Nenhum produto aqui.'}</p>
             ) : (
               <ul className="pn-lista-prod" aria-label="Produtos">
-                {lista.map((p) => (
-                  <LinhaProduto key={p.id} p={p} l={l} uf={ufValida} nomeCategoria={nomesCat.get(p.categoria) ?? p.categoria} trocas={trocas} aoEditarEstoque={(e) => setEstoque({ p, e })} />
-                ))}
+                {lista.map((p) =>
+                  selecionando ? (
+                    <LinhaSelecao key={p.id} p={p} l={l} uf={ufValida} nomeCategoria={nomesCat.get(p.categoria) ?? p.categoria} marcado={marcados.has(p.id)} aoMarcar={(on) => marcar(p.id, on)} />
+                  ) : (
+                    <LinhaProduto key={p.id} p={p} l={l} uf={ufValida} nomeCategoria={nomesCat.get(p.categoria) ?? p.categoria} trocas={trocas} aoEditarEstoque={(e) => setEstoque({ p, e })} />
+                  ),
+                )}
               </ul>
+            )}
+            {selecionando && (
+              <div className="pn-editar-pe pn-pe-fixo pn-sel-pe">
+                <div className="pn-sel-pe-linha">
+                  <span className="pn-sel-conta" role="status">
+                    {nMarcados === 0 ? 'Nenhum marcado' : nMarcados === 1 ? '1 marcado' : `${nMarcados} marcados`}
+                  </span>
+                  <Botao onClick={() => setMassa(true)} disabled={nMarcados === 0}>
+                    Mudar nos estados
+                  </Botao>
+                </div>
+              </div>
             )}
             {conta && conta.exemplo > 0 && !ver && (
               <p className="pn-dica-bloco pn-prod-rodape">
@@ -326,6 +447,7 @@ export function Produtos({ ver }: { ver: VerProdutos | null }) {
           </>
         )}
       </div>
+      <FolhaMassa aberta={massa} aoFechar={() => setMassa(false)} leitura={leitura} ids={lista.filter((p) => marcados.has(p.id)).map((p) => p.id)} estados={estados} ufInicial={ufValida} />
       <FolhaEstoque
         alvo={estoque ? { p: l?.produtos.find((x) => x.id === estoque.p.id) ?? estoque.p, e: estoque.e } : null}
         aoFechar={() => setEstoque(null)}

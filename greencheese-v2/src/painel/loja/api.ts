@@ -29,6 +29,22 @@ export const salvarProduto = (c: ProdutoCorpo) => pedir<Ok<{ produto: ProdutoAdm
 export const produtoNoEstado = (id: string, uf: string, mudar: Partial<NoEstado>) =>
   pedir<Ok<{ produto: ProdutoAdmin }>>('POST', 'admin-produto-estado', { corpo: { id, uf, ...mudar } })
 
+/** Uma troca do "em massa": o produto num estado, como estava e como ficou (o Desfazer manda o antes de volta). */
+export interface MudancaMassa {
+  id: string
+  uf: string
+  antes: NoEstado
+  depois: NoEstado
+}
+
+export type CorpoMassa =
+  | { ids: string[]; ufs: string[]; acao: 'vender' | 'tirar' | 'esgotado' | 'contar' | 'sem-contagem' | 'copiar'; estoque?: number; de?: string }
+  | { acao: 'definir'; estados: ({ id: string; uf: string } & NoEstado)[] }
+
+/** Produtos → Selecionar: a mesma troca em vários produtos e estados de uma vez (tudo ou nada, a versão sobe uma vez). */
+export const emMassa = (c: CorpoMassa) =>
+  pedir<Ok<{ acao: string; marcados: number; mudancas: MudancaMassa[]; produtos: ProdutoAdmin[] }>>('POST', 'admin-produtos-em-massa', { corpo: c })
+
 export const apagarProduto = (id: string) => pedir<Ok<object>>('POST', 'admin-produto-apagar', { corpo: { id } })
 
 export const ordemProdutos = (ids: string[]) => pedir<Ok<{ ordem: string[] }>>('POST', 'admin-produtos-ordem', { corpo: { ids } })

@@ -338,6 +338,20 @@ html.com-teclado .pn-pe-fixo {
     bottom: 0;
   }
 }
+/* "Selecionar vários": o recado da mudança (com Desfazer) fica em cima da barra dos marcados, sem cobrir o "Mudar nos
+   estados" (:root pra vencer as regras do recado em painel.css) */
+:root.pn-selecionando .pn-recados {
+  bottom: calc(var(--pn-barra) + var(--seg-baixo) + 86px);
+}
+:root.pn-selecionando.com-teclado .pn-recados {
+  bottom: calc(86px + var(--seg-baixo));
+}
+@media (min-width: 720px) {
+  :root.pn-selecionando .pn-recados,
+  :root.pn-selecionando.com-teclado .pn-recados {
+    bottom: 84px;
+  }
+}
 
 /* ───────────────────────── prévia: o card e o story do site ───────────────────────── */
 
@@ -1874,4 +1888,99 @@ html.com-teclado .pn-pe-fixo {
     width: 100%;
     margin: 0 auto;
   }
+}
+
+/* ───────────────────────── Selecionar: classificar em massa por estado (22/10) ───────────────────────── */
+
+/* a linha inteira marca (o toque não abre o produto); os chips só mostram como está */
+.pn-sel-linha {
+  width: 100%;
+  min-height: 64px;
+  align-items: center;
+}
+.pn-prod-sel.on .pn-prod-nome strong {
+  color: var(--branco);
+}
+.pn-sel-estados {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+.pn-sel-topo {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+/* a barra de baixo: quantos marcados e o "Mudar nos estados" (fica à vista enquanto rola) */
+.pn-sel-pe {
+  margin-top: 12px;
+}
+.pn-sel-pe-linha {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.pn-sel-conta {
+  font-weight: 600;
+}
+/* a folha: os estados (quebram linha, nada escondido de lado) e as ações como rádios grandes */
+.pn-massa-grupo {
+  margin: 0 0 16px;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+.pn-massa-ufs {
+  flex-wrap: wrap;
+  margin: 0;
+  padding: 6px 0 0;
+  overflow: visible;
+}
+.pn-marcar-redondo .pn-marcar-caixa {
+  border-radius: 50%;
+}
+.pn-massa-acao + .pn-massa-acao {
+  border-top: 1px solid var(--bolha);
+}
+.pn-massa-acao .pn-marcar {
+  align-items: flex-start;
+  padding: 10px 0;
+}
+.pn-massa-acao .pn-marcar-caixa {
+  margin-top: 1px;
+}
+.pn-massa-acao-txt {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.pn-massa-acao-nome {
+  font-weight: 600;
+}
+.pn-massa-acao-txt .pn-dica {
+  margin: 0;
+}
+.pn-massa-extra {
+  margin: 0 0 12px 36px;
+}
+.pn-massa-extra .pn-input-num {
+  max-width: 160px;
+}
+.pn-massa-resumo {
+  font: 600 18px/1.35 var(--ui);
+  margin-bottom: 10px;
+}
+.pn-sel-botoes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.pn-sel-entrar {
+  margin: 0 0 10px;
 }

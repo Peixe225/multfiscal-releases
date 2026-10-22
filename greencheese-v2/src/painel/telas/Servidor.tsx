@@ -140,7 +140,11 @@ export function Servidor() {
                     }
                   />
                 )}
-                <Item ok nome={`Foto de até ${d.limites.envioMaximoTexto}`} sub={`upload_max_filesize ${d.limites.upload_max_filesize} · post_max_size ${d.limites.post_max_size}`} />
+                <Item
+                  ok
+                  nome={`Foto de até ${d.limites.envioMaximoTexto}`}
+                  sub={`${d.limites.envioMaximo < 32 * 1048576 ? 'A hospedagem deixa menos que os 32 MB do painel (upload_max_filesize e post_max_size): sobe no hPanel se a foto grande for recusada. ' : ''}O painel reduz a foto no celular antes de subir e o site nunca mostra a original (o servidor guarda em WebP de até 1600 px). upload_max_filesize ${d.limites.upload_max_filesize} · post_max_size ${d.limites.post_max_size}`}
+                />
               </ul>
             </section>
 

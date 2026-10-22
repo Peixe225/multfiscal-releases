@@ -506,6 +506,110 @@ export async function loja(t, { nomesUf }) {
     await troca({ estoque: null })
   }
 
+  parte('loja: em massa por estado (admin-produtos-em-massa, Produtos → Selecionar)')
+  {
+    const massa = (corpo, opcoes) => dono.post('admin-produtos-em-massa', corpo, opcoes)
+    const l0 = await adm()
+    const ids = l0.produtos.filter((p) => p.ativo).slice(0, 3).map((p) => p.id)
+    const ufs = ['rj', 'sp']
+    const estadosDe = async (lista = ids, us = ufs) => {
+      const l = await adm()
+      return Object.fromEntries(lista.map((id) => [id, Object.fromEntries(us.map((u) => [u, l.produtos.find((p) => p.id === id).estados[u] ?? { disponivel: false, estoque: null }]))]))
+    }
+    const todos = (est, f) => ids.every((id) => ufs.every((u) => f(est[id][u])))
+    ok(ids.length === 3, `3 produtos pra marcar (${ids.join(', ')})`)
+    // começa de um jeito conhecido: tudo fora de venda e sem contar em RJ e SP
+    const prep = await massa({ ids, ufs, acao: 'tirar' })
+    igual(prep.status, 200, 'tirar de venda os 3 em RJ e SP')
+    await massa({ ids, ufs, acao: 'sem-contagem' })
+    const v0 = await versao()
+    let x = await massa({ ids, ufs, acao: 'vender' })
+    igual(x.status, 200, 'pôr à venda os 3 em RJ e SP')
+    igual([x.json.acao, x.json.marcados, x.json.mudancas?.length, x.json.produtos?.length], ['vender', 3, 6, 3], 'a resposta: a ação, 3 marcados, 6 mudanças (3 × 2 estados) e os 3 produtos')
+    ok(x.json.mudancas?.length > 0 && x.json.mudancas.every((m) => ids.includes(m.id) && ufs.includes(m.uf) && m.antes.disponivel === false && m.depois.disponivel === true && m.depois.estoque === null), 'cada mudança com o antes e o depois (pro Desfazer)')
+    igual(chaves(x.json.mudancas?.[0] ?? {}), ['antes', 'depois', 'id', 'uf'], 'Mudança com as chaves do contrato')
+    igual([x.json.versao, await versao()], [v0 + 1, v0 + 1], 'a versão da loja sobe uma vez só (não uma por produto)')
+    ok(ISO.test(x.json.atualizadoEm), 'atualizadoEm junto')
+    const noSite = (await pub()).loja.produtos.filter((p) => ids.includes(p.id))
+    ok(noSite.length === 3 && noSite.every((p) => p.disponivel.rj === true && p.disponivel.sp === true), 'o site vê os 3 à venda em RJ e SP')
+    await temEvento('produtos-em-massa', 'Em massa: pôs à venda em RJ e SP (3 produtos)', 'em massa')
+    const nEv = (await eventos()).length
+    x = await massa({ ids, ufs, acao: 'vender' })
+    igual([x.status, x.json.mudancas?.length, x.json.versao, (await eventos()).length], [200, 0, v0 + 1, nEv], 'o mesmo de novo: nada muda (nem versão, nem Atividade)')
+    x = await massa({ ids, ufs, acao: 'contar', estoque: 7 })
+    ok(todos(await estadosDe(), (e) => e.disponivel && e.estoque === 7), 'contar 7: os 3 com 7 no estoque nos 2 estados')
+    await temEvento('produtos-em-massa', 'Em massa: 7 un. no estoque em RJ e SP (3 produtos)', 'contar')
+    x = await massa({ ids, ufs, acao: 'esgotado' })
+    ok(todos(await estadosDe(), (e) => e.disponivel && e.estoque === 0), 'esgotado: ligado com 0 (sai do site e volta sozinho quando o estoque sobe)')
+    ok((await pub()).loja.produtos.filter((p) => ids.includes(p.id)).every((p) => !p.disponivel.rj && !p.disponivel.sp), 'esgotado: o site vê indisponível')
+    x = await massa({ ids, ufs: ['rj'], acao: 'contar', estoque: '4' })
+    ok(x.json.mudancas?.length === 3 && x.json.mudancas.every((m) => m.uf === 'rj' && m.depois.estoque === 4), 'contar em texto ("4") vale, só no estado escolhido')
+    x = await massa({ ids, ufs, acao: 'sem-contagem' })
+    ok(todos(await estadosDe(), (e) => e.disponivel && e.estoque === null), 'sem contagem: para de contar e fica à venda')
+    // contar 0 em quem tá fora de venda não liga; contar mais de 0 liga junto (como a folha do estoque)
+    await massa({ ids, ufs, acao: 'tirar' })
+    await massa({ ids, ufs, acao: 'contar', estoque: 0 })
+    ok(todos(await estadosDe(), (e) => !e.disponivel && e.estoque === 0), 'contar 0 em quem tá fora de venda: continua fora')
+    await massa({ ids, ufs, acao: 'contar', estoque: 3 })
+    ok(todos(await estadosDe(), (e) => e.disponivel && e.estoque === 3), 'contar 3: liga junto (quem conta é porque tem)')
+    // copiar de outro estado: o à venda e o estoque de MG viram os de RJ e SP
+    const mg = await estadosDe(ids, ['mg'])
+    const antesCopiar = await estadosDe()
+    x = await massa({ ids, ufs, acao: 'copiar', de: 'mg' })
+    igual(x.status, 200, 'copiar de MG pra RJ e SP')
+    const depoisCopiar = await estadosDe()
+    ok(ids.every((id) => ufs.every((u) => JSON.stringify(depoisCopiar[id][u]) === JSON.stringify(mg[id].mg))), 'copiar: RJ e SP ficam iguais a MG em cada produto')
+    await temEvento('produtos-em-massa', 'Em massa: copiou MG pra RJ e SP (3 produtos)', 'copiar')
+    // o Desfazer: manda o antes de cada mudança
+    const v1 = await versao()
+    x = await massa({ acao: 'definir', estados: (x.json.mudancas ?? []).map((m) => ({ id: m.id, uf: m.uf, ...m.antes })) })
+    igual(x.status, 200, 'desfazer (definir com o antes)')
+    igual(await estadosDe(), antesCopiar, 'desfazer: volta exatamente como estava antes de copiar')
+    igual(await versao(), v1 + 1, 'desfazer: a versão sobe uma vez')
+    await temEvento('produtos-em-massa', 'Em massa: desfez a mudança em RJ e SP (3 produtos)', 'desfazer')
+    // validação: nada muda quando algo vem errado (tudo numa transação)
+    const vAntes = await versao()
+    const fotoAntes = await estadosDe()
+    for (const [corpo, campo, msg] of [
+      [{ ids, ufs, acao: 'inverter' }, 'acao', 'ação que não existe'],
+      [{ ids, ufs }, 'acao', 'sem ação'],
+      [{ ids: [], ufs, acao: 'vender' }, 'ids', 'nenhum produto marcado'],
+      [{ ids: 'todos', ufs, acao: 'vender' }, 'ids', 'ids que não é lista'],
+      [{ ids: [...ids, 'nao-existe'], ufs, acao: 'vender' }, 'ids', 'um id que não existe junto dos certos'],
+      [{ ids: [ids[0], 7], ufs, acao: 'vender' }, 'ids', 'id que não é texto'],
+      [{ ids, ufs: [], acao: 'vender' }, 'ufs', 'nenhum estado'],
+      [{ ids, ufs: ['rj', 'ba'], acao: 'vender' }, 'ufs', 'estado que a loja não atende (BA) junto de um certo'],
+      [{ ids, ufs: ['xx'], acao: 'vender' }, 'ufs', 'UF que não existe'],
+      [{ ids, ufs, acao: 'contar' }, 'estoque', 'contar sem número'],
+      [{ ids, ufs, acao: 'contar', estoque: -1 }, 'estoque', 'estoque negativo'],
+      [{ ids, ufs, acao: 'contar', estoque: 100000 }, 'estoque', 'estoque acima de 99.999'],
+      [{ ids, ufs, acao: 'contar', estoque: 1.5 }, 'estoque', 'estoque quebrado'],
+      [{ ids, ufs, acao: 'contar', estoque: 'muitos' }, 'estoque', 'estoque em palavra'],
+      [{ ids, ufs, acao: 'copiar' }, 'de', 'copiar sem o estado de origem'],
+      [{ ids, ufs, acao: 'copiar', de: 'rj' }, 'de', 'copiar de um estado que também recebe'],
+      [{ ids, ufs, acao: 'copiar', de: 'ba' }, 'de', 'copiar de estado que a loja não tem'],
+      [{ acao: 'definir', estados: [] }, 'estados', 'desfazer sem nada'],
+      [{ acao: 'definir', estados: [{ id: ids[0], uf: 'rj', disponivel: 'sim', estoque: null }] }, 'estados', 'desfazer com disponível que não é sim/não'],
+      [{ acao: 'definir', estados: [{ id: ids[0], uf: 'rj', disponivel: true }] }, 'estados', 'desfazer sem o estoque'],
+      [{ acao: 'definir', estados: [{ id: ids[0], uf: 'rj', disponivel: true, estoque: -2 }] }, 'estoque', 'desfazer com estoque negativo'],
+      [{ acao: 'definir', estados: [{ id: 'nao-existe', uf: 'rj', disponivel: true, estoque: null }] }, 'ids', 'desfazer num produto apagado'],
+      [{ acao: 'definir', estados: [{ id: ids[0], uf: 'rj', disponivel: true, estoque: null }, { id: ids[0], uf: 'rj', disponivel: false, estoque: null }] }, 'estados', 'o mesmo produto duas vezes no mesmo estado'],
+    ]) {
+      const y = await massa(corpo)
+      erro(y, 400, 'invalido', `em massa: ${msg}`)
+      igual(y.json.campo, campo, `em massa: campo (${msg})`)
+    }
+    igual([await versao(), await estadosDe()], [vAntes, fotoAntes], 'em massa: nada recusado mexeu em nada (nem a versão)')
+    erro(await massa({ ids, ufs, acao: 'vender' }, { csrf: null }), 403, 'csrf', 'em massa sem CSRF')
+    erro(await new Cliente().post('admin-produtos-em-massa', { ids, ufs, acao: 'vender' }), 401, 'sem-sessao', 'em massa sem sessão')
+    // as rotas de antes continuam iguais: a troca rápida de um produto com o corpo de antes (campo ausente fica como está)
+    const um = await dono.post('admin-produto-estado', { id: ids[0], uf: 'rj', estoque: 2 })
+    igual(um.json.produto.estados.rj, { disponivel: fotoAntes[ids[0]].rj.disponivel, estoque: 2 }, 'a troca rápida de antes: só o estoque muda, o à venda fica')
+    // volta como a semente deixou (o resto do teste conta com ela)
+    await massa({ acao: 'definir', estados: Object.entries(l0.produtos.filter((p) => ids.includes(p.id)).reduce((a, p) => ({ ...a, [p.id]: p.estados }), {})).flatMap(([id, e]) => ufs.map((u) => ({ id, uf: u, ...(e[u] ?? { disponivel: false, estoque: null }) }))) })
+    igual(await estadosDe(), Object.fromEntries(ids.map((id) => [id, Object.fromEntries(ufs.map((u) => [u, l0.produtos.find((p) => p.id === id).estados[u] ?? { disponivel: false, estoque: null }]))])), 'em massa: volta como a semente deixou')
+  }
+
   parte('loja: a rua do mercador no celular (ruaNoStory, Stories do Início: o 1º story na home, o fim do Início na Home 2)')
   {
     igual((await adm()).ajustes.ruaNoStory, true, 'admin-loja: a chave da rua nasce ligada')

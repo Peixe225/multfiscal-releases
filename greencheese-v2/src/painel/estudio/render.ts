@@ -4,6 +4,7 @@
 // Sem fundo: sai com transparência (o site põe o halo e o preto). Mantendo o fundo: o quadro inteiro, com as bordas
 // escurecendo até o preto (no site, o preto some no preto).
 
+import { abrirFoto } from '../foto-medida'
 import { LINEAR, deOklab, oklab, paraSrgb } from './cor'
 import { noModelo, SEM_AJUSTE, type AjusteCor, type Analise, type Caixa, type Recorte } from './recorte'
 
@@ -41,26 +42,12 @@ export function contexto(c: HTMLCanvasElement): CanvasRenderingContext2D {
   return g
 }
 
-/** Abre a foto (a orientação do celular já aplicada). */
-export async function abrirImagem(blob: Blob): Promise<{ img: CanvasImageSource; w: number; h: number; soltar: () => void }> {
-  if (typeof createImageBitmap === 'function') {
-    try {
-      const b = await createImageBitmap(blob, { imageOrientation: 'from-image' })
-      return { img: b, w: b.width, h: b.height, soltar: () => b.close() }
-    } catch {
-      /* Safari antigo: cai no <img> */
-    }
-  }
-  const url = URL.createObjectURL(blob)
-  const img = new Image()
-  img.src = url
-  try {
-    await img.decode()
-  } catch (e) {
-    URL.revokeObjectURL(url)
-    throw e
-  }
-  return { img, w: img.naturalWidth, h: img.naturalHeight, soltar: () => URL.revokeObjectURL(url) }
+/**
+ * Abre a foto (a orientação do celular já aplicada). Com `lado`, já reduzida (lado maior até ele) quando o navegador
+ * sabe: a foto de 50 a 200 megapixels não passa inteira pela memória do celular (src/painel/foto-medida.ts).
+ */
+export async function abrirImagem(blob: Blob, lado?: number): Promise<{ img: CanvasImageSource; w: number; h: number; soltar: () => void }> {
+  return abrirFoto(blob, lado)
 }
 
 /** Cópia com o lado maior até `lado` px (nunca aumenta). */

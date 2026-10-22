@@ -93,6 +93,10 @@ export const ROTULO_FALA: Record<ChaveTexto, string> = {
   'cupom.usar': 'Botão: usar cupom',
   'cupom.sem': 'Botão: sem cupom',
   'cupom.tirar': 'Botão: tirar cupom',
+  'cupom.sozinho': 'Cupom que entrou sozinho no pedido (o que vale e vence primeiro)',
+  'cupom.trocar': 'Botão: trocar o cupom (quando outro também vale)',
+  'cupom.qual': 'Pergunta qual cupom vai (depois do "Trocar cupom")',
+  'cupom.manter': 'Botão: ficar com o cupom de agora',
 
   'pix.comPix': 'Pix no site (em breve), pagando com Pix',
   'pix.outroPagamento': 'Pix no site (em breve), com outro pagamento',
