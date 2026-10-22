@@ -10,6 +10,7 @@ import { useModoConta } from '../lib/conta-modo'
 import { useContaStore } from '../store/conta'
 import { formatarDiaMes, formatarEspera } from '../lib/cupom'
 import { fraseDoPremio, nomeDoPremio } from '../lib/cupom-uso'
+import { tirarCupomDoPedido } from '../lib/cupom-pedido'
 import { AdesivoCodigo, AdesivoContagem, BolhaPremio } from '../interativos/sorte/Adesivos'
 import { raridadeDoRetrato, SeloRaridade } from '../interativos/sorte/SeloRaridade'
 import { Condicoes, listaCondicoes } from '../interativos/sorte/Condicoes'
@@ -346,7 +347,8 @@ function AtualizarConta() {
  */
 function Ingresso({ c, fechar, agora }: { c: CupomComStatus; fechar: () => void; agora: number }) {
   const aplicado = useSacola((s) => s.cupom === c.codigo)
-  const tirar = useSacola((s) => s.tirarCupom)
+  // tirar daqui é o cliente tirando: não volta sozinho neste pedido
+  const tirar = tirarCupomDoPedido
   // o produto do herói: no brinde, o que vem de brinde (o mesmo "Ver produto" do story)
   const { destaque, alvo: nome, produto: alvo } = fraseDoPremio(c.retrato)
   const exemplo = c.demo && config.carimboDeExemplo

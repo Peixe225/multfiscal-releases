@@ -313,6 +313,13 @@ export async function fluxoContas(a) {
     await contar.waitFor({ state: 'detached' })
     ok(await esperarAte(async () => (await dono('admin-loja', null)).json?.loja?.produtos?.find((x) => x.id === 'seda-ocb-premium-slim')?.estados?.mg?.estoque === 2), 'estoque: a gerente conta o estoque de MG (2)')
     ok((await api(pG, 'admin-produto-estado', { id: 'seda-ocb-premium-slim', uf: 'rj', disponivel: false })).json?.erro === 'sem-permissao', 'estoque: o servidor recusa mexer no RJ (não é dela)')
+    // em massa (22/10): o "Selecionar vários" mora em Produtos, que é do dono; pela API, o gerente só nos estados dele
+    await pG.goto(`${BASE}/painel/#/produtos`)
+    await pG.getByRole('heading', { name: 'Sem acesso' }).waitFor()
+    ok((await pG.getByRole('button', { name: 'Selecionar vários' }).count()) === 0, 'gerente: Produtos (com o "Selecionar vários") dá "Sem acesso"')
+    const massaRj = await api(pG, 'admin-produtos-em-massa', { ids: ['seda-ocb-premium-slim'], ufs: ['mg', 'rj'], acao: 'tirar' })
+    ok(massaRj.json?.erro === 'sem-permissao' && massaRj.json?.motivo === 'estado', `em massa: com o RJ junto, o servidor recusa a gerente de MG (${massaRj.status} ${massaRj.json?.erro})`)
+    ok((await ocbMg()) === true, 'em massa: recusado, nem MG mudou (tudo ou nada)')
     await pG.goto(`${BASE}/painel/#/pedidos`)
     await pG.locator('.pd-linha').first().waitFor()
     ok((await pG.getByRole('link', { name: 'Avisos', exact: true }).count()) === 0 && (await pG.getByText('Ajustes dos pedidos').count()) === 0, 'gerente: Pedidos sem o atalho dos Avisos e dos Textos')
@@ -370,6 +377,9 @@ export async function fluxoContas(a) {
     await pA.goto(`${BASE}/painel/#/rateio/arizona-green-tea/editar`)
     await pA.getByRole('heading', { name: 'Sem acesso' }).waitFor()
     ok(true, 'atendente: editar rateio por link dá "Sem acesso"')
+    // em massa (22/10): a atendente não mexe no estoque, nem em massa
+    const massaA = await api(pA, 'admin-produtos-em-massa', { ids: ['seda-ocb-premium-slim'], ufs: ['rj'], acao: 'tirar' })
+    ok(massaA.status === 403 && massaA.json?.erro === 'sem-permissao', `em massa: a atendente é recusada (${massaA.status} ${massaA.json?.erro})`)
     await pA.goto(`${BASE}/painel/#/pedido/${idRJ}`)
     await pA.getByRole('heading', { name: new RegExp(pedRJ.codigo) }).waitFor()
     ok((await pA.getByRole('heading', { name: 'Aviso no grupo' }).count()) === 0, 'atendente: pedido sem o bloco dos avisos no grupo')

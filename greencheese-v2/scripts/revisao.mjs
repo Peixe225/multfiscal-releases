@@ -31,7 +31,9 @@
 // vídeo do produto: só à vista, no máximo 2, nunca antes da primeira tela, parada com movimento reduzido), em
 // scripts/revisao-thumb.mjs; a revelação do Teste minha sorte (o beck que sobe, a fumaça, o story que sai dela, pular,
 // movimento reduzido), em scripts/revisao-sorte.mjs; o pedido rápido da sacola (um toque no WhatsApp, a cópia no
-// servidor, o pedido mínimo do estado travando e destravando, o pedido guiado discreto), em scripts/revisao-sacola.mjs.
+// servidor, o pedido mínimo do estado travando e destravando, o pedido guiado discreto), em scripts/revisao-sacola.mjs; o
+// cupom direto no pedido (o que vale entra sozinho na sacola e no resumo do guiado, trocar, tirar, o que não vale, a conta
+// da loja e o prêmio do jogo), em scripts/revisao-cupom.mjs.
 // Uso: npm run dev (em outro terminal) e depois: node scripts/revisao.mjs [rodada] [url-base]
 // GC_LOJA_REAL=1: o GET loja vai pro servidor de verdade (o resto da API continua simulado).
 // IP e CEP são simulados para o resultado ser repetível.
@@ -45,6 +47,7 @@ import { rodadaVitrine } from './revisao-vitrine.mjs'
 import { rodadaThumb } from './revisao-thumb.mjs'
 import { rodadaSorte } from './revisao-sorte.mjs'
 import { rodadaSacola } from './revisao-sacola.mjs'
+import { rodadaCupom } from './revisao-cupom.mjs'
 
 const rodada = process.argv[2] ?? 'r1'
 const base = process.argv[3] ?? 'http://localhost:5173/'
@@ -3118,6 +3121,8 @@ await rodadaThumb({ browser, base, contexto, conferir, foto })
 await rodadaSorte({ browser, base, contexto, conferir, foto, vigiarSemRede })
 // ---------- o pedido rápido da sacola (scripts/revisao-sacola.mjs): um toque no WhatsApp e o pedido mínimo ----------
 await rodadaSacola({ browser, base, contexto, conferir, foto, vigiarSemRede })
+// ---------- o cupom direto no pedido (scripts/revisao-cupom.mjs): o que vale entra sozinho, na sacola e no guiado ----------
+await rodadaCupom({ browser, base, contexto, conferir, foto, vigiarSemRede })
 
 await browser.close()
 writeFileSync(`${dir}relatorio.json`, JSON.stringify({ erros, relatorio }, null, 2))

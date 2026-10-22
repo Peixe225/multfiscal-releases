@@ -129,6 +129,11 @@ export const TEXTOS_PEDIDO = {
   'cupom.usar': { padrao: 'Usar cupom', tipo: 'botao' },
   'cupom.sem': { padrao: 'Sem cupom', tipo: 'botao' },
   'cupom.tirar': { padrao: 'Tirar cupom', tipo: 'botao' },
+  // o cupom que entra sozinho (22/10): o que vale e vence primeiro; dá pra trocar por outro que vale ou tirar
+  'cupom.sozinho': { padrao: 'Teu cupom {cupom} entrou sozinho no pedido: desconto confirmado pela loja no WhatsApp.', tipo: 'fala', marcadores: ['cupom'] },
+  'cupom.trocar': { padrao: 'Trocar cupom', tipo: 'botao' },
+  'cupom.qual': { padrao: 'Qual cupom vai nesse pedido?', tipo: 'fala' },
+  'cupom.manter': { padrao: 'Fica esse', tipo: 'botao' },
 
   // Pix no site (em breve)
   'pix.comPix': { padrao: 'O Pix direto no site chega em breve. Por enquanto, fecha no WhatsApp: a loja te passa a chave Pix lá.', tipo: 'fala' },

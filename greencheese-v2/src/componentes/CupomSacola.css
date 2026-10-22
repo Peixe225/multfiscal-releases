@@ -141,3 +141,19 @@
   margin-left: 2px;
   font-weight: 400;
 }
+/* o cupom que vale (às vezes entrou sozinho): o texto e as ações (Trocar, Tirar) na mesma linha quando cabem; senão, as
+   ações descem. O "Trocar por" abre embaixo, na largura toda */
+.cupom-sacola.cs-ok {
+  flex-wrap: wrap;
+}
+.cs-ok > .cs-txt {
+  flex: 1 1 180px;
+}
+.cs-trocar {
+  flex: 1 1 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 8px;
+  border-top: 1px solid var(--bolha);
+}

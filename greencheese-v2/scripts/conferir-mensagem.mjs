@@ -37,6 +37,8 @@ async function carregar(arquivo) {
 }
 const m = await carregar('src/lib/mensagem.ts')
 const pm = await carregar('src/lib/pedido-minimo.ts')
+// o cupom que entra sozinho no pedido (22/10): a escolha (o que vale e vence primeiro, empate pela raridade) e as recusas
+const ca = await carregar('src/lib/cupom-automatico.ts')
 
 // pedido de referência fixo: canal RJ, 2 linhas (com combo), nome, endereço, pix
 const canal = {
@@ -307,9 +309,49 @@ for (const [rotulo, veio, esperado] of casos) {
 }
 if (pm.minimoDoCanal(comMin(20)) !== 20 || pm.minimoDoCanal(canal) !== null || pm.minimoDoCanal(null) !== null) problemas.push('minimoDoCanal não leu o mínimo do estado')
 
+// ── o cupom que entra sozinho (22/10): src/lib/cupom-automatico.ts ─────────────────────────────────────────────────
+// quem vale nesta sacola é quem chama (situacaoNoPedido); aqui, a ordem, as recusas e a linha que vai na mensagem
+const D = 864e5
+const agoraC = Date.UTC(2026, 9, 22, 15)
+const kc = (codigo, vence, raridade, ganho = 1) => ({ codigo, validoAte: agoraC + vence * D, ganhoEm: agoraC - ganho * D, retrato: raridade ? { raridade } : {} })
+const todos = () => true
+const escolha = (lista, vale = todos, recusados = []) => ca.escolherCupomAutomatico(lista, vale, recusados)?.codigo ?? null
+const casosCupom = [
+  ['nenhum cupom: nada entra', escolha([]), null],
+  ['um que vale: entra', escolha([kc('SORTE-AAA3', 5)]), 'SORTE-AAA3'],
+  ['o que vence primeiro ganha (o de 2 dias antes do de 5)', escolha([kc('SORTE-AAA3', 5), kc('SORTE-BBB4', 2)]), 'SORTE-BBB4'],
+  ['vencendo juntos: o de maior raridade (lendário antes de comum e raro)', escolha([kc('SORTE-BBB4', 2, 'comum'), kc('SORTE-CCC6', 2, 'lendario'), kc('SORTE-DDD7', 2, 'raro')]), 'SORTE-CCC6'],
+  ['raridade não passa por cima da validade (o comum que vence antes ganha do lendário)', escolha([kc('SORTE-CCC6', 3, 'lendario'), kc('SORTE-BBB4', 1, 'comum')]), 'SORTE-BBB4'],
+  ['cupom de antes da raridade conta como comum (perde pro raro no empate)', escolha([kc('SORTE-EEE8', 2), kc('SORTE-DDD7', 2, 'raro')]), 'SORTE-DDD7'],
+  ['empate em tudo: o ganho primeiro', escolha([kc('SORTE-FFF9', 2, 'raro', 1), kc('SORTE-GGG3', 2, 'raro', 3)]), 'SORTE-GGG3'],
+  ['o que não vale nesta sacola não entra, mesmo vencendo antes', escolha([kc('SORTE-BBB4', 1), kc('SORTE-AAA3', 5)], (c) => c.codigo !== 'SORTE-BBB4'), 'SORTE-AAA3'],
+  ['nenhum vale: nada entra', escolha([kc('SORTE-AAA3', 5)], () => false), null],
+  ['o que o cliente tirou não volta sozinho', escolha([kc('SORTE-AAA3', 5)], todos, ['SORTE-AAA3']), null],
+  ['tirou: o que ele já tinha naquela hora também não entra no lugar', escolha([kc('SORTE-AAA3', 5), kc('SORTE-BBB4', 2)], todos, ['SORTE-AAA3', 'SORTE-BBB4']), null],
+  ['tirou e ganhou outro depois: o novo entra sozinho', escolha([kc('SORTE-AAA3', 5), kc('SORTE-HHH4', 7)], todos, ['SORTE-AAA3']), 'SORTE-HHH4'],
+  ['a mesma lista em outra ordem dá o mesmo cupom', escolha([kc('SORTE-DDD7', 2, 'raro'), kc('SORTE-CCC6', 2, 'lendario'), kc('SORTE-BBB4', 2, 'comum')]), 'SORTE-CCC6'],
+]
+// a linha diz "é o que vence primeiro" só quando o aplicado vem antes de todos os outros que valem (revisão de 22/10: um
+// cupom que o cliente tirou pode vencer antes do que entrou sozinho depois)
+const antes = (aplicado, outros) => (typeof ca.venceAntesDeTodos === 'function' ? ca.venceAntesDeTodos(aplicado, outros) : 'sem venceAntesDeTodos')
+casosCupom.push(
+  ['"vence primeiro": o aplicado vence antes dos outros', antes(kc('SORTE-BBB4', 2), [kc('SORTE-AAA3', 5)]), true],
+  ['"vence primeiro": não, se outro que vale vence antes (o que o cliente tirou)', antes(kc('SORTE-HHH4', 7), [kc('SORTE-AAA3', 2)]), false],
+  ['"vence primeiro": vencendo juntos, o mais raro vem antes', antes(kc('SORTE-CCC6', 2, 'lendario'), [kc('SORTE-BBB4', 2, 'comum')]), true],
+  ['"vence primeiro": vencendo juntos, o menos raro não', antes(kc('SORTE-BBB4', 2, 'comum'), [kc('SORTE-CCC6', 2, 'lendario')]), false],
+)
+for (const [rotulo, veio, esperado] of casosCupom) if (veio !== esperado) problemas.push(`cupom automático: ${rotulo}: esperado ${esperado}, veio ${veio}`)
+// o que entrou sozinho vai na mensagem como qualquer cupom: a linha de sempre, nas duas (guiado e sacola)
+const auto = ca.escolherCupomAutomatico([{ ...kc('SORTE-K8EA', 5), regra: 'Leva 4 Seda OCB Premium Slim e paga 3' }], todos, [])
+const linhaAuto = 'Cupom: SORTE-K8EA — Leva 4 Seda OCB Premium Slim e paga 3 (Teste minha sorte · a loja confirma)'
+const doAuto = { codigo: auto.codigo, regra: auto.regra, origem: 'Teste minha sorte', exemplo: false }
+if (!m.montarPedido({ ...pedido, cupom: doAuto }).split('\n').includes(linhaAuto)) problemas.push('cupom automático: a mensagem do guiado não levou a linha do cupom')
+if (!m.montarPedidoSacola({ ...sacola, cupom: doAuto }).split('\n').includes(linhaAuto)) problemas.push('cupom automático: a mensagem da sacola não levou a linha do cupom')
+
 if (problemas.length) {
   console.error(problemas.join('\n\n'))
   process.exit(1)
 }
+console.log(`cupom automático ok: ${casosCupom.length} casos (o que vence primeiro, a raridade no empate, o que não vale, o que o cliente tirou, o ganho depois, o "é o que vence primeiro" só quando é) e a linha nas duas mensagens:\n${linhaAuto}\n`)
 console.log(`sacola ok: igual ao modelo (scripts/mensagem-sacola-referencia.txt); com o código, o cupom, o nome da conta e a entrega como o estado diz:\n${m.montarPedidoSacola({ ...sacola, codigo: 'GC-7KD2X', cupom, nome: 'Ana Souza', canal: { ...canal, taxaEntrega: { valor: 15.5, demo: false } } })}\n\npedido mínimo ok: ${casos.length} casos (falta, fecha, a consultar, cupom)\n`)
 console.log(`mensagem ok: sem cupom igual à referência; com a taxa do painel e no dia da entrega grátis, só a Entrega muda (${comTaxa[iEnt]} · ${naSexta}); com cupom, +1 linha depois do Subtotal:\n${com}\n\ncom o código do pedido (+1 linha depois do cabeçalho):\n${codigoECupom.join('\n')}\n\nencomenda com o código:\n${encCom.join('\n')}\n\nrateio (vaga reservada):\n${rateioCom}\n\nrateio (sem servidor):\n${rateioSem}\n\nrateio (já tenho vaga):\n${rateioJa}\n\nrateio (loja fora do ar):\n${foraAba}\n\n${foraPagina}`)

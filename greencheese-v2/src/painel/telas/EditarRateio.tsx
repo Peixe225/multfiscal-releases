@@ -302,11 +302,11 @@ function EnvioFoto({ imagem, aoMudar, erro, temProduto, aria }: { imagem: string
       setFalha('Manda foto em JPG, PNG ou WebP.')
       return
     }
-    const url = URL.createObjectURL(f)
-    setLocal(url)
     setAndamento(0)
     try {
+      // a prévia é a foto já reduzida (a de 50 MP inteira num <img> pesa no celular)
       const pronta = await prepararFoto(f)
+      setLocal(URL.createObjectURL(pronta.blob))
       const r = await api.enviarImagem(pronta.blob, pronta.nome, (x) => setAndamento(x))
       aoMudar(r.imagem)
       setLocal(null)

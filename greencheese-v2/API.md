@@ -555,7 +555,7 @@ Erros de cada uma (além dos gerais e do `sem-sessao`/`csrf`):
   rascunho, encerrado ou cancelado), `rateio-cancelado` 409, `transicao-invalida` 409 (`de`, `para`, `permitidos`),
   `dados-apagados` 409 (a vaga de quem teve os dados apagados não volta: nem editar, nem confirmar, nem reservar).
 - `admin-participante-apagar`: `participacao-ativa` 409 (reservada ou paga num rateio em curso: cancela antes).
-- `admin-upload`: `grande-demais` 413 (`limite` em bytes: 8 MB ou o limite do PHP, o menor), `tipo-invalido` 415 (só
+- `admin-upload`: `grande-demais` 413 (`limite` em bytes: 32 MB desde 22/10, era 8 MB, ou o limite do PHP, o menor), `tipo-invalido` 415 (só
   JPG, PNG e WebP de verdade, conferidos pelo conteúdo), `imagem-grande` 413 (mais de 40 megapixels), `invalido` 400
   (`campo: 'imagem'`), `envio-falhou` 500.
 - `admin-video-upload` (permissão `loja`, como salvar o produto): o vídeo curto do produto que o Estúdio do painel
@@ -1030,6 +1030,7 @@ campo ausente fica como está.
 | POST `admin-produto-estado` | `{ id, uf, disponivel?, estoque? }` | `{ produto, versao, atualizadoEm }` |
 | POST `admin-produto-apagar` | `{ id }` | `{ versao, atualizadoEm }` |
 | POST `admin-produtos-ordem` | `{ ids: string[] }` | `{ ordem, versao, atualizadoEm }` |
+| POST `admin-produtos-em-massa` | `{ ids: string[], ufs: string[], acao, estoque?, de? }` ou `{ acao: 'definir', estados: { [id]: { [uf]: [disponivel, estoque] } } }` (corpo até 512 KB) | `{ acao, marcados, mudancas: [{ id, uf, antes, depois }], produtos: ProdutoAdmin[], pulados? (só no definir), versao, atualizadoEm }` |
 | POST `admin-categoria-salvar` | `{ id?, nome, curto?, icone, bebida?, alcool? }` | 201 ou 200 `{ categoria, versao, atualizadoEm }` |
 | POST `admin-categoria-apagar` | `{ id }` | `{ versao, atualizadoEm }` |
 | POST `admin-categorias-ordem` | `{ ids: string[] }` | `{ ordem, versao, atualizadoEm }` |
@@ -1071,6 +1072,29 @@ Regras (o servidor confere; o painel mostra o mesmo enquanto a pessoa digita):
 - **Troca rápida** (`admin-produto-estado`): manda o valor novo, não "inverter" (dois toques iguais dão no mesmo).
   `estoque: null` = não contar; `0` = esgotado: sai do disponível sozinho e volta quando o estoque subir (se seguir
   ligado no estado).
+- **Em massa** (`admin-produtos-em-massa`, o Produtos → **Selecionar vários** do painel; pedido do Ian em 22/10): os
+  mesmos campos da troca rápida, em muitos produtos e estados de uma vez, numa transação só (ou vai tudo, ou nada).
+  `acao`: `vender` (disponível; o estoque fica), `tirar` (fora do site; o estoque fica), `esgotado` (estoque 0, sai do
+  disponível), `contar` (`estoque` de 0 a 99.999: `0` = esgotado, mais que 0 liga o disponível), `sem-contagem`
+  (estoque `null`, o disponível fica) e `copiar` (o disponível e o estoque do estado `de` vão pros `ufs`; `de` não pode
+  estar nos `ufs`). `ids` 1–2000 produtos que existem (o que sumiu → 400 `campo: 'ids'` com `motivo: 'apagado'`, nada
+  muda; o painel relê a loja só nesse caso e a nova tentativa passa), `ufs` estados da loja (fora da loja → 400 `campo: 'ufs'`); repetido, nos `ids` ou nos
+  `ufs` (até `rj` e `RJ`), conta uma vez, sem erro; `ids` × `ufs` até 10.000 trocas (senão 400 `campo: 'ids'`); estoque
+  fora da faixa → 400 `campo: 'estoque'`; `de` faltando, de fora da loja ou dentro dos `ufs` → 400 `campo: 'de'`.
+  `definir` é o **Desfazer** do painel: manda de volta o `antes` de cada `mudancas`, compacto (`{ [id]: { [uf]:
+  [disponivel, estoque] } }`, uns 20 bytes por troca: o Desfazer da maior mudança, 2.000 produtos × 5 estados, dá uns
+  300 KB e cabe no corpo de até 512 KB desta rota; as outras seguem com 64 KB → 413). O formato é conferido inteiro
+  (lista, par torto, id torto ou o mesmo produto duas vezes no mesmo estado → 400 `campo: 'estados'`; estado de fora →
+  `ufs`; estoque → `estoque`; mais de 10.000 trocas → `estados`), mas o produto que **foi apagado** depois da mudança é
+  **pulado** (não há mais o que desfazer nele): os outros voltam e a resposta conta os pulados em `pulados` (todos
+  pulados → 200 sem mudança, a versão não sobe). Revisão de 22/10: era uma lista `[{ id, uf, disponivel, estoque }]` de
+  até 20.000 que recusava o lote todo por um apagado, e o corpo de 64 KB não deixava desfazer uma mudança de uns 190
+  produtos × 5 estados (a rota nova nunca foi pro ar, então não há painel de antes mandando a lista). Permissão `produtos`
+  (a da troca rápida): o gerente só nos estados dele; um estado de fora → 403 `sem-permissao` `motivo: 'estado'` e nada
+  muda. A versão sobe uma vez só (nada mudou → não sobe), e a Atividade ganha uma linha (`produtos-em-massa`: "Em
+  massa: pôs à venda em RJ e SP (12 produtos)"). `mudancas` traz só os pares produto × estado que mudaram, com o antes
+  e o depois (`{ disponivel, estoque }`); `produtos`, os que mudaram já como o painel lê. A troca rápida e o salvar do
+  produto seguem iguais.
 - **Apagar produto**: só sem histórico (rateio ou prêmio que cita ele) → senão 409 `em-uso` (com `rateios` e
   `premios`): aí desativa (`ativo: false`), ele sai do site e o histórico fica. Apagar tira o produto do "Combina com"
   dos outros e dos stories.
@@ -1250,7 +1274,8 @@ Cada pessoa entra no painel com o login dela. Três papéis (`nucleo/equipe.php`
 
 Permissões que existem (`GC_PERMISSOES`): as de cima mais `loja`, `avisos`, `textos`, `servidor`, `equipe` e
 `clientes`, que só o dono tem. Na loja: `produtos` (ler a loja do painel, `admin-loja`, e mudar o disponível e o
-estoque de um estado, `admin-produto-estado`, só nos estados de quem pede) e `loja` (o resto: produto, o vídeo da
+estoque de um estado, `admin-produto-estado`, e de muitos de uma vez, `admin-produtos-em-massa`, só nos estados de
+quem pede) e `loja` (o resto: produto, o vídeo da
 thumb animada (`admin-video-upload`), categorias, estados, stories, textos da loja, Teste minha sorte e prêmios). O
 Simular giros do Teste minha sorte (`admin-sorte-simular`) pede `produtos` (só lê e não grava: o gerente simula nos
 estados dele; no painel, a tela do Teste minha sorte continua só do dono). A foto

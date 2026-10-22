@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { useConferirCupom } from '../lib/cupom-pedido'
+import { useConferirCupom, useCupomAutomatico } from '../lib/cupom-pedido'
 import { esquecerAjustes, foiAjustado } from '../lib/estoque'
 import { ProdutoVisual } from '../arte/ProdutoVisual'
 import { PixelArte } from '../arte/PixelArte'
@@ -227,6 +227,8 @@ export function SacolaFolha() {
   const n = contarItens(itens)
   // o cupom aplicado ainda vale? (vencido, usado ou fora da conta sai com aviso)
   useConferirCupom(aberta)
+  // o cupom da conta que vale nesta sacola entra sozinho (22/10): ao abrir, e a cada mudança até a hora de fechar
+  useCupomAutomatico(aberta)
   // o aviso "ajustei a quantidade" e o "preço novo" valem até a sacola fechar (só no fechar: a folha monta fechada,
   // depois do ajuste); fechou, o retrato de cada item acompanha a loja
   const abertaAntes = useRef(aberta)

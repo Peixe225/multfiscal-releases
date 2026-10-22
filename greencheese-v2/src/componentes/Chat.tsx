@@ -28,7 +28,7 @@ import { movimentoReduzido } from '../lib/movimento'
 import { celularNoCampo } from '../lib/telefone'
 import { useConta, useCupons, useAgora, useEnderecosDaConta } from '../lib/conta'
 import { conta as adaptador } from '../lib/conta-adaptador'
-import { useConferirCupom, useCupomNoPedido } from '../lib/cupom-pedido'
+import { tirarCupomDoPedido, useConferirCupom, useCupomAutomatico, useCupomNoPedido, useOutrosQueValem } from '../lib/cupom-pedido'
 import { linhaCupom, nomeCategoria, nomeCurto, nomeDoPremio, situacaoNoPedido, type Situacao } from '../lib/cupom-uso'
 import { rolarPara } from '../lib/rolagem'
 import { trocarEstado } from '../lib/troca'
@@ -114,7 +114,8 @@ export function ChatFolha() {
   // "Outros endereços": com mais de 3 guardados no estado, o resto aparece no toque
   const [todosEnderecos, setTodosEnderecos] = useState(false)
   const avisar = useUI((s) => s.avisar)
-  const { cupom, situacao: situacaoCupom } = useCupomNoPedido()
+  const { cupom, situacao: situacaoCupom, auto: cupomAuto } = useCupomNoPedido()
+  const outrosCupons = useOutrosQueValem()
   const cupons = useCupons()
   const agora = useAgora()
   // as falas da loja (as trocas do dono no painel, ou as de sempre) e o código do pedido que vai na mensagem
@@ -131,6 +132,8 @@ export function ChatFolha() {
   const sugerido =
     modo === 'pedido' && !cupom ? (cupons.find((c) => c.status === 'ativo' && situacaoNoPedido(c, todas, local.uf, agora).tipo === 'ok') ?? null) : null
   useConferirCupom(aberto && passo === 'resumo')
+  // no resumo, o cupom da conta que vale nesse pedido entra sozinho (22/10; encomenda nunca leva cupom)
+  useCupomAutomatico(aberto && modo === 'pedido' && passo === 'resumo')
   // Teclado e leitor de tela: a resposta (o chip ou o campo) sai da tela quando o passo troca, e o foco caía no <body>
   // (o Tab seguinte ia pra página de trás da folha). Quando isso acontece, ele vai pra primeira coisa do passo novo: as
   // opções ou o resumo; o campo, só com mouse e teclado (no celular o teclado não abre sozinho); sem nada, a folha.
@@ -837,13 +840,14 @@ export function ChatFolha() {
             editar={(p) => voltarPara(p)}
             cupom={
               modo === 'pedido' && cupom && situacaoCupom
-                ? { codigo: cupom.codigo, titulo: nomeDoPremio(cupom.retrato), situacao: situacaoCupom, exemplo: cupom.demo && config.carimboDeExemplo }
+                ? { codigo: cupom.codigo, titulo: nomeDoPremio(cupom.retrato), situacao: situacaoCupom, exemplo: cupom.demo && config.carimboDeExemplo, auto: cupomAuto }
                 : null
             }
+            outros={modo === 'pedido' ? outrosCupons.map((c) => ({ codigo: c.codigo, titulo: nomeDoPremio(c.retrato) })) : []}
             sugerido={sugerido ? { codigo: sugerido.codigo, titulo: nomeDoPremio(sugerido.retrato), exemplo: sugerido.demo && config.carimboDeExemplo } : null}
             lugar={cidade ?? canal.nome}
             aplicarCupom={(c) => useSacola.getState().aplicarCupom(c)}
-            tirarCupom={() => useSacola.getState().tirarCupom()}
+            tirarCupom={tirarCupomDoPedido}
             mexerSacola={() => setSacola(true)}
             mandei={async () => {
               if (modo === 'pedido') {
@@ -884,10 +888,10 @@ function desenhar(pedacos: Pedaco[], estilos: Record<string, (valor: string) => 
 
 const codigoPixel = (v: string) => <span className="px px-16">{v}</span>
 
-function Chips({ chips }: { chips: Chip[] }) {
+function Chips({ chips, classe }: { chips: Chip[]; classe?: string }) {
   if (!chips.length) return null
   return (
-    <div className="dm-chips" role="group" aria-label="Respostas rápidas">
+    <div className={classe ? `dm-chips ${classe}` : 'dm-chips'} role="group" aria-label="Respostas rápidas">
       {chips.map((c, i) => (
         <button key={`${i}·${c.rotulo}`} type="button" className="dm-chip toque" onClick={c.acao}>
           {c.rotulo}
@@ -980,6 +984,7 @@ function Resumo({
   editar,
   mandei,
   cupom,
+  outros,
   sugerido,
   lugar,
   aplicarCupom,
@@ -1005,8 +1010,10 @@ function Resumo({
   trocarPraPix: () => void
   editar: (p: Passo) => void
   mandei: () => void
-  /** Cupom aplicado e a situação dele nesse pedido (só no pedido; encomenda nunca leva cupom). */
-  cupom: { codigo: string; titulo: string; situacao: Situacao; exemplo: boolean } | null
+  /** Cupom aplicado e a situação dele nesse pedido (só no pedido; encomenda nunca leva cupom); auto = entrou sozinho. */
+  cupom: { codigo: string; titulo: string; situacao: Situacao; exemplo: boolean; auto: boolean } | null
+  /** Os outros cupons da conta que valem nesse pedido (o "Trocar cupom"), na ordem do automático. */
+  outros: { codigo: string; titulo: string }[]
   /** Cupom guardado que vale nesse pedido, quando nenhum está aplicado. */
   sugerido: { codigo: string; titulo: string; exemplo: boolean } | null
   lugar: string
@@ -1019,12 +1026,35 @@ function Resumo({
   const [naoAbriu, setNaoAbriu] = useState(false)
   // "Sem cupom" esconde a pergunta até sair do resumo
   const [semCupom, setSemCupom] = useState(false)
+  // "Trocar cupom": a pergunta com os outros que valem
+  const [trocandoCupom, setTrocandoCupom] = useState(false)
   // "Pagar com Pix aqui no site" ainda não existe: cada toque (n) mostra a resposta da loja. Com Pix escolhido, o foco
   // volta pro WhatsApp. Com outro pagamento (era), a loja oferece "Trocar pra Pix" e o WhatsApp só ganha o foco depois
   // da troca: ninguém manda o pedido no cartão achando que vai pagar no Pix.
   const [pix, setPix] = useState<{ n: number; era: FormaPagamento | null; trocou: boolean } | null>(null)
   const zap = useRef<HTMLAnchorElement>(null)
   const respostaPix = useRef<HTMLDivElement>(null)
+  // Teclado e leitor de tela no cupom do resumo: o chip tocado some ("Trocar cupom", o cupom escolhido, "Fica esse") e o
+  // foco caía no <body> (revisão de 22/10). Abriu a pergunta: o foco vai pro primeiro cupom dela; escolheu ou ficou: volta
+  // pro "Trocar cupom". Só quando o foco se perdeu, e não na chegada ao resumo (quem cuida dela é a folha).
+  const raiz = useRef<HTMLDivElement>(null)
+  const montou = useRef(false)
+  useEffect(() => {
+    if (!montou.current) {
+      montou.current = true
+      return
+    }
+    const id = requestAnimationFrame(() => {
+      const r = raiz.current
+      const ativo = document.activeElement
+      if (!r || (ativo && ativo !== document.body)) return
+      const trocar = [...r.querySelectorAll<HTMLButtonElement>('.dm-chip')].find((b) => b.textContent === t('cupom.trocar'))
+      const alvo = (trocandoCupom ? r.querySelector<HTMLButtonElement>('.dm-cupom-qual .dm-chip') : null) ?? trocar ?? zap.current
+      alvo?.focus({ preventScroll: true })
+    })
+    return () => cancelAnimationFrame(id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trocandoCupom, cupom?.codigo])
   const aceitaPix = canal.pagamento.opcoes.includes('pix')
   const travado = !encomenda && minimo.tipo === 'falta'
   const cupomOk = cupom?.situacao.tipo === 'ok'
@@ -1062,16 +1092,34 @@ function Resumo({
   }, [pix])
 
   return (
-    <div className="dm-troca dm-atual">
+    <div ref={raiz} className="dm-troca dm-atual">
       <BolhaLoja>{t(encomenda ? 'enc.resumo' : 'resumo.pedido', { nome })}</BolhaLoja>
       <pre className="dm-mensagem" aria-label="Mensagem que vai pro WhatsApp">
         {mensagem}
       </pre>
       {cupom && cupomOk && (
         <BolhaLoja>
-          {desenhar(p('cupom.vale', { cupom: cupom.codigo }), { cupom: codigoPixel })}
+          {desenhar(p(cupom.auto ? 'cupom.sozinho' : 'cupom.vale', { cupom: cupom.codigo }), { cupom: codigoPixel })}
           {cupom.exemplo && <> <span className="carimbo">exemplo</span></>}
         </BolhaLoja>
+      )}
+      {cupom && cupomOk && trocandoCupom && outros.length > 0 && !enviadoEm && (
+        <>
+          <BolhaLoja>{t('cupom.qual')}</BolhaLoja>
+          <Chips
+            classe="dm-cupom-qual"
+            chips={[
+              ...outros.map((o) => ({
+                rotulo: `${o.codigo} · ${o.titulo}`,
+                acao: () => {
+                  aplicarCupom(o.codigo)
+                  setTrocandoCupom(false)
+                },
+              })),
+              { rotulo: t('cupom.manter'), acao: () => setTrocandoCupom(false) },
+            ]}
+          />
+        </>
       )}
       {cupom && !cupomOk && !enviadoEm && (
         <>
@@ -1211,6 +1259,7 @@ function Resumo({
                   { rotulo: t('resumo.mudarEndereco'), acao: () => editar('endereco') },
                   { rotulo: t('resumo.mudarPagamento'), acao: () => editar('pagamento') },
                   { rotulo: t('resumo.mudarObs'), acao: () => editar('obs') },
+                  ...(cupom && cupomOk && outros.length > 0 && !trocandoCupom ? [{ rotulo: t('cupom.trocar'), acao: () => setTrocandoCupom(true) }] : []),
                   ...(cupom && cupomOk ? [{ rotulo: t('cupom.tirar'), acao: tirarCupom }] : []),
                 ]
           }

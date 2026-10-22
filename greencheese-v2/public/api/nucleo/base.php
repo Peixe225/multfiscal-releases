@@ -114,10 +114,11 @@ function gc_metodo(): string
 }
 
 /**
- * Corpo do POST em JSON (até 64 KB), como objeto. $campo vai no erro (a rota diz qual campo culpar).
+ * Corpo do POST em JSON (até 64 KB, ou `$teto` bytes na rota que pede mais e já conferiu a sessão), como objeto. $campo
+ * vai no erro (a rota diz qual campo culpar).
  * @return array<string, mixed>
  */
-function gc_corpo(?string $campo = null): array
+function gc_corpo(?string $campo = null, int $teto = 65536): array
 {
     static $corpo = null;
     if (is_array($corpo)) {
@@ -128,11 +129,11 @@ function gc_corpo(?string $campo = null): array
     if (!str_starts_with($tipo, 'application/json')) {
         throw new ErroApi('invalido', 'Mande os dados em JSON.', 415, $extra);
     }
-    if ((int) ($_SERVER['CONTENT_LENGTH'] ?? 0) > 65536) {
+    if ((int) ($_SERVER['CONTENT_LENGTH'] ?? 0) > $teto) {
         throw new ErroApi('invalido', 'Dados grandes demais.', 413, $extra);
     }
-    $bruto = (string) file_get_contents('php://input', false, null, 0, 65537);
-    if (strlen($bruto) > 65536) {
+    $bruto = (string) file_get_contents('php://input', false, null, 0, $teto + 1);
+    if (strlen($bruto) > $teto) {
         throw new ErroApi('invalido', 'Dados grandes demais.', 413, $extra);
     }
     try {

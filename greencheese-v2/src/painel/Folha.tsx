@@ -35,6 +35,12 @@ interface Props {
   semFechar?: boolean
   /** Classe a mais na folha (o Estúdio do produto, que ocupa mais espaço). */
   className?: string
+  /**
+   * O passo da folha que tem mais de um (escolher → confirmar): quando troca, o conteúdo é outro e o foco vai de novo
+   * pro `focoInicial` (ou o título), como ao abrir. Sem isso o foco ficava no botão que o React reaproveitou no rodapé,
+   * e um segundo Enter fazia outra coisa (revisão de 22/10).
+   */
+  passo?: string
 }
 
 export function Folha(props: Props) {
@@ -42,7 +48,7 @@ export function Folha(props: Props) {
   return createPortal(<FolhaAberta {...props} />, document.body)
 }
 
-function FolhaAberta({ aoFechar, titulo, sub, children, rodape, larga, preso, focoInicial, papel = 'dialog', semFechar, className }: Props) {
+function FolhaAberta({ aoFechar, titulo, sub, children, rodape, larga, preso, focoInicial, papel = 'dialog', semFechar, className, passo }: Props) {
   const idTitulo = useId()
   const idSub = useId()
   const ref = useRef<HTMLDivElement>(null)
@@ -83,6 +89,15 @@ function FolhaAberta({ aoFechar, titulo, sub, children, rodape, larga, preso, fo
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // trocou de passo: o foco vai pro começo do passo novo (o leitor de tela lê o título dele)
+  const passoVisto = useRef(passo)
+  useEffect(() => {
+    if (passoVisto.current === passo) return
+    passoVisto.current = passo
+    ;(focoInicial?.current ?? tituloRef.current)?.focus({ preventScroll: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [passo])
 
   const aoTeclar = (e: React.KeyboardEvent) => {
     if (abertas[abertas.length - 1] !== meu.current) return

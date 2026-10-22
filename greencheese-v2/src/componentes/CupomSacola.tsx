@@ -4,14 +4,16 @@ import { interativoPorId } from '../interativos/registro'
 import { ID_SORTE, useEstadoSorte } from '../interativos/sorte/estado'
 import { T } from '../interativos/sorte/textos'
 import { formatarAte } from '../lib/cupom'
-import { useCupomNoPedido } from '../lib/cupom-pedido'
+import { useEffect, useRef, useState } from 'react'
+import { tirarCupomDoPedido, useCupomNoPedido, useOutrosQueValem } from '../lib/cupom-pedido'
+import { venceAntesDeTodos } from '../lib/cupom-automatico'
+import type { Cupom } from '../store/conta'
 import { fraseDoPremio, nomeCategoria, type Situacao } from '../lib/cupom-uso'
 import { raridadeDoRetrato, SeloRaridade } from '../interativos/sorte/SeloRaridade'
 import { depoisDoHistorico } from '../lib/historico'
 import type { Produto } from '../lib/tipos'
 import { cabemMais } from '../lib/estoque'
 import { disponivelEm, restamEm } from '../store/catalogo'
-import type { RetratoPremio } from '../store/conta'
 import { useLinhasSacola } from '../store/derivados'
 import { nomeCidade, useLocal } from '../store/local'
 import { useLojaMarca } from '../store/loja'
@@ -24,8 +26,17 @@ import './CupomSacola.css'
 // Cupom na sacola: a linha do cupom aplicado (com a situação dele neste pedido) ou, sem cupom, um convite discreto
 // pro "Teste minha sorte". O subtotal nunca muda nem aparece riscado: o desconto é confirmado pela loja no WhatsApp.
 // Na linguagem do story do prêmio: o código como o adesivo dele (branco, em pixel) e o destaque em pixel.
+// O cupom que vale entra sozinho (22/10, src/lib/cupom-pedido.ts, useCupomAutomatico): a linha diz "Entrou sozinho" e
+// deixa trocar (pelos outros que valem, na mesma ordem) ou tirar (aí ele não volta sozinho neste pedido).
 
 const DESCONTO_LOJA = 'desconto confirmado pela loja'
+
+// Teclado e leitor de tela: o chip escolhido ("Usar cupom", "Trocar por") some com a escolha e o foco caía no <body>.
+// Quem escolhe marca aqui, e a linha do cupom novo pega o foco no primeiro botão dela (o "Trocar", que diz o código).
+let focarLinha = false
+function escolheuAqui() {
+  focarLinha = true
+}
 
 function abrirJogo(tela?: TelaInterativo) {
   useUI.getState().setSacola(false)
@@ -33,9 +44,8 @@ function abrirJogo(tela?: TelaInterativo) {
 }
 
 export function CupomSacola({ compacta = false }: { compacta?: boolean }) {
-  const { cupom, situacao } = useCupomNoPedido()
-  if (cupom && situacao)
-    return <CupomAplicado codigo={cupom.codigo} retrato={cupom.retrato} exemplo={cupom.demo && config.carimboDeExemplo} situacao={situacao} compacta={compacta} />
+  const { cupom, situacao, auto } = useCupomNoPedido()
+  if (cupom && situacao) return <CupomAplicado cupom={cupom} exemplo={cupom.demo && config.carimboDeExemplo} situacao={situacao} compacta={compacta} auto={auto} />
   if (compacta) return null
   return <ConviteCupom />
 }
@@ -45,9 +55,30 @@ function Exemplo() {
   return <span className="carimbo cs-exemplo">{T.exemplo}</span>
 }
 
-function CupomAplicado({ codigo, retrato, exemplo, situacao, compacta }: { codigo: string; retrato: RetratoPremio; exemplo: boolean; situacao: Situacao; compacta: boolean }) {
-  const tirar = useSacola((s) => s.tirarCupom)
+function CupomAplicado({ cupom, exemplo, situacao, compacta, auto }: { cupom: Cupom; exemplo: boolean; situacao: Situacao; compacta: boolean; auto: boolean }) {
+  const { codigo, retrato } = cupom
   const adicionar = useSacola((s) => s.adicionar)
+  const aplicar = useSacola((s) => s.aplicarCupom)
+  const avisar = useUI((s) => s.avisar)
+  // os outros cupons da conta que valem neste pedido: o "Trocar" mostra eles
+  const outros = useOutrosQueValem()
+  const [trocando, setTrocando] = useState(false)
+  // abriu o "Trocar por": a lista entra à vista (ela abre embaixo, perto do rodapé fixo) e o foco vai pro 1º cupom
+  const trocar = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!trocando || !trocar.current) return
+    const reduzido = matchMedia('(prefers-reduced-motion: reduce)').matches
+    trocar.current.scrollIntoView({ block: 'nearest', behavior: reduzido ? 'auto' : 'smooth' })
+    trocar.current.querySelector<HTMLButtonElement>('.cs-chip')?.focus({ preventScroll: true })
+  }, [trocando])
+  // escolheu um cupom (aqui no "Trocar por" ou no "Usar cupom"): o foco vem pro primeiro botão da linha nova
+  const raiz = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!focarLinha || compacta) return
+    focarLinha = false
+    const id = requestAnimationFrame(() => raiz.current?.querySelector<HTMLButtonElement>('.cs-acoes button')?.focus({ preventScroll: true }))
+    return () => cancelAnimationFrame(id)
+  }, [codigo, compacta])
   const { todas } = useLinhasSacola()
   const { uf, cidade, cidadeInformada } = useLocal()
   const canal = canalDa(uf)
@@ -79,7 +110,7 @@ function CupomAplicado({ codigo, retrato, exemplo, situacao, compacta }: { codig
     )
   }
   const botaoTirar = (
-    <button type="button" className="cs-botao toque" onClick={tirar} aria-label={`Tirar o cupom ${codigo}`}>
+    <button type="button" className="cs-botao toque" onClick={tirarCupomDoPedido} aria-label={`Tirar o cupom ${codigo}`}>
       {T.tirar}
     </button>
   )
@@ -112,12 +143,34 @@ function CupomAplicado({ codigo, retrato, exemplo, situacao, compacta }: { codig
   switch (situacao.tipo) {
     case 'ok':
       return (
-        <div className="cupom-sacola cs-ok">
+        <div ref={raiz} className="cupom-sacola cs-ok">
           <div className="cs-txt">
             {linha}
-            <p className="legenda cs-nota">{DESCONTO_LOJA}</p>
+            {/* "é o que vence primeiro" só quando é mesmo (um cupom que o cliente tirou antes pode vencer antes) */}
+            <p className="legenda cs-nota">{auto ? `Entrou sozinho${outros.length && venceAntesDeTodos(cupom, outros) ? ': é o que vence primeiro' : ''} · ${DESCONTO_LOJA}` : DESCONTO_LOJA}</p>
           </div>
-          {botaoTirar}
+          <div className="cs-acoes">
+            {outros.length > 0 && (
+              <button type="button" className="cs-botao toque" aria-expanded={trocando} onClick={() => setTrocando((t) => !t)} aria-label={`Trocar o cupom ${codigo}`}>
+                Trocar
+              </button>
+            )}
+            {botaoTirar}
+          </div>
+          {trocando && outros.length > 0 && (
+            <div ref={trocar} className="cs-trocar">
+              <p className="cs-rot">Trocar por</p>
+              <ChipsCupons
+                cupons={outros}
+                aoEscolher={(c) => {
+                  escolheuAqui()
+                  aplicar(c.codigo)
+                  setTrocando(false)
+                  avisar(T.cupomAplicado(c.codigo))
+                }}
+              />
+            </div>
+          )}
         </div>
       )
     case 'falta-produto':
@@ -149,7 +202,7 @@ function CupomAplicado({ codigo, retrato, exemplo, situacao, compacta }: { codig
       return null
   }
   return (
-    <div className="cupom-sacola cs-aviso">
+    <div ref={raiz} className="cupom-sacola cs-aviso">
       <div className="cs-txt">
         {linha}
         <p className="cs-nota">{texto}</p>
@@ -159,6 +212,32 @@ function CupomAplicado({ codigo, retrato, exemplo, situacao, compacta }: { codig
         {acao !== botaoTirar && botaoTirar}
       </div>
     </div>
+  )
+}
+
+/** Os cupons pra escolher, como a linha do cupom aplicado: o código no adesivo e o destaque em pixel. */
+function ChipsCupons({ cupons, aoEscolher }: { cupons: Cupom[]; aoEscolher: (c: Cupom) => void }) {
+  return (
+    <>
+      {cupons.map((c) => {
+        const { destaque, alvo } = fraseDoPremio(c.retrato)
+        return (
+          <button key={c.codigo} type="button" className="cs-chip toque" onClick={() => aoEscolher(c)}>
+            <span className="cs-adesivo px">{c.codigo}</span>
+            <span className="sr-only">: </span>
+            <span className="cs-premio">
+              <span className="cs-destaque px">{destaque}</span> {alvo} <SeloRaridade raridade={raridadeDoRetrato(c.retrato)} />
+              {c.demo && config.carimboDeExemplo && (
+                <>
+                  {' '}
+                  <Exemplo />
+                </>
+              )}
+            </span>
+          </button>
+        )
+      })}
+    </>
   )
 }
 
@@ -178,33 +257,14 @@ function ConviteCupom() {
       <div className="cupom-sacola cs-usar">
         <p className="cs-rot">Usar cupom</p>
         <div className="cs-chips">
-          {r.ativos.slice(0, 3).map((c) => {
-            const { destaque, alvo } = fraseDoPremio(c.retrato)
-            return (
-              <button
-                key={c.codigo}
-                type="button"
-                className="cs-chip toque"
-                onClick={() => {
-                  aplicar(c.codigo)
-                  avisar(T.cupomAplicado(c.codigo))
-                }}
-              >
-                {/* como a linha do cupom aplicado: o código no adesivo e o destaque em pixel */}
-                <span className="cs-adesivo px">{c.codigo}</span>
-                <span className="sr-only">: </span>
-                <span className="cs-premio">
-                  <span className="cs-destaque px">{destaque}</span> {alvo} <SeloRaridade raridade={raridadeDoRetrato(c.retrato)} />
-                  {c.demo && config.carimboDeExemplo && (
-                    <>
-                      {' '}
-                      <Exemplo />
-                    </>
-                  )}
-                </span>
-              </button>
-            )
-          })}
+          <ChipsCupons
+            cupons={r.ativos.slice(0, 3)}
+            aoEscolher={(c) => {
+              escolheuAqui()
+              aplicar(c.codigo)
+              avisar(T.cupomAplicado(c.codigo))
+            }}
+          />
           <button type="button" className="cs-ver toque" onClick={() => setConta(true)}>
             ver todos
           </button>

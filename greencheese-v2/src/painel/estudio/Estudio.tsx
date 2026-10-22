@@ -85,7 +85,8 @@ export function EstudioFoto({ arquivo, nome, preco, cor, aoUsar, aoUsarOriginal,
     let vivo = true
     ;(async () => {
       try {
-        const im = await abrirImagem(arquivo)
+        // a foto enorme do celular já abre reduzida (até 2000 px): nada de 200 megapixels inteiros na memória
+        const im = await abrirImagem(arquivo, LADO_FONTE)
         await respirar()
         const fonte = reduzir(im.img, im.w, im.h, LADO_FONTE)
         im.soltar()
