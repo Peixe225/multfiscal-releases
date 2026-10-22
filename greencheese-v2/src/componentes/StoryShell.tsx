@@ -169,8 +169,9 @@ export function StoryShell(p: Props) {
   // gestos na zona da imagem: toque lateral, segurar para pausar, arrastar para baixo para fechar
   const g = useRef<{ x: number; y: number; t: number; arrastando: boolean; segurou: boolean; timer: number } | null>(null)
   const aoDescer = (e: React.PointerEvent<HTMLDivElement>) => {
-    // adesivos e botões não navegam (um toque que erra o "−" não pode passar o produto)
-    if ((e.target as HTMLElement).closest('button, a, input, .sq-adesivos')) return
+    // adesivos, botões, campos e o rótulo deles não navegam (um toque que erra o "−" não pode passar o produto; quem
+    // toca na pergunta "Qual a taxa do meu bairro?" vai digitar): a busca do bairro inteira, com a resposta, fica parada
+    if ((e.target as HTMLElement).closest('button, a, input, label, .sq-adesivos, .bairro-taxa')) return
     // logo depois de abrir (enquanto a entrada anima), o toque é o 2º de um toque duplo no card: não passa nem volta
     if (performance.now() - abertoEm.current < 550) return
     e.currentTarget.setPointerCapture(e.pointerId)

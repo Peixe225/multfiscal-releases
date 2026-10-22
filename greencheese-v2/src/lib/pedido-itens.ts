@@ -47,6 +47,10 @@ export function corpoDaSacola(d: {
   whatsapp: string
   cupom: CorpoPedido['cupom']
   mensagem: string
+  /** O "Teu bairro" (só no estado que cobra por bairro): vai no campo do bairro da entrega. */
+  bairro?: string | null
+  /** A taxa de entrega que a mensagem mostrou (o servidor guarda; o aviso do grupo diz a da tabela dele). */
+  taxa?: CorpoPedido['taxa']
 }): CorpoPedido {
   return {
     codigo: d.codigo.codigo,
@@ -59,6 +63,8 @@ export function corpoDaSacola(d: {
     whatsapp: d.whatsapp,
     ...itensDoPedido(d.linhas),
     cupom: d.cupom,
+    ...(d.bairro ? { entrega: { endereco: '', rua: '', numero: '', bairro: d.bairro, cep: '', cidade: '', uf: '' } } : {}),
+    ...(d.taxa ? { taxa: d.taxa } : {}),
     mensagem: d.mensagem,
     site: '',
     substitui: d.codigo.substitui,

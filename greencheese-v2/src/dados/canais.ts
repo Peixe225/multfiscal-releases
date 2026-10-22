@@ -21,6 +21,23 @@ export interface Cidade {
   nome: string
 }
 
+/**
+ * Um bairro da lista do dono (a taxa por bairro, pedido do Ian em 22/10): o nome como ele escreveu, a cidade (sem ela =
+ * vale pra qualquer cidade do estado) e a taxa em reais (null = consultar). Nunca vem de fábrica: só o dono põe.
+ */
+export interface BairroTaxa {
+  nome: string
+  cidade?: string
+  taxa: number | null
+}
+
+/**
+ * A taxa por bairro do estado (painel → Estado → Taxa de entrega → Por bairro): 'site' = a lista aparece no site (o
+ * cliente vê a taxa do bairro dele); 'consulta' = o site não mostra valor, só "a taxa depende do bairro" e o botão pra
+ * perguntar na conversa. Sem o campo = uma taxa só pro estado (taxaEntrega), o de sempre.
+ */
+export type TaxaPorBairro = { modo: 'site'; bairros: BairroTaxa[] } | { modo: 'consulta' }
+
 /** [abre, fecha] no formato 'HH:MM'. Fecha depois da meia-noite = madrugada do dia seguinte (ex.: ['18:00', '02:00']). null = fechado. */
 export type Turno = [string, string] | null
 
@@ -41,6 +58,8 @@ export interface Canal {
   /** Domingo = 0 ... sábado = 6. */
   horario: { semana: [Turno, Turno, Turno, Turno, Turno, Turno, Turno]; demo: boolean }
   taxaEntrega: { valor: number | null; texto?: string; demo: boolean }
+  /** A taxa por bairro (só quando o dono escolheu "Por bairro"; sem o campo, vale a taxaEntrega). */
+  taxaPorBairro?: TaxaPorBairro
   /**
    * Pedido mínimo pra entrega, em reais (o dono põe no painel, em Estados; pedido do cliente em 14/10). Sem o campo
    * (ou null) = sem mínimo. Nunca inventado: os estados daqui não têm.

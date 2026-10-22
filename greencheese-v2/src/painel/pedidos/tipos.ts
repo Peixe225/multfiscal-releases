@@ -54,6 +54,11 @@ export interface PedidoAdmin extends PedidoLinha {
   itens: ItemDoPedido[]
   cupom: { codigo: string; regra: string; origem: string } | null
   entrega: { endereco: string; rua: string; numero: string; bairro: string; cep: string; cidade: string; uf: string }
+  /**
+   * A taxa de entrega que o site mostrou (a taxa por bairro, 22/10): o valor (null = sem valor) e o texto da mensagem.
+   * null (ou sem o campo: servidor de antes) = pedido de antes.
+   */
+  taxaSite?: { valor: number | null; texto: string } | null
   pagamento: 'pix' | 'dinheiro' | 'cartao' | null
   troco: number | null
   observacao: string

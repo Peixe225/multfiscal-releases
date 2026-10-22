@@ -1983,4 +1983,156 @@ html.com-teclado .pn-pe-fixo {
 }
 .pn-sel-entrar {
   margin: 0 0 10px;
+/* ───────────────────────── taxa por bairro (Estado → Taxa de entrega → Por bairro) ───────────────────────── */
+
+.pn-rotulo-espaco {
+  display: block;
+  margin-top: 16px;
+}
+.pn-bairros {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 16px;
+}
+.pn-bairros-topo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+}
+.pn-bairros-conta {
+  margin-top: 0;
+}
+.pn-bairros-lista {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--bolha);
+  border-radius: 10px;
+}
+.pn-bairros-lista > li + li {
+  border-top: 1px solid var(--bolha);
+}
+.pn-bairro-linha {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 2px 4px 2px 12px;
+  font-size: 15px;
+}
+.pn-bairro-editando {
+  background: var(--bolha);
+}
+.pn-bairro-nome {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.pn-bairro-nome strong {
+  font-weight: 600;
+}
+.pn-bairro-nome small {
+  color: var(--legenda);
+  font-size: 13px;
+}
+.pn-bairro-taxa {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.pn-bairro-botoes {
+  display: flex;
+  flex: none;
+}
+.pn-bairro-botoes .icone-botao {
+  color: var(--branco);
+}
+/* a prévia do "Colar uma lista": o que entra, o que muda e o que fica de fora */
+.pn-bairros-lista-previa {
+  max-height: 360px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.pn-bairros-lista-previa .pn-bairro-linha {
+  padding: 6px 12px;
+}
+.pn-bairro-nome .pn-bairro-sit {
+  display: block;
+  color: var(--legenda);
+  font-size: 13px;
+}
+.pn-previa-novo .pn-bairro-sit,
+.pn-previa-muda .pn-bairro-sit {
+  color: var(--branco);
+  font-weight: 600;
+}
+.pn-previa-problema,
+.pn-previa-repetido {
+  opacity: 0.75;
+}
+.pn-previa-problema strong,
+.pn-previa-repetido strong {
+  text-decoration: line-through;
+}
+.pn-bairro-problema {
+  display: block;
+  color: var(--branco) !important;
+}
+.pn-bairros-colar {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border: 1px dashed var(--chiado);
+  border-radius: 10px;
+}
+.pn-bairros-colar .pn-dica {
+  margin-top: 0;
+}
+.pn-bairros-previa {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.pn-bairro-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 4px;
+}
+.pn-bairro-campos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.pn-bairro-c {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1 1 160px;
+  min-width: 0;
+}
+.pn-bairro-c-nome {
+  flex: 2 1 200px;
+}
+.pn-bairro-c-taxa {
+  flex: 0 1 150px;
+}
+/* a cidade cabe inteira ("Qualquer cidade" com a seta): no celular estreito ela fica na linha dela e a taxa desce */
+.pn-bairro-c-cidade {
+  flex: 1 1 190px;
+}
+.pn-bairro-form.pn-campo-erro .pn-bairro-c-nome .pn-input {
+  border: 1px dashed var(--branco);
+}
+.pn-bairro-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.pn-bairro-form .pn-erro,
+.pn-bairro-form .pn-dica {
+  margin-top: 0;
 }

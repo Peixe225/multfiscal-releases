@@ -13,9 +13,11 @@
 // em cada tela. No fim, o site de verdade (siteVeLoja): o que o painel mudou aparece no site (preço, foto, "RESTA 1",
 // produto novo, a thumb animada tocando no card, story na ordem do dono, Bahia), o WhatsApp próprio do estado e o "o mesmo pra todos", a rua do
 // mercador no celular desligada e ligada de novo (na home, o 1º story; na Home 2, ?home=2, o fim do Início), o Teste
-// minha sorte desligado, o estado tirado do site e o ETag (304 sem mudança).
+// minha sorte desligado, o estado tirado do site e o ETag (304 sem mudança). A taxa por bairro (o editor, colar a
+// lista com a prévia, os modos) fica em scripts/testar-painel-bairros.mjs, chamado daqui.
 
 import { readFileSync } from 'node:fs'
+import { fluxoBairros } from './testar-painel-bairros.mjs'
 
 /** As telas da loja (o testar-painel.mjs confere 320 px sem rolagem lateral em cada uma). */
 export const ROTAS_LOJA = ['#/mais', '#/ajuda', '#/estoque', '#/produtos', '#/produto/seda-ocb-premium-slim', '#/produtos/novo', '#/loja', '#/loja/estados', '#/loja/estado/mg', '#/loja/estado/ba', '#/loja/stories/mg', '#/loja/categorias', '#/loja/sorte', '#/loja/sorte/novo', '#/loja/sorte/premio/ocb-4-por-3']
@@ -714,6 +716,10 @@ export async function fluxoLoja({ p, BASE, ok, print, axe, foto, fotoClara, vide
   await p.getByText('Minas Gerais: salvo. O site já mostra.').waitFor()
   await saiuDoEstado()
   ok(await esperar(async () => !('pedidoMinimo' in (await loja()).estados.find((x) => x.uf === 'mg'))), 'apagou o mínimo: o site volta a fechar qualquer pedido (sem o campo no GET loja)')
+
+  // a taxa de entrega por bairro (22/10): o modo, a lista, colar com a prévia, os 3 modos no GET loja
+  // (scripts/testar-painel-bairros.mjs)
+  await fluxoBairros({ p, BASE, ok, print, axe })
 
   // story de MG: escolher dois e subir o segundo
   await p.goto(`${BASE}/painel/#/loja/stories/mg`)

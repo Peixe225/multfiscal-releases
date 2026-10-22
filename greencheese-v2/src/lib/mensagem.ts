@@ -1,5 +1,6 @@
 import type { Canal, FormaPagamento } from '../dados/canais'
 import { config } from '../dados/config'
+import { chaveBairro, fraseConsultaBairro, taxaDoBairro } from './bairros'
 import { brl } from './formato'
 import { atendeAindaHoje, ehDiaDeEntregaGratis } from './horario'
 import { agoraLoja } from './relogio'
@@ -36,6 +37,17 @@ export interface DadosPedido {
    * painel. O resto da mensagem não muda.
    */
   codigo?: string | null
+  /**
+   * O bairro do cliente (o do CEP, ou o "Teu bairro" da sacola): só conta quando o estado cobra por bairro (a taxa por
+   * bairro, 22/10). No estado de uma taxa só, nada muda na mensagem.
+   */
+  bairro?: string | null
+  /**
+   * A cidade pra achar o bairro na lista quando a do cabeçalho (`cidade`) não é conhecida: a do CEP (o estado com mais
+   * de uma cidade, e o cliente que não escolheu a dele). A mesma que o servidor usa (a cidade do pedido e, sem ela, a do
+   * CEP). Não muda o cabeçalho.
+   */
+  cidadeBairro?: string | null
 }
 
 export const NOME_PAGAMENTO: Record<FormaPagamento, string> = {
@@ -110,8 +122,103 @@ export function textoEntrega(entrega: 'gratis' | number | null): string {
 }
 
 /**
+ * A entrega do pedido, com a taxa por bairro (22/10): 'gratis-hoje' (o dia de entrega grátis vale por cima de tudo; o
+ * bairro vai junto quando o estado cobra por bairro), 'estado' (uma taxa só: o de sempre, entregaDoCanal), 'bairro' (o
+ * bairro tá na lista com a taxa), 'bairro-consultar' (a lista aparece no site, mas o bairro tá fora dela, marcado
+ * "consultar" ou o cliente não disse) e 'consulta' (o site não mostra valor: o cliente pergunta na conversa).
+ */
+export type Entrega =
+  | { tipo: 'gratis-hoje'; bairro: string | null }
+  | { tipo: 'estado'; valor: number | null }
+  | { tipo: 'bairro'; bairro: string; valor: number }
+  | { tipo: 'bairro-consultar'; bairro: string | null }
+  | { tipo: 'consulta'; bairro: string | null }
+
+export function entregaDoPedido(canal: Canal, bairro: string | null | undefined, cidade: string | null | undefined, agora = new Date(agoraLoja())): Entrega {
+  const e = entregaDoCanal(canal, agora)
+  const t = taxaDoBairro(canal, bairro, cidade)
+  if (e === 'gratis') return { tipo: 'gratis-hoje', bairro: t.tipo === 'estado' ? null : t.bairro }
+  if (t.tipo === 'estado') return { tipo: 'estado', valor: e }
+  if (t.tipo === 'consulta') return { tipo: 'consulta', bairro: t.bairro }
+  if (t.tipo === 'valor') return { tipo: 'bairro', bairro: t.bairro, valor: t.valor }
+  return { tipo: 'bairro-consultar', bairro: t.bairro }
+}
+
+/** O bairro já tá escrito no endereço? (o do CEP sempre tá: aí a taxa não repete o nome) */
+function bairroNoTexto(texto: string, bairro: string): boolean {
+  const b = chaveBairro(bairro)
+  return !!b && ` ${chaveBairro(texto)} `.includes(` ${b} `)
+}
+
+/**
+ * O que vai entre parênteses na linha da entrega do pedido guiado, com a taxa por bairro: "taxa do bairro: R$ 12,00"
+ * (o bairro já tá no endereço) ou "taxa do bairro Copacabana: R$ 12,00", "taxa do bairro a consultar", "taxa a
+ * consultar pelo bairro" (o modo consulta) e, no estado de uma taxa só, o de sempre (textoEntrega).
+ */
+export function entregaNoGuiado(e: Entrega, endereco: string): string {
+  const nome = (b: string | null) => (b && !bairroNoTexto(endereco, b) ? ` ${b}` : '')
+  switch (e.tipo) {
+    case 'gratis-hoje':
+      return textoEntrega('gratis')
+    case 'estado':
+      return textoEntrega(e.valor)
+    case 'bairro':
+      return e.valor === 0 ? `bairro${nome(e.bairro)} sem taxa` : `taxa do bairro${nome(e.bairro)}: ${brl(e.valor)}`
+    case 'bairro-consultar':
+      return `taxa do bairro${nome(e.bairro)} a consultar`
+    case 'consulta':
+      return `taxa a consultar pelo bairro${nome(e.bairro)}`
+  }
+}
+
+/**
+ * A linha da entrega do pedido da sacola, com a taxa por bairro: "Copacabana (taxa R$ 12,00)", "Copacabana (taxa do
+ * bairro a consultar)", "taxa do bairro a consultar" (sem bairro), "taxa a consultar (bairro Copacabana)" (o modo
+ * consulta), "Copacabana (grátis hoje)" e, no estado de uma taxa só, o de sempre (entregaDaSacola).
+ */
+export function entregaNaSacola(e: Entrega): string {
+  switch (e.tipo) {
+    case 'gratis-hoje':
+      // no dia de entrega grátis a sacola não mostra o "Teu bairro" (a taxa não depende dele): o bairro guardado de
+      // outra visita, que o cliente nem vê, não vai na mensagem
+      return entregaDaSacola('gratis')
+    case 'estado':
+      return entregaDaSacola(e.valor)
+    case 'bairro':
+      return `${e.bairro} (${e.valor === 0 ? 'grátis' : `taxa ${brl(e.valor)}`})`
+    case 'bairro-consultar':
+      return e.bairro ? `${e.bairro} (taxa do bairro a consultar)` : 'taxa do bairro a consultar'
+    case 'consulta':
+      return e.bairro ? `taxa a consultar (bairro ${e.bairro})` : 'taxa a consultar (depende do bairro)'
+  }
+}
+
+/**
+ * A taxa que o site mostrou, pra cópia do pedido no servidor (o painel guarda; o aviso do grupo diz a da tabela do
+ * servidor): o valor (null = sem valor) e o texto, sem o bairro (o bairro vai no campo dele).
+ */
+export function taxaParaOServidor(e: Entrega, agora?: Date): { valor: number | null; texto: string; em?: number } {
+  // em: quando o site mostrou essa taxa (a hora da loja que montou a mensagem, unix): o dia de entrega grátis é o do
+  // toque, mesmo que a cópia chegue depois da meia-noite (a fila do aparelho manda de novo por até 3 dias)
+  const em = agora ? { em: Math.floor(agora.getTime() / 1000) } : {}
+  switch (e.tipo) {
+    case 'gratis-hoje':
+      return { valor: null, texto: entregaDaSacola('gratis'), ...em }
+    case 'estado':
+      return { valor: e.valor, texto: entregaDaSacola(e.valor), ...em }
+    case 'bairro':
+      return { valor: e.valor, texto: e.valor === 0 ? 'grátis' : `taxa ${brl(e.valor)}`, ...em }
+    case 'bairro-consultar':
+      return { valor: null, texto: 'taxa do bairro a consultar', ...em }
+    case 'consulta':
+      return { valor: null, texto: 'taxa a consultar', ...em }
+  }
+}
+
+/**
  * Mensagem do pedido no formato combinado com a loja. Quem envia é o cliente. A entrega diz a taxa que o painel pôs
- * (ou o dia de entrega grátis); sem isso (ou com a de exemplo), "taxa a confirmar", como sempre.
+ * (ou o dia de entrega grátis); sem isso (ou com a de exemplo), "taxa a confirmar", como sempre. Com a taxa por bairro,
+ * a do bairro (ou "a consultar").
  */
 export function montarPedido(d: DadosPedido): string {
   const linhas = d.linhas.filter((l) => l.qtd > 0)
@@ -124,7 +231,8 @@ export function montarPedido(d: DadosPedido): string {
   out.push(`Subtotal: ${textoSubtotal(totais(linhas), linhas.length > 0)}`)
   // sem cupom (e sem código), a mensagem fica byte a byte igual (scripts/conferir-mensagem.mjs confere)
   if (d.cupom) out.push(`Cupom: ${d.cupom.codigo} — ${d.cupom.regra} (${d.cupom.origem} · ${d.cupom.exemplo ? 'exemplo · ' : ''}a loja confirma)`)
-  out.push(`Entrega: ${d.endereco.trim() || 'a combinar'} (${textoEntrega(entregaDoCanal(d.canal, d.agora))})`)
+  const endereco = d.endereco.trim() || 'a combinar'
+  out.push(`Entrega: ${endereco} (${entregaNoGuiado(entregaDoPedido(d.canal, d.bairro, d.cidade || d.cidadeBairro, d.agora), endereco)})`)
   out.push(`Pagamento: ${textoPagamento(d.pagamento, d.troco)}`)
   out.push(`Nome: ${d.nome.trim()}`)
   if (d.obs?.trim()) out.push(`Obs.: ${d.obs.trim()}`)
@@ -152,6 +260,8 @@ export interface DadosPedidoSacola {
   cupom?: DadosPedido['cupom']
   agora?: Date
   codigo?: string | null
+  /** O "Teu bairro" da sacola (só conta quando o estado cobra por bairro). */
+  bairro?: string | null
 }
 
 /** A linha da entrega do pedido da sacola: "grátis hoje" · "grátis" (taxa 0) · "taxa R$ 15,50" · "taxa a confirmar". */
@@ -178,7 +288,7 @@ export function montarPedidoSacola(d: DadosPedidoSacola): string {
   }
   out.push(`Subtotal: ${textoSubtotal(totais(linhas), linhas.length > 0)}`)
   if (d.cupom) out.push(`Cupom: ${d.cupom.codigo} — ${d.cupom.regra} (${d.cupom.origem} · ${d.cupom.exemplo ? 'exemplo · ' : ''}a loja confirma)`)
-  out.push(`Entrega: ${entregaDaSacola(entregaDoCanal(d.canal, d.agora))}`)
+  out.push(`Entrega: ${entregaNaSacola(entregaDoPedido(d.canal, d.bairro, d.cidade, d.agora))}`)
   const nome = d.nome?.trim()
   if (nome) out.push(`Nome: ${nome}`)
   out.push(LINHA_ENDERECO_SACOLA)
@@ -288,6 +398,16 @@ export function linkWhatsAppLoja(canal: Canal | null | undefined, texto: string)
 /** DM do Instagram do estado: dúvidas que o site não tira e "Avisar quando chegar". */
 export function linkDM(canal: Canal): string {
   return `https://ig.me/m/${canal.instagram}`
+}
+
+/**
+ * "Perguntar a taxa do meu bairro" (a taxa por bairro no modo consulta, 22/10): a conversa do pedido (o WhatsApp do
+ * estado, ou o da loja) com a frase pronta, "Oi! Quanto fica a entrega pro bairro Copacabana?". É a taxa do pedido, e
+ * não uma dúvida solta: vai pro mesmo WhatsApp que fecha o pedido, onde a frase já chega escrita (a DM do Instagram não
+ * leva texto pronto). Sem WhatsApp nenhum, a DM do estado.
+ */
+export function linkConsultaBairro(canal: Canal, bairro: string | null | undefined): string {
+  return whatsappDoCanal(canal) ? linkWhatsApp(canal, fraseConsultaBairro(bairro)) : linkDM(canal)
 }
 
 export function linkPerfil(instagram: string): string {

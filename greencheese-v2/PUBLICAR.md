@@ -124,6 +124,23 @@ curl -s $B/api/index.php?r=loja | node -e 'let t="";process.stdin.on("data",d=>t
 # o certo: null - nos 4 (ou o caminho uploads/… que o dono pôs); a cor, se o dono não mudou: #d8325f, #b8662a, #a8641f, #7dbb3c
 ```
 
+**A taxa de entrega por bairro (107 e 210, 22/10).** A 107 (`loja_estados.taxa_por`, `bairros_ver`, `bairros`) e a
+210 (`pedidos.taxa_site`, `taxa_site_texto`, `taxa_site_em`) só acrescentam colunas, com o padrão "uma taxa pro estado"
+e a lista vazia: o `GET loja` sai byte a byte igual ao de antes. Antes de publicar (passo 5), anote o ETag do ar e, no
+fim, confira que é o mesmo (se o Matos salvou alguma coisa no painel no meio, o ETag muda por causa dele: aí confira
+só que a resposta não tem `taxaPorBairro` em estado nenhum):
+
+```bash
+curl -sI "$B/api/index.php?r=loja" | grep -i etag                              # antes e depois: o mesmo
+curl -s "$B/api/index.php?r=loja" | grep -c taxaPorBairro                      # 0 (ninguém pôs "Por bairro" ainda)
+```
+
+E peça ao Ian (ou ao Matos) pra abrir o painel → Mais → Estados → um estado: a seção "Taxa de entrega" tem de mostrar
+"Uma taxa pro estado" marcado, com a taxa de sempre (é o `admin-loja` trazendo `taxaPor`, `bairrosVer` e `bairros`).
+O envio arquivo a arquivo não quebra o painel no meio (as contas da taxa por bairro moram no `loja-migracoes.php`, que
+sobe antes do `loja-painel.php` e do `loja-validar.php`; o `testar-api` sobe os arquivos um a um sobre o commit do
+passo 4 e confere que nenhuma rota dá erro 500): quem estiver salvando durante o envio não leva "Deu ruim".
+
 Se o Ian estava com o painel aberto desde antes da publicação, peça pra ele recarregar (ou fechar e abrir de novo)
 antes de salvar um produto: o painel de antes, numa aba que não recarregou, manda de volta ao salvar a foto e a thumb que
 o formulário tinha na tela (nos 4, a de fábrica que a 106 tirou). O painel novo só manda a mídia que mudou no formulário.
@@ -139,11 +156,18 @@ já reduzida.
 
 - **O site não abre ou o painel quebrou:** publique de novo a versão de antes (passo 4), com o mesmo cuidado (sem o
   `api/instalacao.php`). O banco continua bom: as migrações só acrescentam coluna e linha, e o código de antes ignora o
-  que é novo. A 106 não volta com o código de antes: ela fica anotada e os 4 do material de 11/10 continuam no desenho
+  que é novo (a exceção é o estado que já tá "Por bairro": veja logo abaixo). A 106 não volta com o código de antes: ela fica anotada e os 4 do material de 11/10 continuam no desenho
   (o site de antes mostra o que o banco diz). Pra ligar de novo a foto de fábrica num deles: pela API
   (`admin-produto-salvar` com `foto: 'produtos/<id>.webp'`; o arquivo continua no build) ou por uma migração nova. Pelo
   painel não tem como escolher um arquivo de `produtos/`: só mandando a foto de novo pelo Estúdio, e aí ela vira uma
   foto do dono, em `uploads/`.
+- **Voltar depois que o Matos pôs algum estado "Por bairro"** (a taxa por bairro, 22/10): o código de antes não
+  conhece a 107 e volta a mostrar a todos os clientes a **taxa única guardada** desse estado (a que o painel novo
+  esconde enquanto o estado está "Por bairro", e que pode estar velha sem o dono saber). Antes de voltar, veja no
+  painel → Estados quais dizem "taxa por bairro" e confira com ele a taxa única de cada um (no painel novo: "Uma taxa
+  pro estado" com o valor certo, ou "A confirmar", e salvar); só então publique a versão de antes. A lista de bairros
+  fica guardada no banco e volta quando a versão nova voltar. Os pedidos continuam entrando (o código de antes ignora
+  as colunas da 210).
 - **O banco estragou** (raro): no hPanel, apague `api/privado/loja.sqlite-wal` e `loja.sqlite-shm` e suba a cópia de
   segurança do Ian como `api/privado/loja.sqlite`.
 - **O endereço antigo não redireciona:** confira se o `.htaccess` da pasta subiu (é o primeiro da lista).

@@ -1232,7 +1232,7 @@ export async function lojaMigracao(t) {
   const todas = JSON.parse(
     execFileSync(PHP, ['-r', `define('GC_API', 1); foreach (['banco', 'loja-migracoes', 'pedido-migracoes', 'contas-migracoes', 'painel-dono'] as $m) { if (is_file($argv[1] . "/nucleo/$m.php")) require $argv[1] . "/nucleo/$m.php"; } echo json_encode(array_keys(gc_migracoes()));`, join(raiz, 'public', 'api')], { encoding: 'utf8' }),
   )
-  igual(todas.filter((n) => n < 200), [1, 100, 101, 102, 103, 104, 105, 106], 'as migrações até a loja são 1, 100, 101, 102 (o vídeo e a capa do produto), 103 (a raridade dos prêmios), 104 (o material da loja de 11/10), 105 (o pedido mínimo pra entrega) e 106 (os 4 do material de 11/10 de volta pro desenho)')
+  igual(todas.filter((n) => n < 200), [1, 100, 101, 102, 103, 104, 105, 106, 107], 'as migrações até a loja são 1, 100, 101, 102 (o vídeo e a capa do produto), 103 (a raridade dos prêmios), 104 (o material da loja de 11/10), 105 (o pedido mínimo pra entrega), 106 (os 4 do material de 11/10 de volta pro desenho) e 107 (a taxa de entrega por bairro)')
   igual(todas.filter((n) => n >= 300), [300, 301], 'as do painel do dono (300–399): 300 (os códigos da senha) e 301 (a marca "Bebida alcoólica" das categorias)')
   // a 301 mexe na tabela da loja: sem o módulo da loja carregado, ela espera (como a 206 com o dos pedidos)
   const semLoja = JSON.parse(

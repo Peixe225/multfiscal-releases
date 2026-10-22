@@ -115,5 +115,15 @@ function gc_migracoes_pedidos(): array
         209 => <<<'SQL'
         ALTER TABLE pedidos ADD COLUMN origem TEXT NOT NULL DEFAULT 'guiado' CHECK (origem IN ('sacola','guiado'));
         SQL,
+        // 210: a taxa de entrega que o site mostrou (a taxa por bairro, pedido do Ian em 22/10): o valor em centavos (null
+        // = sem valor: a confirmar, a consultar ou grátis hoje), o texto da mensagem ("taxa R$ 12,00", "taxa do bairro a
+        // consultar"…) e quando o site mostrou (unix, a hora da loja no toque: o dia de entrega grátis é o do toque, não o
+        // da chegada da cópia que atrasou). O bairro já tinha coluna. Só informa: o aviso do grupo diz a taxa pela tabela
+        // do servidor. Pedido de antes fica sem (null, '' e null).
+        210 => <<<'SQL'
+        ALTER TABLE pedidos ADD COLUMN taxa_site INTEGER;
+        ALTER TABLE pedidos ADD COLUMN taxa_site_texto TEXT NOT NULL DEFAULT '';
+        ALTER TABLE pedidos ADD COLUMN taxa_site_em INTEGER;
+        SQL,
     ];
 }

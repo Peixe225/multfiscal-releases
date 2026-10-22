@@ -403,8 +403,13 @@ export async function rodadaSacola({ browser, base, contexto, conferir, foto, vi
     conferir(!!guiado && mensagemDe(v.href) === guiado.mensagem, 'o botão da sacola abre a mesma mensagem do guiado (com o endereço e o Pix), o mesmo código')
     await foto(page, 'sacola-10-depois-do-guiado')
     const n1 = recebidos.length
+    // no celular o WhatsApp abre por cima e a página fica escondida; aqui ela continua à vista, e 1,6 s depois do toque
+    // a sacola troca o "Já mandei" pelo "Não abriu? … Copiar o pedido". Esperar 1,5 s e tocar no "Já mandei" corria
+    // contra esse 1,6 s (a revisão de 22/10 caiu aí): a página fica "escondida" enquanto o WhatsApp estaria aberto
+    await page.evaluate(() => Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'hidden' }))
     await page.locator('a.sacola-zap').click()
-    await page.waitForTimeout(1500)
+    await page.waitForTimeout(1800)
+    await page.evaluate(() => delete document.visibilityState)
     conferir(recebidos.length === n1, `o toque na sacola não manda outra cópia por cima do guiado (${recebidos.length - n1} cópia(s))`)
     await page.getByRole('button', { name: 'Já mandei: limpar a sacola' }).click()
     await page.waitForTimeout(500)

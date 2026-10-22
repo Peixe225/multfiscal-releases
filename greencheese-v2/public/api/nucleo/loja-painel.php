@@ -87,7 +87,12 @@ function gc_loja_estado_admin(array $e): array
         'whatsapp' => $e['whatsapp'] === null ? null : (string) $e['whatsapp'],
         'cidades' => $publico['cidades'],
         'horario' => $publico['horario'],
-        'taxaEntrega' => $publico['taxaEntrega'],
+        // a taxa única guardada (no modo por bairro, o site vê "a confirmar" no lugar dela; o painel mostra a de verdade)
+        'taxaEntrega' => ['valor' => $e['taxa'] === null ? null : gc_reais((int) $e['taxa']), 'demo' => (bool) $e['taxa_demo']],
+        // a taxa por bairro (107): o modo, como o cliente vê e a lista inteira (também no modo consulta, que o site não vê)
+        'taxaPor' => gc_loja_taxa_por($e),
+        'bairrosVer' => gc_loja_bairros_ver($e),
+        'bairros' => array_map('gc_loja_bairro_publico', gc_loja_bairros_de($e)),
         'pedidoMinimo' => $publico['pedidoMinimo'] ?? null,
         'entregaGratis' => $gratis === null ? null : $gratis + ['demo' => (bool) $e['entrega_gratis_demo']],
         'pagamento' => $publico['pagamento'],
@@ -734,7 +739,8 @@ function gc_rota_admin_categorias_ordem(): array
 function gc_rota_admin_estado_salvar(): array
 {
     gc_exigir_dono();
-    $c = gc_corpo();
+    // a lista de bairros (até 400, com a cidade) passa dos 64 KB de sempre no pior caso: aqui vale até 256 KB
+    $c = gc_corpo(null, 262144);
     gc_loja_exigir_semeada();
     return gc_transacao(static function () use ($c): array {
         $uf = gc_uf($c['uf'] ?? null);
@@ -771,7 +777,11 @@ function gc_rota_admin_estado_salvar(): array
             $minimo = in_array('pedido_minimo', $mudou, true)
                 ? ['pedidoMinimo' => $col['pedido_minimo'] === null ? null : gc_reais((int) $col['pedido_minimo']), 'pedidoMinimoAntes' => ($atual['pedido_minimo'] ?? null) === null ? null : gc_reais((int) $atual['pedido_minimo'])]
                 : [];
-            gc_evento('painel', $acao, 'estado:' . $uf, ['uf' => $uf, 'campos' => $mudou] + $minimo);
+            // a taxa por bairro vai com o modo e quantos bairros: a Atividade diz o que mudou
+            $bairros = array_intersect(['taxa_por', 'bairros_ver', 'bairros'], $mudou) !== []
+                ? ['taxaPor' => $col['taxa_por'] ?? 'estado', 'bairrosVer' => $col['bairros_ver'] ?? 'site', 'bairros' => count((array) gc_loja_lido($col['bairros'] ?? '[]', []))]
+                : [];
+            gc_evento('painel', $acao, 'estado:' . $uf, ['uf' => $uf, 'campos' => $mudou] + $minimo + $bairros);
         }
         return ['estado' => gc_loja_estado_admin((array) gc_um('SELECT * FROM loja_estados WHERE uf = ?', [$uf]))] + gc_loja_carimbo();
     });
@@ -1208,6 +1218,10 @@ function gc_loja_evento_texto(string $acao, array $d): ?string
                 : "Pôs o pedido mínimo pra entrega de $uf em " . gc_brl((int) round((float) $d['pedidoMinimo'] * 100)),
             in_array('pedido_minimo', (array) ($d['campos'] ?? []), true) => "Editou o atendimento de $uf (pedido mínimo: "
                 . (($d['pedidoMinimo'] ?? null) === null ? 'sem mínimo' : gc_brl((int) round((float) $d['pedidoMinimo'] * 100))) . ')',
+            // a taxa por bairro: o modo e quantos bairros na lista
+            array_intersect(['taxa_por', 'bairros_ver', 'bairros'], (array) ($d['campos'] ?? [])) !== [] => ($d['taxaPor'] ?? 'estado') === 'bairro'
+                ? "Taxa de entrega de $uf por bairro (" . (((int) ($d['bairros'] ?? 0)) === 0 ? 'lista vazia' : gc_loja_plural((int) $d['bairros'], 'bairro', 'bairros')) . (($d['bairrosVer'] ?? 'site') === 'site' ? ', aparece no site)' : ', o cliente consulta)')
+                : "Taxa de entrega de $uf: uma só pro estado",
             default => "Editou o atendimento de $uf",
         },
         'stories-salvos' => (int) ($d['produtos'] ?? 0) === 0 ? "Story do Início de $uf no automático" : "Escolheu o story do Início de $uf (" . gc_loja_plural((int) $d['produtos'], 'produto', 'produtos') . ')',

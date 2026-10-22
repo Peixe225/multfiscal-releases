@@ -191,22 +191,22 @@ export async function testarPedidos(t) {
     execFileSync(PHP, ['-r', `${base1} $d = new PDO('sqlite:${arq}'); $d->exec(gc_migracoes_base()[1]); $d->exec('PRAGMA user_version = 1'); $d->exec("INSERT INTO ajustes (chave, valor) VALUES ('sal', 'velho')");`])
     const ler = () => JSON.parse(execFileSync(PHP, ['-r', `${base1} $db = gc_db(); echo json_encode(['m' => $db->query('SELECT numero, aplicada_em FROM migracoes ORDER BY numero')->fetchAll(PDO::FETCH_ASSOC), 'v' => (int) $db->query('PRAGMA user_version')->fetchColumn(), 'versao' => gc_versao_banco(), 'sal' => gc_ajuste('sal'), 'tabelas' => $db->query("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name")->fetchAll(PDO::FETCH_COLUMN)]);`], { env: { ...process.env, GC_DADOS: d }, encoding: 'utf8' }))
     const a = ler()
-    igual(a.m.map((x) => Number(x.numero)), [1, 200, 201, 202, 208, 209], 'banco antigo: a 1 entra anotada e as dos pedidos (200–202, 208 e a 209 da origem) rodam')
-    igual([a.v, a.versao, a.sal], [1, 209, 'velho'], 'user_version segue contando só a base (código de antes não recria nada), o Diagnóstico mostra a 209 e os dados de antes ficam')
+    igual(a.m.map((x) => Number(x.numero)), [1, 200, 201, 202, 208, 209, 210], 'banco antigo: a 1 entra anotada e as dos pedidos (200–202, 208, a 209 da origem e a 210 da taxa do site) rodam')
+    igual([a.v, a.versao, a.sal], [1, 210, 'velho'], 'user_version segue contando só a base (código de antes não recria nada), o Diagnóstico mostra a 210 e os dados de antes ficam')
     ok(['avisos_envios', 'avisos_tentativas', 'migracoes', 'pedidos', 'textos_pedido', 'usuarios'].every((x) => a.tabelas.includes(x)), `tabelas novas criadas (${a.tabelas.join(', ')})`)
     const b = ler()
     igual(b.m, a.m, 'de novo: nada roda nem muda (aplicada_em igual)')
     const novo = join(tmp, 'banco-novo')
     mkdirSync(novo, { recursive: true })
     const c = JSON.parse(execFileSync(PHP, ['-r', `${base1} $db = gc_db(); echo json_encode($db->query('SELECT numero FROM migracoes ORDER BY numero')->fetchAll(PDO::FETCH_COLUMN));`], { env: { ...process.env, GC_DADOS: novo }, encoding: 'utf8' }))
-    igual(c.map(Number), [1, 200, 201, 202, 208, 209], 'banco novo: todas, na ordem')
+    igual(c.map(Number), [1, 200, 201, 202, 208, 209, 210], 'banco novo: todas, na ordem')
     // o index.php de antes (sem o módulo dos pedidos) com o banco.php novo, no meio da publicação: só a base, sem erro
     const meio = join(tmp, 'banco-meio')
     mkdirSync(meio, { recursive: true })
     const so = JSON.parse(execFileSync(PHP, ['-r', `define('GC_API', '1'); require '${raiz}public/api/nucleo/base.php'; require '${raiz}public/api/nucleo/banco.php'; $db = gc_db(); echo json_encode($db->query('SELECT numero FROM migracoes ORDER BY numero')->fetchAll(PDO::FETCH_COLUMN));`], { env: { ...process.env, GC_DADOS: meio }, encoding: 'utf8' }))
     igual(so.map(Number), [1], 'sem o módulo carregado (publicação no meio): só a base, e as dos pedidos esperam a próxima chamada')
     const depois = JSON.parse(execFileSync(PHP, ['-r', `${base1} $db = gc_db(); echo json_encode($db->query('SELECT numero FROM migracoes ORDER BY numero')->fetchAll(PDO::FETCH_COLUMN));`], { env: { ...process.env, GC_DADOS: meio }, encoding: 'utf8' }))
-    igual(depois.map(Number), [1, 200, 201, 202, 208, 209], 'com o módulo de volta: as que faltavam rodam')
+    igual(depois.map(Number), [1, 200, 201, 202, 208, 209, 210], 'com o módulo de volta: as que faltavam rodam')
   }
 
   // ─── pedido ───────────────────────────────────────────────────────────────────────────────────────────────────

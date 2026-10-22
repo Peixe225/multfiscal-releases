@@ -391,9 +391,18 @@ function gc_loja_entrega_gratis(array $e): ?array
     return is_array($g) && isset($g['dias'], $g['texto']) ? ['dias' => array_values(array_map('intval', (array) $g['dias'])), 'texto' => (string) $g['texto']] : null;
 }
 
+// ─── taxa de entrega por bairro (migração 107) ─────────────────────────────────────────────────────────────────
+// As contas da taxa por bairro (a chave do bairro, o modo, a lista, achar o bairro do cliente) moram em
+// loja-migracoes.php, junto do gc_loja_tem_bairros: na publicação arquivo a arquivo ele sobe antes do loja-painel.php e
+// do loja-validar.php, que já usam essas funções (o loja.php sobe depois deles: '-' vem antes de '.').
+
 /**
  * O Canal do site (src/dados/canais.ts). whatsapp: null = o da loja (sempre null com "o mesmo pra todos" ligado).
  * entregaGratis traz os dias (a lista) e, pro site de antes, diaSemana (o primeiro).
+ * Taxa por bairro (107): taxaPorBairro { modo: 'site', bairros } (a lista vai pro site) ou { modo: 'consulta' } (só o
+ * modo: a lista fica no painel e no aviso do grupo), e a taxaEntrega vai "a confirmar" (o site de antes, guardado no
+ * celular do cliente, não mostra a taxa única no lugar da do bairro). No modo de sempre, nada disso: o JSON (e o ETag)
+ * fica igual ao de antes.
  */
 function gc_loja_estado_publico(array $e, bool $mesmoParaTodos): array
 {
@@ -417,6 +426,12 @@ function gc_loja_estado_publico(array $e, bool $mesmoParaTodos): array
     // ETag também); pôr, trocar ou tirar muda os dois
     if (($e['pedido_minimo'] ?? null) !== null) {
         $publico['pedidoMinimo'] = gc_reais((int) $e['pedido_minimo']);
+    }
+    if (gc_loja_taxa_por($e) === 'bairro') {
+        $publico['taxaEntrega'] = ['valor' => null, 'demo' => false];
+        $publico['taxaPorBairro'] = gc_loja_bairros_ver($e) === 'site'
+            ? ['modo' => 'site', 'bairros' => array_map('gc_loja_bairro_publico', gc_loja_bairros_de($e))]
+            : ['modo' => 'consulta'];
     }
     return $publico;
 }

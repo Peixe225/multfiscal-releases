@@ -691,6 +691,51 @@ function gc_aviso_endereco(array $p): string
 }
 
 /**
+ * A linha da entrega no aviso do grupo: o endereço e a taxa. O estado com uma taxa só: "(taxa a confirmar)", como
+ * sempre. O estado que cobra por bairro (migração 107): a taxa pela tabela do SERVIDOR, nunca pelo número que veio do
+ * site (o que não bateu vai no "Confere o valor na conversa"): "(taxa do bairro R$ 12,00, pela tabela)", "(taxa do
+ * bairro a consultar)" (fora da lista, marcado "consultar" ou sem bairro; e o bairro com taxas diferentes em cidades
+ * diferentes, com o cliente sem cidade: as opções) ou "(entrega grátis hoje)" (o site disse e o dia do toque é de entrega
+ * grátis do estado). Sem endereço (a sacola), o bairro vai junto do "na conversa".
+ */
+function gc_aviso_entrega(array $p): string
+{
+    $endereco = gc_aviso_endereco($p);
+    // o dia de entrega grátis é o do toque (a hora que o site mandou na cópia), não o da chegada: a cópia que atrasou
+    // depois da meia-noite de um dia grátis continua grátis, dizendo quando o cliente pediu
+    $quando = function_exists('gc_pedido_quando_do_site') ? gc_pedido_quando_do_site($p) : (int) $p['criado_em'];
+    $t = function_exists('gc_pedido_taxa_da_tabela') ? gc_pedido_taxa_da_tabela($p, $quando) : null;
+    if ($t === null) {
+        return $endereco . ' _(taxa a confirmar)_';
+    }
+    $bairro = $t['bairro'];
+    if ($bairro !== '' && (string) $p['rua'] === '') {
+        $endereco .= ' · bairro ' . $bairro;
+    }
+    $sp = new DateTimeZone('America/Sao_Paulo');
+    $diaDe = static fn (int $u): string => (new DateTimeImmutable('@' . $u))->setTimezone($sp)->format('Y-m-d');
+    if ($t['diaGratis'] && gc_pedido_site_gratis_hoje($p)) {
+        $toque = (new DateTimeImmutable('@' . $quando))->setTimezone($sp);
+        $taxa = $diaDe($quando) === $diaDe((int) $p['criado_em'])
+            ? 'entrega grátis hoje'
+            : 'entrega grátis: o cliente pediu ' . ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'][(int) $toque->format('w')] . ' ' . $toque->format('d/m H:i') . ', dia de entrega grátis';
+    } elseif ($bairro === '') {
+        $taxa = 'taxa do bairro a consultar: o cliente não disse o bairro';
+    } elseif (($t['varias'] ?? []) !== [] && function_exists('gc_pedido_opcoes_texto')) {
+        $taxa = 'taxa do bairro a consultar: o cliente não disse a cidade, e a tabela tem ' . gc_pedido_opcoes_texto($t['varias']);
+    } elseif ($t['achado'] === null) {
+        $taxa = 'taxa do bairro a consultar: fora da lista';
+    } elseif ($t['achado']['taxa'] === null) {
+        $taxa = 'taxa do bairro a consultar';
+    } elseif ($t['achado']['taxa'] === 0) {
+        $taxa = 'bairro sem taxa, pela tabela';
+    } else {
+        $taxa = 'taxa do bairro ' . gc_brl($t['achado']['taxa']) . ', pela tabela';
+    }
+    return $endereco . ' _(' . $taxa . ')_';
+}
+
+/**
  * A mensagem do pedido no grupo: o cabeçalho com o código, de onde e quando; os itens (com o combo), o subtotal e o
  * cupom; entrega, pagamento, cliente e obs.; e o link do painel. Negrito/itálico do WhatsApp, sem emoji.
  * @param array<string, mixed> $p
@@ -750,7 +795,7 @@ function gc_aviso_texto_pedido(array $p, ?array $antes, array $conferir = []): s
             $l[] = 'Cupom: ' . $cupom['codigo'] . (($cupom['regra'] ?? '') !== '' ? ' — ' . $cupom['regra'] : '') . ' _(a loja confirma)_';
         }
         $l[] = '';
-        $l[] = '*Entrega:* ' . gc_aviso_endereco($p) . ' _(taxa a confirmar)_';
+        $l[] = '*Entrega:* ' . gc_aviso_entrega($p);
         $pag = $p['pagamento'] === null ? 'a combinar' : GC_NOME_PAGAMENTO[(string) $p['pagamento']] ?? (string) $p['pagamento'];
         if ($p['pagamento'] === 'dinheiro') {
             $pag .= $p['troco'] === null ? ' (sem troco)' : ' (troco pra ' . gc_brl((int) $p['troco']) . ')';

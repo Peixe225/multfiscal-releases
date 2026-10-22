@@ -33,7 +33,8 @@
 // movimento reduzido), em scripts/revisao-sorte.mjs; o pedido rápido da sacola (um toque no WhatsApp, a cópia no
 // servidor, o pedido mínimo do estado travando e destravando, o pedido guiado discreto), em scripts/revisao-sacola.mjs; o
 // cupom direto no pedido (o que vale entra sozinho na sacola e no resumo do guiado, trocar, tirar, o que não vale, a conta
-// da loja e o prêmio do jogo), em scripts/revisao-cupom.mjs.
+// da loja e o prêmio do jogo), em scripts/revisao-cupom.mjs; a taxa de entrega por bairro (o "Teu bairro" da sacola, a
+// busca no story, o modo consulta), em scripts/revisao-bairros.mjs.
 // Uso: npm run dev (em outro terminal) e depois: node scripts/revisao.mjs [rodada] [url-base]
 // GC_LOJA_REAL=1: o GET loja vai pro servidor de verdade (o resto da API continua simulado).
 // IP e CEP são simulados para o resultado ser repetível.
@@ -48,6 +49,7 @@ import { rodadaThumb } from './revisao-thumb.mjs'
 import { rodadaSorte } from './revisao-sorte.mjs'
 import { rodadaSacola } from './revisao-sacola.mjs'
 import { rodadaCupom } from './revisao-cupom.mjs'
+import { rodadaBairros } from './revisao-bairros.mjs'
 
 const rodada = process.argv[2] ?? 'r1'
 const base = process.argv[3] ?? 'http://localhost:5173/'
@@ -3123,6 +3125,8 @@ await rodadaSorte({ browser, base, contexto, conferir, foto, vigiarSemRede })
 await rodadaSacola({ browser, base, contexto, conferir, foto, vigiarSemRede })
 // ---------- o cupom direto no pedido (scripts/revisao-cupom.mjs): o que vale entra sozinho, na sacola e no guiado ----------
 await rodadaCupom({ browser, base, contexto, conferir, foto, vigiarSemRede })
+// ---------- a taxa de entrega por bairro (scripts/revisao-bairros.mjs): o "Teu bairro" da sacola, a busca no story ----------
+await rodadaBairros({ browser, base, contexto, conferir, foto, vigiarSemRede, clicar, digitar })
 
 await browser.close()
 writeFileSync(`${dir}relatorio.json`, JSON.stringify({ erros, relatorio }, null, 2))

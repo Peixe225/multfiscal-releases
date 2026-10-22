@@ -55,6 +55,11 @@ export interface CorpoPedido {
   subtotalTexto?: string
   cupom?: { codigo: string; regra: string; origem: string } | null
   entrega?: { endereco: string; rua: string; numero: string; bairro: string; cep: string; cidade: string; uf: string }
+  /**
+   * A taxa de entrega que a mensagem mostrou (a taxa por bairro, 22/10): o valor em reais (null = sem valor) e o texto
+   * ("taxa R$ 12,00", "taxa do bairro a consultar", "grátis hoje"…), sem o bairro. Só informa.
+   */
+  taxa?: { valor: number | null; texto: string }
   pagamento?: FormaPagamento | null
   troco?: number | null
   obs?: string

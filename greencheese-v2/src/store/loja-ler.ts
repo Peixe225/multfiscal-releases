@@ -1,9 +1,10 @@
 // A conferência do que chega do servidor (o `loja` do GET r=loja, API.md), campo a campo: item torto fica de fora e
 // texto com palavra da lista volta pro embutido. Num pedaço à parte (src/store/loja.ts carrega só quando precisa: a
 // resposta nova do servidor, ou a loja guardada por outro build): a primeira tela não paga por ela.
-import type { Canal, Cidade, Emblema, FormaPagamento, Turno } from '../dados/canais'
+import type { BairroTaxa, Canal, Cidade, Emblema, FormaPagamento, TaxaPorBairro, Turno } from '../dados/canais'
 import type { Premio } from '../dados/sorte'
 import { ufPorSigla } from '../dados/ufs'
+import { chaveBairro, MAX_BAIRROS, TAXA_BAIRRO_MAX } from '../lib/bairros'
 import { palavraProibida, validarPremios } from '../lib/premios'
 import { ehRaridade } from '../lib/raridade'
 import { chancesDe } from '../lib/sorteio'
@@ -120,6 +121,31 @@ function turnoDe(v: unknown): Turno | undefined {
   return undefined
 }
 
+/**
+ * A taxa por bairro (22/10): { modo: 'site', bairros } ou { modo: 'consulta' }. Bairro sem nome fica de fora; taxa que
+ * não fecha (fora de R$ 0 a R$ 500) vira "consultar" (nunca um valor inventado); o mesmo bairro duas vezes na mesma
+ * cidade, só o primeiro. Sem o campo, ou com outro modo: undefined (uma taxa só, o de sempre).
+ */
+function taxaPorBairroDe(v: unknown): TaxaPorBairro | undefined {
+  if (!obj(v)) return undefined
+  if (v.modo === 'consulta') return { modo: 'consulta' }
+  if (v.modo !== 'site') return undefined
+  const bairros: BairroTaxa[] = []
+  const vistos = new Set<string>()
+  for (const b of Array.isArray(v.bairros) ? v.bairros : []) {
+    if (!obj(b) || bairros.length >= MAX_BAIRROS) continue
+    const nome = textoDe(b.nome, 60)
+    if (!nome || !chaveBairro(nome)) continue
+    const cidade = textoDe(b.cidade, 60)
+    const chave = `${chaveBairro(cidade ?? '')}|${chaveBairro(nome)}`
+    if (vistos.has(chave)) continue
+    vistos.add(chave)
+    const t = numeroDe(b.taxa)
+    bairros.push({ nome, ...(cidade ? { cidade } : {}), taxa: t != null && t >= 0 && t <= TAXA_BAIRRO_MAX ? Math.round(t * 100) / 100 : null })
+  }
+  return { modo: 'site', bairros }
+}
+
 function canalDe(v: unknown): Canal | null {
   if (!obj(v)) return null
   const uf = typeof v.uf === 'string' && UF.test(v.uf) ? v.uf : null
@@ -132,6 +158,7 @@ function canalDe(v: unknown): Canal | null {
   const t = obj(v.taxaEntrega) ? v.taxaEntrega : {}
   const taxa = numeroDe(t.valor)
   const minimo = numeroDe(v.pedidoMinimo)
+  const taxaPorBairro = taxaPorBairroDe(v.taxaPorBairro)
   const g = obj(v.entregaGratis) ? v.entregaGratis : null
   const diasCrus = g && Array.isArray(g.dias) ? g.dias : g && typeof g.diaSemana === 'number' ? [g.diaSemana] : []
   const dias = [...new Set(diasCrus.filter((d): d is number => Number.isInteger(d) && (d as number) >= 0 && (d as number) <= 6))]
@@ -162,6 +189,8 @@ function canalDe(v: unknown): Canal | null {
     emblema: EMBLEMAS.has(v.emblema as Emblema) ? (v.emblema as Emblema) : 'generico',
     // o pedido mínimo pra entrega (só vem quando o dono pôs um): de R$ 0,01 a R$ 1.000,00, como o servidor confere
     ...(minimo != null && minimo > 0 && minimo <= 1000 ? { pedidoMinimo: Math.round(minimo * 100) / 100 } : {}),
+    // a taxa por bairro (só vem quando o dono escolheu "Por bairro")
+    ...(taxaPorBairro ? { taxaPorBairro } : {}),
   }
 }
 

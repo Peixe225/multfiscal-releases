@@ -77,6 +77,13 @@ export interface ProdutoAdmin {
   atualizadoEm: string
 }
 
+/** Um bairro da lista da taxa por bairro: o nome, a cidade (sem = qualquer cidade do estado) e a taxa (null = consultar). */
+export interface BairroAdmin {
+  nome: string
+  cidade?: string
+  taxa: number | null
+}
+
 export interface EstadoAdmin {
   uf: string
   nome: string
@@ -89,6 +96,14 @@ export interface EstadoAdmin {
   cidades: { slug: string; nome: string }[]
   horario: { semana: Turno[]; demo: boolean }
   taxaEntrega: { valor: number | null; demo: boolean }
+  /**
+   * A taxa por bairro (migração 107; servidor de antes não manda = uma taxa só): 'estado' (a taxaEntrega) ou 'bairro';
+   * bairrosVer = como o cliente vê ('site': a lista aparece no site; 'consulta': ele pergunta na conversa); bairros =
+   * a lista do dono (a taxa em reais, null = consultar; a cidade só quando o bairro é de uma cidade só do estado).
+   */
+  taxaPor?: 'estado' | 'bairro'
+  bairrosVer?: 'site' | 'consulta'
+  bairros?: BairroAdmin[]
   /** Pedido mínimo pra entrega, em reais (null = sem mínimo). Servidor de antes da migração 105 não manda (= sem). */
   pedidoMinimo?: number | null
   entregaGratis: { dias: number[]; texto: string; demo: boolean } | null
@@ -206,6 +221,10 @@ export interface EstadoCorpo {
   taxaDemo?: boolean
   /** Pedido mínimo pra entrega em reais; null (ou 0) = sem mínimo. */
   pedidoMinimo?: number | null
+  /** A taxa por bairro (só vai o que mudou: o servidor mantém o que não veio). */
+  taxaPor?: 'estado' | 'bairro'
+  bairrosVer?: 'site' | 'consulta'
+  bairros?: BairroAdmin[]
   entregaGratis?: { dias: number[]; texto: string } | null
   entregaGratisDemo?: boolean
   pagamentos?: FormaPagamento[]

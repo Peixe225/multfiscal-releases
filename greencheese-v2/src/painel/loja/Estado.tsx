@@ -1,11 +1,14 @@
 // Um estado (o canal de atendimento), na ordem do dia a dia: horário de entrega (com madrugada e "repetir nos outros
-// dias"), taxa ou "a confirmar", o pedido mínimo pra entrega (vazio = sem mínimo), entrega grátis por dia da semana, formas de pagamento, cidades, WhatsApp próprio ou o da
+// dias"), taxa (uma pro estado, ou por bairro: a lista de bairros, que aparece no site ou o cliente consulta) ou "a
+// confirmar", o pedido mínimo pra entrega (vazio = sem mínimo), entrega grátis por dia da semana, formas de pagamento, cidades, WhatsApp próprio ou o da
 // loja e o perfil (Instagram, nome do perfil e do destaque). Por último, separado, o "Tirar [estado] do site", que
 // confirma antes (e o recado tem "Desfazer"); estado fora do site tem o "Pôr de volta no site" em cima. Estado que a
 // loja ainda não tem: o mesmo formulário ativa ele.
 // Na edição, só vai o que mudou: o que ninguém mexeu continua como estava (e o que era exemplo continua exemplo).
 // O que tá sendo digitado fica guardado no aparelho até salvar (recarregar ou voltar não perde) e sair com mudança
-// pergunta antes (sair.tsx). A cidade digitada sem tocar em "Adicionar" entra ao salvar.
+// pergunta antes (sair.tsx). A cidade digitada sem tocar em "Adicionar" entra ao salvar, e o bairro digitado (ou a
+// edição sem o "Pronto") também. Tirar uma cidade que tem bairro na lista da taxa pergunta antes e tira os bairros dela
+// junto (o servidor recusa a lista com bairro de cidade que o estado não tem).
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import * as apiBase from '../api'
 import { ErroApi } from '../api'
@@ -21,7 +24,10 @@ import { Aviso, Botao, Campo, Carregando, Ic, TituloTela } from '../ui'
 import * as api from './api'
 import { comEstado, guardarLoja, useLoja } from './dados'
 import { DIAS, DIAS_CURTOS, nomeUf, NOMES_UF, PAGAMENTOS } from './nomes'
-import type { EstadoAdmin, EstadoCorpo, FormaPagamento, Turno } from './tipos'
+import { chaveBairro } from '../../lib/bairros'
+import { Bairros } from './Bairros'
+import { aplicarRascunho, RASCUNHO_VAZIO, rascunhoPendente, type RascunhoBairro } from './bairros-colar'
+import type { BairroAdmin, EstadoAdmin, EstadoCorpo, FormaPagamento, Turno } from './tipos'
 import { horaValida, lerInstagram, lerPreco, lerWhatsapp, mascaraHora, normalizarHora, problemaNoTexto, tamanho } from './validar'
 
 interface Dia {
@@ -41,6 +47,10 @@ interface Form {
   semana: Dia[]
   taxaModo: 'confirmar' | 'valor'
   taxa: string
+  /** A taxa por bairro (22/10): uma taxa pro estado ou por bairro; como o cliente vê; a lista. */
+  taxaPor: 'estado' | 'bairro'
+  bairrosVer: 'site' | 'consulta'
+  bairros: BairroAdmin[]
   /** Pedido mínimo pra entrega (vazio = sem mínimo). O nome é o do campo no servidor: o erro dele cai aqui. */
   pedidoMinimo: string
   gratis: boolean
@@ -49,6 +59,8 @@ interface Form {
   pagamentos: FormaPagamento[]
   /** A cidade digitada que ainda não foi pra lista (entra ao salvar, com as mesmas conferências do "Adicionar"). */
   cidadeNova: string
+  /** O bairro digitado (ou a edição) que ainda não foi pra lista: entra ao salvar, como a cidade nova. */
+  bairroNovo: RascunhoBairro
 }
 
 type Erros = Partial<Record<string, string>>
@@ -67,12 +79,17 @@ function doEstado(e: EstadoAdmin): Form {
     semana: e.horario.semana.map((t) => (t ? { aberto: true, abre: t[0], fecha: t[1] } : { ...DIA_PADRAO })),
     taxaModo: e.taxaEntrega.valor == null ? 'confirmar' : 'valor',
     taxa: reaisNoCampo(e.taxaEntrega.valor),
+    // servidor de antes da migração 107: uma taxa só
+    taxaPor: e.taxaPor === 'bairro' ? 'bairro' : 'estado',
+    bairrosVer: e.bairrosVer === 'consulta' ? 'consulta' : 'site',
+    bairros: e.bairros ?? [],
     pedidoMinimo: reaisNoCampo(e.pedidoMinimo ?? null),
     gratis: !!e.entregaGratis,
     gratisDias: e.entregaGratis?.dias ?? [],
     gratisTexto: e.entregaGratis?.texto ?? 'Sextou com entrega grátis!',
     pagamentos: e.pagamento.opcoes,
     cidadeNova: '',
+    bairroNovo: RASCUNHO_VAZIO,
   }
 }
 
@@ -88,13 +105,26 @@ function novo(uf: string): Form {
     semana: Array.from({ length: 7 }, () => ({ ...DIA_PADRAO })),
     taxaModo: 'confirmar',
     taxa: '',
+    taxaPor: 'estado',
+    bairrosVer: 'site',
+    bairros: [],
     pedidoMinimo: '',
     gratis: false,
     gratisDias: [],
     gratisTexto: 'Sextou com entrega grátis!',
     pagamentos: ['pix', 'dinheiro', 'cartao'],
     cidadeNova: '',
+    bairroNovo: RASCUNHO_VAZIO,
   }
+}
+
+/**
+ * O formulário mudou? O bairro aberto pra editar sem mudar nada não conta (só o que mudaria a lista: o nome digitado,
+ * ou a edição diferente do bairro); no "Uma taxa pro estado" a lista não aparece e o rascunho dela não conta.
+ */
+function mexeuEm(f: Form, limpo: string | null): boolean {
+  if (JSON.stringify({ ...f, bairroNovo: RASCUNHO_VAZIO }) !== limpo) return true
+  return f.taxaPor === 'bairro' && rascunhoPendente(f.bairros, f.bairroNovo)
 }
 
 const slug = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
@@ -114,7 +144,9 @@ function validar(f: Form): Erros {
     if (!horaValida(x.abre) || !horaValida(x.fecha)) e[`dia-${i}`] = `Horário de ${DIAS[i].toLowerCase()} em HH:MM (ex.: 14:00).`
     else if (x.abre === x.fecha) e[`dia-${i}`] = `Em ${DIAS[i].toLowerCase()}, abre e fecha no mesmo horário.`
   })
-  if (f.taxaModo === 'valor' && (f.taxa.trim() === '' || lerPreco(f.taxa) == null)) e.taxa = 'Taxa de R$ 0,01 a R$ 100.000,00, ou “A confirmar”.'
+  if (f.taxaPor === 'bairro') {
+    // a taxa única fica guardada como tá (o painel não manda); a lista é conferida no "Adicionar" e no servidor
+  } else if (f.taxaModo === 'valor' && (f.taxa.trim() === '' || lerPreco(f.taxa) == null)) e.taxa = 'Taxa de R$ 0,01 a R$ 100.000,00, ou “A confirmar”.'
   else if (f.taxaModo === 'valor' && lerPreco(f.taxa) === 0) e.taxa = 'Taxa R$ 0,00: pra entregar sem taxa, liga “Entrega grátis” nos dias que valem (logo aqui embaixo).'
   if (f.pedidoMinimo.trim() !== '') {
     const m = lerPreco(f.pedidoMinimo)
@@ -177,6 +209,10 @@ function corpo(f: Form, uf: string, antes: Form | null): EstadoCorpo {
   // estado novo sem nenhum dia aberto: o horário fica "a confirmar" (o servidor marca como exemplo e o site não mostra)
   if (mudou('semana') && (antes || f.semana.some((x) => x.aberto))) c.horario = horario(f)
   if (mudou('taxaModo') || mudou('taxa')) c.taxa = f.taxaModo === 'valor' ? (lerPreco(f.taxa) ?? null) : null
+  // a taxa por bairro: só o que mudou (o servidor mantém o resto)
+  if (mudou('taxaPor')) c.taxaPor = f.taxaPor
+  if (mudou('bairrosVer')) c.bairrosVer = f.bairrosVer
+  if (mudou('bairros')) c.bairros = f.bairros.map((b) => ({ nome: b.nome, ...(b.cidade ? { cidade: b.cidade } : {}), taxa: b.taxa }))
   // vazio ou R$ 0 = sem mínimo (o servidor guarda null)
   if (mudou('pedidoMinimo')) c.pedidoMinimo = f.pedidoMinimo.trim() ? (lerPreco(f.pedidoMinimo) || null) : null
   if (mudou('gratis') || mudou('gratisDias') || mudou('gratisTexto')) c.entregaGratis = f.gratis ? { dias: [...f.gratisDias].sort(), texto: f.gratisTexto.trim() } : null
@@ -326,7 +362,7 @@ export function Estado({ uf }: { uf: string }) {
     antes.current = e ? base : null
     limpo.current = JSON.stringify(base)
     const guardado = lidoJson<{ form: Form; base: string }>(chaveRascunho)
-    if (guardado && guardado.base === limpo.current && JSON.stringify(guardado.form) !== limpo.current) {
+    if (guardado && guardado.base === limpo.current && mexeuEm({ ...base, ...guardado.form }, limpo.current)) {
       setF({ ...base, ...guardado.form, ativo: base.ativo })
       setVoltouRascunho(true)
     } else {
@@ -336,11 +372,11 @@ export function Estado({ uf }: { uf: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [l, e])
 
-  const mexeu = !!f && JSON.stringify(f) !== limpo.current
+  const mexeu = !!f && mexeuEm(f, limpo.current)
   // o rascunho no aparelho (some quando volta a ficar igual ao do servidor)
   useEffect(() => {
     if (!f || limpo.current === null) return
-    const t = window.setTimeout(() => lembrarJson(chaveRascunho, JSON.stringify(f) === limpo.current ? null : { form: f, base: limpo.current }), 300)
+    const t = window.setTimeout(() => lembrarJson(chaveRascunho, mexeuEm(f, limpo.current) ? { form: f, base: limpo.current } : null), 300)
     return () => window.clearTimeout(t)
   }, [f, chaveRascunho])
 
@@ -366,6 +402,13 @@ export function Estado({ uf }: { uf: string }) {
       const p = problemaNaCidade(cidade, fn.cidades)
       if (p) n.cidades = p
       else fn = { ...fn, cidades: [...fn.cidades, cidade], cidadeNova: '' }
+    }
+    // o bairro digitado sem o "Adicionar" (ou a edição sem o "Pronto"): entra na lista, com as mesmas conferências; não
+    // servindo, o erro aparece embaixo dele e nada vai pro servidor. No "Uma taxa pro estado", o rascunho fica de fora
+    if (fn.taxaPor === 'bairro' && rascunhoPendente(fn.bairros, fn.bairroNovo)) {
+      const r = aplicarRascunho(fn.bairros, fn.bairroNovo, fn.cidades.length > 1)
+      if (r.lista) fn = { ...fn, bairros: r.lista, bairroNovo: RASCUNHO_VAZIO }
+      else n.bairros = r.problema
     }
     if (fn !== f) setF(fn)
     setErros(n)
@@ -401,7 +444,11 @@ export function Estado({ uf }: { uf: string }) {
     } catch (err) {
       if (err instanceof ErroApi && err.campo) {
         const c = err.campo === 'horario' ? `dia-${Number(err.dados.dia ?? 0)}` : err.campo === 'entregaGratis' ? 'gratisTexto' : err.campo
-        setErros({ [c]: err.codigo === 'proibido' ? 'Tabaco e vape não entram no site (regra da Anvisa pra venda online).' : err.message })
+        // a lista de bairros: o servidor diz qual (o índice na lista que foi)
+        const qual = err.campo === 'bairros' && typeof err.dados.indice === 'number' ? fn.bairros[err.dados.indice] : undefined
+        const msg = err.codigo === 'proibido' ? (c === 'bairros' && err.dados.lista === 'palavras' ? err.message : 'Tabaco e vape não entram no site (regra da Anvisa pra venda online).') : err.message
+        setErros({ [c]: qual && !msg.includes(qual.nome) ? `${qual.nome}: ${msg}` : msg })
+        if (c === 'bairros') document.getElementById('e-bairros')?.focus()
       } else setGeral(apiBase.mensagemDe(err))
       return false
     } finally {
@@ -581,51 +628,114 @@ export function Estado({ uf }: { uf: string }) {
           </Secao>
 
           <Secao titulo="Taxa de entrega" id="s-e-taxa">
-            {e?.taxaEntrega.demo && <Aviso tipo="info">Essa taxa é de exemplo: o site mostra “a confirmar” até tu salvar a de verdade.</Aviso>}
+            {/* a taxa por bairro (pedido do Ian em 22/10): uma taxa pro estado (o de sempre) ou por bairro */}
             <fieldset className="pn-opcoes">
-              <legend className="sr-only">Taxa de entrega</legend>
+              <legend className="sr-only">Como cobra a taxa de entrega</legend>
               <label className="pn-opcao">
-                <input type="radio" name="taxaModo" checked={f.taxaModo === 'confirmar'} onChange={() => mudar('taxaModo', 'confirmar')} />
+                <input type="radio" name="taxaPor" checked={f.taxaPor === 'estado'} onChange={() => mudar('taxaPor', 'estado')} />
                 <span className="pn-opcao-marca" aria-hidden="true" />
                 <span>
-                  A confirmar
-                  <small>a loja passa no WhatsApp</small>
+                  Uma taxa pro estado
+                  <small>a mesma pra todo bairro</small>
                 </span>
               </label>
               <label className="pn-opcao">
-                <input type="radio" name="taxaModo" checked={f.taxaModo === 'valor'} onChange={() => mudar('taxaModo', 'valor')} />
+                <input type="radio" name="taxaPor" checked={f.taxaPor === 'bairro'} onChange={() => mudar('taxaPor', 'bairro')} />
                 <span className="pn-opcao-marca" aria-hidden="true" />
-                <span>Um valor fixo</span>
+                <span>
+                  Por bairro
+                  <small>cada bairro com a sua (bom pra cidade grande)</small>
+                </span>
               </label>
             </fieldset>
-            {f.taxaModo === 'valor' && (
-              <Campo id="e-taxa" rotulo="Taxa" erro={erros.taxa}>
-                {(a) => (
-                  <div className="pn-reais">
-                    <span aria-hidden="true">R$</span>
-                    <input {...a} name="taxa" className="pn-input" inputMode="decimal" autoComplete="off" placeholder="10,00" value={f.taxa} onChange={(x) => mudar('taxa', x.target.value.replace(/[^\d,.]/g, '').slice(0, 10))} />
-                  </div>
+            {f.taxaPor === 'estado' ? (
+              <>
+                {e?.taxaEntrega.demo && <Aviso tipo="info">Essa taxa é de exemplo: o site mostra “a confirmar” até tu salvar a de verdade.</Aviso>}
+                <fieldset className="pn-opcoes">
+                  <legend className="sr-only">Taxa de entrega</legend>
+                  <label className="pn-opcao">
+                    <input type="radio" name="taxaModo" checked={f.taxaModo === 'confirmar'} onChange={() => mudar('taxaModo', 'confirmar')} />
+                    <span className="pn-opcao-marca" aria-hidden="true" />
+                    <span>
+                      A confirmar
+                      <small>a loja passa no WhatsApp</small>
+                    </span>
+                  </label>
+                  <label className="pn-opcao">
+                    <input type="radio" name="taxaModo" checked={f.taxaModo === 'valor'} onChange={() => mudar('taxaModo', 'valor')} />
+                    <span className="pn-opcao-marca" aria-hidden="true" />
+                    <span>Um valor fixo</span>
+                  </label>
+                </fieldset>
+                {f.taxaModo === 'valor' && (
+                  <Campo id="e-taxa" rotulo="Taxa" erro={erros.taxa}>
+                    {(a) => (
+                      <div className="pn-reais">
+                        <span aria-hidden="true">R$</span>
+                        <input {...a} name="taxa" className="pn-input" inputMode="decimal" autoComplete="off" placeholder="10,00" value={f.taxa} onChange={(x) => mudar('taxa', x.target.value.replace(/[^\d,.]/g, '').slice(0, 10))} />
+                      </div>
+                    )}
+                  </Campo>
                 )}
-              </Campo>
-            )}
-            {taxaZero && !erros.taxa && (
-              <Aviso
-                tipo="info"
-                acao={
-                  <Botao
-                    variante="cinza"
-                    className="pn-botao-p"
-                    onClick={() => {
-                      setF((s) => (s ? { ...s, taxaModo: 'confirmar', taxa: '', gratis: true } : s))
-                      window.requestAnimationFrame(() => document.getElementById('e-gratis-0')?.focus())
-                    }}
+                {taxaZero && !erros.taxa && (
+                  <Aviso
+                    tipo="info"
+                    acao={
+                      <Botao
+                        variante="cinza"
+                        className="pn-botao-p"
+                        onClick={() => {
+                          setF((s) => (s ? { ...s, taxaModo: 'confirmar', taxa: '', gratis: true } : s))
+                          window.requestAnimationFrame(() => document.getElementById('e-gratis-0')?.focus())
+                        }}
+                      >
+                        Ligar entrega grátis
+                      </Botao>
+                    }
                   >
-                    Ligar entrega grátis
-                  </Botao>
-                }
-              >
-                Taxa R$ 0? Liga a “Entrega grátis” nos dias que valem: nesses dias o site mostra a frase do dia.
-              </Aviso>
+                    Taxa R$ 0? Liga a “Entrega grátis” nos dias que valem: nesses dias o site mostra a frase do dia.
+                  </Aviso>
+                )}
+              </>
+            ) : (
+              <>
+                <p id="e-bairros-ver-rot" className="pn-rotulo pn-rotulo-espaco">
+                  Como o cliente vê
+                </p>
+                <fieldset className="pn-opcoes" aria-labelledby="e-bairros-ver-rot">
+                  <label className="pn-opcao">
+                    <input type="radio" name="bairrosVer" checked={f.bairrosVer === 'site'} onChange={() => mudar('bairrosVer', 'site')} />
+                    <span className="pn-opcao-marca" aria-hidden="true" />
+                    <span>
+                      Aparece no site
+                      <small>o cliente acha a taxa do bairro dele (no atendimento e na sacola)</small>
+                    </span>
+                  </label>
+                  <label className="pn-opcao">
+                    <input type="radio" name="bairrosVer" checked={f.bairrosVer === 'consulta'} onChange={() => mudar('bairrosVer', 'consulta')} />
+                    <span className="pn-opcao-marca" aria-hidden="true" />
+                    <span>
+                      O cliente consulta
+                      <small>o site diz “a taxa depende do bairro” e o botão abre o WhatsApp com a pergunta pronta</small>
+                    </span>
+                  </label>
+                </fieldset>
+                <Bairros
+                  bairros={f.bairros}
+                  cidades={f.cidades}
+                  ver={f.bairrosVer}
+                  erro={erros.bairros}
+                  aoMudar={(b) => {
+                    mudar('bairros', b)
+                    if (erros.bairros) setErros((x) => ({ ...x, bairros: undefined }))
+                  }}
+                  rascunho={f.bairroNovo}
+                  aoMudarRascunho={(r) => {
+                    setF((s) => (s ? { ...s, bairroNovo: r } : s))
+                    if (erros.bairros) setErros((x) => ({ ...x, bairros: undefined }))
+                  }}
+                />
+              </>
             )}
           </Secao>
 
@@ -729,8 +839,42 @@ export function Estado({ uf }: { uf: string }) {
                 if (erros.cidades) setErros((x) => ({ ...x, cidades: undefined }))
               }}
               aoMudar={(c) => {
-                mudar('cidades', c)
                 if (erros.cidades) setErros((x) => ({ ...x, cidades: undefined }))
+                // a cidade que sai e tem bairro na lista da taxa: pergunta antes, e os bairros dela saem junto (bairro de
+                // cidade que o estado não tem nunca casa no site, e o servidor recusa a lista com ele)
+                const saiu = f.cidades.filter((x) => !c.includes(x))
+                const daCidade = (b: BairroAdmin) => !!b.cidade && saiu.some((x) => chaveBairro(x) === chaveBairro(b.cidade ?? ''))
+                const deles = f.bairros.filter(daCidade)
+                if (!deles.length) {
+                  mudar('cidades', c)
+                  return
+                }
+                const nomes = deles.slice(0, 4).map((b) => b.nome)
+                const lista = deles.length > 4 ? `${nomes.join(', ')} e mais ${deles.length - 4}` : nomes.length > 1 ? `${nomes.slice(0, -1).join(', ')} e ${nomes[nomes.length - 1]}` : nomes[0]
+                const um = deles.length === 1
+                setConfirmacao({
+                  titulo: `Tirar ${saiu[0]}?`,
+                  texto: (
+                    <p>
+                      {um ? `O bairro ${lista} é` : `Os bairros ${lista} são`} de {saiu[0]}, na lista da taxa de entrega. Tirando a cidade, {um ? 'ele sai' : 'eles saem'} da lista junto. Se é a mesma cidade com outro nome, adiciona a cidade nova primeiro e muda a cidade {um ? 'do bairro' : 'dos bairros'} na lista.
+                    </p>
+                  ),
+                  botao: um ? `Tirar ${saiu[0]} e o bairro` : `Tirar ${saiu[0]} e os ${deles.length} bairros`,
+                  cancelar: 'Deixa como tá',
+                  perigo: true,
+                  acao: async () => {
+                    setF((s) =>
+                      s
+                        ? {
+                            ...s,
+                            cidades: c,
+                            bairros: s.bairros.filter((b) => !daCidade(b)),
+                            bairroNovo: saiu.some((x) => x === s.bairroNovo.cidade) ? { ...s.bairroNovo, cidade: '' } : s.bairroNovo,
+                          }
+                        : s,
+                    )
+                  },
+                })
               }}
               erro={erros.cidades}
             />
