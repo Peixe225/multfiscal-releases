@@ -1,16 +1,18 @@
-import { useState, type ReactNode } from 'react'
+import { useCallback, useState, type ReactNode } from 'react'
 import { config } from '../dados/config'
 import { PixelArte } from '../arte/PixelArte'
 import { emblemas } from '../arte/pixel/emblemas'
 import { brl } from '../lib/formato'
 import { ehDiaDeEntregaGratis, entregaGratisNoDia, resumoHorario, situacao } from '../lib/horario'
 import { alvoDeSaida } from '../lib/ambiente'
+import { modoBairro } from '../lib/bairros'
 import { NOME_PAGAMENTO, linkDM } from '../lib/mensagem'
 import { minimoDoCanal } from '../lib/pedido-minimo'
 import { useChat } from '../store/chat'
 import { nomeCidade, useLocal } from '../store/local'
 import { useCanalDa } from '../store/loja'
 import { useUI } from '../store/ui'
+import { BairroTaxa } from './BairroTaxa'
 import { Demo, Icone } from './comum'
 import { StoryShell } from './StoryShell'
 import './InfoStory.css'
@@ -30,6 +32,9 @@ export function InfoStory() {
   const canal = useCanalDa(uf)
   const abrirChat = useChat((s) => s.abrir)
   const [i, setI] = useState(0)
+  // a busca do bairro (a taxa por bairro, 22/10): enquanto a pessoa digita ou lê a resposta, o story fica parado
+  const [mexendoBairro, setMexendoBairro] = useState(false)
+  const aoMexerBairro = useCallback((m: boolean) => setMexendoBairro(m), [])
   if (!aberto || !canal) return null
 
   const sit = situacao(canal)
@@ -39,6 +44,8 @@ export function InfoStory() {
   // a taxa do painel (0 = o dono disse que não tem taxa); a de exemplo só com o carimbo à vista
   const taxa = canal.taxaEntrega.valor != null && (demoVisivel || !canal.taxaEntrega.demo) ? canal.taxaEntrega.valor : null
   const minimo = minimoDoCanal(canal)
+  const porBairro = modoBairro(canal)
+  const cidadeDoAtendimento = nomeCidade(canal, cidade, cidadeInformada) ?? (canal.cidades.length === 1 ? canal.cidades[0].nome : null)
   const quadros: ReactNode[] = [
     <Quadro key="c">
       <Icone nome="moto" tamanho={96} />
@@ -61,7 +68,20 @@ export function InfoStory() {
     <Quadro key="e">
       <Icone nome="moto" tamanho={64} />
       <p className="info-titulo px">ENTREGA</p>
-      {sextou ? (
+      {porBairro ? (
+        <>
+          {/* a taxa por bairro: a busca "Qual a taxa do meu bairro?" (aparece no site) ou o "Perguntar" (o cliente
+              consulta); no dia de entrega grátis, a frase do dia em cima e a taxa dos outros dias embaixo */}
+          {sextou && (
+            <p className="adesivo-texto-bloco">
+              <span className="adesivo-texto">{sextou.texto}</span>
+            </p>
+          )}
+          {sextou && <p className="info-txt legenda">Nos outros dias:</p>}
+          <BairroTaxa canal={canal} cidade={cidadeDoAtendimento} variante="story" aoMexer={aoMexerBairro} />
+          {!sextou && canal.entregaGratis && <p className="info-txt legenda">{entregaGratisNoDia(canal)}</p>}
+        </>
+      ) : sextou ? (
         <>
           <p className="adesivo-texto-bloco">
             <span className="adesivo-texto">{sextou.texto}</span>
@@ -120,6 +140,7 @@ export function InfoStory() {
     </Quadro>,
   ]
 
+  const quadroAtual = (quadros[Math.min(i, quadros.length - 1)] as { key?: string | null } | undefined)?.key ?? null
   return (
     <StoryShell
       id="story-info"
@@ -132,6 +153,7 @@ export function InfoStory() {
       }}
       origem={null}
       duracaoMs={4500}
+      pausadoFora={mexendoBairro && quadroAtual === 'e'}
       instagram={canal.instagram}
       rotuloCabecalho={canal.destaque}
       rotulo={`Destaque ${canal.destaque}`}

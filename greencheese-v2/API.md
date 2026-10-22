@@ -227,6 +227,11 @@ interface CorpoPedido {
   troco?: number | null          // só com dinheiro; arredondado pra centavos (50.555 → 50,56); acima de R$ 100.000 ou
                                  // ilegível vira null (não recusa: o troco só informa)
   obs?: string                   // até 200
+  taxa?: { valor: number | null; texto: string } // a taxa de entrega que o site mostrou (taxa por bairro, 22/10): valor em
+                                 // reais (0 = grátis; null = a consultar / grátis hoje) e o texto da sacola ('taxa R$ 12,00',
+                                 // 'taxa do bairro a consultar', 'grátis hoje'); só informa: torto vira null / '', sem o campo
+                                 // (o site de antes) = sem taxa do site. O bairro vai em entrega.bairro (na sacola, entrega só
+                                 // com o bairro: { bairro })
   // encomenda
   encomenda?: { produto: string; quantidade: string; referencia: string } // produto 2 a 120; referência até 300
   mensagem: string               // a mensagem exata do WhatsApp: começa com "PEDIDO GREEN CHEESE" (ou "ENCOMENDA …") e tem
@@ -255,6 +260,13 @@ interface CorpoPedido {
   site, R$ 1.499,00 no catálogo.`, até 6 itens) e uma linha no aviso do grupo, logo embaixo do subtotal
   (`_Confere o valor na conversa: …_`). O preço que o dono acabou de mudar no painel também aparece assim (o cliente viu
   o de antes). Catálogo que não dá pra ler (loja não instalada, a 105 ainda não rodou): nada a marcar.
+- **Taxa de entrega por bairro** (22/10; DECISOES 20): o pedido guarda o bairro e a taxa que o site mostrou
+  (`taxa_site` em centavos e `taxa_site_texto`, migração 210; no painel, `taxaSite`), mas no estado que cobra por bairro
+  o aviso do grupo diz a taxa **da tabela do servidor** (ver "Avisos no WhatsApp"). Só no modo "aparece no site", o que
+  não bate entra na anotação, como o preço: `taxa do bairro Copacabana: R$ 1,00 no site, R$ 12,00 na tabela.`,
+  `taxa do bairro Tijuca: R$ 15,00 no site, a consultar na tabela.`, `taxa de entrega: R$ 9,00 no site, sem o bairro.`,
+  `entrega grátis hoje no site, mas hoje não é dia de entrega grátis.` (o dia pelo horário de Brasília e os
+  `entregaGratis.dias` do estado). Nunca recusa.
 - **Campo informativo não derruba o pedido**: cupom, pagamento e troco tortos ficam de fora (null) e o pedido entra.
   Campo estrutural torto (`uf`, `nome`, `itens`, `subtotal`, `encomenda`) com a **mensagem certa** (começa com o
   cabeçalho e tem a linha do código): o pedido entra só com a mensagem (sem itens; o estado e o nome saem do cabeçalho e
@@ -287,7 +299,9 @@ O banco cresce por migrações numeradas com registro (tabela `migracoes`, `gc_m
 faixas: 1–99 base, 100–199 loja, 200–299 pedidos e contas). As desta frente moram em `nucleo/pedido-migracoes.php`
 (`gc_migracoes_pedidos()`, somada só quando o módulo existe): `200` pedidos, `201` avisos no WhatsApp (envios e
 tentativas), `202` falas trocadas do pedido guiado, `209` a origem do pedido (`pedidos.origem`: `'sacola'` ou `'guiado'`, padrão
-`'guiado'` — os de antes eram todos do chat; só acrescenta a coluna). Nunca edite uma que já foi pro ar: acrescente a próxima da faixa.
+`'guiado'` — os de antes eram todos do chat; só acrescenta a coluna), `210` a taxa que o site mostrou (`pedidos.taxa_site`
+em centavos, `NULL` = sem valor, e `pedidos.taxa_site_texto`, padrão `''`: taxa por bairro, 22/10; só acrescenta as colunas,
+os pedidos de antes ficam sem). Nunca edite uma que já foi pro ar: acrescente a próxima da faixa.
 
 As das contas moram em `nucleo/contas-migracoes.php` (`gc_migracoes_contas()`, somada quando o módulo existe):
 `203` equipe (colunas `ativo`, `ufs`, `trocar_senha`, `criado_por`, `desativado_em` em `usuarios`; índice dos eventos
@@ -379,6 +393,8 @@ interface PedidoAdmin extends PedidoLinha {
   encomenda: { produto: string; quantidade: string; referencia: string } | null
   mensagem: string               // a mensagem do WhatsApp como veio ('' depois de apagar os dados)
   nota: string                   // anotação da loja
+  taxaSite: { valor: number | null; texto: string } | null // a taxa de entrega que o site mostrou (210; null = o site não mandou,
+                                 // ou o pedido é de antes); no painel, a linha "Taxa no site"
   confirmadoEm: string | null
   saiuEm: string | null
   entregueEm: string | null
@@ -417,6 +433,13 @@ escolhe o motor no painel e troca quando quiser; sem motor (`nenhum`), nada entr
   itálico), `Subtotal`, o cupom (`_(a loja confirma)_`), `*Entrega:*` (`_(taxa a confirmar)_`), `*Pagamento:*`
   (com o troco), `*Cliente:*` (com o `wa.me/` quando tem), `*Obs.:*` e o link do pedido no painel. Encomenda e rateio
   têm os modelos deles. Nada de prazo, frete ou valor que a loja não passou.
+- **A entrega no estado que cobra por bairro** (22/10; `gc_aviso_entrega`): o endereço (ou "na conversa"), o bairro
+  quando não tá no endereço (`· bairro Copacabana`) e a taxa **da tabela do servidor**, nunca a do site:
+  `_(taxa do bairro R$ 12,00, pela tabela)_`, `_(bairro sem taxa, pela tabela)_`, `_(taxa do bairro a consultar)_`
+  (marcado "consultar"), `_(taxa do bairro a consultar: fora da lista)_`, `_(taxa do bairro a consultar: o cliente não
+  disse o bairro)_` ou `_(entrega grátis hoje)_` (o dia de entrega grátis do estado, pelo horário de Brasília, e o site
+  dizendo "grátis hoje"). Vale também no modo "o cliente consulta" (quem atende vê a taxa). O estado de uma taxa só
+  continua com `_(taxa a confirmar)_`.
 - **Depois da resposta**: o aviso entra na fila (`avisos_envios`) na mesma transação do que aconteceu e sai depois que
   quem pediu já recebeu a resposta (o cliente nunca espera o gateway). Cada tentativa fica registrada
   (`avisos_tentativas`, as 20 últimas de cada aviso). Falhou: tenta de novo sozinho em 1 min e em 5 min, quando alguém
@@ -847,10 +870,14 @@ foto: `#6c5f37` → `#a8641f` e `#316f7f` → `#7dbb3c`), só onde a foto não e
 loja ainda não semeada: nada; mudou algo, `loja.versao` sobe, `loja.atualizado_em` anda e o ETag
 muda; de novo, com tudo no lugar, não mexe nem na versão; os arquivos de `produtos/` continuam no build, sem produto
 ligado; os caminhos e as cores moram na migração, `GC_LOJA_FOTOS_FABRICA_106`, `GC_LOJA_VIDEO_FABRICA_106` e
-`GC_LOJA_COR_FABRICA_106`) e, dos pedidos e das
+`GC_LOJA_COR_FABRICA_106`), `107` (a taxa de entrega por bairro, pedido do Ian em 22/10: `loja_estados.taxa_por` `'estado'` | `'bairro'`,
+padrão `'estado'`, `loja_estados.bairros_ver` `'site'` | `'consulta'`, padrão `'site'`, e `loja_estados.bairros`, a lista em
+JSON, padrão `'[]'`; só acrescenta as colunas com o padrão neutro: nenhum bairro nem valor de fábrica, a versão da loja não
+sobe e o `GET loja` sai byte a byte igual; no meio da publicação, sem as colunas, tudo segue como "uma taxa pro estado") e, dos pedidos e das
 contas, `200`–`202` (pedidos, avisos, falas), `203` (equipe), `204` (clientes), `205` (cupons e giros), `206` (pedido
 ligado à conta), `207` (WhatsApp conferido, aparelhos conhecidos, migração da conta do aparelho), `208` (o pedido
-mudado guarda qual ele substitui), `209` (a origem do pedido, `pedidos.origem`), `300` (painel do dono: `painel_codigos`, os códigos da senha pelo WhatsApp) e `301`
+mudado guarda qual ele substitui), `209` (a origem do pedido, `pedidos.origem`), `210` (a taxa que o site mostrou:
+`pedidos.taxa_site` e `pedidos.taxa_site_texto`), `300` (painel do dono: `painel_codigos`, os códigos da senha pelo WhatsApp) e `301`
 (a marca "Bebida alcoólica": `loja_categorias.alcool`, padrão 0; num banco que já tinha a loja, a categoria
 `destilados` da semente, se continuar bebida, fica marcada. Mexe na tabela da loja: só entra com o módulo da loja
 carregado, como a `206` com o dos pedidos).
@@ -969,7 +996,13 @@ interface EstadoLoja {
   instagram: string              // sem @
   whatsapp: string | null        // o próprio do estado; null = o da loja (sempre null com "o mesmo pra todos")
   horario: { semana: ([string, string] | null)[]; demo: boolean } // 7 dias, domingo primeiro; demo: de exemplo, o site não mostra
-  taxaEntrega: { valor: number | null; demo: boolean }            // valor null = a confirmar
+  taxaEntrega: { valor: number | null; demo: boolean }            // valor null = a confirmar (no estado que cobra por
+                                 // bairro, sempre { valor: null, demo: false }: o site de antes, que não conhece o
+                                 // taxaPorBairro, mostra "a confirmar" e nunca a taxa única guardada no lugar da do bairro)
+  taxaPorBairro?:                // só no estado que cobra por bairro (sem o campo = uma taxa pro estado, o de sempre)
+    | { modo: 'site'; bairros: { nome: string; cidade?: string; taxa: number | null }[] } // aparece no site: a lista (até
+                                 // 400; taxa em reais, 0 = sem taxa, null = consultar; cidade só quando o bairro é de uma)
+    | { modo: 'consulta' }       // o cliente consulta: só o modo, a lista fica no painel e no aviso do grupo
   entregaGratis: { diaSemana: number; dias: number[]; texto: string; demo: boolean } | null // diaSemana = dias[0]
   pagamento: { opcoes: ('pix' | 'dinheiro' | 'cartao')[]; demo: boolean }
   pedidoMinimo?: number          // o pedido mínimo pra entrega, em reais (20 = R$ 20,00), de 0,01 a 1000; sem o campo = sem
@@ -1098,7 +1131,16 @@ Regras (o servidor confere; o painel mostra o mesmo enquanto a pessoa digita):
   `pagamentos` pelo menos um de `pix`, `dinheiro`, `cartao`; `pedidoMinimo` `null`, vazio ou R$ 0 (`0`, `'0,00'`: os
   três = sem mínimo, o painel guarda `null`) ou de R$ 0,01 a R$ 1.000,00 (negativo, acima de R$ 1.000,00, mais de 2
   casas ou o que não é valor: 400 `campo: 'pedidoMinimo'`; sem o campo, fica como tava); `ativo` (o último estado no site não sai: 409
-  `ultimo-estado`). Horário, taxa, entrega grátis e pagamento que vierem deixam de ser exemplo, a não ser que venha
+  `ultimo-estado`). **Taxa por bairro** (22/10, migração 107; cada campo ausente fica como tava, e estado novo nasce com
+  `'estado'`, `'site'` e a lista vazia): `taxaPor` `'estado'` (uma taxa pro estado, a `taxa` de sempre) ou `'bairro'`;
+  `bairrosVer` `'site'` (a lista vai no `GET loja`) ou `'consulta'` (o site só recebe o modo); `bairros` a lista inteira
+  (troca a guardada), até 400, `[{ nome, cidade?, taxa }]`: `nome` de 2 a 60 letras, sem repetir (sem contar acento,
+  maiúscula, espaço nem pontuação; o mesmo nome em cidades diferentes vale), sem tabaco nem as palavras que o site não
+  usa (422, como a cidade); `cidade` vazia ou uma das `cidades` do estado (escrita de outro jeito, sai como a do estado);
+  `taxa` de R$ 0 a R$ 500 (número ou texto: `12`, `'12,50'`, `'R$ 12,50'`) ou `null` / `''` = consultar. Erro: 400
+  `campo: 'taxaPor' | 'bairrosVer' | 'bairros'`, com `indice` (a posição do bairro na lista) quando é de um bairro
+  (`“COPACABANA.” tá duas vezes.`). Voltar pra `'estado'` guarda a lista (e o modo), e o site volta à taxa única. Esta
+  rota aceita corpo de até 256 KB (as outras, 64 KB): 400 bairros com cidade, no pior caso, passam dos 64 KB. Horário, taxa, entrega grátis e pagamento que vierem deixam de ser exemplo, a não ser que venha
   junto `horarioDemo`, `taxaDemo`, `entregaGratisDemo` ou `pagamentosDemo: true`. Destaque, nome do perfil e cidades
   sem tabaco nem a gíria e a promessa (422, como no produto; o nome do perfil aparece no cabeçalho do site). A taxa de
   verdade e o dia de entrega grátis aparecem na sacola e na mensagem do pedido (`(taxa R$ 15,50)`,
@@ -1205,9 +1247,13 @@ interface ProdutoAdmin {
 }
 
 // O EstadoLoja + o que é do dono. whatsapp: o próprio do estado, mesmo com "o mesmo pra todos" ligado.
-interface EstadoAdmin extends Omit<EstadoLoja, 'entregaGratis' | 'pedidoMinimo'> {
+interface EstadoAdmin extends Omit<EstadoLoja, 'entregaGratis' | 'pedidoMinimo' | 'taxaPorBairro'> {
   ativo: boolean
   pedidoMinimo: number | null    // em reais; null = sem mínimo
+  taxaEntrega: { valor: number | null; demo: boolean } // a taxa única guardada (também no modo por bairro, que o site vê "a confirmar")
+  taxaPor: 'estado' | 'bairro'   // 107; banco sem a 107 (publicação no meio): 'estado'
+  bairrosVer: 'site' | 'consulta'
+  bairros: { nome: string; cidade?: string; taxa: number | null }[] // a lista inteira, em qualquer modo
   entregaGratis: { dias: number[]; texto: string; demo: boolean } | null
   ordem: number
   atualizadoEm: string
@@ -1231,7 +1277,8 @@ raridade aos exemplos de fábrica), `premio-criado`, `premio-editado`, `premio-a
 que ela faz: "Ligou a rua do mercador no celular" ou "Desligou…", nas duas homes; o `sorte-regras` diz o que mudou:
 "Desligou o Teste minha sorte no site", "Mudou a frequência do Teste minha sorte: 1 giro por semana com conta", "Mudou
 as chances das raridades: Comum 62,5%, Raro 25%, Épico 10%, Lendário 2,5%"; o `estado-editado` só do mínimo diz "Pôs o pedido mínimo pra entrega de MG em R$ 20,00" ou "Tirou o pedido mínimo
-pra entrega de MG" e, com outras mudanças, "Editou o atendimento de MG (pedido mínimo: R$ 20,00)"; o `premio-editado` só da raridade, "Mudou o
+pra entrega de MG" e, com outras mudanças, "Editou o atendimento de MG (pedido mínimo: R$ 20,00)"; o da taxa por bairro, "Taxa de entrega de RJ por bairro (3 bairros, o cliente consulta)",
+"Taxa de entrega de RJ por bairro (lista vazia, aparece no site)" ou "Taxa de entrega de RJ: uma só pro estado"; o `premio-editado` só da raridade, "Mudou o
 prêmio "25% na bandeja" pra Épico"; o `premio-criado` leva a raridade quando não é Comum).
 
 **Sem os segredos dos avisos**: o token e o Client-Token do Z-API, a apikey da Evolution e o segredo e o endereço do

@@ -10,6 +10,9 @@
 // - Sacola (o caminho direto, 14/10): a mensagem que abre no WhatsApp num toque, sem nome, endereço nem pagamento,
 //   byte a byte igual a scripts/mensagem-sacola-referencia.txt; o código, o cupom, o nome da conta e a entrega mudam só a
 //   linha deles; e o pedido mínimo pra entrega (src/lib/pedido-minimo.ts): falta, fecha, a consultar e o cupom.
+// - Taxa por bairro (22/10): a do bairro na lista, "a consultar" (fora da lista, marcado "consultar", sem bairro), o
+//   modo consulta, o dia de entrega grátis por cima; só a linha da Entrega muda (sacola e guiado), e o estado de uma
+//   taxa só fica byte a byte igual; a taxa que vai pro servidor e o "Perguntar a taxa no WhatsApp".
 // Uso: node scripts/conferir-mensagem.mjs                     → confere
 //      node scripts/conferir-mensagem.mjs --gravar            → (re)grava o modelo da sacola
 //      node scripts/conferir-mensagem.mjs --gravar --guiado   → e o do guiado (só quando o formato mudar de propósito)
@@ -307,9 +310,102 @@ for (const [rotulo, veio, esperado] of casos) {
 }
 if (pm.minimoDoCanal(comMin(20)) !== 20 || pm.minimoDoCanal(canal) !== null || pm.minimoDoCanal(null) !== null) problemas.push('minimoDoCanal não leu o mínimo do estado')
 
+// ─── a taxa por bairro (22/10) ──────────────────────────────────────────────────────────────────────────────
+// o estado que cobra por bairro: a lista aparece no site ('site') ou o cliente consulta ('consulta'). A mensagem diz o
+// bairro e a taxa dele, ou "a consultar" (fora da lista, marcado "consultar", sem bairro); o dia de entrega grátis vale
+// por cima de tudo; o estado de uma taxa só fica byte a byte o de sempre, com bairro ou sem. Só a linha da Entrega muda.
+/** Um caso que quebra (função que não existe, exceção) vira um problema com o nome dele, e os outros seguem. */
+const tenta = (rotulo, fn) => {
+  try {
+    fn()
+  } catch (e) {
+    problemas.push(`taxa por bairro, ${rotulo}: ${e.message}`)
+  }
+}
+const lista = [
+  { nome: 'Copacabana', taxa: 12 },
+  { nome: 'Ipanema', taxa: null },
+  { nome: 'Leblon', taxa: 0 },
+  { nome: 'Centro', cidade: 'Niterói', taxa: 9 },
+]
+const porBairro = { taxaEntrega: { valor: null, demo: false }, taxaPorBairro: { modo: 'site', bairros: lista } }
+const consulta = { taxaEntrega: { valor: null, demo: false }, taxaPorBairro: { modo: 'consulta' } }
+const gratisBairro = { ...porBairro, entregaGratis: { dias: [5], texto: 'Sextou com entrega grátis!', demo: false } }
+const quinta = new Date(2026, 9, 8, 15)
+const sacolaB = (c, bairro, agora = quinta) => m.montarPedidoSacola({ ...sacola, canal: { ...canal, ...c }, bairro, agora })
+const guiadoB = (c, bairro, agora = quinta, endereco = pedido.endereco) => m.montarPedido({ ...pedido, canal: { ...canal, ...c }, bairro, agora, endereco })
+const iEntS = sa.findIndex((l) => l.startsWith('Entrega:'))
+for (const [c, bairro, agora, esperado, rotulo] of [
+  [porBairro, 'copacabana', quinta, 'Entrega: Copacabana (taxa R$ 12,00)', 'bairro da lista (o nome como o dono escreveu)'],
+  [porBairro, ' COPACABANA ', quinta, 'Entrega: Copacabana (taxa R$ 12,00)', 'maiúscula e espaço não contam'],
+  [porBairro, 'Ipanema', quinta, 'Entrega: Ipanema (taxa do bairro a consultar)', 'bairro marcado "consultar"'],
+  [porBairro, 'Tijuca', quinta, 'Entrega: Tijuca (taxa do bairro a consultar)', 'fora da lista'],
+  [porBairro, 'Leblon', quinta, 'Entrega: Leblon (grátis)', 'bairro com R$ 0'],
+  [porBairro, 'Centro', quinta, 'Entrega: Centro (taxa do bairro a consultar)', 'bairro de outra cidade (Niterói) não vale no Rio'],
+  [porBairro, '', quinta, 'Entrega: taxa do bairro a consultar', 'sem bairro'],
+  [porBairro, null, quinta, 'Entrega: taxa do bairro a consultar', 'sem bairro (null)'],
+  [gratisBairro, 'Copacabana', sexta, 'Entrega: Copacabana (grátis hoje)', 'dia de entrega grátis, com bairro'],
+  [gratisBairro, '', sexta, 'Entrega: grátis hoje', 'dia de entrega grátis, sem bairro'],
+  [gratisBairro, 'Copacabana', quinta, 'Entrega: Copacabana (taxa R$ 12,00)', 'fora do dia grátis'],
+  [consulta, 'Copacabana', quinta, 'Entrega: taxa a consultar (bairro Copacabana)', 'o cliente consulta, com bairro'],
+  [consulta, '', quinta, 'Entrega: taxa a consultar (depende do bairro)', 'o cliente consulta, sem bairro'],
+]) {
+  tenta(`sacola, ${rotulo}`, () => {
+    const msg = sacolaB(c, bairro, agora).split('\n')
+    if (msg[iEntS] !== esperado) problemas.push(`taxa por bairro, sacola, ${rotulo}: veio "${msg[iEntS]}", esperado "${esperado}"`)
+    if (msg.filter((l, i) => i !== iEntS).join('\n') !== sa.filter((l, i) => i !== iEntS).join('\n')) problemas.push(`taxa por bairro, sacola, ${rotulo}: outra linha mudou`)
+  })
+}
+// o estado de uma taxa só: o bairro não muda nada (a mensagem de sempre, byte a byte)
+tenta('estado de uma taxa só', () => {
+  if (sacolaB({}, 'Copacabana', sexta) !== m.montarPedidoSacola({ ...sacola, agora: sexta })) problemas.push('taxa por bairro: no estado de uma taxa só, o bairro mudou a mensagem da sacola')
+  if (m.montarPedido({ ...pedido, bairro: 'Copacabana' }) !== sem) problemas.push('taxa por bairro: no estado de uma taxa só, o bairro mudou a mensagem do guiado')
+})
+// o guiado: o bairro do CEP já tá no endereço (a taxa não repete o nome); o que a pessoa disse fora do endereço vai junto
+for (const [c, bairro, agora, endereco, esperado, rotulo] of [
+  [porBairro, 'Copacabana', quinta, pedido.endereco, '(taxa do bairro: R$ 12,00)', 'o bairro do CEP, no endereço'],
+  [porBairro, 'Copacabana', quinta, 'Rua Barata Ribeiro, 120', '(taxa do bairro Copacabana: R$ 12,00)', 'o bairro fora do endereço'],
+  [porBairro, 'Leblon', quinta, 'Rua Dias Ferreira, 50', '(bairro Leblon sem taxa)', 'bairro com R$ 0'],
+  [porBairro, 'Tijuca', quinta, 'Rua Conde de Bonfim, 10, Tijuca', '(taxa do bairro a consultar)', 'fora da lista'],
+  [porBairro, '', quinta, 'Rua Conde de Bonfim, 10', '(taxa do bairro a consultar)', 'sem bairro'],
+  [gratisBairro, 'Copacabana', sexta, pedido.endereco, '(entrega grátis hoje)', 'dia de entrega grátis'],
+  [consulta, 'Copacabana', quinta, pedido.endereco, '(taxa a consultar pelo bairro)', 'o cliente consulta'],
+  [consulta, 'Tijuca', quinta, 'Rua Conde de Bonfim, 10', '(taxa a consultar pelo bairro Tijuca)', 'o cliente consulta, bairro fora do endereço'],
+]) {
+  tenta(`guiado, ${rotulo}`, () => {
+    const msg = guiadoB(c, bairro, agora, endereco).split('\n')
+    if (msg[iEnt] !== `Entrega: ${endereco} ${esperado}`) problemas.push(`taxa por bairro, guiado, ${rotulo}: veio "${msg[iEnt]}", esperado "Entrega: ${endereco} ${esperado}"`)
+    const base = m.montarPedido({ ...pedido, endereco }).split('\n')
+    if (msg.filter((l, i) => i !== iEnt).join('\n') !== base.filter((l, i) => i !== iEnt).join('\n')) problemas.push(`taxa por bairro, guiado, ${rotulo}: outra linha mudou`)
+  })
+}
+// a taxa que vai pro servidor (o painel guarda; o aviso diz a da tabela): o valor e o texto, sem o bairro
+for (const [c, bairro, agora, esperado] of [
+  [porBairro, 'Copacabana', quinta, { valor: 12, texto: 'taxa R$ 12,00' }],
+  [porBairro, 'Leblon', quinta, { valor: 0, texto: 'grátis' }],
+  [porBairro, 'Tijuca', quinta, { valor: null, texto: 'taxa do bairro a consultar' }],
+  [gratisBairro, 'Copacabana', sexta, { valor: null, texto: 'grátis hoje' }],
+  [consulta, 'Copacabana', quinta, { valor: null, texto: 'taxa a consultar' }],
+  [{ taxaEntrega: { valor: 15.5, demo: false } }, 'Copacabana', quinta, { valor: 15.5, texto: 'taxa R$ 15,50' }],
+]) {
+  tenta(`pro servidor, ${JSON.stringify(esperado)}`, () => {
+    const t = m.taxaParaOServidor(m.entregaDoPedido({ ...canal, ...c }, bairro, 'Rio de Janeiro', agora))
+    if (JSON.stringify(t) !== JSON.stringify(esperado)) problemas.push(`taxa por bairro: pro servidor, esperado ${JSON.stringify(esperado)}, veio ${JSON.stringify(t)}`)
+  })
+}
+// "Perguntar a taxa no WhatsApp": a conversa do pedido com a frase pronta
+tenta('o "Perguntar" com o bairro', () => {
+  const pergunta = m.linkConsultaBairro({ ...canal, ...consulta }, 'Praia da Costa')
+  if (pergunta !== `https://wa.me/5533991139036?text=${encodeURIComponent('Oi! Quanto fica a entrega pro bairro Praia da Costa?')}`) problemas.push(`taxa por bairro: o "Perguntar" veio ${pergunta}`)
+})
+tenta('o "Perguntar" sem bairro', () => {
+  if (!decodeURIComponent(m.linkConsultaBairro({ ...canal, ...consulta }, '').split('text=')[1]).endsWith('pro meu bairro?')) problemas.push('taxa por bairro: o "Perguntar" sem bairro')
+})
+
 if (problemas.length) {
   console.error(problemas.join('\n\n'))
   process.exit(1)
 }
+console.log(`taxa por bairro ok: ${m.montarPedidoSacola({ ...sacola, canal: { ...canal, ...porBairro }, bairro: 'copacabana', agora: quinta }).split('\n')[iEntS]} · ${m.montarPedidoSacola({ ...sacola, canal: { ...canal, ...porBairro }, bairro: 'Tijuca', agora: quinta }).split('\n')[iEntS]} · ${m.montarPedidoSacola({ ...sacola, canal: { ...canal, ...consulta }, bairro: 'Copacabana', agora: quinta }).split('\n')[iEntS]} · ${m.montarPedidoSacola({ ...sacola, canal: { ...canal, ...gratisBairro }, bairro: 'Copacabana', agora: sexta }).split('\n')[iEntS]}\n`)
 console.log(`sacola ok: igual ao modelo (scripts/mensagem-sacola-referencia.txt); com o código, o cupom, o nome da conta e a entrega como o estado diz:\n${m.montarPedidoSacola({ ...sacola, codigo: 'GC-7KD2X', cupom, nome: 'Ana Souza', canal: { ...canal, taxaEntrega: { valor: 15.5, demo: false } } })}\n\npedido mínimo ok: ${casos.length} casos (falta, fecha, a consultar, cupom)\n`)
 console.log(`mensagem ok: sem cupom igual à referência; com a taxa do painel e no dia da entrega grátis, só a Entrega muda (${comTaxa[iEnt]} · ${naSexta}); com cupom, +1 linha depois do Subtotal:\n${com}\n\ncom o código do pedido (+1 linha depois do cabeçalho):\n${codigoECupom.join('\n')}\n\nencomenda com o código:\n${encCom.join('\n')}\n\nrateio (vaga reservada):\n${rateioCom}\n\nrateio (sem servidor):\n${rateioSem}\n\nrateio (já tenho vaga):\n${rateioJa}\n\nrateio (loja fora do ar):\n${foraAba}\n\n${foraPagina}`)

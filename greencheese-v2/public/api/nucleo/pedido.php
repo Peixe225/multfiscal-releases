@@ -67,6 +67,19 @@ function gc_pedidos_com_origem(): bool
     return $tem;
 }
 
+/** As colunas da taxa que o site mostrou (migração 210) já existem? */
+function gc_pedidos_com_taxa(): bool
+{
+    static $tem = null;
+    if ($tem === null) {
+        $tem = false;
+        foreach (gc_todos('PRAGMA table_info(pedidos)') as $c) {
+            $tem = $tem || $c['name'] === 'taxa_site';
+        }
+    }
+    return $tem;
+}
+
 /** O nome que só informa (o pedido da sacola): de 2 a 60 letras, ou '' (o painel mostra "Sem nome"). */
 function gc_nome_informativo(mixed $v): string
 {
@@ -206,6 +219,13 @@ function gc_ler_pedido(array $c, string $codigo): array
         $col['cep'] = strlen($cep) === 8 ? $cep : '';
         $col['cidade_entrega'] = gc_texto_curto($e['cidade'] ?? '', 60);
         $col['uf_entrega'] = gc_uf($e['uf'] ?? null) ?? '';
+
+        // a taxa de entrega que o site mostrou (a taxa por bairro, 22/10): só informa, como o troco. O que não vier certo
+        // fica de fora; o aviso do grupo diz a taxa pela tabela do servidor, nunca por este número
+        $tx = is_array($c['taxa'] ?? null) ? $c['taxa'] : [];
+        $valor = $tx['valor'] ?? null;
+        $col['taxa_site'] = $valor === 0 || $valor === 0.0 ? 0 : ($valor === null ? null : gc_centavos_informativo($valor));
+        $col['taxa_site_texto'] = gc_texto_curto($tx['texto'] ?? '', 80);
 
         $pagamento = in_array($c['pagamento'] ?? null, GC_PAGAMENTOS, true) ? $c['pagamento'] : null;
         $col['pagamento'] = $pagamento;
@@ -399,7 +419,66 @@ function gc_pedido_conferir_valores(array $col): array
     } catch (Throwable) {
         // a coluna do mínimo (migração 105) ainda não existe: nada a conferir
     }
+    // a taxa do bairro que o site mostrou contra a tabela do servidor (o estado cobra por bairro e a lista aparece no
+    // site): a cópia forjada, ou a lista que o dono acabou de mudar, viram uma linha pra conferir na conversa
+    try {
+        $t = gc_pedido_taxa_da_tabela($col, gc_agora());
+        if ($t !== null && $t['ver'] === 'site') {
+            $site = $col['taxa_site'] ?? null;
+            $bairro = $t['bairro'];
+            if (gc_pedido_site_gratis_hoje($col)) {
+                if (!$t['diaGratis']) {
+                    $difs[] = 'entrega grátis hoje no site, mas hoje não é dia de entrega grátis';
+                }
+            } elseif ($site !== null) {
+                $tabela = $t['achado']['taxa'] ?? null;
+                if ($bairro === '') {
+                    $difs[] = 'taxa de entrega: ' . gc_brl((int) $site) . ' no site, sem o bairro';
+                } elseif ($tabela === null) {
+                    $difs[] = "taxa do bairro $bairro: " . gc_brl((int) $site) . ' no site, a consultar na tabela';
+                } elseif ((int) $tabela !== (int) $site) {
+                    $difs[] = "taxa do bairro $bairro: " . gc_brl((int) $site) . ' no site, ' . gc_brl((int) $tabela) . ' na tabela';
+                }
+            }
+        }
+    } catch (Throwable) {
+        // as colunas da taxa por bairro (107) ainda não existem: nada a conferir
+    }
     return array_slice($difs, 0, 6);
+}
+
+/** O site disse "grátis hoje" na entrega do pedido? (o texto da taxa que ele mostrou, migração 210) */
+function gc_pedido_site_gratis_hoje(array $p): bool
+{
+    return str_contains((string) ($p['taxa_site_texto'] ?? ''), 'grátis hoje');
+}
+
+/**
+ * A taxa de entrega do pedido pela tabela do servidor, quando o estado cobra por bairro (migração 107): o bairro do
+ * pedido (como veio), o modo (ver: 'site' ou 'consulta'), o bairro achado na lista (null = fora dela) e se o dia do
+ * pedido, em Brasília, é dia de entrega grátis do estado (a de verdade; a de exemplo não conta). null = o estado cobra
+ * uma taxa só, ou o banco ainda não tem a 107.
+ * @param array<string, mixed> $p o pedido (as colunas: uf, cidade, bairro)
+ * @return array{ver: string, bairro: string, achado: array{nome: string, cidade: string, taxa: int|null}|null, diaGratis: bool}|null
+ */
+function gc_pedido_taxa_da_tabela(array $p, int $quando): ?array
+{
+    if (!function_exists('gc_loja_tem_bairros') || !gc_loja_tem_bairros()) {
+        return null;
+    }
+    $e = gc_um('SELECT * FROM loja_estados WHERE uf = ?', [(string) ($p['uf'] ?? '')]);
+    if ($e === null || gc_loja_taxa_por($e) !== 'bairro') {
+        return null;
+    }
+    $bairro = trim((string) ($p['bairro'] ?? ''));
+    $g = gc_loja_entrega_gratis($e);
+    $dia = (int) (new DateTimeImmutable('@' . $quando))->setTimezone(new DateTimeZone('America/Sao_Paulo'))->format('w');
+    return [
+        'ver' => gc_loja_bairros_ver($e),
+        'bairro' => $bairro,
+        'achado' => $bairro === '' ? null : gc_loja_bairro_na_lista($e, (string) ($p['cidade'] ?? ''), $bairro),
+        'diaGratis' => $g !== null && (int) $e['entrega_gratis_demo'] === 0 && in_array($dia, $g['dias'], true),
+    ];
 }
 
 /** A anotação que o servidor deixa no pedido quando o valor não bateu (o dono vê no detalhe e pode apagar). */
@@ -548,6 +627,10 @@ function gc_rota_pedido(): array
         if (!gc_pedidos_com_origem()) {
             unset($col['origem']);
         }
+        // e as da taxa que o site mostrou (210)
+        if (!gc_pedidos_com_taxa()) {
+            unset($col['taxa_site'], $col['taxa_site_texto']);
+        }
         $col = ['codigo' => $codigo, 'token_hash' => $hash, 'status' => 'novo'] + $col + [
             'substitui_id' => $antigo === null ? null : (int) $antigo['id'],
             'substitui_codigo' => $subCodigo !== null && $subToken !== null && $subToken !== $token ? $subCodigo : '',
@@ -687,6 +770,11 @@ function gc_pedido_admin(array $p): array
             'endereco' => (string) $p['endereco'], 'rua' => (string) $p['rua'], 'numero' => (string) $p['numero'], 'bairro' => (string) $p['bairro'],
             'cep' => (string) $p['cep'], 'cidade' => (string) $p['cidade_entrega'], 'uf' => (string) $p['uf_entrega'],
         ],
+        // a taxa de entrega que o site mostrou (210): o valor (null = sem valor) e o texto da mensagem; null = o pedido
+        // de antes (ou a cópia sem a taxa)
+        'taxaSite' => ($p['taxa_site_texto'] ?? '') === '' && ($p['taxa_site'] ?? null) === null
+            ? null
+            : ['valor' => ($p['taxa_site'] ?? null) === null ? null : gc_reais((int) $p['taxa_site']), 'texto' => (string) ($p['taxa_site_texto'] ?? '')],
         'pagamento' => $p['pagamento'] === null ? null : (string) $p['pagamento'],
         'troco' => $p['troco'] === null ? null : gc_reais((int) $p['troco']),
         'observacao' => (string) $p['observacao'],

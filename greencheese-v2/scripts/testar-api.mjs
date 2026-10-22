@@ -1115,6 +1115,15 @@ try {
 } catch (e) {
   ok(false, `exceção nos pedidos: ${e.stack}`)
 }
+// a taxa de entrega por bairro (22/10): as migrações 107 e 210 num banco como o do ar e numa instalação nova, a lista,
+// o corpo de antes, o GET loja nos 3 modos, o pedido e o aviso do grupo (scripts/testar-api-bairros.mjs), num servidor
+// próprio
+try {
+  const { testarBairros } = await import('./testar-api-bairros.mjs')
+  await testarBairros({ parte, ok, igual, erro, raiz, tmp, PHP, subirPhp, portaLivre, derrubar, portaPrincipal: porta })
+} catch (e) {
+  ok(false, `exceção na taxa por bairro: ${e.stack}`)
+}
 // contas da equipe e dos clientes, Teste minha sorte no servidor (scripts/testar-api-contas.mjs), num servidor próprio
 try {
   const { testarContas } = await import('./testar-api-contas.mjs')

@@ -7,7 +7,8 @@ import { ilustracoes } from '../arte/pixel/grades'
 import { palpebrasGarrafa } from '../arte/pixel/mercador-garrafa'
 import { brl, plural } from '../lib/formato'
 import { depoisDoHistorico } from '../lib/historico'
-import { entregaDoCanal, nomeNaMensagem, textoSubtotal, totais } from '../lib/mensagem'
+import { modoBairro } from '../lib/bairros'
+import { entregaDoCanal, entregaDoPedido, nomeNaMensagem, textoSubtotal, totais, type Entrega } from '../lib/mensagem'
 import { minimoDoCanal } from '../lib/pedido-minimo'
 import { calcularLinha } from '../lib/preco'
 import { disponivelEm, produtoPorId } from '../store/catalogo'
@@ -15,7 +16,9 @@ import { useDisponiveis, useLinhasSacola } from '../store/derivados'
 import { nomeCidade, useLocal } from '../store/local'
 import { useCanalDa, useLojaConferida, useTextosLoja } from '../store/loja'
 import { contarItens, MAX_POR_ITEM, useSacola, type ItemSacola } from '../store/sacola'
+import { useBairroDa } from '../store/bairro'
 import { useUI } from '../store/ui'
+import { BairroTaxa } from './BairroTaxa'
 import { Icone } from './comum'
 import { CupomSacola } from './CupomSacola'
 import { FecharSacola } from './FecharSacola'
@@ -42,6 +45,25 @@ function textoEntrega(canal: ReturnType<typeof useCanalDa>): string {
   return 'Entrega: taxa a confirmar no atendimento.'
 }
 
+/**
+ * A entrega com a taxa por bairro, na sacola compacta (o resumo do pedido guiado): uma linha só, sem o campo.
+ * "Entrega: Copacabana, taxa R$ 12,00." · "Entrega: taxa do bairro a consultar." · "Entrega: a taxa depende do bairro."
+ */
+function textoEntregaBairro(e: Entrega): string {
+  switch (e.tipo) {
+    case 'gratis-hoje':
+      return 'Entrega grátis hoje.'
+    case 'estado':
+      return e.valor === 0 ? 'Entrega grátis.' : e.valor != null ? `Entrega: ${brl(e.valor)} (a loja confirma no atendimento).` : 'Entrega: taxa a confirmar no atendimento.'
+    case 'bairro':
+      return e.valor === 0 ? `Entrega grátis no bairro ${e.bairro}.` : `Entrega: bairro ${e.bairro}, taxa ${brl(e.valor)} (a loja confirma).`
+    case 'bairro-consultar':
+      return e.bairro ? `Entrega: bairro ${e.bairro}, taxa a consultar no atendimento.` : 'Entrega: a taxa depende do bairro.'
+    case 'consulta':
+      return 'Entrega: a taxa depende do bairro (a loja passa na conversa).'
+  }
+}
+
 /** Linhas da sacola já no formato da mensagem do pedido. */
 export function ListaSacola({ compacta = false }: { compacta?: boolean }) {
   const { pedido, fora, saiu } = useLinhasSacola()
@@ -55,6 +77,10 @@ export function ListaSacola({ compacta = false }: { compacta?: boolean }) {
   const lugar = nomeCidade(canal, cidade, cidadeInformada) ?? canal?.nome ?? 'teu estado'
   const t = totais(pedido)
   const minimo = minimoDoCanal(canal)
+  // a taxa por bairro (22/10): o "Teu bairro" no lugar da linha da entrega (no dia de entrega grátis, a linha de sempre)
+  const bairro = useBairroDa(uf)
+  const cidadeDoPedido = canal ? (nomeCidade(canal, cidade, cidadeInformada) ?? (canal.cidades.length === 1 ? canal.cidades[0].nome : null)) : null
+  const entregaBairro = canal && modoBairro(canal) ? entregaDoPedido(canal, bairro, cidadeDoPedido) : null
   // o que ainda cabe de cada produto (o "restam X" é do produto: as variações dividem)
   const noPedido = new Map<string, number>()
   for (const l of pedido) noPedido.set(l.item.id, (noPedido.get(l.item.id) ?? 0) + l.qtd)
@@ -205,7 +231,14 @@ export function ListaSacola({ compacta = false }: { compacta?: boolean }) {
       )}
       {pedido.length > 0 && t.economia > 0 && <p className="ls-economia legenda">Combo aplicado: {brl(t.economia)} a menos.</p>}
       <CupomSacola compacta={compacta} />
-      {pedido.length > 0 && <p className="ls-taxa legenda">{textoEntrega(canal)}</p>}
+      {pedido.length > 0 &&
+        (!entregaBairro || entregaBairro.tipo === 'gratis-hoje' ? (
+          <p className="ls-taxa legenda">{textoEntrega(canal)}</p>
+        ) : compacta || !canal ? (
+          <p className="ls-taxa legenda">{textoEntregaBairro(entregaBairro)}</p>
+        ) : (
+          <BairroTaxa canal={canal} cidade={cidadeDoPedido} variante="sacola" subtotal={{ valor: t.subtotal, temConsultar: t.temConsultar }} />
+        ))}
       {/* o pedido mínimo do estado, junto da entrega (o quanto falta, quando falta, fica no rodapé, perto do botão) */}
       {pedido.length > 0 && minimo != null && <p className="ls-taxa legenda">Pedido mínimo pra entrega: {brl(minimo)}.</p>}
     </div>

@@ -5,9 +5,10 @@ defined('GC_API') || exit;
 // Migrações da loja, na faixa 100–199 do registro de banco.php: as tabelas (100), a semente nos bancos que já
 // estavam instalados antes da loja ir pro servidor (101), o vídeo do produto com a capa (102), a raridade dos prêmios do Teste
 // minha sorte (103), o material que a loja mandou em 11/10 (104: fotos, a thumb animada de fábrica e 2 produtos novos), o
-// pedido mínimo pra entrega de cada estado (105) e os 4 produtos do material de 11/10 de volta pro desenho do site (106:
-// sai a mídia de fábrica que a 104 pôs, só onde ela ainda é a de fábrica). Banco novo é semeado na instalação do painel
-// (já com tudo isso, pela semente).
+// pedido mínimo pra entrega de cada estado (105), os 4 produtos do material de 11/10 de volta pro desenho do site (106:
+// sai a mídia de fábrica que a 104 pôs, só onde ela ainda é a de fábrica) e a taxa de entrega por bairro (107: colunas
+// novas com o padrão de sempre, uma taxa pro estado). Banco novo é semeado na instalação do painel (já com tudo isso,
+// pela semente).
 // Dinheiro em centavos; listas e objetos pequenos (combos, cidades, horário…) em JSON; hora em unix UTC.
 
 /** @return array<int, string|callable(PDO): void> */
@@ -146,7 +147,36 @@ function gc_migracoes_loja(): array
         106 => static function (PDO $db): void {
             gc_loja_quatro_no_desenho($db);
         },
+        // a taxa de entrega por bairro (pedido do Ian em 22/10: "o Matos poderá configurar a taxa de entrega a depender do
+        // bairro"): taxa_por = 'estado' (uma taxa só, o de sempre: o padrão de todo estado que já existe) ou 'bairro';
+        // bairros_ver = como o cliente vê a taxa por bairro: 'site' (a lista aparece no site) ou 'consulta' (o site não
+        // mostra valor, o cliente pergunta na conversa); bairros = a lista do dono, em JSON ([{nome, cidade, taxa}], a
+        // taxa em centavos ou null = consultar). Só acrescenta: nada muda pra quem não mexer (o JSON do GET loja, e o
+        // ETag, ficam iguais), e nenhum bairro nem valor vem de fábrica (taxa é preço: só o dono põe).
+        107 => <<<'SQL'
+        ALTER TABLE loja_estados ADD COLUMN taxa_por TEXT NOT NULL DEFAULT 'estado' CHECK (taxa_por IN ('estado','bairro'));
+        ALTER TABLE loja_estados ADD COLUMN bairros_ver TEXT NOT NULL DEFAULT 'site' CHECK (bairros_ver IN ('site','consulta'));
+        ALTER TABLE loja_estados ADD COLUMN bairros TEXT NOT NULL DEFAULT '[]';
+        SQL,
     ];
+}
+
+/** Bairros por estado, no máximo (a lista que o dono cola ou monta no painel). */
+const GC_LOJA_BAIRROS_MAX = 400;
+/** Teto da taxa de um bairro (centavos): R$ 500,00 (passou disso é engano de digitação). */
+const GC_LOJA_TAXA_BAIRRO_MAX = 50000;
+
+/** As colunas da taxa por bairro (migração 107) já existem? (publicação no meio: o módulo novo antes da migração rodar) */
+function gc_loja_tem_bairros(): bool
+{
+    static $tem = null;
+    if ($tem === null) {
+        $tem = false;
+        foreach (gc_todos('PRAGMA table_info(loja_estados)') as $c) {
+            $tem = $tem || $c['name'] === 'taxa_por';
+        }
+    }
+    return $tem;
 }
 
 /** Teto do pedido mínimo pra entrega (centavos): R$ 1.000,00 (passou disso é engano de digitação). */

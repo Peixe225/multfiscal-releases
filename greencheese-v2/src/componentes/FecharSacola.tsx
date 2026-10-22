@@ -29,12 +29,14 @@ import { useCupomNoPedido } from '../lib/cupom-pedido'
 import { linhaCupom } from '../lib/cupom-uso'
 import { brlNaTela } from '../lib/formato'
 import { situacao } from '../lib/horario'
-import { linkWhatsApp, montarPedidoSacola, whatsappDoCanal } from '../lib/mensagem'
+import { modoBairro } from '../lib/bairros'
+import { entregaDoPedido, linkWhatsApp, montarPedidoSacola, taxaParaOServidor, whatsappDoCanal } from '../lib/mensagem'
 import { enviarPedido } from '../lib/pedido-envio'
 import { corpoDaSacola } from '../lib/pedido-itens'
 import { situacaoMinimo, type SituacaoMinimo } from '../lib/pedido-minimo'
 import { celularNoCampo } from '../lib/telefone'
 import { chaveDaSacola, codigoVencido, substituiDe, useChat } from '../store/chat'
+import { useBairroDa } from '../store/bairro'
 import { useContaStore } from '../store/conta'
 import { useLinhasSacola } from '../store/derivados'
 import { nomeCidade, useLocal } from '../store/local'
@@ -80,6 +82,10 @@ export function FecharSacola() {
   // estado com uma cidade só: é ela (o cabeçalho sai como no pedido guiado); com mais de uma, a escolhida
   const lugar = canal ? (nomeCidade(canal, cidade, cidadeInformada) ?? (canal.cidades.length === 1 ? canal.cidades[0].nome : null)) : null
   const cupomOk = cupom && situacaoCupom?.tipo === 'ok' ? cupom : null
+  // o "Teu bairro" (a taxa por bairro, 22/10): só conta no estado que cobra por bairro (no de uma taxa só, a mensagem
+  // fica byte a byte a de sempre)
+  const bairroDigitado = useBairroDa(uf)
+  const bairro = canal && modoBairro(canal) ? bairroDigitado.trim() || null : null
   const minimo = situacaoMinimo(canal, pedido, cupomOk?.retrato ?? null)
   const travado = minimo.tipo === 'falta'
 
@@ -100,6 +106,7 @@ export function FecharSacola() {
         nome: conta?.nome ?? null,
         cupom: cupomOk ? linhaCupom(cupomOk, 'Teste minha sorte', cupomOk.demo && config.carimboDeExemplo) : undefined,
         agora: new Date(agora),
+        bairro,
       }
     : null
   const chave = canal ? chaveDaSacola(canal.uf, pedido) : ''
@@ -170,6 +177,8 @@ export function FecharSacola() {
           whatsapp: contaDaLoja ? (conta?.whatsapp ?? '') : '',
           cupom: cupomOk ? { codigo: cupomOk.codigo, regra: cupomOk.retrato.regra, origem: 'Teste minha sorte' } : null,
           mensagem,
+          bairro,
+          taxa: taxaParaOServidor(entregaDoPedido(canal, bairro, lugar, new Date(agora))),
         }),
       )
       if (precisaNovo) {

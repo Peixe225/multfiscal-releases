@@ -1,0 +1,171 @@
+/* A taxa de entrega por bairro: o "Teu bairro" da sacola e a busca no story de atendimento. Campo no idioma do
+   Instagram (pílula cinza, 16 px pro iPhone não dar zoom), alvos de 44 px ou mais. */
+
+.bairro-taxa {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-align: left;
+}
+.bt-sacola {
+  margin: 12px var(--gutter) 0;
+  padding: 12px;
+  border: 1px solid var(--bolha);
+  border-radius: 12px;
+  font: 400 14px/1.35 var(--ui);
+}
+.bt-cabeca {
+  font: 600 14px/1.3 var(--ui);
+}
+.bt-campo {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.bt-rotulo {
+  font: 600 14px/1.2 var(--ui);
+}
+.bt-opcional {
+  font-weight: 400;
+  color: var(--legenda);
+}
+.bt-input {
+  width: 100%;
+  min-height: 48px;
+  padding: 0 14px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: var(--bolha);
+  color: var(--branco);
+  font: 400 16px/1.2 var(--ui);
+  outline: none;
+}
+.bt-input::placeholder {
+  color: var(--legenda);
+}
+.bt-input:focus-visible {
+  border-color: var(--legenda);
+}
+/* a sugestão embaixo do campo: os bairros da lista que combinam com o que tá sendo digitado */
+.bt-sugestoes {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--bolha);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--preto);
+}
+.bt-sugestoes li + li {
+  border-top: 1px solid var(--bolha);
+}
+.bt-sugestao {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 44px;
+  padding: 0 14px;
+  font: 400 15px/1.2 var(--ui);
+  text-align: left;
+}
+.bt-sugestao:hover,
+.bt-sugestao:focus-visible {
+  background: var(--bolha);
+}
+.bt-sugestao-nome {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.bt-sugestao-taxa {
+  flex: none;
+  color: var(--legenda);
+  font-size: 14px;
+}
+.bt-resposta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.bt-resposta:empty {
+  display: none;
+}
+.bt-linha strong {
+  font-size: 16px;
+  font-weight: 400;
+  white-space: nowrap;
+}
+.bt-total {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 6px;
+  font: 600 15px/1.1 var(--ui);
+}
+.bt-total > :first-child {
+  min-width: 0;
+}
+.bt-total .px {
+  text-align: right;
+}
+/* o valor nunca quebra no meio ("R$" numa linha e o número na outra, em 320 px); o "+ itens a consultar" pode */
+.bt-total-valor {
+  white-space: nowrap;
+}
+.bt-nota {
+  font-size: 13px;
+  color: var(--legenda);
+}
+.bt-perguntar {
+  align-self: flex-start;
+  max-width: 100%;
+  /* menos folga dos lados que o botão de sempre: numa linha só até em 320 px */
+  padding: 0 14px;
+  white-space: normal;
+  text-align: center;
+  line-height: 1.2;
+}
+
+/* no story de atendimento: centralizado, no quadro da entrega */
+.bt-story {
+  align-items: stretch;
+  width: min(100%, 300px);
+  gap: 10px;
+  text-align: center;
+}
+.bt-story .info-grande {
+  margin-bottom: 2px;
+}
+.bt-story .bt-rotulo {
+  font-weight: 400;
+  font-size: 15px;
+}
+.bt-story .bt-sugestoes {
+  text-align: left;
+}
+.bt-story .bt-resposta {
+  align-items: center;
+}
+.bt-grande {
+  font-size: 20px;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+.bt-story .bt-nota {
+  font-size: 14px;
+}
+.bt-story .bt-perguntar {
+  align-self: center;
+}
+
+/* celular deitado: o quadro fica baixo, o campo aperta */
+@media (max-height: 480px) and (orientation: landscape) {
+  .bt-story {
+    gap: 6px;
+  }
+  .bt-story .info-grande {
+    font-size: 18px;
+  }
+}

@@ -29,7 +29,8 @@ const lista = (xs: string[]) => (xs.length > 1 ? `${xs.slice(0, -1).join(', ')} 
 /** Os itens, na ordem da tela (com o feito de cada um). null enquanto falta o que ler. */
 export function itensPronto(p: Pronto, l: LojaAdmin, rateios: RateioAdmin[], ilustracoes: Record<string, unknown> | null): Item[] {
   const noSite = l.estados.filter((e) => e.ativo)
-  const deExemplo = noSite.filter((e) => e.horario.demo || e.taxaEntrega.demo)
+  // a taxa de exemplo não conta no estado que cobra por bairro (o site não mostra a taxa única ali)
+  const deExemplo = noSite.filter((e) => e.horario.demo || (e.taxaPor !== 'bairro' && e.taxaEntrega.demo))
   const reais = l.produtos.filter((x) => x.ativo && !x.demo)
   const semPreco = reais.filter((x) => x.preco == null)
   const semFoto = ilustracoes ? reais.filter((x) => !x.foto && !ilustracoes[x.id]) : []

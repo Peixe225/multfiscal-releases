@@ -26,6 +26,9 @@
 // A sacola em cada celular (o pedido rápido, pedido do Ian em 14/10; GET loja simulado com R$ 20 de mínimo em MG): o
 // "Fechar pedido no WhatsApp" numa linha, inteiro na tela, travado com o aviso de quanto falta e destravado, e o
 // pedido guiado discreto embaixo, com alvo de 44 px.
+// A taxa por bairro em cada celular (pedido do Ian em 22/10; GET loja simulado: RJ com a lista no site, ES "o cliente
+// consulta"): o "Teu bairro" da sacola inteiro, a sugestão à vista acima do rodapé com alvo de 44 px, a taxa e o total
+// do bairro escolhido sem quebrar o botão do WhatsApp, e o "Perguntar no WhatsApp" inteiro; nada rola pro lado.
 // Uso: com "npm run dev" rodando → node scripts/celulares.mjs [pasta-saida] [url-base]
 // GC_LOJA_REAL=1: o GET loja vai pro servidor de verdade (o resto da API continua como "sem servidor").
 process.env.PLAYWRIGHT_BROWSERS_PATH ??= '/opt/pw-browsers'
@@ -1368,6 +1371,102 @@ for (const [nome, w, h] of [['promax-deitado-932x430', 932, 430], ['pixel-deitad
     await p.screenshot({ path: `${out}${nome}-sacola-na-volta.png` })
     await ctx.close()
     console.log('✓', tag)
+  }
+}
+
+// ---------- a taxa por bairro em cada celular (pedido do Ian em 22/10; GET loja simulado: RJ por bairro, a lista no ----------
+// site; ES por bairro, o cliente consulta): na sacola, o "Teu bairro" inteiro na tela, a sugestão enquanto digita à
+// vista (o rodapé da sacola não cobre) e com alvo de 44 px, a taxa e o total escolhidos, o "Fechar pedido no WhatsApp"
+// ainda numa linha; no modo consulta, o "Perguntar no WhatsApp" inteiro e com alvo de 44 px. Nada rola pro lado.
+{
+  const loja = lojaDaSemente()
+  const aberto = { semana: Array.from({ length: 7 }, () => ['00:00', '23:59']), demo: false }
+  const rjLoja = loja.estados.find((e) => e.uf === 'rj')
+  Object.assign(rjLoja, { horario: aberto, taxaEntrega: { valor: null, demo: false }, taxaPorBairro: { modo: 'site', bairros: [{ nome: 'Copacabana', taxa: 12 }, { nome: 'Recreio dos Bandeirantes', taxa: 22.5 }, { nome: 'Tijuca', taxa: null }] } })
+  Object.assign(loja.estados.find((e) => e.uf === 'es'), { horario: aberto, taxaEntrega: { valor: null, demo: false }, taxaPorBairro: { modo: 'consulta' } })
+  const umDo = (uf) => loja.produtos.find((x) => x.disponivel[uf] && x.preco != null)?.id
+  for (const [nome, w, h] of aparelhos) {
+    for (const uf of ['rj', 'es']) {
+      const tag = `${nome} bairro ${uf}`
+      const ctx = await contexto(w, h, { ip: uf === 'rj' ? { region: 'Rio de Janeiro', region_code: 'RJ' } : { region: 'Espírito Santo', region_code: 'ES' } })
+      await ctx.route(/\/api\/index\.php\?r=loja(&|$)/, (r) => r.fulfill({ json: { ok: true, versao: 22, atualizadoEm: new Date().toISOString(), loja }, headers: { 'Cache-Control': 'no-cache', ETag: '"22"' } }))
+      await ctx.addInitScript((id) => {
+        if (sessionStorage.getItem('gc-teste-bairro')) return
+        sessionStorage.setItem('gc-teste-bairro', '1')
+        localStorage.setItem('gc-sacola', JSON.stringify({ state: { itens: [{ id, variacao: null, qtd: 1 }], ultimo: [], cupom: null }, version: 0 }))
+      }, umDo(uf))
+      const p = await ctx.newPage()
+      await abrir(p, tag, `${base}?uf=${uf}`)
+      await p.waitForFunction(() => JSON.parse(localStorage.getItem('gc-loja') || 'null')?.versao === 22, null, { timeout: 8000 }).catch(() => {})
+      await p.locator('.barra-abas [data-aba="sacola"]').tap()
+      await p.locator('.sacola-fechar').waitFor({ timeout: 8000 })
+      await p.waitForTimeout(800)
+      const campo = p.locator('#bairro-sacola')
+      if ((await campo.count()) !== 1) {
+        problemas.push(`${tag}: a sacola sem o "Teu bairro"`)
+        await ctx.close()
+        continue
+      }
+      await campo.tap()
+      await campo.fill(uf === 'rj' ? 'rec' : 'Praia da Costa')
+      await p.waitForTimeout(600)
+      const medir = () =>
+        p.evaluate(() => {
+          const caixa = (sel) => {
+            const r = document.querySelector(sel)?.getBoundingClientRect()
+            return r ? { l: Math.round(r.left), r: Math.round(r.right), t: Math.round(r.top), b: Math.round(r.bottom), h: Math.round(r.height) } : null
+          }
+          const folha = document.querySelector('.sacola-fechar')?.closest('.folha')
+          const zap = document.querySelector('.sacola-zap span')
+          const texto = zap ? [...zap.childNodes].find((n) => n.nodeType === 3 && n.textContent.trim()) : null
+          let linhas = 0
+          if (texto) {
+            const r = document.createRange()
+            r.selectNodeContents(texto)
+            linhas = new Set([...r.getClientRects()].map((x) => Math.round(x.top))).size
+          }
+          return {
+            campo: caixa('#bairro-sacola'),
+            sug: [...document.querySelectorAll('.bt-sugestao')].map((x) => {
+              const r = x.getBoundingClientRect()
+              return { l: Math.round(r.left), r: Math.round(r.right), b: Math.round(r.bottom), h: Math.round(r.height) }
+            }),
+            perguntar: caixa('.bt-perguntar'),
+            rodape: caixa('.sacola-fechar'),
+            linhas,
+            larg: innerWidth,
+            alto: innerHeight,
+            lateral: document.documentElement.scrollWidth > innerWidth + 0.5 || (folha ? folha.scrollWidth > folha.clientWidth + 0.5 : false),
+          }
+        })
+      const m = await medir()
+      if (!m.campo || m.campo.l < -1 || m.campo.r > m.larg + 1 || m.campo.h < 44) problemas.push(`${tag}: o "Teu bairro" fora da tela ou baixo demais (${JSON.stringify(m.campo)})`)
+      if (m.lateral) problemas.push(`${tag}: a sacola rola pro lado com o bairro`)
+      if (uf === 'rj') {
+        if (m.sug.length !== 1) problemas.push(`${tag}: digitando "rec", ${m.sug.length} sugestões (o certo é 1, o Recreio dos Bandeirantes)`)
+        else if (m.sug[0].h < 44 || m.sug[0].l < -1 || m.sug[0].r > m.larg + 1 || (m.rodape && m.sug[0].b > m.rodape.t + 1)) problemas.push(`${tag}: a sugestão fora da tela, embaixo do rodapé ou com alvo pequeno (${JSON.stringify({ sug: m.sug[0], rodape: m.rodape })})`)
+        await p.screenshot({ path: `${out}${nome}-bairro-sugestao.png` })
+        await p.locator('.bt-sugestao').first().tap()
+        await p.waitForTimeout(500)
+        const res = ((await p.locator('.bt-resposta').textContent().catch(() => '')) ?? '').replace(/\s+/g, ' ')
+        if (!/Taxa do bairro Recreio dos Bandeirantes: R\$ 22,50/.test(res) || !/Total com a entrega/.test(res)) problemas.push(`${tag}: escolhido o Recreio, sem a taxa e o total ("${res}")`)
+        const depois = await medir()
+        if (depois.linhas !== 1) problemas.push(`${tag}: com o bairro escolhido, o "Fechar pedido no WhatsApp" quebrou (${depois.linhas} linhas)`)
+        if (depois.lateral) problemas.push(`${tag}: com o bairro escolhido, a sacola rola pro lado`)
+        await p.locator('.bt-resposta').scrollIntoViewIfNeeded()
+        await p.screenshot({ path: `${out}${nome}-bairro-taxa.png` })
+      } else {
+        await campo.blur()
+        await p.waitForTimeout(300)
+        const c = await medir()
+        if (!c.perguntar || c.perguntar.h < 44 || c.perguntar.l < -1 || c.perguntar.r > c.larg + 1) problemas.push(`${tag}: o "Perguntar no WhatsApp" fora da tela ou com alvo pequeno (${JSON.stringify(c.perguntar)})`)
+        if (c.lateral) problemas.push(`${tag}: no modo consulta, a sacola rola pro lado`)
+        await p.locator('.bt-perguntar').scrollIntoViewIfNeeded().catch(() => {})
+        await p.screenshot({ path: `${out}${nome}-bairro-consulta.png` })
+      }
+      await ctx.close()
+      console.log('✓', tag)
+    }
   }
 }
 

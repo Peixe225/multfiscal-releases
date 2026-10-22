@@ -12,7 +12,13 @@ import type { EstadoAdmin, LojaAdmin } from './tipos'
 
 function resumoDoEstado(e: EstadoAdmin, l: LojaAdmin): string {
   const whats = l.ajustes.mesmoWhatsappParaTodos || !e.whatsapp ? 'WhatsApp da loja' : `WhatsApp ${whatsappBonito(e.whatsapp)}`
-  const taxa = e.taxaEntrega.valor == null || e.taxaEntrega.demo ? 'taxa a confirmar' : `taxa ${brl(e.taxaEntrega.valor)}`
+  const n = e.bairros?.length ?? 0
+  const taxa =
+    e.taxaPor === 'bairro'
+      ? `taxa por bairro (${n === 0 ? 'lista vazia' : n === 1 ? '1 bairro' : `${n} bairros`}${e.bairrosVer === 'consulta' ? ', o cliente consulta' : ''})`
+      : e.taxaEntrega.valor == null || e.taxaEntrega.demo
+        ? 'taxa a confirmar'
+        : `taxa ${brl(e.taxaEntrega.valor)}`
   const cidades = e.cidades.length ? e.cidades.map((c) => c.nome).join(', ') : 'cidade a perguntar'
   const minimo = e.pedidoMinimo != null && e.pedidoMinimo > 0 ? ` · mínimo ${brl(e.pedidoMinimo)}` : ''
   return `${cidades} · ${whats} · ${taxa}${minimo}`

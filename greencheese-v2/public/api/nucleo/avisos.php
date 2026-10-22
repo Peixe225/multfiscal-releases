@@ -691,6 +691,40 @@ function gc_aviso_endereco(array $p): string
 }
 
 /**
+ * A linha da entrega no aviso do grupo: o endereço e a taxa. O estado com uma taxa só: "(taxa a confirmar)", como
+ * sempre. O estado que cobra por bairro (migração 107): a taxa pela tabela do SERVIDOR, nunca pelo número que veio do
+ * site (o que não bateu vai no "Confere o valor na conversa"): "(taxa do bairro R$ 12,00, pela tabela)", "(taxa do
+ * bairro a consultar)" (fora da lista, marcado "consultar" ou sem bairro) ou "(entrega grátis hoje)" (o site disse e o
+ * dia é de entrega grátis do estado). Sem endereço (a sacola), o bairro vai junto do "na conversa".
+ */
+function gc_aviso_entrega(array $p): string
+{
+    $endereco = gc_aviso_endereco($p);
+    $t = function_exists('gc_pedido_taxa_da_tabela') ? gc_pedido_taxa_da_tabela($p, (int) $p['criado_em']) : null;
+    if ($t === null) {
+        return $endereco . ' _(taxa a confirmar)_';
+    }
+    $bairro = $t['bairro'];
+    if ($bairro !== '' && (string) $p['rua'] === '') {
+        $endereco .= ' · bairro ' . $bairro;
+    }
+    if ($t['diaGratis'] && gc_pedido_site_gratis_hoje($p)) {
+        $taxa = 'entrega grátis hoje';
+    } elseif ($bairro === '') {
+        $taxa = 'taxa do bairro a consultar: o cliente não disse o bairro';
+    } elseif ($t['achado'] === null) {
+        $taxa = 'taxa do bairro a consultar: fora da lista';
+    } elseif ($t['achado']['taxa'] === null) {
+        $taxa = 'taxa do bairro a consultar';
+    } elseif ($t['achado']['taxa'] === 0) {
+        $taxa = 'bairro sem taxa, pela tabela';
+    } else {
+        $taxa = 'taxa do bairro ' . gc_brl($t['achado']['taxa']) . ', pela tabela';
+    }
+    return $endereco . ' _(' . $taxa . ')_';
+}
+
+/**
  * A mensagem do pedido no grupo: o cabeçalho com o código, de onde e quando; os itens (com o combo), o subtotal e o
  * cupom; entrega, pagamento, cliente e obs.; e o link do painel. Negrito/itálico do WhatsApp, sem emoji.
  * @param array<string, mixed> $p
@@ -750,7 +784,7 @@ function gc_aviso_texto_pedido(array $p, ?array $antes, array $conferir = []): s
             $l[] = 'Cupom: ' . $cupom['codigo'] . (($cupom['regra'] ?? '') !== '' ? ' — ' . $cupom['regra'] : '') . ' _(a loja confirma)_';
         }
         $l[] = '';
-        $l[] = '*Entrega:* ' . gc_aviso_endereco($p) . ' _(taxa a confirmar)_';
+        $l[] = '*Entrega:* ' . gc_aviso_entrega($p);
         $pag = $p['pagamento'] === null ? 'a combinar' : GC_NOME_PAGAMENTO[(string) $p['pagamento']] ?? (string) $p['pagamento'];
         if ($p['pagamento'] === 'dinheiro') {
             $pag .= $p['troco'] === null ? ' (sem troco)' : ' (troco pra ' . gc_brl((int) $p['troco']) . ')';

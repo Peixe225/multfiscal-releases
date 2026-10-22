@@ -651,6 +651,13 @@ export function Pedido({ id }: { id: number }) {
                   <span className="pd-sem">{p.dadosApagados ? 'apagado' : sacola ? 'na conversa (o cliente manda no WhatsApp)' : 'a combinar no WhatsApp'}</span>
                 )}
               </LinhaLonga>
+              {/* a taxa que o site mostrou (a taxa por bairro, 22/10), com o bairro quando a sacola não tem endereço */}
+              {!enc && p.taxaSite && (
+                <Linha rotulo="Taxa no site">
+                  {!endereco && p.entrega.bairro ? `${p.entrega.bairro}: ` : ''}
+                  {p.taxaSite.texto || (p.taxaSite.valor != null ? brl(p.taxaSite.valor) : 'a confirmar')}
+                </Linha>
+              )}
               {!enc && <Linha rotulo="Pagamento">{sacola && !p.pagamento ? <span className="pd-sem">a combinar na conversa</span> : pagamentoTexto(p)}</Linha>}
               {p.observacao && (
                 <LinhaLonga rotulo="Observação">
