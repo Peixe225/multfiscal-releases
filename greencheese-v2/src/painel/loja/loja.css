@@ -2013,6 +2013,10 @@ html.com-teclado .pn-pe-fixo {
 .pn-bairro-c-taxa {
   flex: 0 1 150px;
 }
+/* a cidade cabe inteira ("Qualquer cidade" com a seta): no celular estreito ela fica na linha dela e a taxa desce */
+.pn-bairro-c-cidade {
+  flex: 1 1 190px;
+}
 .pn-bairro-form.pn-campo-erro .pn-bairro-c-nome .pn-input {
   border: 1px dashed var(--branco);
 }

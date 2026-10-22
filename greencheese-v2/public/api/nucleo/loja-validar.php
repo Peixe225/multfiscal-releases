@@ -731,9 +731,18 @@ function gc_loja_ler_estado(array $c, ?array $atual, string $uf): array
         } else {
             $col['bairros_ver'] = $atual === null ? 'site' : gc_loja_bairros_ver($atual);
         }
-        $col['bairros'] = $tem('bairros')
-            ? gc_loja_json(gc_loja_ler_bairros($c['bairros'], (array) gc_loja_lido($col['cidades'], [])))
-            : ($atual === null ? '[]' : (string) ($atual['bairros'] ?? '[]'));
+        if ($tem('bairros')) {
+            $col['bairros'] = gc_loja_json(gc_loja_ler_bairros($c['bairros'], (array) gc_loja_lido($col['cidades'], [])));
+        } else {
+            $col['bairros'] = $atual === null ? '[]' : (string) ($atual['bairros'] ?? '[]');
+            // as cidades mudaram e a lista não veio (o painel de antes, ou só a cidade mexida): a lista guardada tem de
+            // continuar valendo com as cidades novas. Bairro de uma cidade que saiu fica sem cidade nenhuma que case (o
+            // site nunca acharia ele) e o salvar seguinte da lista seria recusado por um bairro que o dono nem mexeu:
+            // recusa agora, dizendo qual. O painel novo resolve antes de mandar (apaga ou muda os bairros da cidade)
+            if ($tem('cidades') && $atual !== null) {
+                gc_loja_bairros_com_cidades(gc_loja_bairros_de(['bairros' => $col['bairros']]), (array) gc_loja_lido($col['cidades'], []));
+            }
+        }
     }
 
     if ($tem('entregaGratis')) {
@@ -818,12 +827,18 @@ function gc_loja_ler_bairros(mixed $v, array $cidades): array
         } catch (ErroApi $e) {
             throw new ErroApi($e->codigo, $e->getMessage(), $e->status, $e->extra + ['indice' => $i]);
         }
+        // o separador da lista colada (";", ":", "=" ou o tab da planilha) nunca é parte do nome: "Laranjeiras;10" é a
+        // linha da planilha que não foi lida, e o cliente que digita "Laranjeiras" nunca casaria com ele
+        if (preg_match('/[;:=\t]/', $nome) === 1) {
+            throw gc_invalido('bairros', "“{$nome}”: o nome do bairro não leva “;”, “:” nem “=” (a taxa vai no campo dela).", ['indice' => $i]);
+        }
         $cidade = '';
         $pedida = is_array($x) ? ($x['cidade'] ?? null) : null;
         if ($pedida !== null && $pedida !== '') {
             $c = is_string($pedida) ? ($daCidade[gc_loja_chave_bairro($pedida)] ?? null) : null;
             if ($c === null) {
-                throw gc_invalido('bairros', "A cidade de “{$nome}” não tá nas cidades do estado.", ['indice' => $i]);
+                $qual = is_string($pedida) ? " ({$pedida})" : '';
+                throw gc_invalido('bairros', "A cidade de “{$nome}”{$qual} não tá nas cidades do estado.", ['indice' => $i]);
             }
             $cidade = $c;
         }
@@ -843,6 +858,37 @@ function gc_loja_ler_bairros(mixed $v, array $cidades): array
         $out[] = ['nome' => $nome, 'cidade' => $cidade, 'taxa' => $taxa];
     }
     return $out;
+}
+
+/**
+ * A lista guardada continua valendo com as cidades novas do estado? (as cidades mudaram e a lista não veio no corpo:
+ * o painel de antes, aberto no celular do dono, só manda as cidades). Bairro de uma cidade que saiu: recusa, com o
+ * campo "cidades" e o nome do bairro e da cidade (o "Centro" de Vitória e o de Vila Velha são dois).
+ * @param list<array{nome: string, cidade: string, taxa: int|null}> $bairros
+ * @param list<mixed> $cidades as cidades do estado depois desta edição
+ */
+function gc_loja_bairros_com_cidades(array $bairros, array $cidades): void
+{
+    $tem = [];
+    foreach ($cidades as $c) {
+        if (is_array($c) && is_string($c['nome'] ?? null)) {
+            $tem[gc_loja_chave_bairro($c['nome'])] = true;
+        }
+    }
+    $orfaos = array_values(array_filter($bairros, static fn (array $b): bool => $b['cidade'] !== '' && !isset($tem[gc_loja_chave_bairro($b['cidade'])])));
+    if ($orfaos === []) {
+        return;
+    }
+    $cidade = $orfaos[0]['cidade'];
+    $daCidade = array_values(array_filter($orfaos, static fn (array $b): bool => $b['cidade'] === $cidade));
+    $nomes = array_map(static fn (array $b): string => $b['nome'], array_slice($daCidade, 0, 3));
+    $lista = count($daCidade) > 3 ? implode(', ', $nomes) . ' e mais ' . (count($daCidade) - 3) : implode(' e ', array_filter([implode(', ', array_slice($nomes, 0, -1)), end($nomes)]));
+    throw gc_invalido(
+        'cidades',
+        (count($daCidade) === 1 ? "O bairro {$lista} é" : "Os bairros {$lista} são") . " de {$cidade}, na lista de bairros da taxa de entrega: apaga "
+        . (count($daCidade) === 1 ? 'ele' : 'eles') . " ou muda a cidade antes de tirar {$cidade} (recarrega o painel se não tá vendo a lista).",
+        ['bairros' => count($orfaos)],
+    );
 }
 
 // ─── loja (ajustes e textos) e Teste minha sorte ────────────────────────────────────────────────────────────────

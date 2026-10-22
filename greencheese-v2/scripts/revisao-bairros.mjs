@@ -10,6 +10,10 @@
 // - o estado de uma taxa só (MG): nada muda;
 // - o pedido guiado: o bairro do CEP ("Copacabana") casa com a lista e a taxa vai na mensagem;
 // - o site guardado no celular de antes (a loja guardada sem o campo novo) abre igual.
+// Da revisão de 22/10 (o corretor): o estado com duas cidades e o cliente sem cidade (a sugestão diz a cidade e nunca
+// responde "não tá na lista" depois), o rótulo da busca no story (não passa o quadro), o teclado na sugestão (Tab, ↓ e
+// Enter), o "Total com a entrega" com o pedido mínimo (o mínimo conta só os produtos), o dia de entrega grátis (sem o
+// bairro guardado na mensagem) e o pedido guiado sem CEP (o bairro escrito no endereço vale mais que o guardado).
 import { lojaDaSemente } from './revisao-loja.mjs'
 
 const ZAP = 'https://wa.me/5533991139036?text='
@@ -44,10 +48,10 @@ export async function rodadaBairros({ browser, base, contexto, conferir, foto, v
   const doEstado = (uf) => loja.produtos.filter((p) => p.disponivel[uf] && p.preco != null)
   const recebidos = []
 
-  const montar = async (viewport) => {
+  const montar = async (viewport, lojaUsada = loja) => {
     const ctx = await contexto(browser, viewport)
     await ctx.route(/\/api\/index\.php\?r=loja(&|$)/, (r) =>
-      r.fulfill({ json: { ok: true, versao: 22, atualizadoEm: '2026-10-22T12:00:00.000Z', loja }, headers: { 'Cache-Control': 'no-cache', ETag: '"22"' } }),
+      r.fulfill({ json: { ok: true, versao: 22, atualizadoEm: '2026-10-22T12:00:00.000Z', loja: lojaUsada }, headers: { 'Cache-Control': 'no-cache', ETag: '"22"' } }),
     )
     await ctx.route('**/api/index.php?r=pedido', async (route) => {
       const req = route.request()
@@ -162,7 +166,10 @@ export async function rodadaBairros({ browser, base, contexto, conferir, foto, v
     conferir(href?.startsWith(ZAP) && linhaEntrega(href) === 'Entrega: Copacabana (taxa R$ 12,00)', `bairros ${rot}: a mensagem do WhatsApp diz o bairro e a taxa ("${linhaEntrega(href)}")`)
     await page.waitForTimeout(600)
     const copia = recebidos[antes]
-    conferir(copia?.entrega?.bairro === 'Copacabana' && JSON.stringify(copia?.taxa) === JSON.stringify({ valor: 12, texto: 'taxa R$ 12,00' }), `bairros ${rot}: a cópia do pedido leva o bairro e a taxa que o site mostrou (${JSON.stringify({ b: copia?.entrega?.bairro, t: copia?.taxa })})`)
+    conferir(
+      copia?.entrega?.bairro === 'Copacabana' && copia?.taxa?.valor === 12 && copia?.taxa?.texto === 'taxa R$ 12,00' && Math.abs((copia?.taxa?.em ?? 0) - Date.now() / 1000) < 300,
+      `bairros ${rot}: a cópia do pedido leva o bairro, a taxa que o site mostrou e a hora do toque (${JSON.stringify({ b: copia?.entrega?.bairro, t: copia?.taxa })})`,
+    )
     // um começo que ainda acha bairro não é "fora da lista"; o bairro que não tá, é "a consultar"
     await page.locator('.sacola-enviado button, .sacola-guiado-botao').first().waitFor({ timeout: 2000 }).catch(() => {})
     await campo.fill('Ipa')
@@ -287,5 +294,207 @@ export async function rodadaBairros({ browser, base, contexto, conferir, foto, v
     await abrirSacola(page)
     conferir((await page.locator('#bairro-sacola').count()) === 1, 'bairros: com a loja de antes guardada no celular, o site abre e troca pela nova (o "Teu bairro" aparece)')
     await ctx.close()
+  }
+
+  // ─── revisão de 22/10 (o corretor) ──────────────────────────────────────────────────────────────────────────
+  const loja2 = structuredClone(loja)
+  const est2 = (uf) => loja2.estados.find((e) => e.uf === uf)
+  // SP com duas cidades e o "Centro" das duas com taxas diferentes; o cliente sem cidade escolhida (o ?uf=sp)
+  Object.assign(est2('sp'), {
+    horario: aberto,
+    cidades: [{ slug: 'sao-paulo', nome: 'São Paulo' }, { slug: 'guarulhos', nome: 'Guarulhos' }],
+    taxaEntrega: { valor: null, demo: false },
+    taxaPorBairro: {
+      modo: 'site',
+      bairros: [
+        { nome: 'Centro', cidade: 'Guarulhos', taxa: 10 },
+        { nome: 'Centro', cidade: 'São Paulo', taxa: 8 },
+        { nome: 'Moema', cidade: 'São Paulo', taxa: 9 },
+        { nome: 'Liberdade', taxa: 11 },
+      ],
+    },
+  })
+  const sp = loja2.produtos.filter((p) => p.disponivel.sp && p.preco != null).slice(0, 1)
+  const respostaDe = async (page, sel = '.bt-resposta') => semNbsp(await page.locator(sel).first().textContent({ timeout: 3000 }).catch(() => ''))
+  // cada bloco: o que quebra (o código de antes, por exemplo) vira uma falha com o nome dele, e os outros seguem
+  const T = { timeout: 5000 }
+  const tentar = async (nome, ctx, fn) => {
+    try {
+      await fn()
+    } catch (e) {
+      conferir(false, `${nome}: quebrou (${e.message.split('\n')[0]})`)
+    } finally {
+      await ctx.close()
+    }
+  }
+  for (const [rot, vp] of [
+    ['360', { width: 360, height: 740 }],
+    ['390', { width: 390, height: 844 }],
+    ['computador', { width: 1280, height: 800 }],
+  ]) {
+    const ctx = await montar(vp, loja2)
+    await tentar(`bairros sem cidade ${rot}`, ctx, async () => {
+      const page = await abrir(ctx, 'sp', sp.map((p) => p.id), `bairros-sp-${rot}`)
+      await abrirSacola(page)
+      const campo = page.locator('#bairro-sacola')
+      // a sugestão de um bairro que só tem numa cidade: com a cidade, e escolhida, dá a taxa (nunca "não tá na lista")
+      await campo.fill('Moe')
+      await page.waitForTimeout(350)
+      const sugMoema = (await page.locator('.bt-sugestao').allTextContents()).map(semNbsp)
+      conferir(sugMoema.length === 1 && sugMoema[0] === 'Moema · São Paulo: R$ 9,00', `bairros sem cidade ${rot}: "Moe" sugere "Moema · São Paulo: R$ 9,00" (${sugMoema.join(' | ')})`)
+      await page.locator('.bt-sugestao').first().click(T)
+      await page.waitForTimeout(350)
+      const resMoema = await respostaDe(page)
+      conferir(resMoema.startsWith('Taxa do bairro Moema: R$ 9,00'), `bairros sem cidade ${rot}: escolheu Moema: a taxa dele, e não "não tá na lista" ("${resMoema}")`)
+      const hMoema = await fechar(page)
+      conferir(linhaEntrega(hMoema) === 'Entrega: Moema (taxa R$ 9,00)' && mensagemDo(hMoema).startsWith('PEDIDO GREEN CHEESE — SP / São Paulo'), `bairros sem cidade ${rot}: a mensagem com a taxa e a cidade que a escolha disse ("${linhaEntrega(hMoema)}")`)
+      // o "Centro" das duas cidades, sem cidade escolhida: as duas opções, cada uma com a cidade e a taxa
+      await page.evaluate(() => {
+        const l = JSON.parse(localStorage.getItem('gc-local') || '{}')
+        l.state = { ...(l.state ?? {}), cidade: null }
+        localStorage.setItem('gc-local', JSON.stringify(l))
+        localStorage.removeItem('gc-bairro')
+    })
+    await page.goto(`${base}?uf=sp`)
+    await page.waitForTimeout(900)
+    await abrirSacola(page)
+    await campo.fill('Cen')
+    await page.waitForTimeout(350)
+    const sugCentro = (await page.locator('.bt-sugestao').allTextContents()).map(semNbsp)
+    conferir(sugCentro.join(' | ') === 'Centro · Guarulhos: R$ 10,00 | Centro · São Paulo: R$ 8,00', `bairros sem cidade ${rot}: "Cen" sugere o Centro de cada cidade, com a taxa de cada um (${sugCentro.join(' | ')})`)
+    await page.locator('.bt-sugestoes').scrollIntoViewIfNeeded()
+    await foto(page, `bairros-${rot}-sem-cidade-sugestao`)
+    // digitado inteiro (sem tocar na sugestão): pede a cidade, com as opções à vista mesmo fora do campo
+    await campo.fill('Centro')
+    await campo.blur()
+    await page.waitForTimeout(400)
+    const resCentro = await respostaDe(page)
+    conferir(resCentro === 'Centro tem taxa diferente em cada cidade: escolhe a tua aqui embaixo.' && (await page.locator('.bt-sugestao').count()) === 2, `bairros sem cidade ${rot}: "Centro" digitado pede a cidade, com as 2 opções ("${resCentro}")`)
+    conferir(linhaEntrega(await fechar(page)) === 'Entrega: Centro (taxa do bairro a consultar)', `bairros sem cidade ${rot}: sem a cidade, a mensagem diz "a consultar" (nunca um dos dois valores)`)
+    await page.locator('.bt-sugestao', { hasText: 'Guarulhos' }).click(T)
+    await page.waitForTimeout(400)
+    const resGru = await respostaDe(page)
+    conferir(resGru.startsWith('Taxa do bairro Centro: R$ 10,00'), `bairros sem cidade ${rot}: escolheu "Centro · Guarulhos": R$ 10,00 ("${resGru}")`)
+    const hGru = await fechar(page)
+    conferir(linhaEntrega(hGru) === 'Entrega: Centro (taxa R$ 10,00)' && mensagemDo(hGru).startsWith('PEDIDO GREEN CHEESE — SP / Guarulhos'), `bairros sem cidade ${rot}: a mensagem do Centro de Guarulhos ("${linhaEntrega(hGru)}")`)
+    await page.locator('.bt-resposta').scrollIntoViewIfNeeded()
+    await foto(page, `bairros-${rot}-sem-cidade-escolheu`)
+    })
+  }
+
+  // o rótulo da busca no story não passa o quadro; o teclado escolhe a sugestão; o total com a entrega e o mínimo
+  for (const [rot, vp] of [
+    ['360', { width: 360, height: 740 }],
+    ['computador', { width: 1280, height: 800 }],
+  ]) {
+    const lojaMin = structuredClone(loja)
+    // o mínimo entre o subtotal e o subtotal com a taxa de Copacabana (R$ 12)
+    lojaMin.estados.find((e) => e.uf === 'rj').pedidoMinimo = Math.round((subtotalRj + 6) * 100) / 100
+    const ctx = await montar(vp, lojaMin)
+    await tentar(`bairros rótulo, teclado e mínimo ${rot}`, ctx, async () => {
+      const page = await abrir(ctx, 'rj', rj.map((p) => p.id), `bairros-rotulo-${rot}`)
+      await abrirSacola(page)
+      const campo = page.locator('#bairro-sacola')
+      if (rot === 'computador') {
+        // teclado: digita, Tab pra sugestão (a lista fica), Enter escolhe e o foco volta pro campo
+        await campo.click()
+        await page.keyboard.type('copa', { delay: 20 })
+        await page.waitForTimeout(250)
+        await page.keyboard.press('Tab')
+        await page.waitForTimeout(400)
+        const noTab = await page.evaluate(() => ({ foco: document.activeElement?.className ?? '', n: document.querySelectorAll('.bt-sugestao').length }))
+        conferir(noTab.n === 1 && noTab.foco.includes('bt-sugestao'), `bairros teclado: Tab do campo vai pra sugestão e a lista fica (${JSON.stringify(noTab)})`)
+        await page.keyboard.press('Enter')
+        await page.waitForTimeout(350)
+        const depois = await page.evaluate(() => ({ foco: document.activeElement?.id ?? '', valor: document.querySelector('#bairro-sacola')?.value }))
+        conferir(depois.valor === 'Copacabana' && depois.foco === 'bairro-sacola', `bairros teclado: Enter escolhe Copacabana e o foco volta pro campo (${JSON.stringify(depois)})`)
+        await campo.fill('Bot')
+        await page.keyboard.press('ArrowDown')
+        await page.waitForTimeout(150)
+        conferir(semNbsp(await page.evaluate(() => document.activeElement?.textContent ?? '')) === 'Botafogo: R$ 10,00', 'bairros teclado: ↓ no campo vai pra primeira sugestão')
+        await page.keyboard.press('Escape')
+        await page.waitForTimeout(150)
+        conferir(await page.evaluate(() => document.activeElement?.id === 'bairro-sacola'), 'bairros teclado: Esc na sugestão volta pro campo')
+      }
+      await campo.fill('Copacabana')
+      await campo.blur()
+      await page.waitForTimeout(400)
+      const res = await respostaDe(page)
+      const notaMin = `O pedido mínimo de ${brl(subtotalRj + 6)} conta só os produtos, sem a taxa.`
+      conferir(res.includes(`Total com a entrega${brl(subtotalRj + 12)}`) && res.includes(notaMin), `bairros mínimo ${rot}: o total com a taxa passa do mínimo, e a tela diz que o mínimo conta só os produtos ("${res}")`)
+      await page.locator('.bt-total').scrollIntoViewIfNeeded()
+      await foto(page, `bairros-${rot}-total-minimo`)
+      // o story: o toque no rótulo "Qual a taxa do meu bairro?" fica no quadro (e põe o cursor no campo)
+      await page.keyboard.press('Escape')
+      await page.waitForTimeout(700)
+      await storyNaEntrega(page, vp)
+      const quadroAntes = await page.locator('.story .story-palco + span[aria-live]').first().textContent().catch(() => '')
+      await page.locator('.bt-story .bt-rotulo').click(T)
+      await page.waitForTimeout(700)
+      const quadroDepois = await page.locator('.story .story-palco + span[aria-live]').first().textContent().catch(() => '')
+      const foco = await page.evaluate(() => document.activeElement?.id ?? '')
+      conferir(quadroAntes === quadroDepois && (await page.locator('#bairro-story').count()) === 1 && foco === 'bairro-story', `bairros story ${rot}: o toque no rótulo fica na entrega e põe o cursor no campo (${quadroAntes} → ${quadroDepois}, foco ${foco})`)
+      await page.locator('.bt-story .bt-resposta').click({ force: true }).catch(() => {})
+      await page.waitForTimeout(500)
+      conferir((await page.locator('#bairro-story').count()) === 1, `bairros story ${rot}: o toque na resposta também não passa o quadro`)
+    })
+  }
+
+  // o dia de entrega grátis: a sacola não mostra o "Teu bairro", e a mensagem não leva o bairro guardado
+  {
+    const lojaGratis = structuredClone(loja)
+    lojaGratis.estados.find((e) => e.uf === 'rj').entregaGratis = { dias: [0, 1, 2, 3, 4, 5, 6], texto: 'Hoje tem entrega grátis!', demo: false }
+    const ctx = await montar({ width: 360, height: 740 }, lojaGratis)
+    await tentar('bairros dia grátis', ctx, async () => {
+      const page = await abrir(ctx, 'rj', rj.map((p) => p.id), 'bairros-gratis')
+      await page.evaluate(() => localStorage.setItem('gc-bairro', JSON.stringify({ state: { porUf: { rj: 'Copacabana' } }, version: 0 })))
+      await page.reload()
+      await page.waitForTimeout(900)
+      await abrirSacola(page)
+      conferir((await page.locator('#bairro-sacola').count()) === 0, 'bairros dia grátis: a sacola não mostra o "Teu bairro" (a taxa não depende dele hoje)')
+      const antes = recebidos.length
+      const href = await fechar(page)
+      conferir(linhaEntrega(href) === 'Entrega: grátis hoje', `bairros dia grátis: a mensagem sem o bairro guardado de outra visita ("${linhaEntrega(href)}")`)
+      await page.waitForTimeout(600)
+      const copia = recebidos[antes]
+      conferir(!copia?.entrega?.bairro && copia?.taxa?.texto === 'grátis hoje', `bairros dia grátis: a cópia sem o bairro, com o "grátis hoje" (${JSON.stringify({ e: copia?.entrega, t: copia?.taxa })})`)
+    })
+  }
+
+  // o pedido guiado sem CEP: o bairro escrito no endereço vale mais que o guardado no aparelho
+  {
+    const ctx = await montar({ width: 390, height: 844 })
+    await tentar('bairros guiado sem CEP', ctx, async () => {
+      const page = await abrir(ctx, 'rj', rj.map((p) => p.id), 'bairros-guiado-sem-cep')
+      await page.evaluate(() => localStorage.setItem('gc-bairro', JSON.stringify({ state: { porUf: { rj: 'Leblon' } }, version: 0 })))
+      await page.reload()
+      await page.waitForTimeout(800)
+      await abrirSacola(page)
+      await page.locator('.sacola-guiado').getByRole('button', { name: 'Pedido guiado', exact: true }).click()
+      await page.waitForTimeout(700)
+      const escrever = async (texto) => {
+        await page.locator('.dm-entrada input, .dm-entrada textarea').first().fill(texto)
+        await page.locator('.dm-entrada').evaluate((f) => f.requestSubmit())
+        await page.waitForTimeout(350)
+      }
+      await clicar(page, 'Isso')
+      await clicar(page, 'Tá certo')
+      await escrever('Ana Souza')
+      await clicar(page, 'Sem CEP')
+      await escrever('Rua Barata Ribeiro, 120, Copacabana')
+      await clicar(page, 'Pix')
+      await clicar(page, 'Sem observação')
+      await page.waitForTimeout(500)
+      const link = page.getByRole('link', { name: 'Fechar pedido no WhatsApp' })
+      const href = await link.getAttribute('href').catch(() => null)
+      conferir(linhaEntrega(href) === 'Entrega: Rua Barata Ribeiro, 120, Copacabana (taxa do bairro: R$ 12,00)', `bairros: guiado sem CEP com o Leblon guardado e Copacabana no endereço: a taxa de Copacabana ("${linhaEntrega(href)}")`)
+      await foto(page, 'bairros-390-guiado-sem-cep')
+      const antes = recebidos.length
+      await link.evaluate((a) => a.addEventListener('click', (e) => e.preventDefault()))
+      await link.click().catch(() => {})
+      await page.waitForTimeout(700)
+      const copia = recebidos[antes]
+      conferir(copia?.entrega?.bairro === 'Copacabana' && copia?.taxa?.valor === 12, `bairros: a cópia do guiado sem CEP com o bairro do endereço (${JSON.stringify({ b: copia?.entrega?.bairro, t: copia?.taxa })})`)
+    })
   }
 }

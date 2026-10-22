@@ -20,7 +20,7 @@ import {
   totais,
   whatsappDoCanal,
 } from '../lib/mensagem'
-import { modoBairro } from '../lib/bairros'
+import { bairroDoEndereco, modoBairro } from '../lib/bairros'
 import { useBairroDa } from '../store/bairro'
 import type { Pedaco } from '../dados/textos-pedido'
 import { atualizarFalas, primeiroNome, useFala } from '../lib/falas'
@@ -194,10 +194,14 @@ export function ChatFolha() {
   const endereco = respostas.rua
     ? `${respostas.rua}${respostas.numero ? `, ${respostas.numero}` : ''}${respostas.bairro ? `, ${respostas.bairro}` : ''}${cidadeNoEndereco ? `, ${respostas.cidadeCep}` : ''}`
     : respostas.enderecoLivre
-  // a taxa por bairro (22/10): o bairro do CEP e, sem ele, o "Teu bairro" que a pessoa já disse na sacola ou no story.
-  // No estado de uma taxa só, nada (a mensagem fica a de sempre)
+  // a taxa por bairro (22/10): o bairro do CEP; sem CEP, o bairro da lista escrito no endereço e, sem nenhum, o "Teu
+  // bairro" que a pessoa já disse na sacola ou no story (nunca o guardado no lugar de outro bairro escrito no endereço).
+  // A cidade pra achar o bairro: a do atendimento e, sem ela (estado com mais de uma), a do CEP, como no servidor. No
+  // estado de uma taxa só, nada (a mensagem fica a de sempre)
   const bairroGuardado = useBairroDa(canal?.uf)
-  const bairroTaxa = canal && modoBairro(canal) ? (respostas.rua && respostas.bairro ? respostas.bairro : bairroGuardado.trim()) || null : null
+  const cidadeBairro = cidade ?? (respostas.cep && respostas.cidadeCep ? respostas.cidadeCep : null)
+  const bairroTaxa =
+    canal && modoBairro(canal) ? (respostas.rua && respostas.bairro ? respostas.bairro : bairroDoEndereco(canal, endereco, bairroGuardado, cidadeBairro)) : null
 
   const mensagem = useMemo(() => {
     if (!canal) return ''
@@ -226,8 +230,9 @@ export function ChatFolha() {
       // a hora da loja (Brasília, corrigida pelo servidor): a entrega grátis do dia não depende do relógio do aparelho
       agora: new Date(agora),
       bairro: bairroTaxa,
+      cidadeBairro,
     })
-  }, [canal, cidade, modo, respostas, pedido, cupomOk, endereco, codigoPedido.codigo, agora, bairroTaxa])
+  }, [canal, cidade, modo, respostas, pedido, cupomOk, endereco, codigoPedido.codigo, agora, bairroTaxa, cidadeBairro])
 
   // o pedido mudou depois de ir pro servidor (outro endereço, outra sacola): código novo, que substitui o de antes.
   // Antes de pintar: o link do WhatsApp nunca sai com o código velho numa mensagem nova
@@ -278,7 +283,7 @@ export function ChatFolha() {
         cidade: respostas.cep ? respostas.cidadeCep : '',
         uf: respostas.cep ? respostas.ufCep : '',
       },
-      taxa: taxaParaOServidor(entregaDoPedido(canal, bairroTaxa, cidade, new Date(agora))),
+      taxa: taxaParaOServidor(entregaDoPedido(canal, bairroTaxa, cidadeBairro, new Date(agora)), new Date(agora)),
       pagamento: respostas.pagamento,
       troco: respostas.pagamento === 'dinheiro' ? respostas.troco : null,
       obs: respostas.obs.trim(),

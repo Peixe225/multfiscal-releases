@@ -1377,18 +1377,26 @@ for (const [nome, w, h] of [['promax-deitado-932x430', 932, 430], ['pixel-deitad
 // ---------- a taxa por bairro em cada celular (pedido do Ian em 22/10; GET loja simulado: RJ por bairro, a lista no ----------
 // site; ES por bairro, o cliente consulta): na sacola, o "Teu bairro" inteiro na tela, a sugestão enquanto digita à
 // vista (o rodapé da sacola não cobre) e com alvo de 44 px, a taxa e o total escolhidos, o "Fechar pedido no WhatsApp"
-// ainda numa linha; no modo consulta, o "Perguntar no WhatsApp" inteiro e com alvo de 44 px. Nada rola pro lado.
+// ainda numa linha; no modo consulta, o "Perguntar no WhatsApp" inteiro e com alvo de 44 px. Nada rola pro lado. E SP
+// com duas cidades e o cliente sem cidade (revisão de 22/10): o "Centro" de cada cidade na sugestão, com a cidade junto
+// do nome, cada um com alvo de 44 px e à vista; escolhido o de Guarulhos, a taxa dele.
 {
   const loja = lojaDaSemente()
   const aberto = { semana: Array.from({ length: 7 }, () => ['00:00', '23:59']), demo: false }
   const rjLoja = loja.estados.find((e) => e.uf === 'rj')
   Object.assign(rjLoja, { horario: aberto, taxaEntrega: { valor: null, demo: false }, taxaPorBairro: { modo: 'site', bairros: [{ nome: 'Copacabana', taxa: 12 }, { nome: 'Recreio dos Bandeirantes', taxa: 22.5 }, { nome: 'Tijuca', taxa: null }] } })
   Object.assign(loja.estados.find((e) => e.uf === 'es'), { horario: aberto, taxaEntrega: { valor: null, demo: false }, taxaPorBairro: { modo: 'consulta' } })
+  Object.assign(loja.estados.find((e) => e.uf === 'sp'), {
+    horario: aberto,
+    cidades: [{ slug: 'sao-paulo', nome: 'São Paulo' }, { slug: 'guarulhos', nome: 'Guarulhos' }],
+    taxaEntrega: { valor: null, demo: false },
+    taxaPorBairro: { modo: 'site', bairros: [{ nome: 'Centro', cidade: 'Guarulhos', taxa: 10 }, { nome: 'Centro', cidade: 'São Paulo', taxa: 8 }, { nome: 'Jardim Paulista', taxa: 12 }] },
+  })
   const umDo = (uf) => loja.produtos.find((x) => x.disponivel[uf] && x.preco != null)?.id
   for (const [nome, w, h] of aparelhos) {
-    for (const uf of ['rj', 'es']) {
+    for (const uf of ['rj', 'es', 'sp']) {
       const tag = `${nome} bairro ${uf}`
-      const ctx = await contexto(w, h, { ip: uf === 'rj' ? { region: 'Rio de Janeiro', region_code: 'RJ' } : { region: 'Espírito Santo', region_code: 'ES' } })
+      const ctx = await contexto(w, h, { ip: uf === 'rj' ? { region: 'Rio de Janeiro', region_code: 'RJ' } : uf === 'sp' ? { region: 'São Paulo', region_code: 'SP' } : { region: 'Espírito Santo', region_code: 'ES' } })
       await ctx.route(/\/api\/index\.php\?r=loja(&|$)/, (r) => r.fulfill({ json: { ok: true, versao: 22, atualizadoEm: new Date().toISOString(), loja }, headers: { 'Cache-Control': 'no-cache', ETag: '"22"' } }))
       await ctx.addInitScript((id) => {
         if (sessionStorage.getItem('gc-teste-bairro')) return
@@ -1408,7 +1416,7 @@ for (const [nome, w, h] of [['promax-deitado-932x430', 932, 430], ['pixel-deitad
         continue
       }
       await campo.tap()
-      await campo.fill(uf === 'rj' ? 'rec' : 'Praia da Costa')
+      await campo.fill(uf === 'rj' ? 'rec' : uf === 'sp' ? 'cen' : 'Praia da Costa')
       await p.waitForTimeout(600)
       const medir = () =>
         p.evaluate(() => {
@@ -1455,6 +1463,16 @@ for (const [nome, w, h] of [['promax-deitado-932x430', 932, 430], ['pixel-deitad
         if (depois.lateral) problemas.push(`${tag}: com o bairro escolhido, a sacola rola pro lado`)
         await p.locator('.bt-resposta').scrollIntoViewIfNeeded()
         await p.screenshot({ path: `${out}${nome}-bairro-taxa.png` })
+      } else if (uf === 'sp') {
+        const textos = (await p.locator('.bt-sugestao').allTextContents()).map((t) => t.replace(/\s+/g, ' ').trim())
+        if (textos.join(' | ') !== 'Centro · Guarulhos: R$ 10,00 | Centro · São Paulo: R$ 8,00') problemas.push(`${tag}: sem a cidade, "cen" devia sugerir o Centro de cada cidade com a cidade junto (${textos.join(' | ')})`)
+        for (const sg of m.sug) if (sg.h < 44 || sg.l < -1 || sg.r > m.larg + 1 || (m.rodape && sg.b > m.rodape.t + 1)) problemas.push(`${tag}: a sugestão com a cidade fora da tela, embaixo do rodapé ou com alvo pequeno (${JSON.stringify({ sug: sg, rodape: m.rodape })})`)
+        await p.screenshot({ path: `${out}${nome}-bairro-cidades.png` })
+        await p.locator('.bt-sugestao', { hasText: 'Guarulhos' }).tap({ timeout: 5000 }).catch(() => problemas.push(`${tag}: sem a sugestão do Centro de Guarulhos pra tocar`))
+        await p.waitForTimeout(500)
+        const res = ((await p.locator('.bt-resposta').textContent().catch(() => '')) ?? '').replace(/\s+/g, ' ')
+        if (!/Taxa do bairro Centro: R\$ 10,00/.test(res)) problemas.push(`${tag}: escolhido o Centro de Guarulhos, sem a taxa dele ("${res}")`)
+        if ((await medir()).lateral) problemas.push(`${tag}: com o Centro escolhido, a sacola rola pro lado`)
       } else {
         await campo.blur()
         await p.waitForTimeout(300)

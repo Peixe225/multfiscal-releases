@@ -86,6 +86,8 @@ export function FecharSacola() {
   // fica byte a byte a de sempre)
   const bairroDigitado = useBairroDa(uf)
   const bairro = canal && modoBairro(canal) ? bairroDigitado.trim() || null : null
+  // a entrega como a mensagem diz (a do bairro, a do estado ou o dia grátis), na hora da loja que montou a mensagem
+  const entrega = canal ? entregaDoPedido(canal, bairro, lugar, new Date(agora)) : null
   const minimo = situacaoMinimo(canal, pedido, cupomOk?.retrato ?? null)
   const travado = minimo.tipo === 'falta'
 
@@ -177,8 +179,9 @@ export function FecharSacola() {
           whatsapp: contaDaLoja ? (conta?.whatsapp ?? '') : '',
           cupom: cupomOk ? { codigo: cupomOk.codigo, regra: cupomOk.retrato.regra, origem: 'Teste minha sorte' } : null,
           mensagem,
-          bairro,
-          taxa: taxaParaOServidor(entregaDoPedido(canal, bairro, lugar, new Date(agora))),
+          // no dia de entrega grátis a sacola não mostra o "Teu bairro" (nem a mensagem leva): a cópia também não
+          bairro: entrega?.tipo === 'gratis-hoje' ? null : bairro,
+          taxa: entrega ? taxaParaOServidor(entrega, new Date(agora)) : undefined,
         }),
       )
       if (precisaNovo) {

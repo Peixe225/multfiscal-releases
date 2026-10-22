@@ -42,6 +42,12 @@ export interface DadosPedido {
    * bairro, 22/10). No estado de uma taxa só, nada muda na mensagem.
    */
   bairro?: string | null
+  /**
+   * A cidade pra achar o bairro na lista quando a do cabeçalho (`cidade`) não é conhecida: a do CEP (o estado com mais
+   * de uma cidade, e o cliente que não escolheu a dele). A mesma que o servidor usa (a cidade do pedido e, sem ela, a do
+   * CEP). Não muda o cabeçalho.
+   */
+  cidadeBairro?: string | null
 }
 
 export const NOME_PAGAMENTO: Record<FormaPagamento, string> = {
@@ -173,7 +179,9 @@ export function entregaNoGuiado(e: Entrega, endereco: string): string {
 export function entregaNaSacola(e: Entrega): string {
   switch (e.tipo) {
     case 'gratis-hoje':
-      return e.bairro ? `${e.bairro} (grátis hoje)` : entregaDaSacola('gratis')
+      // no dia de entrega grátis a sacola não mostra o "Teu bairro" (a taxa não depende dele): o bairro guardado de
+      // outra visita, que o cliente nem vê, não vai na mensagem
+      return entregaDaSacola('gratis')
     case 'estado':
       return entregaDaSacola(e.valor)
     case 'bairro':
@@ -189,18 +197,21 @@ export function entregaNaSacola(e: Entrega): string {
  * A taxa que o site mostrou, pra cópia do pedido no servidor (o painel guarda; o aviso do grupo diz a da tabela do
  * servidor): o valor (null = sem valor) e o texto, sem o bairro (o bairro vai no campo dele).
  */
-export function taxaParaOServidor(e: Entrega): { valor: number | null; texto: string } {
+export function taxaParaOServidor(e: Entrega, agora?: Date): { valor: number | null; texto: string; em?: number } {
+  // em: quando o site mostrou essa taxa (a hora da loja que montou a mensagem, unix): o dia de entrega grátis é o do
+  // toque, mesmo que a cópia chegue depois da meia-noite (a fila do aparelho manda de novo por até 3 dias)
+  const em = agora ? { em: Math.floor(agora.getTime() / 1000) } : {}
   switch (e.tipo) {
     case 'gratis-hoje':
-      return { valor: null, texto: entregaDaSacola('gratis') }
+      return { valor: null, texto: entregaDaSacola('gratis'), ...em }
     case 'estado':
-      return { valor: e.valor, texto: entregaDaSacola(e.valor) }
+      return { valor: e.valor, texto: entregaDaSacola(e.valor), ...em }
     case 'bairro':
-      return { valor: e.valor, texto: e.valor === 0 ? 'grátis' : `taxa ${brl(e.valor)}` }
+      return { valor: e.valor, texto: e.valor === 0 ? 'grátis' : `taxa ${brl(e.valor)}`, ...em }
     case 'bairro-consultar':
-      return { valor: null, texto: 'taxa do bairro a consultar' }
+      return { valor: null, texto: 'taxa do bairro a consultar', ...em }
     case 'consulta':
-      return { valor: null, texto: 'taxa a consultar' }
+      return { valor: null, texto: 'taxa a consultar', ...em }
   }
 }
 
@@ -221,7 +232,7 @@ export function montarPedido(d: DadosPedido): string {
   // sem cupom (e sem código), a mensagem fica byte a byte igual (scripts/conferir-mensagem.mjs confere)
   if (d.cupom) out.push(`Cupom: ${d.cupom.codigo} — ${d.cupom.regra} (${d.cupom.origem} · ${d.cupom.exemplo ? 'exemplo · ' : ''}a loja confirma)`)
   const endereco = d.endereco.trim() || 'a combinar'
-  out.push(`Entrega: ${endereco} (${entregaNoGuiado(entregaDoPedido(d.canal, d.bairro, d.cidade, d.agora), endereco)})`)
+  out.push(`Entrega: ${endereco} (${entregaNoGuiado(entregaDoPedido(d.canal, d.bairro, d.cidade || d.cidadeBairro, d.agora), endereco)})`)
   out.push(`Pagamento: ${textoPagamento(d.pagamento, d.troco)}`)
   out.push(`Nome: ${d.nome.trim()}`)
   if (d.obs?.trim()) out.push(`Obs.: ${d.obs.trim()}`)

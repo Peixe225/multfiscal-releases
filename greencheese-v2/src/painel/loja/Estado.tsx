@@ -6,7 +6,9 @@
 // loja ainda não tem: o mesmo formulário ativa ele.
 // Na edição, só vai o que mudou: o que ninguém mexeu continua como estava (e o que era exemplo continua exemplo).
 // O que tá sendo digitado fica guardado no aparelho até salvar (recarregar ou voltar não perde) e sair com mudança
-// pergunta antes (sair.tsx). A cidade digitada sem tocar em "Adicionar" entra ao salvar.
+// pergunta antes (sair.tsx). A cidade digitada sem tocar em "Adicionar" entra ao salvar, e o bairro digitado (ou a
+// edição sem o "Pronto") também. Tirar uma cidade que tem bairro na lista da taxa pergunta antes e tira os bairros dela
+// junto (o servidor recusa a lista com bairro de cidade que o estado não tem).
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import * as apiBase from '../api'
 import { ErroApi } from '../api'
@@ -22,7 +24,9 @@ import { Aviso, Botao, Campo, Carregando, Ic, TituloTela } from '../ui'
 import * as api from './api'
 import { comEstado, guardarLoja, useLoja } from './dados'
 import { DIAS, DIAS_CURTOS, nomeUf, NOMES_UF, PAGAMENTOS } from './nomes'
+import { chaveBairro } from '../../lib/bairros'
 import { Bairros } from './Bairros'
+import { aplicarRascunho, RASCUNHO_VAZIO, rascunhoPendente, type RascunhoBairro } from './bairros-colar'
 import type { BairroAdmin, EstadoAdmin, EstadoCorpo, FormaPagamento, Turno } from './tipos'
 import { horaValida, lerInstagram, lerPreco, lerWhatsapp, mascaraHora, normalizarHora, problemaNoTexto, tamanho } from './validar'
 
@@ -55,6 +59,8 @@ interface Form {
   pagamentos: FormaPagamento[]
   /** A cidade digitada que ainda não foi pra lista (entra ao salvar, com as mesmas conferências do "Adicionar"). */
   cidadeNova: string
+  /** O bairro digitado (ou a edição) que ainda não foi pra lista: entra ao salvar, como a cidade nova. */
+  bairroNovo: RascunhoBairro
 }
 
 type Erros = Partial<Record<string, string>>
@@ -83,6 +89,7 @@ function doEstado(e: EstadoAdmin): Form {
     gratisTexto: e.entregaGratis?.texto ?? 'Sextou com entrega grátis!',
     pagamentos: e.pagamento.opcoes,
     cidadeNova: '',
+    bairroNovo: RASCUNHO_VAZIO,
   }
 }
 
@@ -107,7 +114,17 @@ function novo(uf: string): Form {
     gratisTexto: 'Sextou com entrega grátis!',
     pagamentos: ['pix', 'dinheiro', 'cartao'],
     cidadeNova: '',
+    bairroNovo: RASCUNHO_VAZIO,
   }
+}
+
+/**
+ * O formulário mudou? O bairro aberto pra editar sem mudar nada não conta (só o que mudaria a lista: o nome digitado,
+ * ou a edição diferente do bairro); no "Uma taxa pro estado" a lista não aparece e o rascunho dela não conta.
+ */
+function mexeuEm(f: Form, limpo: string | null): boolean {
+  if (JSON.stringify({ ...f, bairroNovo: RASCUNHO_VAZIO }) !== limpo) return true
+  return f.taxaPor === 'bairro' && rascunhoPendente(f.bairros, f.bairroNovo)
 }
 
 const slug = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
@@ -345,7 +362,7 @@ export function Estado({ uf }: { uf: string }) {
     antes.current = e ? base : null
     limpo.current = JSON.stringify(base)
     const guardado = lidoJson<{ form: Form; base: string }>(chaveRascunho)
-    if (guardado && guardado.base === limpo.current && JSON.stringify(guardado.form) !== limpo.current) {
+    if (guardado && guardado.base === limpo.current && mexeuEm({ ...base, ...guardado.form }, limpo.current)) {
       setF({ ...base, ...guardado.form, ativo: base.ativo })
       setVoltouRascunho(true)
     } else {
@@ -355,11 +372,11 @@ export function Estado({ uf }: { uf: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [l, e])
 
-  const mexeu = !!f && JSON.stringify(f) !== limpo.current
+  const mexeu = !!f && mexeuEm(f, limpo.current)
   // o rascunho no aparelho (some quando volta a ficar igual ao do servidor)
   useEffect(() => {
     if (!f || limpo.current === null) return
-    const t = window.setTimeout(() => lembrarJson(chaveRascunho, JSON.stringify(f) === limpo.current ? null : { form: f, base: limpo.current }), 300)
+    const t = window.setTimeout(() => lembrarJson(chaveRascunho, mexeuEm(f, limpo.current) ? { form: f, base: limpo.current } : null), 300)
     return () => window.clearTimeout(t)
   }, [f, chaveRascunho])
 
@@ -385,6 +402,13 @@ export function Estado({ uf }: { uf: string }) {
       const p = problemaNaCidade(cidade, fn.cidades)
       if (p) n.cidades = p
       else fn = { ...fn, cidades: [...fn.cidades, cidade], cidadeNova: '' }
+    }
+    // o bairro digitado sem o "Adicionar" (ou a edição sem o "Pronto"): entra na lista, com as mesmas conferências; não
+    // servindo, o erro aparece embaixo dele e nada vai pro servidor. No "Uma taxa pro estado", o rascunho fica de fora
+    if (fn.taxaPor === 'bairro' && rascunhoPendente(fn.bairros, fn.bairroNovo)) {
+      const r = aplicarRascunho(fn.bairros, fn.bairroNovo, fn.cidades.length > 1)
+      if (r.lista) fn = { ...fn, bairros: r.lista, bairroNovo: RASCUNHO_VAZIO }
+      else n.bairros = r.problema
     }
     if (fn !== f) setF(fn)
     setErros(n)
@@ -705,6 +729,11 @@ export function Estado({ uf }: { uf: string }) {
                     mudar('bairros', b)
                     if (erros.bairros) setErros((x) => ({ ...x, bairros: undefined }))
                   }}
+                  rascunho={f.bairroNovo}
+                  aoMudarRascunho={(r) => {
+                    setF((s) => (s ? { ...s, bairroNovo: r } : s))
+                    if (erros.bairros) setErros((x) => ({ ...x, bairros: undefined }))
+                  }}
                 />
               </>
             )}
@@ -810,8 +839,42 @@ export function Estado({ uf }: { uf: string }) {
                 if (erros.cidades) setErros((x) => ({ ...x, cidades: undefined }))
               }}
               aoMudar={(c) => {
-                mudar('cidades', c)
                 if (erros.cidades) setErros((x) => ({ ...x, cidades: undefined }))
+                // a cidade que sai e tem bairro na lista da taxa: pergunta antes, e os bairros dela saem junto (bairro de
+                // cidade que o estado não tem nunca casa no site, e o servidor recusa a lista com ele)
+                const saiu = f.cidades.filter((x) => !c.includes(x))
+                const daCidade = (b: BairroAdmin) => !!b.cidade && saiu.some((x) => chaveBairro(x) === chaveBairro(b.cidade ?? ''))
+                const deles = f.bairros.filter(daCidade)
+                if (!deles.length) {
+                  mudar('cidades', c)
+                  return
+                }
+                const nomes = deles.slice(0, 4).map((b) => b.nome)
+                const lista = deles.length > 4 ? `${nomes.join(', ')} e mais ${deles.length - 4}` : nomes.length > 1 ? `${nomes.slice(0, -1).join(', ')} e ${nomes[nomes.length - 1]}` : nomes[0]
+                const um = deles.length === 1
+                setConfirmacao({
+                  titulo: `Tirar ${saiu[0]}?`,
+                  texto: (
+                    <p>
+                      {um ? `O bairro ${lista} é` : `Os bairros ${lista} são`} de {saiu[0]}, na lista da taxa de entrega. Tirando a cidade, {um ? 'ele sai' : 'eles saem'} da lista junto. Se é a mesma cidade com outro nome, adiciona a cidade nova primeiro e muda a cidade {um ? 'do bairro' : 'dos bairros'} na lista.
+                    </p>
+                  ),
+                  botao: um ? `Tirar ${saiu[0]} e o bairro` : `Tirar ${saiu[0]} e os ${deles.length} bairros`,
+                  cancelar: 'Deixa como tá',
+                  perigo: true,
+                  acao: async () => {
+                    setF((s) =>
+                      s
+                        ? {
+                            ...s,
+                            cidades: c,
+                            bairros: s.bairros.filter((b) => !daCidade(b)),
+                            bairroNovo: saiu.some((x) => x === s.bairroNovo.cidade) ? { ...s.bairroNovo, cidade: '' } : s.bairroNovo,
+                          }
+                        : s,
+                    )
+                  },
+                })
               }}
               erro={erros.cidades}
             />

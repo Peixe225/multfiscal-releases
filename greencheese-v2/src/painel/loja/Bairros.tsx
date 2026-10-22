@@ -2,12 +2,15 @@
 // bairro (e a cidade, quando o estado entrega em mais de uma) com a taxa ou "consultar". Buscar, adicionar, editar,
 // apagar e COLAR UMA LISTA (uma linha por bairro: bairros-colar.ts), com a prévia do que o painel entendeu antes de
 // aplicar. Até 400 por estado. Nada vem de fábrica: taxa é preço, só o dono põe. A lista é parte do formulário do
-// estado: vai junto no Salvar (e fica no rascunho do aparelho até lá).
+// estado: vai junto no Salvar (e fica no rascunho do aparelho até lá). O bairro digitado no formulário de baixo (novo,
+// ou a edição sem o "Pronto") também é do formulário do estado: o Salvar aplica ele (como a cidade digitada), com as
+// mesmas conferências do "Adicionar". "Trocar a lista toda" pergunta antes quando tira bairro da lista.
 import { useMemo, useRef, useState } from 'react'
 import { chaveBairro, MAX_BAIRROS } from '../../lib/bairros'
+import { Confirmar, type PedidoConfirmacao } from '../Confirmar'
 import { brl, reaisNoCampo } from '../formato'
 import { Aviso, Botao, Ic } from '../ui'
-import { aplicarColada, chaveDaLista, lerListaColada, lerTaxaBairro, ordenarBairros, problemaNoBairro, situacoes } from './bairros-colar'
+import { aplicarColada, aplicarRascunho, chaveDaLista, lerListaColada, RASCUNHO_VAZIO, rascunhoPendente, situacoes, type RascunhoBairro } from './bairros-colar'
 import type { BairroAdmin } from './tipos'
 
 /** Até quantos a lista mostra de uma vez (o resto num toque: "Mostrar todos"). */
@@ -21,24 +24,20 @@ interface Props {
   /** 'site' = a lista aparece no site; 'consulta' = só o painel e o aviso do grupo usam. */
   ver: 'site' | 'consulta'
   aoMudar: (b: BairroAdmin[]) => void
+  /** O bairro sendo digitado no formulário de baixo (fica no formulário do estado: o Salvar aplica). */
+  rascunho: RascunhoBairro
+  aoMudarRascunho: (r: RascunhoBairro) => void
   /** O erro do servidor (campo bairros) ou da conferência do formulário. */
   erro?: string
 }
 
-interface Edicao {
-  /** A chave do bairro editado (null = adicionando um novo). */
-  chave: string | null
-  nome: string
-  cidade: string
-  taxa: string
-}
-
-export function Bairros({ bairros, cidades, ver, aoMudar, erro }: Props) {
+export function Bairros({ bairros, cidades, ver, aoMudar, rascunho: edicao, aoMudarRascunho, erro }: Props) {
   const variasCidades = cidades.length > 1
   const [busca, setBusca] = useState('')
   const [todos, setTodos] = useState(false)
-  const [edicao, setEdicao] = useState<Edicao>({ chave: null, nome: '', cidade: '', taxa: '' })
+  const setEdicao = (f: (x: RascunhoBairro) => RascunhoBairro) => aoMudarRascunho(f(edicao))
   const [falha, setFalha] = useState<string | null>(null)
+  const [confirmacao, setConfirmacao] = useState<PedidoConfirmacao | null>(null)
   const [colando, setColando] = useState(false)
   const [colado, setColado] = useState('')
   const [cidadeColada, setCidadeColada] = useState('')
@@ -58,37 +57,21 @@ export function Bairros({ bairros, cidades, ver, aoMudar, erro }: Props) {
   const entram = conta('novo') + conta('muda') + (modoColar === 'trocar' ? conta('igual') : 0)
 
   const editando = edicao.chave !== null
+  const pendente = rascunhoPendente(bairros, edicao)
   const limparEdicao = () => {
-    setEdicao({ chave: null, nome: '', cidade: '', taxa: '' })
+    aoMudarRascunho(RASCUNHO_VAZIO)
     setFalha(null)
   }
 
   /** Adicionar (ou salvar a edição de) um bairro, com as mesmas conferências do servidor. */
   const confirmar = () => {
-    const nome = edicao.nome.trim().replace(/\s+/g, ' ')
-    const p = problemaNoBairro(nome)
-    if (p) {
-      setFalha(p)
-      campoNome.current?.focus()
+    const r = aplicarRascunho(bairros, edicao, variasCidades)
+    if (!r.lista) {
+      setFalha(r.problema)
+      if (r.campo === 'nome') campoNome.current?.focus()
       return
     }
-    const { taxa, problema } = lerTaxaBairro(edicao.taxa)
-    if (problema) {
-      setFalha(problema)
-      return
-    }
-    const novo: BairroAdmin = { nome, ...(variasCidades && edicao.cidade ? { cidade: edicao.cidade } : {}), taxa }
-    const k = chaveDaLista(novo)
-    const outros = bairros.filter((b) => chaveDaLista(b) !== edicao.chave)
-    if (outros.some((b) => chaveDaLista(b) === k)) {
-      setFalha(`“${nome}” já tá na lista${novo.cidade ? ` de ${novo.cidade}` : ''}.`)
-      return
-    }
-    if (outros.length >= MAX_BAIRROS) {
-      setFalha(`Até ${MAX_BAIRROS} bairros por estado.`)
-      return
-    }
-    aoMudar(ordenarBairros([...outros, novo]))
+    aoMudar(r.lista)
     limparEdicao()
     campoNome.current?.focus()
   }
@@ -99,10 +82,33 @@ export function Bairros({ bairros, cidades, ver, aoMudar, erro }: Props) {
       setFalhaColar(r.problema)
       return
     }
-    aoMudar(r.lista)
-    setColado('')
-    setColando(false)
-    setFalhaColar(null)
+    const nova = r.lista
+    const feito = () => {
+      aoMudar(nova)
+      setColado('')
+      setColando(false)
+      setFalhaColar(null)
+    }
+    // trocar a lista toda tira os bairros que não vieram na colada: pergunta antes (até 400 bairros saem num toque)
+    const ficam = new Set(nova.map(chaveDaLista))
+    const saem = modoColar === 'trocar' ? bairros.filter((b) => !ficam.has(chaveDaLista(b))).length : 0
+    if (saem > 0) {
+      const n = (x: number) => `${x} ${x === 1 ? 'bairro' : 'bairros'}`
+      setConfirmacao({
+        titulo: 'Trocar a lista toda?',
+        texto: (
+          <p>
+            A lista de agora ({n(bairros.length)}) sai e fica só a colada ({n(nova.length)}): {saem === 1 ? '1 bairro que não tá na lista colada sai' : `${saem} bairros que não tão na lista colada saem`}. O site só muda quando tu salvar o estado.
+          </p>
+        ),
+        botao: `Trocar pela lista colada (${n(nova.length)})`,
+        cancelar: 'Deixa a lista como tá',
+        perigo: true,
+        acao: async () => feito(),
+      })
+      return
+    }
+    feito()
   }
 
   const formulario = (
@@ -132,7 +138,7 @@ export function Bairros({ bairros, cidades, ver, aoMudar, erro }: Props) {
           />
         </label>
         {variasCidades && (
-          <label className="pn-bairro-c">
+          <label className="pn-bairro-c pn-bairro-c-cidade">
             <span className="pn-rotulo">Cidade</span>
             <select className="pn-input pn-select" value={edicao.cidade} onChange={(e) => setEdicao((x) => ({ ...x, cidade: e.target.value }))}>
               <option value="">Qualquer cidade</option>
@@ -182,6 +188,11 @@ export function Bairros({ bairros, cidades, ver, aoMudar, erro }: Props) {
         <p id="e-bairro-erro" className="pn-erro">
           <Ic nome="atencao" tamanho={16} />
           <span>{falha ?? erro}</span>
+        </p>
+      ) : pendente ? (
+        // o bairro digitado sem o "Adicionar" (ou a edição sem o "Pronto"): entra quando salvar o estado
+        <p className="pn-dica pn-bairro-pendente">
+          {editando ? `A mudança em “${edicao.nome.trim() || 'esse bairro'}” vale quando tu salvar (ou toca em Pronto).` : `“${edicao.nome.trim().replace(/\s+/g, ' ')}” entra na lista quando tu salvar.`}
         </p>
       ) : (
         <p className="pn-dica">Taxa vazia = consultar (o site diz “a consultar” e a loja passa no atendimento).</p>
@@ -301,7 +312,7 @@ export function Bairros({ bairros, cidades, ver, aoMudar, erro }: Props) {
           )}
           {falhaColar && <Aviso tipo="erro">{falhaColar}</Aviso>}
           <div className="pn-bairro-acoes">
-            <Botao variante="cheio" disabled={entram === 0 && !(modoColar === 'trocar' && previa.length > 0)} onClick={aplicar}>
+            <Botao variante="cheio" disabled={entram === 0} onClick={aplicar}>
               {modoColar === 'trocar' ? 'Trocar a lista' : entram === 1 ? 'Aplicar 1 bairro' : `Aplicar ${entram} bairros`}
             </Botao>
             <Botao
@@ -343,7 +354,7 @@ export function Bairros({ bairros, cidades, ver, aoMudar, erro }: Props) {
                     className="icone-botao"
                     aria-label={`Editar ${b.nome}`}
                     onClick={() => {
-                      setEdicao({ chave: k, nome: b.nome, cidade: b.cidade ?? '', taxa: reaisNoCampo(b.taxa) })
+                      aoMudarRascunho({ chave: k, nome: b.nome, cidade: b.cidade ?? '', taxa: reaisNoCampo(b.taxa) })
                       setFalha(null)
                       window.requestAnimationFrame(() => campoNome.current?.focus())
                     }}
@@ -382,6 +393,7 @@ export function Bairros({ bairros, cidades, ver, aoMudar, erro }: Props) {
       {ver === 'consulta' && (
         <p className="pn-dica">No modo “o cliente consulta”, a lista não aparece no site: ela fica aqui e no aviso do grupo do WhatsApp, pra quem atende saber a taxa.</p>
       )}
+      <Confirmar pedido={confirmacao} aoFechar={() => setConfirmacao(null)} />
     </div>
   )
 }

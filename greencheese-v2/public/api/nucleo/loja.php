@@ -392,82 +392,9 @@ function gc_loja_entrega_gratis(array $e): ?array
 }
 
 // ─── taxa de entrega por bairro (migração 107) ─────────────────────────────────────────────────────────────────
-
-/**
- * O nome do bairro (ou da cidade) pra comparar: sem acento, sem maiúscula, e espaço e pontuação viram um espaço só
- * ("Copacabana", "COPACABANA" e " copacabana. " são o mesmo; "Jardim  da Penha" e "Jardim-da-Penha" também). A mesma
- * conta de chaveBairro em src/lib/bairros.ts (o scripts/testar-api-bairros.mjs confere as duas com os mesmos nomes).
- */
-function gc_loja_chave_bairro(string $s): string
-{
-    if (class_exists('Normalizer')) {
-        $n = Normalizer::normalize($s, Normalizer::FORM_D);
-        $s = is_string($n) ? $n : $s;
-    }
-    return trim((string) preg_replace('/[^a-z0-9]+/', ' ', gc_loja_comparavel($s)));
-}
-
-/** 'estado' (uma taxa só, o de sempre) ou 'bairro'. Banco antes da 107: 'estado'. */
-function gc_loja_taxa_por(array $e): string
-{
-    return ($e['taxa_por'] ?? 'estado') === 'bairro' ? 'bairro' : 'estado';
-}
-
-/** Como o cliente vê a taxa por bairro: 'site' (a lista aparece no site) ou 'consulta' (o site não mostra valor). */
-function gc_loja_bairros_ver(array $e): string
-{
-    return ($e['bairros_ver'] ?? 'site') === 'consulta' ? 'consulta' : 'site';
-}
-
-/**
- * A lista de bairros guardada, do jeito que entrou (o nome como o dono escreveu, a cidade, a taxa em centavos ou null
- * = consultar). Banco antes da 107, ou JSON torto: lista vazia.
- * @return list<array{nome: string, cidade: string, taxa: int|null}>
- */
-function gc_loja_bairros_de(array $e): array
-{
-    $out = [];
-    foreach ((array) gc_loja_lido($e['bairros'] ?? '[]', []) as $b) {
-        if (!is_array($b) || !is_string($b['nome'] ?? null) || $b['nome'] === '') {
-            continue;
-        }
-        $t = $b['taxa'] ?? null;
-        $out[] = ['nome' => $b['nome'], 'cidade' => is_string($b['cidade'] ?? null) ? $b['cidade'] : '', 'taxa' => is_int($t) ? $t : null];
-    }
-    return $out;
-}
-
-/** Um bairro pro site e pro painel: { nome, cidade? (só quando tem), taxa: reais ou null = consultar }. */
-function gc_loja_bairro_publico(array $b): array
-{
-    return ['nome' => $b['nome']] + ($b['cidade'] !== '' ? ['cidade' => $b['cidade']] : []) + ['taxa' => $b['taxa'] === null ? null : gc_reais($b['taxa'])];
-}
-
-/**
- * O bairro do cliente na lista do estado: o da mesma cidade primeiro, depois o que vale pra qualquer cidade (sem
- * cidade). null = fora da lista (o site diz "a consultar").
- * @return array{nome: string, cidade: string, taxa: int|null}|null
- */
-function gc_loja_bairro_na_lista(array $e, string $cidade, string $bairro): ?array
-{
-    $chave = gc_loja_chave_bairro($bairro);
-    if ($chave === '') {
-        return null;
-    }
-    $daCidade = gc_loja_chave_bairro($cidade);
-    $geral = null;
-    foreach (gc_loja_bairros_de($e) as $b) {
-        if (gc_loja_chave_bairro($b['nome']) !== $chave) {
-            continue;
-        }
-        if ($b['cidade'] === '') {
-            $geral ??= $b;
-        } elseif ($daCidade !== '' && gc_loja_chave_bairro($b['cidade']) === $daCidade) {
-            return $b;
-        }
-    }
-    return $geral;
-}
+// As contas da taxa por bairro (a chave do bairro, o modo, a lista, achar o bairro do cliente) moram em
+// loja-migracoes.php, junto do gc_loja_tem_bairros: na publicação arquivo a arquivo ele sobe antes do loja-painel.php e
+// do loja-validar.php, que já usam essas funções (o loja.php sobe depois deles: '-' vem antes de '.').
 
 /**
  * O Canal do site (src/dados/canais.ts). whatsapp: null = o da loja (sempre null com "o mesmo pra todos" ligado).

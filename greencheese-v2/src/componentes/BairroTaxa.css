@@ -78,6 +78,9 @@
   min-width: 0;
   overflow-wrap: anywhere;
 }
+.bt-sugestao-cidade {
+  color: var(--legenda);
+}
 .bt-sugestao-taxa {
   flex: none;
   color: var(--legenda);

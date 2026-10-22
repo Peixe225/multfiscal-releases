@@ -10,20 +10,32 @@
 //   muda quando muda (e não muda quando salva igual);
 // - o pedido guarda o bairro e a taxa que o site mostrou; o aviso do grupo diz a taxa pela tabela do SERVIDOR (nunca o
 //   número do site: o que não bate vira "Confere o valor na conversa") ou "a consultar"; o dia de entrega grátis;
-// - a comparação do bairro é a mesma no site (src/lib/bairros.ts) e no servidor (gc_loja_chave_bairro).
+// - a comparação do bairro é a mesma no site (src/lib/bairros.ts) e no servidor (gc_loja_chave_bairro), e achar o
+//   bairro também (gc_loja_achar_bairro: o estado com mais de uma cidade e o cliente sem cidade);
+// Da revisão de 22/10 (o corretor): tirar a cidade que tem bairro na lista (o corpo de antes é recusado com o campo
+// "cidades", nada muda no banco); o nome com o separador da lista colada ("Laranjeiras;10"); a cópia que chega depois
+// da meia-noite do dia de entrega grátis (a hora do toque); a cópia forjada com o valor vazio, negativo ou em texto;
+// o bairro sem a cidade no estado com mais de uma (a mesma conta do site); e a publicação arquivo a arquivo, na ordem
+// do publicar.mjs, sobre o código que tá no ar (PUBLICAR.md, passo 4): nenhuma rota dá erro 500 no meio do envio.
 import { execFileSync } from 'node:child_process'
-import { copyFileSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs'
+import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { rolldown } from 'rolldown'
+import { foraDaPublicacao, listar, ordenar, relativo } from './publicacao.mjs'
 import { Cli, esperar, gatewayFalso, novoCodigo, novoToken } from './testar-api-pedidos.mjs'
 
 /** O pedido da sacola do RJ (um toque), com o bairro e a taxa que o site mostrou. */
-function pedidoRj({ bairro = null, taxa = null, agora } = {}) {
+function pedidoRj(o = {}) {
+  return pedidoDe({ uf: 'rj', cidade: 'Rio de Janeiro', ...o })
+}
+
+/** O pedido da sacola de um estado (um toque), com o bairro e a taxa que o site mostrou (cidade '' = não escolhida). */
+function pedidoDe({ uf, cidade, bairro = null, taxa = null, agora } = {}) {
   const codigo = novoCodigo()
   const mensagem = [
-    'PEDIDO GREEN CHEESE — RJ / Rio de Janeiro',
+    `PEDIDO GREEN CHEESE — ${uf.toUpperCase()}${cidade ? ` / ${cidade}` : ''}`,
     `Código: ${codigo}`,
     "1x Jack Daniel's Old No. 7 1 L — R$ 149,90",
     'Subtotal: R$ 149,90',
@@ -36,8 +48,8 @@ function pedidoRj({ bairro = null, taxa = null, agora } = {}) {
       token: novoToken(),
       tipo: 'pedido',
       origem: 'sacola',
-      uf: 'rj',
-      cidade: 'Rio de Janeiro',
+      uf,
+      cidade,
       nome: '',
       whatsapp: '',
       itens: [{ produtoId: 'jack-daniels-old-no7-1l', nome: "Jack Daniel's Old No. 7 1 L", variacao: null, qtd: 1, precoUnit: 149.9, total: 149.9, combo: null }],
@@ -106,6 +118,62 @@ export async function testarBairros(t) {
     igual(b.fraseConsultaBairro(' Praia  da Costa '), 'Oi! Quanto fica a entrega pro bairro Praia da Costa?', 'a frase pronta do "Perguntar" com o bairro digitado')
     igual(b.fraseConsultaBairro(''), 'Oi! Quanto fica a entrega pro meu bairro?', 'e sem bairro')
     igual(b.sugestoesDeBairro(lista, 'cop', null).map((x) => x.nome), ['Copacabana'], 'a sugestão enquanto digita')
+
+    // achar o bairro: a mesma conta no site (acharBairro) e no servidor (gc_loja_achar_bairro), com e sem a cidade do
+    // cliente. A lista de um estado com duas cidades: o "Centro" das duas com taxas diferentes, a "Praia da Costa" só de
+    // Vila Velha, o "Jardim da Penha" pra qualquer cidade e a "Ilha do Boi" com o mesmo valor nas duas
+    const es = [
+      { nome: 'Centro', cidade: 'Vitória', taxa: 10 },
+      { nome: 'Centro', cidade: 'Vila Velha', taxa: 8 },
+      { nome: 'Praia da Costa', cidade: 'Vila Velha', taxa: 9 },
+      { nome: 'Jardim da Penha', taxa: 11 },
+      { nome: 'Ilha do Boi', cidade: 'Vitória', taxa: 7 },
+      { nome: 'Ilha do Boi', cidade: 'Vila Velha', taxa: 7 },
+      { nome: 'Itapuã', cidade: 'Vila Velha', taxa: null },
+    ]
+    const casos = [
+      ['Centro', ''], ['Centro', 'Vitória'], ['centro', 'vila velha'], ['Centro', 'Serra'], ['Praia da Costa', ''], ['Praia da Costa', 'Vitória'],
+      ['Jardim da Penha', ''], ['Jardim da Penha', 'Vitória'], ['Ilha do Boi', ''], ['Itapua', ''], ['Tijuca', ''], ['', ''],
+    ]
+    const resumo = (a) => (a.tipo === 'achou' ? `${a.bairro.nome}|${a.bairro.cidade ?? ''}|${a.bairro.taxa}` : a.tipo === 'varias' ? `varias:${a.opcoes.map((o) => `${o.cidade ?? ''}=${o.taxa}`).join(',')}` : 'fora')
+    const doSite = casos.map(([n, c]) => resumo(b.acharBairro(es, n, c || null)))
+    const listaPhp = es.map((x) => ({ nome: x.nome, cidade: x.cidade ?? '', taxa: x.taxa === null ? null : Math.round(x.taxa * 100) }))
+    const doServidor = JSON.parse(
+      php(
+        `${modulos} $e = ['bairros' => $argv[2]]; echo json_encode(array_map(function ($c) use ($e) { $a = gc_loja_achar_bairro($e, $c[1], $c[0]); return $a['achado'] !== null ? $a['achado']['nome'] . '|' . $a['achado']['cidade'] . '|' . ($a['achado']['taxa'] === null ? 'null' : $a['achado']['taxa'] / 100) : ($a['varias'] !== [] ? 'varias:' . implode(',', array_map(fn ($o) => $o['cidade'] . '=' . ($o['taxa'] === null ? 'null' : $o['taxa'] / 100), $a['varias'])) : 'fora'); }, json_decode($argv[3], true)), JSON_UNESCAPED_UNICODE);`,
+        [api, JSON.stringify(listaPhp), JSON.stringify(casos)],
+      ),
+    )
+    igual(doSite, doServidor, 'acharBairro (site) e gc_loja_achar_bairro (servidor) dão o mesmo bairro, com e sem a cidade')
+    igual(
+      doSite,
+      ['varias:Vitória=10,Vila Velha=8', 'Centro|Vitória|10', 'Centro|Vila Velha|8', 'fora', 'Praia da Costa|Vila Velha|9', 'fora', 'Jardim da Penha||11', 'Jardim da Penha||11', 'Ilha do Boi|Vitória|7', 'Itapuã|Vila Velha|null', 'fora', 'fora'],
+      'sem a cidade: o bairro de uma cidade só vale, o mesmo valor nas duas vale, taxas diferentes pedem a cidade',
+    )
+    // a sugestão nunca mostra um bairro que a conta da taxa não acharia (com e sem a cidade do cliente): cada começo de
+    // cada nome, cada cidade
+    const canalEs = { uf: 'es', cidades: [{ slug: 'vila-velha', nome: 'Vila Velha' }, { slug: 'vitoria', nome: 'Vitória' }], taxaPorBairro: { modo: 'site', bairros: es } }
+    const quebras = []
+    for (const cidade of [null, 'Vila Velha', 'Vitória']) {
+      for (const x of es) {
+        for (let i = 1; i <= x.nome.length; i++) {
+          for (const sug of b.sugestoesDeBairro(es, x.nome.slice(0, i), cidade, 10)) {
+            // a escolha com cidade diz a cidade pro site (BairroTaxa.tsx): conta com ela
+            const t = b.taxaDoBairro(canalEs, sug.nome, cidade ?? sug.cidade ?? null)
+            const bate = sug.taxa == null ? t.tipo === 'consultar' && !t.fora && !t.opcoes : t.tipo === 'valor' && t.valor === sug.taxa
+            if (!bate) quebras.push(`${cidade ?? 'sem cidade'} · "${x.nome.slice(0, i)}" → ${sug.nome}${sug.cidade ? ` (${sug.cidade})` : ''} ${sug.taxa} → ${JSON.stringify(t)}`)
+          }
+        }
+      }
+    }
+    igual(quebras.slice(0, 3), [], 'cada sugestão, escolhida, dá a taxa que ela mostrou (nunca "não tá na lista")')
+    igual(
+      b.sugestoesDeBairro(es, 'Cen', null).map((x) => `${x.nome}·${x.cidade ?? ''}·${x.taxa}`),
+      ['Centro·Vila Velha·8', 'Centro·Vitória·10'],
+      'sem a cidade, o "Centro" das duas cidades aparece duas vezes, cada um com a cidade e a taxa',
+    )
+    igual(b.sugestoesDeBairro(es, 'Ilha', null).map((x) => `${x.nome}·${x.cidade ?? ''}·${x.taxa}`), ['Ilha do Boi··7'], 'o mesmo valor nas duas cidades: uma sugestão só, sem cidade')
+    igual(b.sugestoesDeBairro(es, 'Cen', 'Vitória').map((x) => `${x.nome}·${x.cidade ?? ''}·${x.taxa}`), ['Centro·Vitória·10'], 'com a cidade: só o daquela cidade')
   })
 
   // ─── a 107 e a 210 num banco como o do ar ────────────────────────────────────────────────────────────────────
@@ -122,7 +190,7 @@ export async function testarBairros(t) {
     $d->exec("UPDATE loja_estados SET cidades = '[{\\"slug\\":\\"vila-velha\\",\\"nome\\":\\"Vila Velha\\"},{\\"slug\\":\\"vitoria\\",\\"nome\\":\\"Vitória\\"}]', taxa = 1000, taxa_demo = 0 WHERE uf = 'es'");
     $d->exec("UPDATE loja_estados SET pedido_minimo = 2000, taxa = 1200, taxa_demo = 0, horario_demo = 0 WHERE uf = 'rj'");
     $d->prepare("INSERT INTO pedidos (codigo, token_hash, tipo, status, uf, cidade, nome, itens, subtotal, bairro, mensagem, criado_em, atualizado_em) VALUES ('GC-ANT33', ?, 'pedido', 'novo', 'rj', 'Rio de Janeiro', 'Cliente de Antes', '[]', 1000, 'Tijuca', 'PEDIDO GREEN CHEESE — RJ\\nCódigo: GC-ANT33', ?, ?)")->execute([hash('sha256', 'antes'), $t, $t]);
-    foreach (['loja_estados' => ['taxa_por', 'bairros_ver', 'bairros'], 'pedidos' => ['taxa_site', 'taxa_site_texto']] as $tab => $cols) foreach ($cols as $col) try { $d->exec("ALTER TABLE $tab DROP COLUMN $col"); } catch (Throwable $e) {}
+    foreach (['loja_estados' => ['taxa_por', 'bairros_ver', 'bairros'], 'pedidos' => ['taxa_site', 'taxa_site_texto', 'taxa_site_em']] as $tab => $cols) foreach ($cols as $col) try { $d->exec("ALTER TABLE $tab DROP COLUMN $col"); } catch (Throwable $e) {}
     $d->exec('DELETE FROM migracoes WHERE numero IN (107, 210)');`, [arq])
   const colunas = (a) =>
     JSON.parse(
@@ -165,6 +233,17 @@ export async function testarBairros(t) {
   }
   let x
   let a
+  /** O aviso do grupo de um pedido (a linha da entrega) e o pedido no painel (a anotação, a taxa do site). */
+  const avisoDoPedido = async (codigo) => {
+    const l = (await dono.get('admin-pedidos', { query: `&status=todos&busca=${codigo}` })).json.pedidos.find((p) => p.codigo === codigo)
+    let env
+    await esperar(async () => {
+      env = (await dono.get('admin-avisos')).json.envios.find((e) => e.alvo === `pedido:${l?.id}`)
+      return !!env
+    })
+    const det = (await dono.get('admin-pedido', { query: `&id=${l?.id}` })).json.pedido
+    return { entrega: (env?.texto ?? '').split('\n').find((linha) => linha.startsWith('*Entrega:*')), pedido: det }
+  }
   try {
     await secao('taxa por bairro: a 107 e a 210 no banco do ar, o GET loja igual', async () => {
       const r = await fetch(`${b}/api/index.php?r=loja`)
@@ -252,20 +331,60 @@ export async function testarBairros(t) {
       ok(ev.some((e) => e.acao === 'estado-editado' && e.texto === 'Taxa de entrega de RJ por bairro (3 bairros, o cliente consulta)'), 'a Atividade diz o modo e quantos bairros')
     })
 
+    // ─── tirar a cidade que tem bairro na lista (revisão de 22/10) ────────────────────────────────────────────
+    const listaEs = [
+      { nome: 'Centro', cidade: 'Vitória', taxa: 10 },
+      { nome: 'Centro', cidade: 'Vila Velha', taxa: 8 },
+      { nome: 'Praia da Costa', cidade: 'Vila Velha', taxa: 9 },
+      { nome: 'Jardim da Penha', taxa: 11 },
+    ]
+    const adminEs = async () => (await dono.get('admin-loja')).json.loja.estados.find((e) => e.uf === 'es')
+    await secao('taxa por bairro: tirar a cidade que tem bairro na lista não deixa a lista inválida', async () => {
+      x = await salvar({ uf: 'es', cidades: [{ nome: 'Vila Velha' }, { nome: 'Vitória' }], taxaPor: 'bairro', bairrosVer: 'site', bairros: listaEs })
+      igual(x.status, 200, 'ES com duas cidades e bairro nas duas')
+      // o painel de antes (aberto no celular do dono) só manda as cidades
+      x = await salvar({ uf: 'es', cidades: [{ nome: 'Vila Velha' }] })
+      erro(x, 400, 'invalido', 'tirar Vitória com o "Centro" de Vitória na lista (o corpo de antes, sem a lista): recusa')
+      igual(x.json?.campo, 'cidades', 'o erro vai no campo das cidades (o painel de antes mostra ali)')
+      ok(/Centro/.test(x.json?.mensagem ?? '') && /Vitória/.test(x.json?.mensagem ?? ''), `diz qual bairro e de que cidade (${x.json?.mensagem})`)
+      const depois = await adminEs()
+      igual([depois.cidades.map((c) => c.nome), depois.bairros.length], [['Vila Velha', 'Vitória'], 4], 'nada mudou no banco: as duas cidades e os 4 bairros')
+      // a mesma cidade escrita de outro jeito (o nome em minúscula): os bairros dela continuam valendo
+      x = await salvar({ uf: 'es', cidades: [{ nome: 'Vila Velha' }, { nome: 'vitória' }] })
+      igual([x.status, x.json?.estado?.bairros?.length], [200, 4], 'a cidade escrita de outro jeito (minúscula): os bairros continuam')
+      x = await salvar({ uf: 'es', cidades: [{ nome: 'Vila Velha' }, { nome: 'Vitória' }] })
+      // o painel novo tira a cidade e os bairros dela juntos
+      x = await salvar({ uf: 'es', cidades: [{ nome: 'Vila Velha' }], bairros: listaEs.filter((b) => b.cidade !== 'Vitória') })
+      igual([x.status, x.json?.estado?.bairros?.map((b) => b.nome)], [200, ['Centro', 'Praia da Costa', 'Jardim da Penha']], 'tirar Vitória mandando a lista sem os bairros dela: entra')
+      const l = await loja()
+      const es = JSON.parse(l.texto).loja.estados.find((e) => e.uf === 'es')
+      ok(!JSON.stringify(es.taxaPorBairro).includes('Vitória'), 'o GET loja não tem mais bairro de Vitória')
+      // e o salvar seguinte da lista (só a taxa de um bairro) não trava num bairro que o dono nem mexeu
+      x = await salvar({ uf: 'es', bairros: x.json.estado.bairros.map((b) => (b.nome === 'Praia da Costa' ? { ...b, taxa: 9.5 } : b)) })
+      igual([x.status, x.json?.estado?.bairros?.find((b) => b.nome === 'Praia da Costa')?.taxa], [200, 9.5], 'mudar só a taxa da Praia da Costa depois: entra')
+      // a lista com a cidade que o estado não tem: a mensagem diz a cidade (o "Centro" de qual?)
+      x = await salvar({ uf: 'es', bairros: [{ nome: 'Centro', cidade: 'Serra', taxa: 5 }] })
+      erro(x, 400, 'invalido', 'bairro de uma cidade que o estado não tem')
+      ok((x.json?.mensagem ?? '').includes('(Serra)'), `a mensagem diz a cidade (${x.json?.mensagem})`)
+    })
+
+    await secao('taxa por bairro: o nome do bairro não leva o separador da lista colada', async () => {
+      // (o tab da planilha o servidor já troca por espaço, como em todo texto)
+      const guardada = (await dono.get('admin-loja')).json.loja.estados.find((e) => e.uf === 'rj').bairros
+      for (const nome of ['Laranjeiras;10', 'Copacabana: 12', 'Leblon=15']) {
+        x = await salvar({ uf: 'rj', bairros: [{ nome: 'Glória', taxa: 9 }, { nome, taxa: null }] })
+        erro(x, 400, 'invalido', `"${nome}" como nome de bairro`)
+        igual(x.json?.indice, 1, `o erro aponta o bairro (${x.json?.mensagem})`)
+      }
+      // a lista do RJ como tava (o código que aceitasse o nome teria trocado a lista: as seções de baixo usam ela)
+      await salvar({ uf: 'rj', bairros: guardada })
+    })
+
     // ─── o pedido e o aviso do grupo ─────────────────────────────────────────────────────────────────────────
     await secao('taxa por bairro: o pedido guarda o que o site mostrou; o aviso diz a taxa da tabela do servidor', async () => {
       igual((await dono.post('admin-avisos-salvar', { motor: 'zapi', zapi: { instancia: '3C5A0B1D2E3F', token: 'TOKENZAPI0123456789' }, destino: { tipo: 'grupo', valor: '120363012345678901' } })).status, 200, 'avisos no WhatsApp ligados (gateway falso)')
       igual((await salvar({ uf: 'rj', bairrosVer: 'site' })).status, 200, 'RJ de volta pro "aparece no site"')
-      const avisoDe = async (codigo) => {
-        const l = (await dono.get('admin-pedidos', { query: `&status=todos&busca=${codigo}` })).json.pedidos.find((p) => p.codigo === codigo)
-        let env
-        await esperar(async () => {
-          env = (await dono.get('admin-avisos')).json.envios.find((e) => e.alvo === `pedido:${l?.id}`)
-          return !!env
-        })
-        const det = (await dono.get('admin-pedido', { query: `&id=${l?.id}` })).json.pedido
-        return { entrega: (env?.texto ?? '').split('\n').find((linha) => linha.startsWith('*Entrega:*')), pedido: det }
-      }
+      const avisoDe = avisoDoPedido
       const manda = async (o) => {
         const p = pedidoRj(o)
         const r = await site().post('pedido', p.corpo, o.agora ? { agora: o.agora } : {})
@@ -335,6 +454,78 @@ export async function testarBairros(t) {
       igual((await site().post('pedido', torto)).status, 201, 'taxa torta na cópia: o pedido entra igual')
       igual((await avisoDe(torto.codigo)).pedido?.taxaSite, { valor: null, texto: '42' }, 'e o que não fecha fica de fora')
     })
+
+    // ─── o pedido: a hora do toque, a cópia forjada, o bairro sem a cidade (revisão de 22/10) ─────────────────
+    await secao('taxa por bairro: o pedido do dia grátis que chega depois da meia-noite, e a cópia forjada', async () => {
+      igual((await salvar({ uf: 'rj', taxaPor: 'bairro', bairrosVer: 'site', entregaGratis: { dias: [5], texto: 'Sextou com entrega grátis!' } })).status, 200, 'RJ por bairro, aparece no site, entrega grátis às sextas')
+      const sextaNoite = Date.UTC(2026, 9, 17, 2, 59, 50) / 1000 // sexta 16/10, 23:59:50 em Brasília
+      const sabado = Date.UTC(2026, 9, 17, 3, 0, 5) / 1000 // sábado 17/10, 00:00:05 em Brasília
+      igual([diaEmBrasilia(sextaNoite), diaEmBrasilia(sabado)], [5, 6], 'os instantes de teste: sexta 23:59:50 e sábado 00:00:05 em Brasília')
+      const manda = async (o) => {
+        const p = pedidoRj(o)
+        const r = await site().post('pedido', p.corpo, o.agora ? { agora: o.agora } : {})
+        igual(r.status, 201, `pedido (${JSON.stringify(o.taxa)}) entra`)
+        return avisoDoPedido(p.corpo.codigo)
+      }
+      // o cliente tocou na sexta (o site mostrou "grátis hoje"); a cópia chegou no sábado (o beacon atrasou, ou a fila
+      // do aparelho mandou de novo): o dia grátis é o do toque
+      a = await manda({ bairro: 'Copacabana', taxa: { valor: null, texto: 'grátis hoje', em: sextaNoite }, agora: sabado })
+      igual(a.pedido?.nota, '', 'tocou na sexta, chegou no sábado: sem anotação de "confere"')
+      igual(a.entrega, '*Entrega:* na conversa · bairro Copacabana _(entrega grátis: o cliente pediu sex 16/10 23:59, dia de entrega grátis)_', 'o aviso diz grátis e quando o cliente pediu')
+      // a hora do toque fora da janela da fila do aparelho (3 dias): vale a da chegada
+      a = await manda({ bairro: 'Copacabana', taxa: { valor: null, texto: 'grátis hoje', em: sextaNoite - 7 * 86400 }, agora: sabado })
+      igual(a.pedido?.nota, 'Confere o valor na conversa: entrega grátis hoje no site, mas hoje não é dia de entrega grátis.', 'a hora do toque de 8 dias atrás não vale: anota')
+      a = await manda({ bairro: 'Copacabana', taxa: { valor: null, texto: 'grátis hoje', em: sabado + 3600 }, agora: sabado })
+      igual(a.pedido?.nota, 'Confere o valor na conversa: entrega grátis hoje no site, mas hoje não é dia de entrega grátis.', 'a hora do toque no futuro não vale: anota')
+      // e na sexta, tocando e chegando no mesmo dia: "grátis hoje", como sempre
+      a = await manda({ bairro: 'Copacabana', taxa: { valor: null, texto: 'grátis hoje', em: sextaNoite - 60 }, agora: sextaNoite })
+      igual([a.entrega, a.pedido?.nota], ['*Entrega:* na conversa · bairro Copacabana _(entrega grátis hoje)_', ''], 'tocou e chegou na sexta: grátis hoje')
+      igual((await salvar({ uf: 'rj', entregaGratis: null })).status, 200, 'RJ sem entrega grátis de novo')
+
+      // a cópia forjada que não manda o número no valor: o texto e o valor torto também são conferidos
+      a = await manda({ bairro: 'Copacabana', taxa: { valor: null, texto: 'taxa R$ 1,00' } })
+      igual(a.pedido?.nota, 'Confere o valor na conversa: taxa do bairro Copacabana: R$ 1,00 no site, R$ 12,00 na tabela.', 'valor vazio com "taxa R$ 1,00" no texto: anota')
+      a = await manda({ bairro: 'Copacabana', taxa: { valor: -5, texto: 'taxa R$ 12,00' } })
+      igual(a.pedido?.nota, 'Confere o valor na conversa: taxa do bairro Copacabana: valor torto no site, R$ 12,00 na tabela.', 'valor negativo: anota')
+      a = await manda({ bairro: 'Copacabana', taxa: { valor: '0', texto: 'grátis' } })
+      igual(a.pedido?.nota, 'Confere o valor na conversa: taxa do bairro Copacabana: R$ 0,00 no site, R$ 12,00 na tabela.', 'valor "0" em texto com "grátis": anota')
+      a = await manda({ bairro: 'Copacabana', taxa: { valor: 12, texto: 'taxa R$ 1,00' } })
+      igual(a.pedido?.nota, 'Confere o valor na conversa: taxa do bairro Copacabana: R$ 1,00 no site, R$ 12,00 na tabela.', 'o número certo com outro valor no texto: anota')
+      igual(a.entrega, '*Entrega:* na conversa · bairro Copacabana _(taxa do bairro R$ 12,00, pela tabela)_', 'e o aviso continua com a taxa da tabela')
+      // o que o site de verdade manda não vira anotação: a lista guardada de antes (o bairro ainda "a consultar")
+      a = await manda({ bairro: 'Copacabana', taxa: { valor: null, texto: 'taxa do bairro a consultar' } })
+      igual(a.pedido?.nota, '', 'o site com a lista de antes ("a consultar", sem valor): sem anotação')
+      a = await manda({ bairro: 'Copacabana', taxa: { valor: 12, texto: 'taxa R$ 12,00', em: Math.floor(Date.now() / 1000) } })
+      igual(a.pedido?.nota, '', 'o certo, com a hora do toque: sem anotação')
+    })
+
+    await secao('taxa por bairro: o bairro sem a cidade, no estado com mais de uma (a mesma conta do site)', async () => {
+      x = await salvar({ uf: 'es', cidades: [{ nome: 'Vila Velha' }, { nome: 'Vitória' }], taxaPor: 'bairro', bairrosVer: 'site', bairros: listaEs, entregaGratis: null })
+      igual(x.status, 200, 'ES com as duas cidades e a lista')
+      const mandaEs = async ({ cidade = '', bairro, taxa, entrega }) => {
+        const p = pedidoDe({ uf: 'es', cidade, bairro, taxa })
+        if (entrega) p.corpo.entrega = entrega
+        igual((await site().post('pedido', p.corpo)).status, 201, `pedido do ES (${bairro}, cidade "${cidade}") entra`)
+        return avisoDoPedido(p.corpo.codigo)
+      }
+      a = await mandaEs({ bairro: 'Praia da Costa', taxa: { valor: 9, texto: 'taxa R$ 9,00' } })
+      igual([a.entrega, a.pedido?.nota], ['*Entrega:* na conversa · bairro Praia da Costa _(taxa do bairro R$ 9,00, pela tabela)_', ''], 'sem a cidade, o bairro de uma cidade só: a taxa dele (como o site mostrou)')
+      a = await mandaEs({ bairro: 'Jardim da Penha', taxa: { valor: 11, texto: 'taxa R$ 11,00' } })
+      igual(a.entrega, '*Entrega:* na conversa · bairro Jardim da Penha _(taxa do bairro R$ 11,00, pela tabela)_', 'sem a cidade, o bairro de qualquer cidade')
+      a = await mandaEs({ bairro: 'Centro', taxa: { valor: null, texto: 'taxa do bairro a consultar' } })
+      igual([a.entrega, a.pedido?.nota], ['*Entrega:* na conversa · bairro Centro _(taxa do bairro a consultar: o cliente não disse a cidade, e a tabela tem R$ 10,00 em Vitória e R$ 8,00 em Vila Velha)_', ''], 'sem a cidade, o "Centro" das duas: a consultar, com as opções pra quem atende')
+      a = await mandaEs({ bairro: 'Centro', taxa: { valor: 25, texto: 'taxa R$ 25,00' } })
+      igual(a.pedido?.nota, 'Confere o valor na conversa: taxa do bairro Centro: R$ 25,00 no site, e a tabela tem R$ 10,00 em Vitória e R$ 8,00 em Vila Velha.', 'um valor que não é de nenhuma das duas: anota')
+      a = await mandaEs({ cidade: 'Vitória', bairro: 'Centro', taxa: { valor: 10, texto: 'taxa R$ 10,00' } })
+      igual([a.entrega, a.pedido?.nota], ['*Entrega:* na conversa · bairro Centro _(taxa do bairro R$ 10,00, pela tabela)_', ''], 'com a cidade (a escolhida na sugestão): o da cidade')
+      // o guiado sem a cidade escolhida, com o CEP de Vila Velha: a cidade do CEP acha o bairro (como no site)
+      a = await mandaEs({
+        bairro: 'Centro',
+        taxa: { valor: 8, texto: 'taxa R$ 8,00' },
+        entrega: { endereco: 'Rua Sete de Setembro, 10, Centro, Vila Velha', rua: 'Rua Sete de Setembro', numero: '10', bairro: 'Centro', cep: '29100-000', cidade: 'Vila Velha', uf: 'es' },
+      })
+      igual([a.entrega?.endsWith('_(taxa do bairro R$ 8,00, pela tabela)_'), a.pedido?.nota], [true, ''], `sem a cidade, com o CEP de Vila Velha: o "Centro" de Vila Velha (${a.entrega})`)
+    })
   } finally {
     derrubar(filho)
     falso.srv.close()
@@ -359,6 +550,89 @@ export async function testarBairros(t) {
       igual([comBairro.status, comBairro.json?.estado?.taxaPor, comBairro.json?.estado?.bairros], [201, 'bairro', [{ nome: 'Boa Viagem', taxa: 10 }]], 'ou já por bairro, se o painel mandar')
     } finally {
       derrubar(filhoN)
+    }
+  })
+
+  // ─── a publicação arquivo a arquivo (revisão de 22/10) ──────────────────────────────────────────────────────
+  // O publicar.mjs manda um arquivo de cada vez, na ordem do ordenar (publicacao.mjs): os módulos da API antes do
+  // index.php, por nome ("loja-migracoes.php", "loja-painel.php", "loja-validar.php" e só depois "loja.php"). Com o dono
+  // salvando no painel durante o envio, cada passo do meio tem de responder sem erro 500: o código que tá no ar (o
+  // commit do PUBLICAR.md, passo 4) com os arquivos novos chegando um a um, num banco feito por ele.
+  await secao('taxa por bairro: a publicação arquivo a arquivo, com o painel salvando no meio do envio', async () => {
+    const roteiro = readFileSync(join(raiz, 'PUBLICAR.md'), 'utf8')
+    const noAr = /o que está no ar é a `greencheese-v2\/` do commit `([0-9a-f]{7,40})`/.exec(roteiro)?.[1]
+    ok(!!noAr, 'o PUBLICAR.md diz o commit que tá no ar (passo 4)')
+    if (!noAr) return
+    const repo = process.env.GC_REPO ?? raiz
+    const git = (...a) => execFileSync('git', ['-C', repo, ...a], { maxBuffer: 64 << 20 })
+    let deAntes
+    try {
+      deAntes = git('ls-tree', '-r', '--name-only', '--full-tree', noAr, 'greencheese-v2/public/api/').toString('utf8').split('\n').filter(Boolean)
+    } catch {
+      console.log(`  (sem o git ou sem o commit ${noAr} aqui: a publicação no meio não foi conferida)`)
+      return
+    }
+    const h = join(tmp, 'publicacao-no-meio')
+    mkdirSync(join(h, 'scripts'), { recursive: true })
+    copyFileSync(join(raiz, 'scripts', 'api-dev.php'), join(h, 'scripts', 'api-dev.php'))
+    const antes = new Map()
+    for (const f of deAntes) {
+      const r = f.replace(/^greencheese-v2\/public\//, '')
+      const conteudo = git('show', `${noAr}:${f}`)
+      antes.set(r, conteudo)
+      mkdirSync(dirname(join(h, 'public', r)), { recursive: true })
+      writeFileSync(join(h, 'public', r), conteudo)
+    }
+    // o que sobe (o build copia o public/ inteiro; o api/instalacao.php e os dados nunca sobem), na ordem do envio, só o
+    // que mudou desde o que tá no ar
+    const pub = join(raiz, 'public')
+    const sobe = ordenar(
+      listar(join(pub, 'api'))
+        .map((f) => relativo(pub, f))
+        .filter((r) => !foraDaPublicacao(r) && r !== 'api/instalacao.php'),
+    ).filter((r) => !antes.has(r) || !antes.get(r).equals(readFileSync(join(pub, r))))
+    ok(sobe.length > 0, `arquivos da API que mudaram desde o ${noAr}: ${sobe.length}`)
+    const dd = join(tmp, 'publicacao-no-meio-dados')
+    mkdirSync(dd, { recursive: true })
+    const porta = process.env.GC_TESTE_PORTA ? portaPrincipal + 12 : await portaLivre()
+    const filhoM = await subirPhp(porta, { GC_TESTE: '1', GC_DADOS: dd, GC_UPLOADS: join(dd, 'up') }, ['-t', join(h, 'public'), join(h, 'scripts', 'api-dev.php')])
+    try {
+      const b = `http://127.0.0.1:${porta}`
+      const donoM = new Cli(b, '198.18.63.1')
+      // o banco feito pelo código que tá no ar, com o dono configurando
+      igual((await donoM.post('admin-instalar', { codigo: 'dev-instalar-greencheese', login: 'dono', nome: 'Dono', senha: 'senha-forte-123' })).status, 201, `o código do ${noAr} instala`)
+      igual((await donoM.post('admin-estado-salvar', { uf: 'mg', taxa: 9.5 })).status, 200, 'e o dono salva a taxa de MG (o painel de antes)')
+      const log = () => {
+        try {
+          return readFileSync(join(dd, 'erros.log'), 'utf8')
+        } catch {
+          return ''
+        }
+      }
+      const quebras = []
+      let ip = 0
+      for (const [i, r] of sobe.entries()) {
+        mkdirSync(dirname(join(h, 'public', r)), { recursive: true })
+        copyFileSync(join(pub, r), join(h, 'public', r))
+        const antesDoLog = log().length
+        const passo = `${i + 1}/${sobe.length} ${r}`
+        const respostas = [
+          ['GET loja', (await fetch(`${b}/api/index.php?r=loja`)).status],
+          ['admin-loja', (await donoM.get('admin-loja')).status],
+          ['admin-estado-salvar (o corpo do painel de antes)', (await donoM.post('admin-estado-salvar', { uf: 'mg', taxa: i % 2 ? 9 : 9.5 })).status],
+          ['admin-estado-salvar (as cidades)', (await donoM.post('admin-estado-salvar', { uf: 'es', cidades: [{ nome: 'Vila Velha' }, { nome: 'Vitória' }] })).status],
+          ['POST pedido', (await new Cli(b, `198.18.64.${++ip}`).post('pedido', pedidoDe({ uf: 'mg', cidade: '' }).corpo)).status],
+        ]
+        for (const [rota, st] of respostas) if (st >= 500) quebras.push(`${passo}: ${rota} → ${st}`)
+        const novoNoLog = log().slice(antesDoLog).split('\n').filter((l) => /Error|Fatal|Uncaught/.test(l))
+        for (const l of novoNoLog) quebras.push(`${passo}: ${l.slice(0, 160)}`)
+      }
+      igual(quebras.slice(0, 4), [], `nenhuma rota com erro 500 em nenhum passo do envio (${sobe.length} arquivos, um de cada vez)`)
+      // no fim, tudo novo: a 107 rodou e o painel vê a taxa por bairro
+      const est = (await donoM.get('admin-loja')).json?.loja?.estados?.find((e) => e.uf === 'mg')
+      igual([est?.taxaPor, est?.taxaEntrega?.valor], ['estado', sobe.length % 2 ? 9.5 : 9], 'no fim do envio: a taxa por bairro no painel, e a taxa de MG como o dono salvou')
+    } finally {
+      derrubar(filhoM)
     }
   })
 }

@@ -227,11 +227,13 @@ interface CorpoPedido {
   troco?: number | null          // só com dinheiro; arredondado pra centavos (50.555 → 50,56); acima de R$ 100.000 ou
                                  // ilegível vira null (não recusa: o troco só informa)
   obs?: string                   // até 200
-  taxa?: { valor: number | null; texto: string } // a taxa de entrega que o site mostrou (taxa por bairro, 22/10): valor em
-                                 // reais (0 = grátis; null = a consultar / grátis hoje) e o texto da sacola ('taxa R$ 12,00',
-                                 // 'taxa do bairro a consultar', 'grátis hoje'); só informa: torto vira null / '', sem o campo
-                                 // (o site de antes) = sem taxa do site. O bairro vai em entrega.bairro (na sacola, entrega só
-                                 // com o bairro: { bairro })
+  taxa?: { valor: number | null; texto: string; em?: number } // a taxa de entrega que o site mostrou (taxa por bairro,
+                                 // 22/10): valor em reais (0 = grátis; null = a consultar / grátis hoje), o texto da sacola
+                                 // ('taxa R$ 12,00', 'taxa do bairro a consultar', 'grátis hoje') e em = quando o site mostrou
+                                 // (unix, a hora da loja que montou a mensagem: o dia de entrega grátis é o do toque; fora de
+                                 // 3 dias e 1 h antes até 10 min depois da chegada, vale a chegada); só informa: torto vira
+                                 // null / '', sem o campo (o site de antes) = sem taxa do site. O bairro vai em entrega.bairro
+                                 // (na sacola, entrega só com o bairro: { bairro }; no dia de entrega grátis, sem o bairro)
   // encomenda
   encomenda?: { produto: string; quantidade: string; referencia: string } // produto 2 a 120; referência até 300
   mensagem: string               // a mensagem exata do WhatsApp: começa com "PEDIDO GREEN CHEESE" (ou "ENCOMENDA …") e tem
@@ -261,12 +263,18 @@ interface CorpoPedido {
   (`_Confere o valor na conversa: …_`). O preço que o dono acabou de mudar no painel também aparece assim (o cliente viu
   o de antes). Catálogo que não dá pra ler (loja não instalada, a 105 ainda não rodou): nada a marcar.
 - **Taxa de entrega por bairro** (22/10; DECISOES 20): o pedido guarda o bairro e a taxa que o site mostrou
-  (`taxa_site` em centavos e `taxa_site_texto`, migração 210; no painel, `taxaSite`), mas no estado que cobra por bairro
-  o aviso do grupo diz a taxa **da tabela do servidor** (ver "Avisos no WhatsApp"). Só no modo "aparece no site", o que
-  não bate entra na anotação, como o preço: `taxa do bairro Copacabana: R$ 1,00 no site, R$ 12,00 na tabela.`,
-  `taxa do bairro Tijuca: R$ 15,00 no site, a consultar na tabela.`, `taxa de entrega: R$ 9,00 no site, sem o bairro.`,
-  `entrega grátis hoje no site, mas hoje não é dia de entrega grátis.` (o dia pelo horário de Brasília e os
-  `entregaGratis.dias` do estado). Nunca recusa.
+  (`taxa_site` em centavos, `taxa_site_texto` e `taxa_site_em`, a hora do toque, migração 210; no painel, `taxaSite`),
+  mas no estado que cobra por bairro o aviso do grupo diz a taxa **da tabela do servidor** (ver "Avisos no WhatsApp").
+  Só no modo "aparece no site", o que não bate entra na anotação, como o preço: `taxa do bairro Copacabana: R$ 1,00 no
+  site, R$ 12,00 na tabela.`, `taxa do bairro Tijuca: R$ 15,00 no site, a consultar na tabela.`, `taxa de entrega:
+  R$ 9,00 no site, sem o bairro.`, `entrega grátis hoje no site, mas hoje não é dia de entrega grátis.` (o dia do toque,
+  `taxa.em`, pelo horário de Brasília, e os `entregaGratis.dias` do estado; sem o `em`, o da chegada). Conta o valor do
+  campo **e o que o texto diz** ("taxa R$ 1,00" → R$ 1,00, "grátis" → R$ 0): a cópia com o valor vazio e outro número no
+  texto, com valor negativo (`valor torto no site`) ou com `'0'` em texto também é marcada; o que o site de verdade manda
+  sem valor ("taxa do bairro a consultar", a lista guardada de antes) não. O bairro é achado como no site: com a cidade
+  do pedido (a escolhida e, sem ela, a do CEP); sem nenhuma, o bairro com esse nome quando a taxa é uma só, e com taxas
+  diferentes em cidades diferentes, "a consultar" com as opções (`taxa do bairro Centro: R$ 25,00 no site, e a tabela tem
+  R$ 10,00 em Vitória e R$ 8,00 em Vila Velha.`). Nunca recusa.
 - **Campo informativo não derruba o pedido**: cupom, pagamento e troco tortos ficam de fora (null) e o pedido entra.
   Campo estrutural torto (`uf`, `nome`, `itens`, `subtotal`, `encomenda`) com a **mensagem certa** (começa com o
   cabeçalho e tem a linha do código): o pedido entra só com a mensagem (sem itens; o estado e o nome saem do cabeçalho e
@@ -300,8 +308,8 @@ faixas: 1–99 base, 100–199 loja, 200–299 pedidos e contas). As desta frent
 (`gc_migracoes_pedidos()`, somada só quando o módulo existe): `200` pedidos, `201` avisos no WhatsApp (envios e
 tentativas), `202` falas trocadas do pedido guiado, `209` a origem do pedido (`pedidos.origem`: `'sacola'` ou `'guiado'`, padrão
 `'guiado'` — os de antes eram todos do chat; só acrescenta a coluna), `210` a taxa que o site mostrou (`pedidos.taxa_site`
-em centavos, `NULL` = sem valor, e `pedidos.taxa_site_texto`, padrão `''`: taxa por bairro, 22/10; só acrescenta as colunas,
-os pedidos de antes ficam sem). Nunca edite uma que já foi pro ar: acrescente a próxima da faixa.
+em centavos, `NULL` = sem valor, `pedidos.taxa_site_texto`, padrão `''`, e `pedidos.taxa_site_em`, a hora do toque em unix,
+`NULL` = não veio: taxa por bairro, 22/10; só acrescenta as colunas, os pedidos de antes ficam sem). Nunca edite uma que já foi pro ar: acrescente a próxima da faixa.
 
 As das contas moram em `nucleo/contas-migracoes.php` (`gc_migracoes_contas()`, somada quando o módulo existe):
 `203` equipe (colunas `ativo`, `ufs`, `trocar_senha`, `criado_por`, `desativado_em` em `usuarios`; índice dos eventos
@@ -437,9 +445,12 @@ escolhe o motor no painel e troca quando quiser; sem motor (`nenhum`), nada entr
   quando não tá no endereço (`· bairro Copacabana`) e a taxa **da tabela do servidor**, nunca a do site:
   `_(taxa do bairro R$ 12,00, pela tabela)_`, `_(bairro sem taxa, pela tabela)_`, `_(taxa do bairro a consultar)_`
   (marcado "consultar"), `_(taxa do bairro a consultar: fora da lista)_`, `_(taxa do bairro a consultar: o cliente não
-  disse o bairro)_` ou `_(entrega grátis hoje)_` (o dia de entrega grátis do estado, pelo horário de Brasília, e o site
-  dizendo "grátis hoje"). Vale também no modo "o cliente consulta" (quem atende vê a taxa). O estado de uma taxa só
-  continua com `_(taxa a confirmar)_`.
+  disse o bairro)_`, `_(taxa do bairro a consultar: o cliente não disse a cidade, e a tabela tem R$ 10,00 em Vitória e
+  R$ 8,00 em Vila Velha)_` (o mesmo bairro em mais de uma cidade, com taxas diferentes, e o pedido sem cidade nem CEP)
+  ou `_(entrega grátis hoje)_` (o dia de entrega grátis do estado, pelo horário de Brasília, e o site dizendo "grátis
+  hoje"; a cópia que chegou noutro dia, com a hora do toque num dia grátis: `_(entrega grátis: o cliente pediu sex
+  16/10 23:59, dia de entrega grátis)_`). Vale também no modo "o cliente consulta" (quem atende vê a taxa). O estado de
+  uma taxa só continua com `_(taxa a confirmar)_`.
 - **Depois da resposta**: o aviso entra na fila (`avisos_envios`) na mesma transação do que aconteceu e sai depois que
   quem pediu já recebeu a resposta (o cliente nunca espera o gateway). Cada tentativa fica registrada
   (`avisos_tentativas`, as 20 últimas de cada aviso). Falhou: tenta de novo sozinho em 1 min e em 5 min, quando alguém
@@ -1137,9 +1148,15 @@ Regras (o servidor confere; o painel mostra o mesmo enquanto a pessoa digita):
   (troca a guardada), até 400, `[{ nome, cidade?, taxa }]`: `nome` de 2 a 60 letras, sem repetir (sem contar acento,
   maiúscula, espaço nem pontuação; o mesmo nome em cidades diferentes vale), sem tabaco nem as palavras que o site não
   usa (422, como a cidade); `cidade` vazia ou uma das `cidades` do estado (escrita de outro jeito, sai como a do estado);
-  `taxa` de R$ 0 a R$ 500 (número ou texto: `12`, `'12,50'`, `'R$ 12,50'`) ou `null` / `''` = consultar. Erro: 400
+  `taxa` de R$ 0 a R$ 500 (número ou texto: `12`, `'12,50'`, `'R$ 12,50'`) ou `null` / `''` = consultar. O nome não leva
+  `;`, `:` nem `=` (o separador da lista colada: `“Laranjeiras;10”` é uma linha de planilha que não foi lida). Erro: 400
   `campo: 'taxaPor' | 'bairrosVer' | 'bairros'`, com `indice` (a posição do bairro na lista) quando é de um bairro
-  (`“COPACABANA.” tá duas vezes.`). Voltar pra `'estado'` guarda a lista (e o modo), e o site volta à taxa única. Esta
+  (`“COPACABANA.” tá duas vezes.`; `A cidade de “Centro” (Serra) não tá nas cidades do estado.`). **As cidades mudando
+  sem a lista no corpo** (o painel de antes só manda `cidades`): a lista guardada tem de continuar valendo; o bairro de
+  uma cidade que saiu é recusado com 400 `campo: 'cidades'` (`O bairro Centro é de Vitória, na lista de bairros da taxa
+  de entrega: apaga ele ou muda a cidade antes de tirar Vitória …`) e nada muda. A cidade escrita de outro jeito
+  (maiúscula, acento) continua valendo pros bairros dela. O painel novo pergunta antes e manda a lista sem os bairros da
+  cidade que sai. Voltar pra `'estado'` guarda a lista (e o modo), e o site volta à taxa única. Esta
   rota aceita corpo de até 256 KB (as outras, 64 KB): 400 bairros com cidade, no pior caso, passam dos 64 KB. Horário, taxa, entrega grátis e pagamento que vierem deixam de ser exemplo, a não ser que venha
   junto `horarioDemo`, `taxaDemo`, `entregaGratisDemo` ou `pagamentosDemo: true`. Destaque, nome do perfil e cidades
   sem tabaco nem a gíria e a promessa (422, como no produto; o nome do perfil aparece no cabeçalho do site). A taxa de

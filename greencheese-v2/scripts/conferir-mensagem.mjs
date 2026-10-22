@@ -344,7 +344,8 @@ for (const [c, bairro, agora, esperado, rotulo] of [
   [porBairro, 'Centro', quinta, 'Entrega: Centro (taxa do bairro a consultar)', 'bairro de outra cidade (Niterói) não vale no Rio'],
   [porBairro, '', quinta, 'Entrega: taxa do bairro a consultar', 'sem bairro'],
   [porBairro, null, quinta, 'Entrega: taxa do bairro a consultar', 'sem bairro (null)'],
-  [gratisBairro, 'Copacabana', sexta, 'Entrega: Copacabana (grátis hoje)', 'dia de entrega grátis, com bairro'],
+  // no dia grátis a sacola não mostra o "Teu bairro": o guardado de outra visita não vai na mensagem (revisão de 22/10)
+  [gratisBairro, 'Copacabana', sexta, 'Entrega: grátis hoje', 'dia de entrega grátis, com o bairro guardado (que a sacola não mostra nesse dia)'],
   [gratisBairro, '', sexta, 'Entrega: grátis hoje', 'dia de entrega grátis, sem bairro'],
   [gratisBairro, 'Copacabana', quinta, 'Entrega: Copacabana (taxa R$ 12,00)', 'fora do dia grátis'],
   [consulta, 'Copacabana', quinta, 'Entrega: taxa a consultar (bairro Copacabana)', 'o cliente consulta, com bairro'],
@@ -393,6 +394,73 @@ for (const [c, bairro, agora, esperado] of [
     if (JSON.stringify(t) !== JSON.stringify(esperado)) problemas.push(`taxa por bairro: pro servidor, esperado ${JSON.stringify(esperado)}, veio ${JSON.stringify(t)}`)
   })
 }
+// ── revisão de 22/10 (o corretor) ──
+// (o código de antes da taxa por bairro não tem o arquivo: cada caso abaixo vira um problema com o nome dele)
+const lb = await carregar('src/lib/bairros.ts').catch(() => ({}))
+// o estado com mais de uma cidade e o cliente sem cidade: a mensagem acha o bairro como a sugestão mostrou
+const es = {
+  uf: 'es',
+  nome: 'Espírito Santo',
+  cidades: [{ slug: 'vila-velha', nome: 'Vila Velha' }, { slug: 'vitoria', nome: 'Vitória' }],
+  taxaEntrega: { valor: null, demo: false },
+  taxaPorBairro: {
+    modo: 'site',
+    bairros: [
+      { nome: 'Centro', cidade: 'Vitória', taxa: 10 },
+      { nome: 'Centro', cidade: 'Vila Velha', taxa: 8 },
+      { nome: 'Praia da Costa', cidade: 'Vila Velha', taxa: 9 },
+      { nome: 'Jardim da Penha', taxa: 11 },
+    ],
+  },
+}
+for (const [bairro, cidade, esperado, rotulo] of [
+  ['Praia da Costa', null, 'Entrega: Praia da Costa (taxa R$ 9,00)', 'sem a cidade, o bairro de uma cidade só (a sugestão mostrou R$ 9,00)'],
+  ['Centro', null, 'Entrega: Centro (taxa do bairro a consultar)', 'sem a cidade, o "Centro" de duas cidades com taxas diferentes'],
+  ['Centro', 'Vitória', 'Entrega: Centro (taxa R$ 10,00)', 'com a cidade escolhida na sugestão (Vitória)'],
+  ['Jardim da Penha', null, 'Entrega: Jardim da Penha (taxa R$ 11,00)', 'sem a cidade, o bairro de qualquer cidade'],
+]) {
+  tenta(`sacola do ES, ${rotulo}`, () => {
+    const msg = m.montarPedidoSacola({ ...sacola, canal: { ...canal, ...es }, cidade, bairro, agora: quinta }).split('\n')
+    const linha = msg.find((l) => l.startsWith('Entrega:'))
+    if (linha !== esperado) problemas.push(`taxa por bairro, sacola do ES, ${rotulo}: veio "${linha}", esperado "${esperado}"`)
+  })
+}
+tenta('a sugestão sem a cidade', () => {
+  const s = lb.sugestoesDeBairro(es.taxaPorBairro.bairros, 'Cen', null).map((x) => `${x.nome}·${x.cidade ?? ''}·${x.taxa}`).join(' | ')
+  if (s !== 'Centro·Vila Velha·8 | Centro·Vitória·10') problemas.push(`taxa por bairro: a sugestão sem a cidade veio "${s}" (cada "Centro" com a cidade e a taxa dele)`)
+})
+// o guiado com o CEP de Vila Velha e sem a cidade escolhida: a cidade do CEP acha o "Centro" de Vila Velha
+tenta('guiado com a cidade do CEP', () => {
+  const endereco = 'Rua Sete de Setembro, 10, Centro, Vila Velha'
+  const linha = m.montarPedido({ ...pedido, canal: { ...canal, ...es }, cidade: null, cidadeBairro: 'Vila Velha', bairro: 'Centro', endereco, agora: quinta }).split('\n').find((l) => l.startsWith('Entrega:'))
+  if (linha !== `Entrega: ${endereco} (taxa do bairro: R$ 8,00)`) problemas.push(`taxa por bairro, guiado com o CEP de Vila Velha: veio "${linha}"`)
+})
+// o guiado sem CEP: o bairro escrito no endereço vale mais que o guardado no aparelho
+for (const [c, endereco, guardado, esperado, rotulo] of [
+  [porBairro, 'Rua Barata Ribeiro, 120, Copacabana', 'Leblon', 'Copacabana', 'o endereço cita outro bairro da lista: ele, e não o guardado'],
+  [porBairro, 'Rua Dias Ferreira, 50', 'Leblon', 'Leblon', 'o endereço não cita bairro da lista: o guardado (a mensagem diz o nome)'],
+  [porBairro, 'Av. Atlântica, 1702, COPACABANA', 'copacabana', 'copacabana', 'o guardado escrito no endereço'],
+  [porBairro, 'Rua Conde de Bonfim, 10', '', null, 'sem guardado e sem bairro da lista no endereço'],
+  [consulta, 'Rua Barata Ribeiro, 120, Copacabana', 'Leblon', 'Leblon', 'o cliente consulta (o site não tem a lista): o guardado'],
+  [{}, 'Rua Barata Ribeiro, 120, Copacabana', 'Leblon', null, 'estado de uma taxa só: nada'],
+]) {
+  tenta(`guiado sem CEP, ${rotulo}`, () => {
+    const veio = lb.bairroDoEndereco({ ...canal, ...c }, endereco, guardado, 'Rio de Janeiro')
+    if (veio !== esperado) problemas.push(`taxa por bairro, guiado sem CEP, ${rotulo}: veio ${JSON.stringify(veio)}, esperado ${JSON.stringify(esperado)}`)
+  })
+}
+tenta('guiado sem CEP, a mensagem', () => {
+  const endereco = 'Rua Barata Ribeiro, 120, Copacabana'
+  const bairro = lb.bairroDoEndereco({ ...canal, ...porBairro }, endereco, 'Leblon', 'Rio de Janeiro')
+  const linha = guiadoB(porBairro, bairro, quinta, endereco).split('\n')[iEnt]
+  if (linha !== `Entrega: ${endereco} (taxa do bairro: R$ 12,00)`) problemas.push(`taxa por bairro, guiado sem CEP com o Leblon guardado: veio "${linha}"`)
+})
+// a hora do toque vai junto da taxa pro servidor (o dia grátis é o do toque, não o da chegada da cópia)
+tenta('a hora do toque pro servidor', () => {
+  const t = m.taxaParaOServidor(m.entregaDoPedido({ ...canal, ...gratisBairro }, 'Copacabana', 'Rio de Janeiro', sexta), sexta)
+  if (JSON.stringify(t) !== JSON.stringify({ valor: null, texto: 'grátis hoje', em: Math.floor(sexta.getTime() / 1000) })) problemas.push(`taxa por bairro: a hora do toque pro servidor veio ${JSON.stringify(t)}`)
+})
+
 // "Perguntar a taxa no WhatsApp": a conversa do pedido com a frase pronta
 tenta('o "Perguntar" com o bairro', () => {
   const pergunta = m.linkConsultaBairro({ ...canal, ...consulta }, 'Praia da Costa')

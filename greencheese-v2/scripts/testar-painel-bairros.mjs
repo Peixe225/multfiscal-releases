@@ -5,6 +5,10 @@
 // 12,50", vários com a mesma taxa, linha sem valor = consultar, "grátis", o repetido que vale o de baixo, o que fica de
 // fora) e o "trocar a lista toda"; salvar e o site ver (GET loja nos 3 modos); voltar pra uma taxa só guarda a lista;
 // a lista de estados diz o modo; 320 px sem rolagem pro lado. axe e prints em cada tela.
+// Da revisão de 22/10 (o corretor): o bairro digitado sem "Adicionar" (e a edição sem "Pronto") entra no Salvar, com
+// as mesmas conferências, e sair com ele pergunta; o "Trocar a lista" travado sem linha boa e perguntando antes de
+// tirar bairro; a linha de planilha com ";" no fim; tirar a cidade que tem bairro na lista (pergunta e tira os bairros
+// dela junto); a cidade inteira no seletor em 360 px.
 
 export async function fluxoBairros({ p, BASE, ok, print, axe }) {
   const loja = async () => (await (await fetch(`${BASE}/api/index.php?r=loja`)).json()).loja
@@ -114,6 +118,9 @@ export async function fluxoBairros({ p, BASE, ok, print, axe }) {
   await p.locator('#e-bairros-colar').fill('Copacabana: 12\nIpanema: 13')
   await p.getByRole('radio', { name: /Trocar a lista toda/ }).tap()
   await p.getByRole('button', { name: 'Trocar a lista' }).tap()
+  // tirando bairro da lista, pergunta antes (revisão de 22/10; sem a pergunta, a checagem de baixo diz)
+  await p.getByRole('button', { name: 'Trocar pela lista colada (2 bairros)' }).tap({ timeout: 5000 }).catch(() => {})
+  await p.waitForTimeout(300)
   l = await linhas()
   ok(l.length === 2 && l[0] === 'Copacabana R$ 12,00' && l[1] === 'Ipanema R$ 13,00', `trocar a lista toda: fica só a colada (${l.join(' | ')})`)
 
@@ -133,4 +140,146 @@ export async function fluxoBairros({ p, BASE, ok, print, axe }) {
   ok(l.length === 2, `a lista ficou guardada (por bairro de novo: ${l.join(' | ')})`)
   await p.getByRole('radio', { name: /Uma taxa pro estado/ }).tap()
   ok((await p.getByRole('button', { name: 'Salvar', exact: true }).isDisabled()) === true, 'voltou ao que tava salvo: nada pra salvar')
+
+  // ─── revisão de 22/10 (o corretor) ──────────────────────────────────────────────────────────────────────────
+  // Cada bloco começa na tela do estado; o que quebra (o código de antes, por exemplo) vira uma falha com o nome do
+  // bloco, e os outros seguem. Toques com prazo curto (5 s): o que não existe na tela não segura o resto.
+  const listaRj = async () => (await rj()).taxaPorBairro?.bairros ?? []
+  const T = { timeout: 5000 }
+  const bloco = async (nome, fn) => {
+    try {
+      await p.setViewportSize({ width: 390, height: 844 })
+      await p.goto(`${BASE}/painel/#/loja/estado/rj`)
+      await p.getByRole('radio', { name: /Por bairro/ }).waitFor(T)
+      await fn()
+    } catch (e) {
+      ok(false, `taxa por bairro, ${nome}: quebrou (${e.message.split('\n')[0]})`)
+      await p.keyboard.press('Escape').catch(() => {})
+    }
+  }
+  await bloco('a linha com ";" no fim e o bairro só digitado', async () => {
+    await p.getByRole('radio', { name: /Por bairro/ }).tap(T)
+    // a lista no site (o GET loja traz a lista só no "Aparece no site")
+    await p.getByRole('radio', { name: /Aparece no site/ }).tap(T)
+    // a linha de planilha com o separador sobrando no fim
+    await p.getByRole('button', { name: 'Colar uma lista' }).tap(T)
+    await p.locator('#e-bairros-colar').fill('Laranjeiras;10;\nFlamengo: 9:')
+    await p.waitForTimeout(200)
+    const previa2 = (await p.locator('.pn-bairros-lista-previa .pn-bairro-linha').allInnerTexts()).map((t) => t.replace(/\s+/g, ' ').trim())
+    ok(previa2.includes('Laranjeiras novo R$ 10,00') && previa2.includes('Flamengo novo R$ 9,00'), `"Laranjeiras;10;" (o ";" sobrando da planilha): Laranjeiras a R$ 10,00 (${previa2.join(' | ')})`)
+    await p.getByRole('button', { name: 'Aplicar 2 bairros' }).tap(T)
+    // o bairro digitado sem tocar em "Adicionar": o aviso embaixo e o Salvar leva ele
+    await p.locator('#e-bairros').fill('Urca')
+    await p.getByPlaceholder('consultar').fill('14')
+    const pendente = (await p.locator('.pn-bairro-pendente').innerText(T).catch(() => '')).trim()
+    ok(pendente === '“Urca” entra na lista quando tu salvar.', `o bairro digitado sem "Adicionar" avisa que entra ao salvar (${pendente})`)
+    await p.locator('.pn-bairro-pendente').evaluate((e) => e.scrollIntoView({ block: 'center' })).catch(() => {})
+    await print(p, 'loja-estado-bairros-rascunho')
+    await salvar()
+    const lr = await listaRj()
+    ok(lr.some((b) => b.nome === 'Urca' && b.taxa === 14) && lr.some((b) => b.nome === 'Laranjeiras' && b.taxa === 10), `salvou com o bairro só digitado: a Urca (R$ 14) e a Laranjeiras (R$ 10) no site (${lr.map((b) => b.nome).join(', ')})`)
+  })
+  await bloco('o bairro digitado conta como mudança e o que não serve não salva', async () => {
+    await p.locator('#e-bairros').waitFor(T)
+    ok(await p.getByRole('button', { name: 'Salvar', exact: true }).isDisabled(), 'o formulário limpo: nada pra salvar')
+    await p.locator('#e-bairros').fill('Gávea')
+    ok(!(await p.getByRole('button', { name: 'Salvar', exact: true }).isDisabled()), 'só o bairro digitado já conta como mudança (o Salvar acende)')
+    await p.getByRole('button', { name: 'Voltar' }).first().tap(T)
+    const perguntou = await p.getByText('Tem mudança não salva').waitFor(T).then(() => true, () => false)
+    ok(perguntou, 'sair com o bairro digitado pergunta antes (ele não some calado)')
+    if (perguntou) await p.getByRole('button', { name: 'Continuar editando' }).tap(T)
+    else await p.goto(`${BASE}/painel/#/loja/estado/rj`)
+    await p.locator('#e-bairros').fill('X')
+    await p.getByRole('button', { name: 'Salvar', exact: true }).tap(T)
+    await p.waitForTimeout(600)
+    const erroRasc = (await p.locator('#e-bairro-erro').innerText(T).catch(() => '')).trim()
+    ok(/Nome do bairro de 2 a 60 letras/.test(erroRasc) && (await p.locator('#s-e-taxa').count()) === 1, `o bairro digitado que não serve: o erro aparece embaixo dele e a tela fica (${erroRasc})`)
+    ok(!(await listaRj()).some((b) => b.nome === 'X'), 'e nada foi pro servidor')
+  })
+  await bloco('a edição sem o "Pronto"', async () => {
+    await p.getByRole('button', { name: 'Editar Urca' }).tap(T)
+    await p.getByPlaceholder('consultar').fill('15')
+    await salvar()
+    ok((await listaRj()).some((b) => b.nome === 'Urca' && b.taxa === 15), 'a edição da Urca (R$ 15) sem tocar em "Pronto": vale no Salvar')
+  })
+  await bloco('trocar a lista toda', async () => {
+    await p.getByRole('button', { name: 'Colar uma lista' }).tap(T)
+    await p.locator('#e-bairros-colar').fill('Méier: 8 reais\nX: 5')
+    await p.getByRole('radio', { name: /Trocar a lista toda/ }).tap(T)
+    await p.waitForTimeout(200)
+    ok(await p.getByRole('button', { name: 'Trocar a lista' }).isDisabled(), 'trocar com todas as linhas de fora: o botão fica travado (a lista não esvazia)')
+    await p.locator('.pn-bairros-previa').scrollIntoViewIfNeeded()
+    await print(p, 'loja-estado-bairros-trocar-travado')
+    const antesTroca = (await linhas()).length
+    await p.locator('#e-bairros-colar').fill('Copacabana: 12\nUrca: 15')
+    await p.getByRole('button', { name: 'Trocar a lista' }).tap(T)
+    const dialogo = p.getByRole('alertdialog')
+    await dialogo.waitFor(T).catch(() => {})
+    const textoDialogo = (await dialogo.innerText(T).catch(() => '')).replace(/\s+/g, ' ')
+    ok(/Trocar a lista toda\?/.test(textoDialogo) && textoDialogo.includes(`(${antesTroca} bairros) sai e fica só a colada (2 bairros)`), `trocar tirando bairro: pergunta antes, dizendo quantos saem (${textoDialogo.slice(0, 160)})`)
+    await print(p, 'loja-estado-bairros-trocar-pergunta')
+    await p.getByRole('button', { name: 'Deixa a lista como tá' }).tap(T)
+    ok((await linhas()).length === antesTroca, 'desistiu: a lista fica como tava')
+    await p.getByRole('button', { name: 'Trocar a lista' }).tap(T)
+    await p.getByRole('button', { name: 'Trocar pela lista colada (2 bairros)' }).tap(T)
+    await p.waitForTimeout(300)
+    ok((await linhas()).join(' | ') === 'Copacabana R$ 12,00 | Urca R$ 15,00', `confirmou: fica só a colada (${(await linhas()).join(' | ')})`)
+    await salvar()
+  })
+  await bloco('a cidade no seletor em 360 px e tirar a cidade que tem bairro', async () => {
+    await p.locator('#e-cidade-nova').fill('Niterói')
+    await p.locator('.pn-cidade-nova').getByRole('button', { name: 'Adicionar' }).tap(T)
+    await p.locator('#e-bairros').fill('Icaraí')
+    await p.locator('.pn-bairro-form select').selectOption('Niterói', T)
+    await p.getByPlaceholder('consultar').fill('11')
+    await p.getByRole('button', { name: 'Adicionar bairro', exact: true }).tap(T)
+    // 360 px: a cidade inteira no seletor ("Qualquer cidade", sem cortar)
+    await p.setViewportSize({ width: 360, height: 740 })
+    await p.locator('#e-bairros').scrollIntoViewIfNeeded()
+    await p.waitForTimeout(200)
+    const cabe = await p.evaluate(() => {
+      const s = document.querySelector('.pn-bairro-form select')
+      if (!s) return null
+      const cs = getComputedStyle(s)
+      const c = document.createElement('canvas').getContext('2d')
+      c.font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`
+      const texto = c.measureText('Qualquer cidade').width
+      const livre = s.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight)
+      return { texto: Math.round(texto), livre: Math.round(livre) }
+    })
+    ok(!!cabe && cabe.texto <= cabe.livre, `360 px: "Qualquer cidade" cabe inteiro no seletor (${JSON.stringify(cabe)})`)
+    ok(await lateral(), 'o formulário do bairro com a cidade cabe em 360 px (sem rolagem pro lado)')
+    await print(p, 'loja-estado-bairros-cidade-360')
+    await p.setViewportSize({ width: 390, height: 844 })
+    await salvar()
+    ok((await listaRj()).some((b) => b.nome === 'Icaraí' && b.cidade === 'Niterói'), 'salvou: Icaraí de Niterói no site')
+    await p.goto(`${BASE}/painel/#/loja/estado/rj`)
+    await p.getByRole('button', { name: 'Tirar Niterói' }).tap(T)
+    const dialogoCidade = p.getByRole('alertdialog')
+    await dialogoCidade.waitFor(T).catch(() => {})
+    const textoCidade = (await dialogoCidade.innerText(T).catch(() => '')).replace(/\s+/g, ' ')
+    ok(/Tirar Niterói\?/.test(textoCidade) && /O bairro Icaraí é de Niterói/.test(textoCidade), `tirar Niterói com Icaraí na lista: pergunta antes, dizendo qual bairro (${textoCidade.slice(0, 160)})`)
+    await print(p, 'loja-estado-bairros-tirar-cidade')
+    await p.getByRole('button', { name: 'Tirar Niterói e o bairro' }).tap(T)
+    await p.waitForTimeout(300)
+    ok(!(await linhas()).some((t) => t.startsWith('Icaraí')), 'o Icaraí saiu da lista junto com a cidade')
+    await salvar()
+    const rjDepois = await rj()
+    ok(rjDepois.cidades.length === 1 && !(rjDepois.taxaPorBairro?.bairros ?? []).some((b) => b.cidade === 'Niterói'), 'salvou: o RJ sem Niterói e sem bairro de Niterói (nada de bairro órfão)')
+  })
+  await bloco('a lista depois de tirar a cidade', async () => {
+    // o salvar seguinte da lista não trava num bairro que o dono nem mexeu
+    await p.getByRole('button', { name: 'Editar Copacabana' }).tap(T)
+    await p.getByPlaceholder('consultar').fill('13')
+    await p.getByRole('button', { name: 'Pronto' }).tap(T)
+    await salvar()
+    ok((await listaRj()).some((b) => b.nome === 'Copacabana' && b.taxa === 13), 'depois de tirar a cidade, mudar a taxa da Copacabana salva normal')
+  })
+  // o RJ volta pra uma taxa só e só com a cidade de sempre (o resto do testar-painel segue como antes)
+  await bloco('o RJ de volta como tava', async () => {
+    const e = await rj()
+    if (e.cidades.length > 1) for (const c of e.cidades.slice(1)) await p.getByRole('button', { name: `Tirar ${c.nome}` }).tap(T).then(() => p.getByRole('button', { name: new RegExp(`^Tirar ${c.nome}`) }).last().tap(T).catch(() => {}))
+    await p.getByRole('radio', { name: /Uma taxa pro estado/ }).tap(T)
+    await salvar()
+  })
 }

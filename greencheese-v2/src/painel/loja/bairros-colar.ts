@@ -40,7 +40,55 @@ export function lerTaxaBairro(v: string): { taxa: number | null; problema: strin
 /** O problema do nome do bairro (o mesmo do servidor): null = serve. */
 export function problemaNoBairro(nome: string): string | null {
   if (tamanho(nome) < 2 || tamanho(nome) > 60 || !chaveBairro(nome)) return 'Nome do bairro de 2 a 60 letras.'
+  // o separador da lista ("Laranjeiras;10" é uma linha de planilha que não foi lida): a taxa vai no campo dela
+  if (/[;:=\t]/.test(nome)) return 'O nome do bairro não leva “;”, “:” nem “=” (a taxa vai no campo dela).'
   return problemaNoTexto(nome, 'loja')
+}
+
+/**
+ * O bairro sendo digitado no formulário de baixo (novo, ou a edição de um da lista: `chave`), antes do "Adicionar" ou do
+ * "Pronto". Fica no formulário do estado (como a cidade digitada): salvar com ele preenchido aplica, com as mesmas
+ * conferências, e sair com ele pergunta antes.
+ */
+export interface RascunhoBairro {
+  /** A chave do bairro editado (null = um bairro novo). */
+  chave: string | null
+  nome: string
+  cidade: string
+  taxa: string
+}
+
+export const RASCUNHO_VAZIO: RascunhoBairro = { chave: null, nome: '', cidade: '', taxa: '' }
+
+/** O rascunho mudaria a lista? (um nome digitado, ou a edição diferente do bairro como tá na lista) */
+export function rascunhoPendente(lista: readonly BairroAdmin[], r: RascunhoBairro): boolean {
+  if (r.chave === null) return r.nome.trim() !== ''
+  const b = lista.find((x) => chaveDaLista(x) === r.chave)
+  if (!b) return false
+  const t = lerTaxaBairro(r.taxa)
+  return r.nome.trim().replace(/\s+/g, ' ') !== b.nome || r.cidade !== (b.cidade ?? '') || !!t.problema || t.taxa !== b.taxa
+}
+
+/**
+ * Aplica o rascunho na lista (o "Adicionar bairro", o "Pronto" da edição e o Salvar com o bairro digitado), com as
+ * conferências do servidor: o nome, a taxa, o repetido e o teto de 400. `campo` diz onde pôr o foco quando não serve.
+ */
+export function aplicarRascunho(
+  lista: readonly BairroAdmin[],
+  r: RascunhoBairro,
+  variasCidades: boolean,
+): { lista: BairroAdmin[]; problema: null; campo: null } | { lista: null; problema: string; campo: 'nome' | 'taxa' } {
+  const nome = r.nome.trim().replace(/\s+/g, ' ')
+  const p = problemaNoBairro(nome)
+  if (p) return { lista: null, problema: p, campo: 'nome' }
+  const { taxa, problema } = lerTaxaBairro(r.taxa)
+  if (problema) return { lista: null, problema, campo: 'taxa' }
+  const novo: BairroAdmin = { nome, ...(variasCidades && r.cidade ? { cidade: r.cidade } : {}), taxa }
+  const k = chaveDaLista(novo)
+  const outros = lista.filter((b) => chaveDaLista(b) !== r.chave)
+  if (outros.some((b) => chaveDaLista(b) === k)) return { lista: null, problema: `“${nome}” já tá na lista${novo.cidade ? ` de ${novo.cidade}` : ''}.`, campo: 'nome' }
+  if (outros.length >= MAX_BAIRROS) return { lista: null, problema: `Até ${MAX_BAIRROS} bairros por estado.`, campo: 'nome' }
+  return { lista: ordenarBairros([...outros, novo]), problema: null, campo: null }
 }
 
 const VALOR_NO_FIM = /^(.*?)\s*(?:[-–—]\s*)?R\$\s*([\d.,]+)\s*$/i
@@ -56,7 +104,8 @@ export function lerListaColada(texto: string, cidades: readonly string[], cidade
   const porChave = new Map(cidades.map((c) => [chaveBairro(c), c]))
   const out: LinhaColada[] = []
   for (const bruta of texto.split(/\r?\n/)) {
-    const linha = bruta.trim()
+    // o separador sobrando no fim (a planilha que exporta "Laranjeiras;10;") sai antes de procurar o da taxa
+    const linha = bruta.trim().replace(/[;:=\t\s]+$/, '')
     if (!linha || linha.startsWith('#')) continue
     let nomes = linha
     let valor = ''
@@ -129,10 +178,12 @@ export function ordenarBairros(lista: BairroAdmin[]): BairroAdmin[] {
 
 /**
  * Aplica as linhas boas: 'juntar' (o que já tem fica; o que veio entra ou troca a taxa) ou 'trocar' (a lista vira só a
- * colada). Passou de 400, não aplica (o problema diz quantos sobram).
+ * colada). Passou de 400, ou nenhuma linha boa, não aplica (o problema diz por quê).
  */
 export function aplicarColada(lista: readonly BairroAdmin[], linhas: readonly LinhaColada[], modo: 'juntar' | 'trocar'): { lista: BairroAdmin[] | null; problema: string | null } {
   const boas = situacoes(linhas, lista).filter((s) => s.situacao !== 'problema' && s.situacao !== 'repetido').map((s) => s.linha)
+  // nenhuma linha boa: nada muda (trocar a lista por "nada" esvaziaria a lista inteira do site)
+  if (!boas.length) return { lista: null, problema: 'Nenhuma linha da lista colada serve: a lista de agora fica como tá.' }
   const mapa = new Map<string, BairroAdmin>(modo === 'juntar' ? lista.map((b) => [chaveDaLista(b), b]) : [])
   for (const l of boas) mapa.set(chaveDaLista(l), { nome: l.nome, ...(l.cidade ? { cidade: l.cidade } : {}), taxa: l.taxa })
   if (mapa.size > MAX_BAIRROS) return { lista: null, problema: `Ficaria com ${mapa.size} bairros: o máximo é ${MAX_BAIRROS} por estado. Tira ${mapa.size - MAX_BAIRROS} da lista colada${modo === 'juntar' ? ' (ou troca a lista toda)' : ''}.` }

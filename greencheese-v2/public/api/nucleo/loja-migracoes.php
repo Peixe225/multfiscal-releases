@@ -179,6 +179,113 @@ function gc_loja_tem_bairros(): bool
     return $tem;
 }
 
+// ─── taxa por bairro: as contas que o loja-painel.php e o loja-validar.php usam ─────────────────────────────────
+// Ficam aqui (e não no loja.php) por causa da publicação arquivo a arquivo: o publicar.mjs manda este arquivo antes do
+// loja-painel.php e do loja-validar.php, e o loja.php depois deles ('-' vem antes de '.'). Com elas no loja.php, quem
+// salvasse no painel durante o envio levava erro 500 (a função ainda não existia no loja.php de antes).
+
+/**
+ * O nome do bairro (ou da cidade) pra comparar: sem acento, sem maiúscula, e espaço e pontuação viram um espaço só
+ * ("Copacabana", "COPACABANA" e " copacabana. " são o mesmo; "Jardim  da Penha" e "Jardim-da-Penha" também). A mesma
+ * conta de chaveBairro em src/lib/bairros.ts (o scripts/testar-api-bairros.mjs confere as duas com os mesmos nomes).
+ */
+function gc_loja_chave_bairro(string $s): string
+{
+    if (class_exists('Normalizer')) {
+        $n = Normalizer::normalize($s, Normalizer::FORM_D);
+        $s = is_string($n) ? $n : $s;
+    }
+    return trim((string) preg_replace('/[^a-z0-9]+/', ' ', gc_loja_comparavel($s)));
+}
+
+/** 'estado' (uma taxa só, o de sempre) ou 'bairro'. Banco antes da 107: 'estado'. */
+function gc_loja_taxa_por(array $e): string
+{
+    return ($e['taxa_por'] ?? 'estado') === 'bairro' ? 'bairro' : 'estado';
+}
+
+/** Como o cliente vê a taxa por bairro: 'site' (a lista aparece no site) ou 'consulta' (o site não mostra valor). */
+function gc_loja_bairros_ver(array $e): string
+{
+    return ($e['bairros_ver'] ?? 'site') === 'consulta' ? 'consulta' : 'site';
+}
+
+/**
+ * A lista de bairros guardada, do jeito que entrou (o nome como o dono escreveu, a cidade, a taxa em centavos ou null
+ * = consultar). Banco antes da 107, ou JSON torto: lista vazia.
+ * @return list<array{nome: string, cidade: string, taxa: int|null}>
+ */
+function gc_loja_bairros_de(array $e): array
+{
+    $out = [];
+    foreach ((array) gc_loja_lido($e['bairros'] ?? '[]', []) as $b) {
+        if (!is_array($b) || !is_string($b['nome'] ?? null) || $b['nome'] === '') {
+            continue;
+        }
+        $t = $b['taxa'] ?? null;
+        $out[] = ['nome' => $b['nome'], 'cidade' => is_string($b['cidade'] ?? null) ? $b['cidade'] : '', 'taxa' => is_int($t) ? $t : null];
+    }
+    return $out;
+}
+
+/** Um bairro pro site e pro painel: { nome, cidade? (só quando tem), taxa: reais ou null = consultar }. */
+function gc_loja_bairro_publico(array $b): array
+{
+    return ['nome' => $b['nome']] + ($b['cidade'] !== '' ? ['cidade' => $b['cidade']] : []) + ['taxa' => $b['taxa'] === null ? null : gc_reais($b['taxa'])];
+}
+
+/**
+ * O bairro do cliente na lista do estado (a mesma conta de acharBairro em src/lib/bairros.ts):
+ * - com a cidade do cliente: o bairro daquela cidade e, sem ele, o que vale pra qualquer cidade (sem cidade);
+ * - sem a cidade (a sacola de quem não escolheu a cidade num estado com mais de uma): o bairro com esse nome, quando a
+ *   taxa é uma só (um bairro só, ou o mesmo valor em todas as cidades); com taxas diferentes em cidades diferentes
+ *   ("Centro" de Vila Velha e de Vitória), 'varias' com as opções (o site pede pra escolher a da cidade, e o aviso diz
+ *   "a consultar" com as opções).
+ * @return array{achado: array{nome: string, cidade: string, taxa: int|null}|null, varias: list<array{nome: string, cidade: string, taxa: int|null}>}
+ */
+function gc_loja_achar_bairro(array $e, string $cidade, string $bairro): array
+{
+    $nada = ['achado' => null, 'varias' => []];
+    $chave = gc_loja_chave_bairro($bairro);
+    if ($chave === '') {
+        return $nada;
+    }
+    $mesmos = array_values(array_filter(gc_loja_bairros_de($e), static fn (array $b): bool => gc_loja_chave_bairro($b['nome']) === $chave));
+    if ($mesmos === []) {
+        return $nada;
+    }
+    $geral = null;
+    foreach ($mesmos as $b) {
+        if ($b['cidade'] === '') {
+            $geral ??= $b;
+        }
+    }
+    $daCidade = gc_loja_chave_bairro($cidade);
+    if ($daCidade !== '') {
+        foreach ($mesmos as $b) {
+            if ($b['cidade'] !== '' && gc_loja_chave_bairro($b['cidade']) === $daCidade) {
+                return ['achado' => $b, 'varias' => []];
+            }
+        }
+        return ['achado' => $geral, 'varias' => []];
+    }
+    $taxas = array_unique(array_map(static fn (array $b): string => $b['taxa'] === null ? 'consultar' : (string) $b['taxa'], $mesmos));
+    if (count($taxas) === 1) {
+        return ['achado' => $geral ?? $mesmos[0], 'varias' => []];
+    }
+    return ['achado' => null, 'varias' => $mesmos];
+}
+
+/**
+ * O bairro do cliente na lista do estado (gc_loja_achar_bairro, sem as opções). null = fora da lista, ou com taxas
+ * diferentes em cidades diferentes e o cliente sem cidade (o site diz "a consultar").
+ * @return array{nome: string, cidade: string, taxa: int|null}|null
+ */
+function gc_loja_bairro_na_lista(array $e, string $cidade, string $bairro): ?array
+{
+    return gc_loja_achar_bairro($e, $cidade, $bairro)['achado'];
+}
+
 /** Teto do pedido mínimo pra entrega (centavos): R$ 1.000,00 (passou disso é engano de digitação). */
 const GC_LOJA_MINIMO_MAX = 100000;
 
