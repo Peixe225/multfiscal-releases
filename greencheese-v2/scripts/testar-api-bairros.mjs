@@ -595,7 +595,11 @@ export async function testarBairros(t) {
     const dd = join(tmp, 'publicacao-no-meio-dados')
     mkdirSync(dd, { recursive: true })
     const porta = process.env.GC_TESTE_PORTA ? portaPrincipal + 12 : await portaLivre()
-    const filhoM = await subirPhp(porta, { GC_TESTE: '1', GC_DADOS: dd, GC_UPLOADS: join(dd, 'up') }, ['-t', join(h, 'public'), join(h, 'scripts', 'api-dev.php')])
+    // sem o opcache: o php -S usa o opcache.enable (não o enable_cli), e o módulo de antes que já está no cache (o que tem
+    // mais de 2 s) segue valendo uns segundos depois de trocado no disco. Com ele ligado, quando a preparação passava de
+    // 2 s, o envio inteiro rodava o código de antes e o fim lia o painel de antes (taxaPor ausente): cada passo tem de
+    // rodar exatamente os arquivos que estão no disco
+    const filhoM = await subirPhp(porta, { GC_TESTE: '1', GC_DADOS: dd, GC_UPLOADS: join(dd, 'up') }, ['-d', 'opcache.enable=0', '-t', join(h, 'public'), join(h, 'scripts', 'api-dev.php')])
     try {
       const b = `http://127.0.0.1:${porta}`
       const donoM = new Cli(b, '198.18.63.1')

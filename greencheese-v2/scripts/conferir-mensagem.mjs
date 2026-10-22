@@ -510,11 +510,29 @@ tenta('o "Perguntar" sem bairro', () => {
   if (!decodeURIComponent(m.linkConsultaBairro({ ...canal, ...consulta }, '').split('text=')[1]).endsWith('pro meu bairro?')) problemas.push('taxa por bairro: o "Perguntar" sem bairro')
 })
 
+// ── o cupom que entrou sozinho e a taxa do bairro no mesmo pedido (a junção das duas frentes de 22/10) ──
+// cada frente mexe numa linha só: o cupom entra depois do Subtotal, a Entrega diz o bairro; juntas, nada mais muda
+tenta('o cupom e o bairro juntos', () => {
+  const linhaBairroS = 'Entrega: Copacabana (taxa R$ 12,00)'
+  const juntaS = m.montarPedidoSacola({ ...sacola, canal: { ...canal, ...porBairro }, bairro: 'Copacabana', agora: quinta, cupom: doAuto }).split('\n')
+  const soCupomS = m.montarPedidoSacola({ ...sacola, agora: quinta, cupom: doAuto }).split('\n')
+  const iCupom = juntaS.indexOf(linhaAuto)
+  const iEntJ = juntaS.findIndex((l) => l.startsWith('Entrega:'))
+  if (iCupom < 1 || !juntaS[iCupom - 1].startsWith('Subtotal:') || juntaS[iEntJ] !== linhaBairroS) problemas.push(`o cupom e o bairro juntos, sacola: veio\n${juntaS.join('\n')}`)
+  else if (juntaS.filter((_, i) => i !== iEntJ).join('\n') !== soCupomS.filter((l) => !l.startsWith('Entrega:')).join('\n')) problemas.push('o cupom e o bairro juntos, sacola: outra linha mudou')
+  const juntaG = m.montarPedido({ ...pedido, canal: { ...canal, ...porBairro }, bairro: 'Copacabana', agora: quinta, cupom: doAuto }).split('\n')
+  const soCupomG = m.montarPedido({ ...pedido, agora: quinta, cupom: doAuto }).split('\n')
+  const iEntG = juntaG.findIndex((l) => l.startsWith('Entrega:'))
+  if (!juntaG.includes(linhaAuto) || juntaG[iEntG] !== `Entrega: ${pedido.endereco} (taxa do bairro: R$ 12,00)`) problemas.push(`o cupom e o bairro juntos, guiado: veio\n${juntaG.join('\n')}`)
+  else if (juntaG.filter((_, i) => i !== iEntG).join('\n') !== soCupomG.filter((l) => !l.startsWith('Entrega:')).join('\n')) problemas.push('o cupom e o bairro juntos, guiado: outra linha mudou')
+})
+
 if (problemas.length) {
   console.error(problemas.join('\n\n'))
   process.exit(1)
 }
 console.log(`cupom automático ok: ${casosCupom.length} casos (o que vence primeiro, a raridade no empate, o que não vale, o que o cliente tirou, o ganho depois, o "é o que vence primeiro" só quando é) e a linha nas duas mensagens:\n${linhaAuto}\n`)
+console.log('o cupom e o bairro juntos ok: na sacola e no guiado, a linha do cupom depois do Subtotal e a Entrega com o bairro, o resto igual\n')
 console.log(`taxa por bairro ok: ${m.montarPedidoSacola({ ...sacola, canal: { ...canal, ...porBairro }, bairro: 'copacabana', agora: quinta }).split('\n')[iEntS]} · ${m.montarPedidoSacola({ ...sacola, canal: { ...canal, ...porBairro }, bairro: 'Tijuca', agora: quinta }).split('\n')[iEntS]} · ${m.montarPedidoSacola({ ...sacola, canal: { ...canal, ...consulta }, bairro: 'Copacabana', agora: quinta }).split('\n')[iEntS]} · ${m.montarPedidoSacola({ ...sacola, canal: { ...canal, ...gratisBairro }, bairro: 'Copacabana', agora: sexta }).split('\n')[iEntS]}\n`)
 console.log(`sacola ok: igual ao modelo (scripts/mensagem-sacola-referencia.txt); com o código, o cupom, o nome da conta e a entrega como o estado diz:\n${m.montarPedidoSacola({ ...sacola, codigo: 'GC-7KD2X', cupom, nome: 'Ana Souza', canal: { ...canal, taxaEntrega: { valor: 15.5, demo: false } } })}\n\npedido mínimo ok: ${casos.length} casos (falta, fecha, a consultar, cupom)\n`)
 console.log(`mensagem ok: sem cupom igual à referência; com a taxa do painel e no dia da entrega grátis, só a Entrega muda (${comTaxa[iEnt]} · ${naSexta}); com cupom, +1 linha depois do Subtotal:\n${com}\n\ncom o código do pedido (+1 linha depois do cabeçalho):\n${codigoECupom.join('\n')}\n\nencomenda com o código:\n${encCom.join('\n')}\n\nrateio (vaga reservada):\n${rateioCom}\n\nrateio (sem servidor):\n${rateioSem}\n\nrateio (já tenho vaga):\n${rateioJa}\n\nrateio (loja fora do ar):\n${foraAba}\n\n${foraPagina}`)

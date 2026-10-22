@@ -14,6 +14,7 @@
 // responde "não tá na lista" depois), o rótulo da busca no story (não passa o quadro), o teclado na sugestão (Tab, ↓ e
 // Enter), o "Total com a entrega" com o pedido mínimo (o mínimo conta só os produtos), o dia de entrega grátis (sem o
 // bairro guardado na mensagem) e o pedido guiado sem CEP (o bairro escrito no endereço vale mais que o guardado).
+// Da junção com o cupom direto (22/10): o cupom que entrou sozinho e o "Teu bairro" na mesma sacola, em 360 e 390.
 import { lojaDaSemente } from './revisao-loja.mjs'
 
 const ZAP = 'https://wa.me/5533991139036?text='
@@ -495,6 +496,100 @@ export async function rodadaBairros({ browser, base, contexto, conferir, foto, v
       await page.waitForTimeout(700)
       const copia = recebidos[antes]
       conferir(copia?.entrega?.bairro === 'Copacabana' && copia?.taxa?.valor === 12, `bairros: a cópia do guiado sem CEP com o bairro do endereço (${JSON.stringify({ b: copia?.entrega?.bairro, t: copia?.taxa })})`)
+    })
+  }
+
+  // ─── o cupom que entrou sozinho e a taxa do bairro na mesma sacola (a junção das duas frentes de 22/10) ───
+  // as duas mexeram no meio da sacola (a linha do cupom com o Trocar e o Tirar; o "Teu bairro" com a taxa e o total): no
+  // celular cabem as duas sem rolar pro lado, a sugestão não fica embaixo do rodapé e a mensagem leva as duas linhas (o
+  // cupom depois do Subtotal, a entrega com o bairro); a cópia leva o código do cupom, o bairro e a taxa
+  const DIA = 864e5
+  const zapCliente = '5533977712345'
+  const contaComCupom = {
+    state: {
+      contas: {
+        [zapCliente]: {
+          conta: { id: 'local-1', nome: 'Duda Cupom', whatsapp: zapCliente, aceitaPromo: false, aceitaPromoEm: null, confirmou18Em: Date.now() - DIA, criadaEm: Date.now() - DIA },
+          cupons: [
+            {
+              codigo: 'SORTE-K8EA',
+              interativo: 'sorte',
+              premioId: 'ocb-4-por-3',
+              retrato: { titulo: '4 por 3 na OCB', regra: 'Leva 4 Seda OCB Premium Slim e paga 3', aplicaA: { produtos: ['seda-ocb-premium-slim'] }, comoUsar: 'Põe 4 na sacola e usa o cupom.', tipo: 'leve-x-pague-y', valor: { leve: 4, pague: 3 }, raridade: 'comum' },
+              demo: true,
+              ganhoEm: Date.now() - DIA,
+              validoAte: Date.now() + 5 * DIA,
+            },
+          ],
+        },
+      },
+      atual: zapCliente,
+      giros: {},
+      pendente: null,
+      vistos: ['sorte'],
+    },
+    version: 1,
+  }
+  for (const [rot, vp] of [
+    ['360', { width: 360, height: 740 }],
+    ['390', { width: 390, height: 844 }],
+  ]) {
+    const ctx = await montar(vp)
+    await tentar(`bairros e cupom ${rot}`, ctx, async () => {
+      const page = await ctx.newPage()
+      vigiarSemRede(page, `bairros-cupom-${rot}`)
+      await page.goto(`${base}?uf=rj`)
+      await page.evaluate((c) => {
+        localStorage.setItem('gc-conta', JSON.stringify(c))
+        localStorage.setItem('gc-sacola', JSON.stringify({ state: { itens: [{ id: 'seda-ocb-premium-slim', variacao: null, qtd: 4 }], ultimo: [], cupom: null }, version: 0 }))
+        localStorage.removeItem('gc-bairro')
+      }, contaComCupom)
+      await page.reload()
+      await page.waitForFunction(() => JSON.parse(localStorage.getItem('gc-loja') || 'null')?.versao === 22, null, { timeout: 8000 }).catch(() => {})
+      await page.waitForTimeout(800)
+      await abrirSacola(page)
+      await page.waitForTimeout(500)
+      const linhaCupom = semNbsp(await page.locator('.cupom-sacola.cs-ok').first().textContent(T).catch(() => ''))
+      conferir(/SORTE-K8EA/.test(linhaCupom) && /Entrou sozinho/.test(linhaCupom), `bairros e cupom ${rot}: o cupom da conta entra sozinho na sacola do RJ por bairro ("${linhaCupom}")`)
+      const campo = page.locator('#bairro-sacola')
+      await campo.fill('Copa')
+      await page.waitForTimeout(400)
+      const caixas = await page.evaluate(() => {
+        const s = document.querySelector('.bt-sugestoes')?.getBoundingClientRect()
+        const r = document.querySelector('.folha-rodape, .sacola-fechar')?.getBoundingClientRect()
+        return s && r ? { sug: s.bottom, rodape: r.top } : null
+      })
+      conferir(!!caixas && caixas.sug <= caixas.rodape + 1, `bairros e cupom ${rot}: com a linha do cupom em cima, a sugestão fica à vista, sem o rodapé por cima (${JSON.stringify(caixas)})`)
+      await page.locator('.bt-sugestao').first().click(T)
+      await page.waitForTimeout(400)
+      const subtotal = await page.locator('.ls-subtotal .px').first().textContent(T)
+      const valorSub = Number(semNbsp(subtotal).replace(/[^\d,]/g, '').replace(',', '.'))
+      const res = await respostaDe(page)
+      conferir(res.includes('Taxa do bairro Copacabana: R$ 12,00') && res.includes(`Total com a entrega${brl(valorSub + 12)}`), `bairros e cupom ${rot}: a taxa de Copacabana e o total com ela (${brl(valorSub + 12)}) com o cupom na sacola ("${res}")`)
+      // o site nunca faz a conta do cupom: o total diz que é sem o desconto (sem isso, "Total" embaixo de um "leva 4 paga 3")
+      conferir(res.endsWith('Sem o desconto do cupom: a loja confirma a taxa e o desconto no atendimento.'), `bairros e cupom ${rot}: o total diz que é sem o desconto do cupom ("${res}")`)
+      conferir((await page.locator('.cupom-sacola.cs-ok').count()) === 1, `bairros e cupom ${rot}: escolher o bairro não tira o cupom que entrou sozinho`)
+      // nada passa da tela pro lado: a linha do cupom (o código, o Trocar e o Tirar), o campo do bairro e o total
+      const fora = await page.evaluate(() => {
+        const sel = '.cupom-sacola, .cupom-sacola .cs-botao, .cupom-sacola .cs-adesivo, .bairro-taxa, .bt-input, .bt-total, .bt-resposta, .ls-subtotal'
+        return [...document.querySelectorAll(sel)]
+          .map((e) => ({ c: e.className, r: e.getBoundingClientRect() }))
+          .filter((x) => x.r.width > 0 && (x.r.left < -0.5 || x.r.right > innerWidth + 0.5))
+          .map((x) => `${x.c} ${Math.round(x.r.left)}–${Math.round(x.r.right)}`)
+          .concat(document.documentElement.scrollWidth > innerWidth + 0.5 ? [`página ${document.documentElement.scrollWidth}`] : [])
+      })
+      conferir(fora.length === 0, `bairros e cupom ${rot}: a linha do cupom e o bairro com a taxa cabem na largura, sem rolar pro lado (${fora.join(' | ') || 'tudo dentro'})`)
+      await page.locator('.cupom-sacola').first().scrollIntoViewIfNeeded()
+      await page.locator('.bt-total').scrollIntoViewIfNeeded()
+      await foto(page, `bairros-cupom-${rot}-sacola`)
+      const antes = recebidos.length
+      const href = await fechar(page)
+      const linhas = mensagemDo(href).split('\n')
+      const iCupom = linhas.findIndex((l) => l.startsWith('Cupom: SORTE-K8EA'))
+      conferir(iCupom > 0 && linhas[iCupom - 1].startsWith('Subtotal:') && linhaEntrega(href) === 'Entrega: Copacabana (taxa R$ 12,00)', `bairros e cupom ${rot}: a mensagem leva o cupom depois do Subtotal e a entrega com o bairro ("${linhas.join(' / ')}")`)
+      await page.waitForTimeout(600)
+      const copia = recebidos[antes]
+      conferir(copia?.cupom?.codigo === 'SORTE-K8EA' && copia?.entrega?.bairro === 'Copacabana' && copia?.taxa?.valor === 12, `bairros e cupom ${rot}: a cópia do pedido leva o cupom, o bairro e a taxa (${JSON.stringify({ k: copia?.cupom?.codigo, b: copia?.entrega?.bairro, t: copia?.taxa?.valor })})`)
     })
   }
 }

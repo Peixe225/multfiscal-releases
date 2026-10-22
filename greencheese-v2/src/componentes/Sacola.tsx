@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { useConferirCupom, useCupomAutomatico } from '../lib/cupom-pedido'
+import { useConferirCupom, useCupomAutomatico, useCupomNoPedido } from '../lib/cupom-pedido'
 import { esquecerAjustes, foiAjustado } from '../lib/estoque'
 import { ProdutoVisual } from '../arte/ProdutoVisual'
 import { PixelArte } from '../arte/PixelArte'
@@ -81,6 +81,9 @@ export function ListaSacola({ compacta = false }: { compacta?: boolean }) {
   const bairro = useBairroDa(uf)
   const cidadeDoPedido = canal ? (nomeCidade(canal, cidade, cidadeInformada) ?? (canal.cidades.length === 1 ? canal.cidades[0].nome : null)) : null
   const entregaBairro = canal && modoBairro(canal) ? entregaDoPedido(canal, bairro, cidadeDoPedido) : null
+  // com o cupom valendo (o que entrou sozinho, 22/10), o "Total com a entrega" diz que é sem o desconto: o site nunca
+  // faz a conta do cupom (a loja confirma na conversa)
+  const { situacao: situacaoCupom } = useCupomNoPedido()
   // o que ainda cabe de cada produto (o "restam X" é do produto: as variações dividem)
   const noPedido = new Map<string, number>()
   for (const l of pedido) noPedido.set(l.item.id, (noPedido.get(l.item.id) ?? 0) + l.qtd)
@@ -237,7 +240,7 @@ export function ListaSacola({ compacta = false }: { compacta?: boolean }) {
         ) : compacta || !canal ? (
           <p className="ls-taxa legenda">{textoEntregaBairro(entregaBairro)}</p>
         ) : (
-          <BairroTaxa canal={canal} cidade={cidadeDoPedido} variante="sacola" subtotal={{ valor: t.subtotal, temConsultar: t.temConsultar }} />
+          <BairroTaxa canal={canal} cidade={cidadeDoPedido} variante="sacola" subtotal={{ valor: t.subtotal, temConsultar: t.temConsultar, comCupom: situacaoCupom?.tipo === 'ok' }} />
         ))}
       {/* o pedido mínimo do estado, junto da entrega (o quanto falta, quando falta, fica no rodapé, perto do botão) */}
       {pedido.length > 0 && minimo != null && <p className="ls-taxa legenda">Pedido mínimo pra entrega: {brl(minimo)}.</p>}

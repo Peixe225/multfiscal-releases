@@ -26,8 +26,8 @@ interface Props {
   /** A cidade do atendimento (a escolhida, ou a única do estado): o bairro da lista com cidade só vale nela. */
   cidade: string | null
   variante: 'sacola' | 'story'
-  /** Sacola: o subtotal da sacola, pro "Total com a entrega". */
-  subtotal?: { valor: number; temConsultar: boolean } | null
+  /** Sacola: o subtotal da sacola, pro "Total com a entrega" (comCupom: um cupom vale no pedido, e o total é sem o desconto). */
+  subtotal?: { valor: number; temConsultar: boolean; comCupom?: boolean } | null
   /** Story: a pessoa tá mexendo no campo (o story pausa enquanto ela digita ou lê a resposta). */
   aoMexer?: (mexendo: boolean) => void
 }
@@ -206,7 +206,9 @@ export function BairroTaxa({ canal, cidade, variante, subtotal, aoMexer }: Props
         {total != null && minimo != null && subtotal != null && subtotal.valor < minimo && (
           <span className="bt-nota bt-nota-minimo">O pedido mínimo de {brl(minimo)} conta só os produtos, sem a taxa.</span>
         )}
-        <span className="bt-nota">A loja confirma a taxa no atendimento.</span>
+        <span className="bt-nota">
+          {total != null && subtotal?.comCupom ? 'Sem o desconto do cupom: a loja confirma a taxa e o desconto no atendimento.' : 'A loja confirma a taxa no atendimento.'}
+        </span>
       </>
     )
   } else if (opcoes) {

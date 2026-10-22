@@ -140,6 +140,9 @@ E peça ao Ian (ou ao Matos) pra abrir o painel → Mais → Estados → um esta
 O envio arquivo a arquivo não quebra o painel no meio (as contas da taxa por bairro moram no `loja-migracoes.php`, que
 sobe antes do `loja-painel.php` e do `loja-validar.php`; o `testar-api` sobe os arquivos um a um sobre o commit do
 passo 4 e confere que nenhuma rota dá erro 500): quem estiver salvando durante o envio não leva "Deu ruim".
+Uma ressalva: o teste roda sem o opcache (cada passo com exatamente os arquivos do disco); no ar, se o PHP da
+hospedagem guardar os módulos no opcache, cada arquivo trocado pode seguir valendo o de antes por alguns segundos, cada
+um no seu tempo. Um "Deu ruim" solto logo depois do envio é isso: salvar de novo resolve.
 
 Se o Ian estava com o painel aberto desde antes da publicação, peça pra ele recarregar (ou fechar e abrir de novo)
 antes de salvar um produto: o painel de antes, numa aba que não recarregou, manda de volta ao salvar a foto e a thumb que
