@@ -15,6 +15,8 @@
 // Enter), o "Total com a entrega" com o pedido mínimo (o mínimo conta só os produtos), o dia de entrega grátis (sem o
 // bairro guardado na mensagem) e o pedido guiado sem CEP (o bairro escrito no endereço vale mais que o guardado).
 // Da junção com o cupom direto (22/10): o cupom que entrou sozinho e o "Teu bairro" na mesma sacola, em 360 e 390.
+// Da revisão da junção (22/10): depois do pedido guiado, o cartão "Confere a sacola" e a sacola dizem a entrega da
+// mensagem (o bairro do endereço, guardado no aparelho; a sacola sem o campo), e trocar o cupom é pedido novo.
 import { lojaDaSemente } from './revisao-loja.mjs'
 
 const ZAP = 'https://wa.me/5533991139036?text='
@@ -489,6 +491,12 @@ export async function rodadaBairros({ browser, base, contexto, conferir, foto, v
       const link = page.getByRole('link', { name: 'Fechar pedido no WhatsApp' })
       const href = await link.getAttribute('href').catch(() => null)
       conferir(linhaEntrega(href) === 'Entrega: Rua Barata Ribeiro, 120, Copacabana (taxa do bairro: R$ 12,00)', `bairros: guiado sem CEP com o Leblon guardado e Copacabana no endereço: a taxa de Copacabana ("${linhaEntrega(href)}")`)
+      // o cartão "Confere a sacola" (fica vivo no histórico até o resumo) diz o bairro da mensagem, e não o guardado
+      // (revisão da junção, 22/10: dizia "bairro Leblon, taxa R$ 15,00" logo acima da mensagem com Copacabana)
+      const cartao = semNbsp(await page.locator('.dm-cartao .ls-taxa').first().textContent(T).catch(() => ''))
+      conferir(cartao === 'Entrega: bairro Copacabana, taxa R$ 12,00 (a loja confirma).', `bairros: guiado sem CEP, o cartão "Confere a sacola" diz o bairro e a taxa da mensagem ("${cartao}")`)
+      const guardado = await page.evaluate(() => JSON.parse(localStorage.getItem('gc-bairro') || 'null')?.state?.porUf?.rj ?? null)
+      conferir(guardado === 'Copacabana', `bairros: guiado sem CEP, o bairro do endereço fica guardado no aparelho pra sacola e o story dizerem o mesmo (${guardado})`)
       await foto(page, 'bairros-390-guiado-sem-cep')
       const antes = recebidos.length
       await link.evaluate((a) => a.addEventListener('click', (e) => e.preventDefault()))
@@ -590,6 +598,158 @@ export async function rodadaBairros({ browser, base, contexto, conferir, foto, v
       await page.waitForTimeout(600)
       const copia = recebidos[antes]
       conferir(copia?.cupom?.codigo === 'SORTE-K8EA' && copia?.entrega?.bairro === 'Copacabana' && copia?.taxa?.valor === 12, `bairros e cupom ${rot}: a cópia do pedido leva o cupom, o bairro e a taxa (${JSON.stringify({ k: copia?.cupom?.codigo, b: copia?.entrega?.bairro, t: copia?.taxa?.valor })})`)
+    })
+  }
+
+  // ─── depois do pedido guiado (revisão da junção, 22/10) ──────────────────────────────────────────────────────
+  // O guiado com o CEP de Copacabana, o Leblon guardado no aparelho e dois cupons na conta (o das sedas entra sozinho).
+  // Depois do toque no WhatsApp, a sacola reconhece o pedido guiado e o botão abre a mesma mensagem: tudo o que ela
+  // mostra tem de ser o que foi. O cartão "Confere a sacola" e o "Teu bairro" diziam o Leblon guardado (R$ 15,00) com a
+  // mensagem em Copacabana (R$ 12,00); o Trocar do cupom não mudava o que ia e o "Já mandei" marcava como usado o cupom
+  // que não foi. Agora: o bairro do endereço fica guardado no aparelho, a sacola mostra a entrega da mensagem do guiado
+  // (sem o campo, que não mudaria nada) e trocar o cupom é pedido novo (como mudar um item), que entra no lugar do guiado.
+  {
+    const vp = { width: 390, height: 844 }
+    const ctx = await montar(vp)
+    await tentar('bairros depois do guiado', ctx, async () => {
+      const cupomDe = (codigo, premioId, retrato, dias) => ({ codigo, interativo: 'sorte', premioId, retrato, demo: false, ganhoEm: Date.now() - DIA, validoAte: Date.now() + dias * DIA })
+      const conta = structuredClone(contaComCupom)
+      conta.state.contas[zapCliente].cupons = [
+        cupomDe('SORTE-K8EA', 'ocb-4-por-3', contaComCupom.state.contas[zapCliente].cupons[0].retrato, 5),
+        cupomDe('SORTE-PCT7', 'sedas-10', { titulo: '10% nas sedas', regra: '10% de desconto nas sedas', aplicaA: { categorias: ['sedas'] }, comoUsar: 'Põe uma seda na sacola.', tipo: 'desconto-percentual', valor: 10, raridade: 'raro' }, 3),
+      ]
+      const page = await ctx.newPage()
+      vigiarSemRede(page, 'bairros-depois-do-guiado')
+      await page.goto(`${base}?uf=rj`)
+      await page.evaluate((c) => {
+        localStorage.setItem('gc-conta', JSON.stringify(c))
+        localStorage.setItem('gc-sacola', JSON.stringify({ state: { itens: [{ id: 'seda-ocb-premium-slim', variacao: null, qtd: 4 }], ultimo: [], cupom: null }, version: 0 }))
+        localStorage.setItem('gc-bairro', JSON.stringify({ state: { porUf: { rj: 'Leblon' } }, version: 0 }))
+      }, conta)
+      await page.reload()
+      await page.waitForFunction(() => JSON.parse(localStorage.getItem('gc-loja') || 'null')?.versao === 22, null, { timeout: 8000 }).catch(() => {})
+      await page.waitForTimeout(800)
+      await abrirSacola(page)
+      await page.locator('.sacola-guiado').getByRole('button', { name: 'Pedido guiado', exact: true }).click(T)
+      await page.waitForTimeout(700)
+      const escrever = async (texto) => {
+        await page.locator('.dm-entrada input, .dm-entrada textarea').first().fill(texto)
+        await page.locator('.dm-entrada').evaluate((f) => f.requestSubmit())
+        await page.waitForTimeout(400)
+      }
+      await clicar(page, 'Isso')
+      await clicar(page, 'Tá certo')
+      await escrever('Ana Souza')
+      await escrever('22041001')
+      await page.waitForTimeout(700)
+      await escrever('120')
+      await clicar(page, 'Pix')
+      await clicar(page, 'Sem observação')
+      await page.waitForTimeout(700)
+      const link = page.getByRole('link', { name: 'Fechar pedido no WhatsApp' })
+      const hGuiado = await link.getAttribute('href', T)
+      const msgGuiado = mensagemDo(hGuiado)
+      const codigoGuiado = msgGuiado.split('\n')[1]?.replace('Código: ', '') ?? ''
+      conferir(linhaEntrega(hGuiado) === 'Entrega: Rua Barata Ribeiro, 120, Copacabana (taxa do bairro: R$ 12,00)' && msgGuiado.includes('Cupom: SORTE-PCT7'), `bairros depois do guiado: a mensagem do guiado com o CEP de Copacabana e o cupom que entrou sozinho ("${linhaEntrega(hGuiado)}")`)
+      const cartao = semNbsp(await page.locator('.dm-cartao .ls-taxa').first().textContent(T).catch(() => ''))
+      conferir(cartao === 'Entrega: bairro Copacabana, taxa R$ 12,00 (a loja confirma).', `bairros depois do guiado: o cartão "Confere a sacola" diz o bairro do CEP, o mesmo da mensagem logo abaixo ("${cartao}")`)
+      const guardado = await page.evaluate(() => JSON.parse(localStorage.getItem('gc-bairro') || 'null')?.state?.porUf?.rj ?? null)
+      conferir(guardado === 'Copacabana', `bairros depois do guiado: o bairro do CEP fica guardado no aparelho no lugar do Leblon (${guardado})`)
+      await page.locator('.dm-cartao .ls-taxa').first().scrollIntoViewIfNeeded().catch(() => {})
+      await foto(page, 'bairros-guiado-cartao')
+      const antesGuiado = recebidos.length
+      await link.evaluate((a) => a.addEventListener('click', (e) => e.preventDefault()))
+      await link.click(T)
+      await page.waitForTimeout(700)
+      conferir(recebidos.length === antesGuiado + 1 && recebidos[antesGuiado]?.codigo === codigoGuiado, `bairros depois do guiado: a cópia do guiado foi pro servidor (${recebidos[antesGuiado]?.codigo})`)
+      // fecha o guiado e abre a sacola: ela reconhece o pedido guiado
+      await page.keyboard.press('Escape')
+      await page.waitForTimeout(700)
+      await abrirSacola(page)
+      await page.waitForTimeout(400)
+      const rodape = semNbsp(await page.locator('.sacola-fechar').textContent(T))
+      conferir(rodape.includes(`O pedido ${codigoGuiado} já foi montado no pedido guiado`), `bairros depois do guiado: a sacola reconhece o pedido guiado ("${rodape.slice(0, 90)}")`)
+      // a entrega: a da mensagem do guiado, sem o campo (mudar o "Teu bairro" aqui não mudaria nada no que vai)
+      const entrega = semNbsp(await page.locator('.lista-sacola .bairro-taxa').first().textContent(T).catch(() => ''))
+      conferir((await page.locator('#bairro-sacola').count()) === 0 && entrega.includes('Rua Barata Ribeiro, 120, Copacabana (taxa do bairro: R$ 12,00)') && !entrega.includes('Leblon'), `bairros depois do guiado: a sacola mostra a entrega que foi no guiado, sem o campo do bairro ("${entrega}")`)
+      await page.evaluate(() => {
+        const c = document.querySelector('.folha-corpo')
+        if (c) c.scrollTop = c.scrollHeight
+      })
+      await foto(page, 'bairros-guiado-sacola')
+      const hIgual = await fechar(page)
+      conferir(mensagemDo(hIgual) === msgGuiado, 'bairros depois do guiado: o botão da sacola abre a mesma mensagem do guiado')
+      // trocar o cupom é mudar o pedido: a mensagem nova leva o cupom escolhido, com outro código, no lugar do guiado
+      await page.locator('.cupom-sacola .cs-botao', { hasText: 'Trocar' }).click(T)
+      await page.waitForTimeout(400)
+      await page.locator('.cs-trocar .cs-chip', { hasText: 'SORTE-K8EA' }).click(T)
+      await page.waitForTimeout(600)
+      const rodape2 = semNbsp(await page.locator('.sacola-fechar').textContent(T))
+      conferir(!rodape2.includes('já foi montado no pedido guiado'), `bairros depois do guiado: trocado o cupom, a sacola não diz mais que o botão abre o pedido guiado ("${rodape2.slice(0, 90)}")`)
+      const antesTroca = recebidos.length
+      const hTroca = await fechar(page)
+      const msgTroca = mensagemDo(hTroca)
+      const codigoTroca = msgTroca.split('\n')[1]?.replace('Código: ', '') ?? ''
+      conferir(msgTroca.includes('Cupom: SORTE-K8EA') && !msgTroca.includes('SORTE-PCT7') && codigoTroca !== codigoGuiado && linhaEntrega(hTroca) === 'Entrega: Copacabana (taxa R$ 12,00)', `bairros depois do guiado: o botão manda o cupom trocado, com código novo e o bairro do guiado ("${msgTroca.split('\n').join(' / ')}")`)
+      await page.waitForTimeout(600)
+      const copia = recebidos[antesTroca]
+      conferir(copia?.cupom?.codigo === 'SORTE-K8EA' && copia?.substitui?.codigo === codigoGuiado && copia?.entrega?.bairro === 'Copacabana', `bairros depois do guiado: a cópia nova leva o cupom trocado e entra no lugar do guiado (${JSON.stringify({ k: copia?.cupom?.codigo, s: copia?.substitui?.codigo, b: copia?.entrega?.bairro })})`)
+      // o "Já mandei" marca como usado o cupom que foi na mensagem
+      await page.getByRole('button', { name: 'Já mandei: limpar a sacola' }).click(T)
+      await page.waitForTimeout(1200)
+      const cupons = await page.evaluate(() => {
+        const c = JSON.parse(localStorage.getItem('gc-conta') || 'null')
+        return Object.fromEntries((c?.state?.contas?.[c?.state?.atual]?.cupons ?? []).map((x) => [x.codigo, !!x.usadoEm]))
+      })
+      conferir(cupons['SORTE-K8EA'] === true && cupons['SORTE-PCT7'] === false, `bairros depois do guiado: o "Já mandei" marca o cupom que foi (o K8EA usado, o PCT7 ativo) (${JSON.stringify(cupons)})`)
+    })
+  }
+
+  // o "Já mandei" logo depois do guiado (sem trocar nada): marca o cupom que foi na mensagem do guiado
+  {
+    const ctx = await montar({ width: 360, height: 740 })
+    await tentar('bairros depois do guiado, Já mandei', ctx, async () => {
+      const page = await ctx.newPage()
+      vigiarSemRede(page, 'bairros-depois-do-guiado-mandei')
+      await page.goto(`${base}?uf=rj`)
+      await page.evaluate((c) => {
+        localStorage.setItem('gc-conta', JSON.stringify(c))
+        localStorage.setItem('gc-sacola', JSON.stringify({ state: { itens: [{ id: 'seda-ocb-premium-slim', variacao: null, qtd: 4 }], ultimo: [], cupom: null }, version: 0 }))
+      }, contaComCupom)
+      await page.reload()
+      await page.waitForFunction(() => JSON.parse(localStorage.getItem('gc-loja') || 'null')?.versao === 22, null, { timeout: 8000 }).catch(() => {})
+      await page.waitForTimeout(800)
+      await abrirSacola(page)
+      await page.locator('.sacola-guiado').getByRole('button', { name: 'Pedido guiado', exact: true }).click(T)
+      await page.waitForTimeout(700)
+      await clicar(page, 'Isso')
+      await clicar(page, 'Tá certo')
+      await digitar(page, 'Ana Souza')
+      await clicar(page, 'Sem CEP')
+      await page.locator('.dm-entrada input, .dm-entrada textarea').first().fill('Rua Visconde de Pirajá, 100, Ipanema')
+      await page.locator('.dm-entrada').evaluate((f) => f.requestSubmit())
+      await page.waitForTimeout(400)
+      await clicar(page, 'Pix')
+      await clicar(page, 'Sem observação')
+      await page.waitForTimeout(600)
+      const link = page.getByRole('link', { name: 'Fechar pedido no WhatsApp' })
+      const msg = mensagemDo(await link.getAttribute('href', T))
+      await link.evaluate((a) => a.addEventListener('click', (e) => e.preventDefault()))
+      await link.click(T)
+      await page.waitForTimeout(600)
+      await page.keyboard.press('Escape')
+      await page.waitForTimeout(700)
+      await abrirSacola(page)
+      const entrega = semNbsp(await page.locator('.lista-sacola .bairro-taxa').first().textContent(T).catch(() => ''))
+      conferir(msg.includes('Cupom: SORTE-K8EA') && entrega.includes('Rua Visconde de Pirajá, 100, Ipanema (taxa do bairro: R$ 12,50)'), `bairros depois do guiado sem CEP: a sacola mostra a entrega do guiado ("${entrega}")`)
+      await foto(page, 'bairros-guiado-sem-cep-sacola')
+      await page.getByRole('button', { name: 'Já mandei: limpar a sacola' }).click(T)
+      await page.waitForTimeout(1200)
+      const usado = await page.evaluate(() => {
+        const c = JSON.parse(localStorage.getItem('gc-conta') || 'null')
+        return (c?.state?.contas?.[c?.state?.atual]?.cupons ?? []).find((x) => x.codigo === 'SORTE-K8EA')?.usadoEm ?? null
+      })
+      conferir(!!usado, 'bairros depois do guiado sem CEP: o "Já mandei" marca como usado o cupom que foi na mensagem do guiado')
     })
   }
 }

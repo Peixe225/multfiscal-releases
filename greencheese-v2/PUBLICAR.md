@@ -131,9 +131,13 @@ fim, confira que é o mesmo (se o Matos salvou alguma coisa no painel no meio, o
 só que a resposta não tem `taxaPorBairro` em estado nenhum):
 
 ```bash
-curl -sI "$B/api/index.php?r=loja" | grep -i etag                              # antes e depois: o mesmo
+curl -s -D - -o /dev/null "$B/api/index.php?r=loja" | grep -i etag           # antes e depois: o mesmo
 curl -s "$B/api/index.php?r=loja" | grep -c taxaPorBairro                      # 0 (ninguém pôs "Por bairro" ainda)
 ```
+
+A primeira linha é um GET que só mostra os cabeçalhos: a rota `loja` só aceita GET, e o `curl -I` (HEAD) recebe 405
+sem ETag, aí "antes e depois" sairia vazio nos dois e passaria mesmo com o ETag mudado. Tem de imprimir uma linha
+`ETag: "…"` (o `testar-api` roda essa linha como está escrita aqui e confere).
 
 E peça ao Ian (ou ao Matos) pra abrir o painel → Mais → Estados → um estado: a seção "Taxa de entrega" tem de mostrar
 "Uma taxa pro estado" marcado, com a taxa de sempre (é o `admin-loja` trazendo `taxaPor`, `bairrosVer` e `bairros`).
@@ -155,11 +159,28 @@ pedido de teste pelo celular, pelo link da bio. Desde 22/10 a foto do painel vai
 aberto desde antes da publicação: recarregar, pra pegar o "Selecionar vários" de Produtos e a foto pesada que abre
 já reduzida.
 
+**O cupom direto e o em massa (22/10, DECISOES 20).** Os dois não mexem no banco (nenhuma migração): é só conferir que
+chegaram. Peça ao Ian (ou ao Matos):
+- **Cupom:** no celular, com um cupom guardado na conta (do Teste minha sorte) e na sacola o que ele pede, abrir a
+  sacola: a linha do cupom diz "Entrou sozinho", com **Trocar** (quando tem mais de um que vale) e **Tirar**, e o
+  "Fechar pedido no WhatsApp" abre a mensagem com a linha `Cupom: …` logo depois do Subtotal. Pra não gastar o cupom no
+  teste, não toque em "Já mandei: limpar a sacola" (ele marca o cupom como usado): feche a sacola e apague a mensagem
+  no WhatsApp sem mandar.
+- **Em massa:** no painel recarregado, Produtos → **Selecionar vários** → marcar 1 produto → "tirar de venda" num
+  estado → confirmar → **Desfazer** no recado. Em Mais → Atividade, as duas linhas: "Em massa: tirou de venda em …
+  (1 produto)" e "Em massa: desfez a mudança em … (1 produto)", e o produto de volta à venda no site.
+
 ### 8. Se algo der errado
 
 - **O site não abre ou o painel quebrou:** publique de novo a versão de antes (passo 4), com o mesmo cuidado (sem o
   `api/instalacao.php`). O banco continua bom: as migrações só acrescentam coluna e linha, e o código de antes ignora o
-  que é novo (a exceção é o estado que já tá "Por bairro": veja logo abaixo). A 106 não volta com o código de antes: ela fica anotada e os 4 do material de 11/10 continuam no desenho
+  que é novo (a exceção é o estado que já tá "Por bairro": veja logo abaixo). O cupom direto e o em massa não mexem
+  no banco: voltar não pede nada além do envio (as mudanças em massa já feitas ficam como estão; o painel de antes não
+  tem o "Selecionar vários" e o site de antes não põe o cupom sozinho). O envio da volta também é arquivo a arquivo: o
+  `loja-migracoes.php` de antes (sem as contas da taxa por bairro) chega antes do `loja-painel.php`, do
+  `loja-validar.php` e do `loja.php`, e os novos que ainda estão lá conferem se essas contas existem antes de usar
+  (sem elas, uma taxa pro estado, como o código de antes). O `testar-api` faz essa volta sobre o código novo, com um
+  estado "Por bairro", um em massa e um pedido com a taxa do bairro: nenhum erro 500 em nenhum passo. A 106 não volta com o código de antes: ela fica anotada e os 4 do material de 11/10 continuam no desenho
   (o site de antes mostra o que o banco diz). Pra ligar de novo a foto de fábrica num deles: pela API
   (`admin-produto-salvar` com `foto: 'produtos/<id>.webp'`; o arquivo continua no build) ou por uma migração nova. Pelo
   painel não tem como escolher um arquivo de `produtos/`: só mandando a foto de novo pelo Estúdio, e aí ela vira uma

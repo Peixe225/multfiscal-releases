@@ -109,8 +109,20 @@ function CupomAplicado({ cupom, exemplo, situacao, compacta, auto }: { cupom: Cu
       </div>
     )
   }
+  // O "Tirar" some com o toque (a linha vira o "Usar cupom", o convite do jogo ou nada) e o foco caía no <body>
+  // (revisão da junção, 22/10): vai pro primeiro botão do que entrou no lugar e, sem nenhum, pra folha da sacola
+  const tirar = () => {
+    const lista = raiz.current?.parentElement ?? null
+    const folha = raiz.current?.closest<HTMLElement>('.folha') ?? null
+    tirarCupomDoPedido()
+    requestAnimationFrame(() => {
+      const a = document.activeElement
+      if (a && a !== document.body && a.isConnected) return
+      ;(lista?.querySelector<HTMLElement>('.cupom-sacola .cs-chip, .cupom-sacola.cs-convite') ?? folha)?.focus({ preventScroll: true })
+    })
+  }
   const botaoTirar = (
-    <button type="button" className="cs-botao toque" onClick={tirarCupomDoPedido} aria-label={`Tirar o cupom ${codigo}`}>
+    <button type="button" className="cs-botao toque" onClick={tirar} aria-label={`Tirar o cupom ${codigo}`}>
       {T.tirar}
     </button>
   )

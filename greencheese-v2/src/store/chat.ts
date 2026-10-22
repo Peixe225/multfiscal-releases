@@ -89,12 +89,19 @@ export interface CodigoPedido {
    * pedido guiado que já foi com estes mesmos itens: mandar de novo a mesma sacola não é "o pedido mudado".
    */
   sacola: string | null
+  /**
+   * O cupom que foi na `enviada` (o código; null = foi sem cupom). O cupom é parte do pedido como os itens: a sacola só
+   * reconhece o pedido guiado que já foi quando o cupom de agora é o mesmo (trocar ou tirar o cupom depois é pedido
+   * novo, que entra no lugar do de antes), e o "Já mandei" marca como usado o que foi na mensagem. undefined = guardado
+   * por uma versão de antes, que não anotava (vale o cupom de agora, como antes).
+   */
+  cupom?: string | null
 }
 
 /** Até quanto tempo depois de mandar uma mudança ainda é "o mesmo pedido, mudado" (o servidor confere o mesmo). */
 export const JANELA_TROCA_MS = 2 * 3600_000
 
-const codigoNovo = (substitui: CodigoPedido['substitui'] = null): CodigoPedido => ({ ...novoCodigoPedido(), enviada: null, enviadaEm: null, substitui, enviadaPor: null, sacola: null })
+const codigoNovo = (substitui: CodigoPedido['substitui'] = null): CodigoPedido => ({ ...novoCodigoPedido(), enviada: null, enviadaEm: null, substitui, enviadaPor: null, sacola: null, cupom: null })
 
 /**
  * O código já foi pro servidor há mais que a JANELA_TROCA_MS (ou sem a hora): o pedido de antes já é outro. A pessoa
@@ -127,7 +134,9 @@ function codigoLido(v: unknown): CodigoPedido {
   const enviadaEm = enviada !== null && typeof c.enviadaEm === 'number' && Number.isFinite(c.enviadaEm) ? c.enviadaEm : null
   const enviadaPor = enviada !== null && (c.enviadaPor === 'sacola' || c.enviadaPor === 'guiado') ? c.enviadaPor : enviada !== null ? 'guiado' : null
   const sacola = enviada !== null && typeof c.sacola === 'string' && c.sacola.length <= 4000 ? c.sacola : null
-  return { codigo: c.codigo, token: c.token, enviada, enviadaEm, substitui: sub, enviadaPor, sacola }
+  // o cupom que foi: sem a chave (guardado por uma versão de antes), undefined
+  const cupom = enviada === null ? null : typeof c.cupom === 'string' && c.cupom.length <= 64 ? c.cupom : c.cupom === null ? null : undefined
+  return { codigo: c.codigo, token: c.token, enviada, enviadaEm, substitui: sub, enviadaPor, sacola, ...(cupom === undefined ? {} : { cupom }) }
 }
 
 interface ChatState {
@@ -154,15 +163,15 @@ interface ChatState {
   pedido: CodigoPedido
   /**
    * A cópia com esse código foi pro servidor (no toque do WhatsApp). por: quem mandou (padrão: o pedido guiado);
-   * sacola: a chave da sacola que foi (chaveDaSacola).
+   * sacola: a chave da sacola que foi (chaveDaSacola); cupom: o código do cupom que foi na mensagem (null = sem).
    */
-  marcarPedidoEnviado: (mensagem: string, por?: 'sacola' | 'guiado', sacola?: string | null) => void
+  marcarPedidoEnviado: (mensagem: string, por?: 'sacola' | 'guiado', sacola?: string | null, cupom?: string | null) => void
   /**
    * A sacola mandou com um código que ela sorteou na hora (o de agora já tinha ido com outra mensagem, ou venceu): ele
    * vira o código do pedido, já enviado, no lugar do de antes (substitui, dentro das 2 h). O "Já mandou?" do guiado sai
    * junto.
    */
-  usarCodigoDaSacola: (novo: { codigo: string; token: string }, mensagem: string, sacola: string) => void
+  usarCodigoDaSacola: (novo: { codigo: string; token: string }, mensagem: string, sacola: string, cupom: string | null) => void
   /**
    * O pedido mudou depois de ir pro servidor: código novo, que substitui o de antes. O "Já mandou?" sai junto: a
    * mensagem nova ainda não foi pro WhatsApp (o resumo volta a pedir pra fechar lá).
@@ -212,11 +221,11 @@ export const useChat = create<ChatState>()(
         set({ feitos: [], passo: inicio(s.modo), enviadoEm: null, ufLocal: null, respostas: r })
       },
       pedido: codigoNovo(),
-      marcarPedidoEnviado: (mensagem, por = 'guiado', sacola = null) =>
-        set((s) => ({ pedido: { ...s.pedido, enviada: mensagem, enviadaEm: Date.now(), enviadaPor: por, sacola } })),
-      usarCodigoDaSacola: (novo, mensagem, sacola) =>
+      marcarPedidoEnviado: (mensagem, por = 'guiado', sacola = null, cupom = null) =>
+        set((s) => ({ pedido: { ...s.pedido, enviada: mensagem, enviadaEm: Date.now(), enviadaPor: por, sacola, cupom } })),
+      usarCodigoDaSacola: (novo, mensagem, sacola, cupom) =>
         set((s) => ({
-          pedido: { codigo: novo.codigo, token: novo.token, enviada: mensagem, enviadaEm: Date.now(), substitui: substituiDe(s.pedido), enviadaPor: 'sacola', sacola },
+          pedido: { codigo: novo.codigo, token: novo.token, enviada: mensagem, enviadaEm: Date.now(), substitui: substituiDe(s.pedido), enviadaPor: 'sacola', sacola, cupom },
           enviadoEm: null,
         })),
       trocarCodigo: () => set((s) => ({ pedido: codigoNovo(substituiDe(s.pedido)), enviadoEm: null })),

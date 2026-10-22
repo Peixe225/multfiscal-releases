@@ -395,6 +395,11 @@ function gc_loja_entrega_gratis(array $e): ?array
 // As contas da taxa por bairro (a chave do bairro, o modo, a lista, achar o bairro do cliente) moram em
 // loja-migracoes.php, junto do gc_loja_tem_bairros: na publicação arquivo a arquivo ele sobe antes do loja-painel.php e
 // do loja-validar.php, que já usam essas funções (o loja.php sobe depois deles: '-' vem antes de '.').
+// Na volta pra versão de antes (PUBLICAR.md, passo 8) é o contrário: o loja-migracoes.php de antes, sem essas funções,
+// chega primeiro, e o loja.php, o loja-painel.php e o loja-validar.php novos ainda rodam uns segundos. Por isso eles
+// conferem com function_exists (como o pedido.php e o avisos.php) e, sem as funções, fazem o que o código de antes
+// faz: uma taxa pro estado, e o salvar não mexe nas colunas da 107 (revisão da junção, 22/10: o GET loja, o admin-loja
+// e o admin-estado-salvar davam erro 500 nesses passos da volta).
 
 /**
  * O Canal do site (src/dados/canais.ts). whatsapp: null = o da loja (sempre null com "o mesmo pra todos" ligado).
@@ -427,7 +432,7 @@ function gc_loja_estado_publico(array $e, bool $mesmoParaTodos): array
     if (($e['pedido_minimo'] ?? null) !== null) {
         $publico['pedidoMinimo'] = gc_reais((int) $e['pedido_minimo']);
     }
-    if (gc_loja_taxa_por($e) === 'bairro') {
+    if (function_exists('gc_loja_taxa_por') && gc_loja_taxa_por($e) === 'bairro') {
         $publico['taxaEntrega'] = ['valor' => null, 'demo' => false];
         $publico['taxaPorBairro'] = gc_loja_bairros_ver($e) === 'site'
             ? ['modo' => 'site', 'bairros' => array_map('gc_loja_bairro_publico', gc_loja_bairros_de($e))]

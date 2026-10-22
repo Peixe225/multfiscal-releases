@@ -21,7 +21,7 @@ import {
   whatsappDoCanal,
 } from '../lib/mensagem'
 import { bairroDoEndereco, modoBairro } from '../lib/bairros'
-import { useBairroDa } from '../store/bairro'
+import { useBairro, useBairroDa } from '../store/bairro'
 import type { Pedaco } from '../dados/textos-pedido'
 import { atualizarFalas, primeiroNome, useFala } from '../lib/falas'
 import { enviarPedido, type CorpoPedido } from '../lib/pedido-envio'
@@ -183,6 +183,17 @@ export function ChatFolha() {
   const resp = (dados: Partial<Respostas>, p: Passo, proximo: Passo) => {
     setAvisoCep(null)
     responder(p, dados, proximo)
+    if (p === 'endereco' || p === 'rua') guardarBairroDoEndereco({ ...respostas, ...dados }, proximo)
+  }
+  // A taxa por bairro: o bairro que o endereço respondido diz (o do CEP, ou o da lista escrito no endereço sem CEP) fica
+  // guardado no aparelho como o "Teu bairro" do estado, na hora da resposta (revisão da junção, 22/10: a sacola, o story
+  // e o cartão "Confere a sacola" diziam o bairro guardado de outra visita, com a mensagem saindo com o do endereço).
+  // Endereço sem bairro nenhum: o guardado continua (é ele que a mensagem usa).
+  function guardarBairroDoEndereco(r: Respostas, proximo: Passo) {
+    if (modo !== 'pedido' || !canal || !modoBairro(canal)) return
+    const cidadeDoCep = cidade ?? (r.cep && r.cidadeCep ? r.cidadeCep : null)
+    const achado = r.rua && r.bairro ? r.bairro : proximo === 'pagamento' && !r.rua ? bairroDoEndereco(canal, r.enderecoLivre, null, cidadeDoCep) : null
+    if (achado) useBairro.getState().definir(canal.uf, achado)
   }
 
   const precisaCidade = (c: Canal | undefined) => !!c && c.cidades.length === 0 && !local.cidadeInformada
@@ -492,7 +503,8 @@ export function ChatFolha() {
           perguntas: [
             t('sacola.confere'),
             <div className="dm-cartao" key="sacola">
-              <ListaSacola compacta />
+              {/* depois do endereço, a entrega do cartão é a da mensagem (o bairro do endereço), e não a do guardado */}
+              <ListaSacola compacta bairroDoPedido={feitos.includes('endereco') ? { nome: bairroTaxa, cidade: cidadeBairro } : undefined} />
             </div>,
             ...(avisoMinimo ? [avisoMinimo] : []),
           ],
@@ -847,7 +859,8 @@ export function ChatFolha() {
               if (corpo) {
                 enviarPedido(corpo)
                 // a sacola de agora vai junto: a sacola reconhece depois que este pedido já foi (a mesma, sem outro por cima)
-                marcarPedidoEnviado(mensagem, 'guiado', modo === 'pedido' && canal ? chaveDaSacola(canal.uf, pedido) : null)
+                // e o cupom que foi na mensagem: a sacola só reconhece este pedido com o mesmo cupom, e o "Já mandei" marca ele
+                marcarPedidoEnviado(mensagem, 'guiado', modo === 'pedido' && canal ? chaveDaSacola(canal.uf, pedido) : null, cupomOk?.codigo ?? null)
               }
             }}
             naoConsegui={() => marcarEnviado(null)}

@@ -6,9 +6,10 @@
 //   (dentro das 2 h, como o pedido mudado). Se o código de agora já foi com outra mensagem, ou já venceu (mais de 2 h:
 //   a pessoa voltou outro dia sem tocar em "Já mandei"), a sacola sorteia um na hora pro link (sem mexer no guiado
 //   enquanto a pessoa só olha a sacola) e ele vira o do pedido no toque: pedido de novo, mesmo igual, é pedido novo.
-// - O pedido guiado que já foi com esta mesma sacola (dentro das 2 h): a sacola diz que ele já foi e o botão abre a
-//   mesma mensagem dele (com o endereço), sem outra cópia — mandar de novo a mesma sacola não troca o guiado por um
-//   pedido com menos dados.
+// - O pedido guiado que já foi com esta mesma sacola (dentro das 2 h; os mesmos itens e o mesmo cupom): a sacola diz
+//   que ele já foi e o botão abre a mesma mensagem dele (com o endereço), sem outra cópia — mandar de novo a mesma
+//   sacola não troca o guiado por um pedido com menos dados. A entrega que a sacola mostra é a que foi nele
+//   (usePedidoGuiadoNaSacola). Trocar ou tirar o cupom depois é como mudar um item: pedido novo, no lugar do guiado.
 // - A volta do WhatsApp (a página recarregada): o App reabre a sacola, que pergunta "Já mandou o pedido GC-…?" com o
 //   "Já mandei: limpar a sacola" (como o guiado reabre e pergunta).
 // - Com o pedido guiado aberto embaixo (o "Mexer na sacola" do resumo): o botão grande volta pro guiado, com o que a
@@ -61,6 +62,36 @@ const PRONTO_MS = 4000
 
 /** O código que foi pelo toque nesta visita (a página não recarregou): "pronto no WhatsApp", e não "Já mandou?". */
 let tocadoNestaVisita: string | null = null
+
+/** A linha da entrega que foi numa mensagem, sem o "Entrega: " ("Rua Barata Ribeiro, 120, Copacabana (taxa do bairro: R$ 12,00)"). */
+function entregaDaMensagem(m: string): string | null {
+  const l = m.split('\n').find((x) => x.startsWith('Entrega: '))
+  return l ? l.slice('Entrega: '.length) : null
+}
+
+/**
+ * O pedido guiado que já foi com esta mesma sacola (dentro das 2 h): o mesmo estado, os mesmos itens e quantidades
+ * (chaveDaSacola) e o mesmo cupom (revisão da junção, 22/10: com o cupom trocado na sacola, o botão abria a mensagem do
+ * guiado com o cupom de antes e o "Já mandei" marcava o novo). A sacola reconhece: o botão abre a mesma mensagem e a
+ * entrega que ela mostra é a que foi nela (`entrega`, no lugar do "Teu bairro", que não mudaria nada no que vai);
+ * `cupom` é o que foi na mensagem. null = não é o caso.
+ */
+export function usePedidoGuiadoNaSacola(): { mensagem: string; entrega: string | null; cupom: string | null } | null {
+  const atual = useChat((s) => s.pedido)
+  const { pedido } = useLinhasSacola()
+  const uf = useLocal((s) => s.uf)
+  const canal = useCanalDa(uf)
+  const { cupom, situacao } = useCupomNoPedido()
+  // de minuto em minuto (e na volta pra aba): o código vence 2 h depois de ir
+  useAgora()
+  if (!canal || !pedido.length || atual.enviada === null || atual.enviadaPor !== 'guiado' || codigoVencido(atual)) return null
+  if (atual.sacola !== chaveDaSacola(canal.uf, pedido)) return null
+  // o cupom que vai agora (o que vale na sacola): o mesmo que foi, ou o pedido mudou. Guardado por uma versão de antes
+  // (sem o cupom anotado): vale o de agora, como antes
+  const agora = cupom && situacao?.tipo === 'ok' ? cupom.codigo : null
+  if (atual.cupom !== undefined && atual.cupom !== agora) return null
+  return { mensagem: atual.enviada, entrega: entregaDaMensagem(atual.enviada), cupom: atual.cupom !== undefined ? atual.cupom : agora }
+}
 
 export function FecharSacola() {
   const setSacola = useUI((s) => s.setSacola)
@@ -115,11 +146,12 @@ export function FecharSacola() {
   // a hora do aparelho (a mesma do enviadaEm), relida a cada minuto junto com a da loja
   const vencido = codigoVencido(atual)
   const fresco = atual.enviada !== null && !vencido
-  // o pedido guiado com esta mesma sacola já foi há pouco: a sacola reconhece (não manda outro por cima dele)
-  const foiPeloGuiado = !!dados && fresco && atual.enviadaPor === 'guiado' && atual.sacola === chave
+  // o pedido guiado com esta mesma sacola (e o mesmo cupom) já foi há pouco: a sacola reconhece (não manda outro por cima)
+  const guiado = usePedidoGuiadoNaSacola()
+  const foiPeloGuiado = !!dados && guiado !== null
   const comAtual = dados ? montarPedidoSacola({ ...dados, codigo: atual.codigo }) : ''
   const precisaNovo = !!dados && !foiPeloGuiado && atual.enviada !== null && (vencido || atual.enviada !== comAtual)
-  const mensagem = foiPeloGuiado ? (atual.enviada ?? '') : precisaNovo && dados ? montarPedidoSacola({ ...dados, codigo: reserva.codigo }) : comAtual
+  const mensagem = guiado && foiPeloGuiado ? guiado.mensagem : precisaNovo && dados ? montarPedidoSacola({ ...dados, codigo: reserva.codigo }) : comAtual
   // já foi pelo toque daqui (ou pelo guiado, com a mesma sacola), com esta mesma mensagem: pergunta se mandou
   const jaFoi = !!dados && fresco && atual.enviada === mensagem
   const href = canal && mensagem ? linkWhatsApp(canal, mensagem) : undefined
@@ -184,10 +216,12 @@ export function FecharSacola() {
           taxa: entrega ? taxaParaOServidor(entrega, new Date(agora)) : undefined,
         }),
       )
+      // o cupom que foi na mensagem fica anotado (o "Já mandei" marca ele)
+      const foi = cupomOk?.codigo ?? null
       if (precisaNovo) {
-        useChat.getState().usarCodigoDaSacola({ codigo: reserva.codigo, token: reserva.token }, mensagem, chave)
+        useChat.getState().usarCodigoDaSacola({ codigo: reserva.codigo, token: reserva.token }, mensagem, chave, foi)
         setReserva(novoCodigoPedido())
-      } else useChat.getState().marcarPedidoEnviado(mensagem, 'sacola', chave)
+      } else useChat.getState().marcarPedidoEnviado(mensagem, 'sacola', chave, foi)
     }
     // no celular o link troca de app sem nova aba: se a página continua à vista, o WhatsApp não abriu
     if (!alvo) {
@@ -199,7 +233,9 @@ export function FecharSacola() {
   }
 
   const mandei = () => {
-    const c = cupomOk?.codigo
+    // o cupom que foi na mensagem que a pessoa mandou (o do pedido guiado, quando o botão abre o dele), e não o da linha
+    // de agora; guardado por uma versão de antes (sem o cupom anotado), o de agora
+    const c = (atual.cupom !== undefined ? atual.cupom : cupomOk?.codigo) ?? null
     tocadoNestaVisita = null
     useSacola.getState().guardarUltimo()
     useSacola.getState().limpar()
@@ -208,6 +244,13 @@ export function FecharSacola() {
     // o próximo pedido nasce com outro código (o pedido guiado recomeça junto)
     useChat.getState().recomecar()
     avisar(c ? `Valeu! Sacola limpa e o cupom ${c} marcado como usado.` : 'Valeu! Tua sacola ficou limpa pro próximo pedido.')
+    // o botão some com a sacola vazia e o foco caía no <body> (o Tab seguinte ia pra página de trás, com a sacola
+    // aberta): vai pra frase da sacola vazia, dentro da folha (o leitor de tela lê junto com o aviso)
+    requestAnimationFrame(() => {
+      const a = document.activeElement
+      if (a && a !== document.body && a.isConnected) return
+      document.getElementById('sacola-vazia-texto')?.focus({ preventScroll: true })
+    })
   }
 
   // sem estado de atendimento (ainda não escolheu, ou a loja não chegou lá): primeiro o estado

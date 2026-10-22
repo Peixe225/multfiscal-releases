@@ -89,10 +89,11 @@ function gc_loja_estado_admin(array $e): array
         'horario' => $publico['horario'],
         // a taxa única guardada (no modo por bairro, o site vê "a confirmar" no lugar dela; o painel mostra a de verdade)
         'taxaEntrega' => ['valor' => $e['taxa'] === null ? null : gc_reais((int) $e['taxa']), 'demo' => (bool) $e['taxa_demo']],
-        // a taxa por bairro (107): o modo, como o cliente vê e a lista inteira (também no modo consulta, que o site não vê)
-        'taxaPor' => gc_loja_taxa_por($e),
-        'bairrosVer' => gc_loja_bairros_ver($e),
-        'bairros' => array_map('gc_loja_bairro_publico', gc_loja_bairros_de($e)),
+        // a taxa por bairro (107): o modo, como o cliente vê e a lista inteira (também no modo consulta, que o site não vê).
+        // No meio da volta pra versão de antes (o loja-migracoes.php de antes já no lugar), sem as funções: uma taxa só
+        'taxaPor' => function_exists('gc_loja_taxa_por') ? gc_loja_taxa_por($e) : 'estado',
+        'bairrosVer' => function_exists('gc_loja_bairros_ver') ? gc_loja_bairros_ver($e) : 'site',
+        'bairros' => function_exists('gc_loja_bairros_de') ? array_map('gc_loja_bairro_publico', gc_loja_bairros_de($e)) : [],
         'pedidoMinimo' => $publico['pedidoMinimo'] ?? null,
         'entregaGratis' => $gratis === null ? null : $gratis + ['demo' => (bool) $e['entrega_gratis_demo']],
         'pagamento' => $publico['pagamento'],

@@ -21,7 +21,7 @@ import { useUI } from '../store/ui'
 import { BairroTaxa } from './BairroTaxa'
 import { Icone } from './comum'
 import { CupomSacola } from './CupomSacola'
-import { FecharSacola } from './FecharSacola'
+import { FecharSacola, usePedidoGuiadoNaSacola } from './FecharSacola'
 import { Folha } from './Folha'
 import './Sacola.css'
 
@@ -64,8 +64,25 @@ function textoEntregaBairro(e: Entrega): string {
   }
 }
 
-/** Linhas da sacola já no formato da mensagem do pedido. */
-export function ListaSacola({ compacta = false }: { compacta?: boolean }) {
+/**
+ * A entrega do pedido guiado que já foi com esta sacola, no lugar do "Teu bairro" (revisão da junção, 22/10): o botão
+ * abre a mensagem dele, com o endereço, e mudar o campo aqui não mudaria nada no que vai. A linha é a da mensagem.
+ */
+function EntregaDoGuiado({ linha }: { linha: string }) {
+  return (
+    <div className="bairro-taxa bt-sacola bt-do-guiado">
+      <p className="bt-cabeca">Entrega: foi no pedido guiado.</p>
+      <p className="bt-linha">{linha}</p>
+      <p className="bt-nota">A loja confirma a taxa no atendimento.</p>
+    </div>
+  )
+}
+
+/**
+ * Linhas da sacola já no formato da mensagem do pedido. bairroDoPedido (a sacola compacta do resumo do pedido guiado,
+ * depois do endereço): o bairro e a cidade que a mensagem usa, no lugar do "Teu bairro" guardado no aparelho.
+ */
+export function ListaSacola({ compacta = false, bairroDoPedido }: { compacta?: boolean; bairroDoPedido?: { nome: string | null; cidade: string | null } }) {
   const { pedido, fora, saiu } = useLinhasSacola()
   const alterar = useSacola((s) => s.alterar)
   const remover = useSacola((s) => s.remover)
@@ -80,7 +97,12 @@ export function ListaSacola({ compacta = false }: { compacta?: boolean }) {
   // a taxa por bairro (22/10): o "Teu bairro" no lugar da linha da entrega (no dia de entrega grátis, a linha de sempre)
   const bairro = useBairroDa(uf)
   const cidadeDoPedido = canal ? (nomeCidade(canal, cidade, cidadeInformada) ?? (canal.cidades.length === 1 ? canal.cidades[0].nome : null)) : null
-  const entregaBairro = canal && modoBairro(canal) ? entregaDoPedido(canal, bairro, cidadeDoPedido) : null
+  // no cartão "Confere a sacola" do pedido guiado, depois do endereço: o bairro da mensagem (o do CEP, ou o da lista
+  // escrito no endereço), e não o guardado (revisão da junção, 22/10: o cartão dizia o Leblon guardado em cima da
+  // mensagem com Copacabana)
+  const entregaBairro = canal && modoBairro(canal) ? (bairroDoPedido ? entregaDoPedido(canal, bairroDoPedido.nome, bairroDoPedido.cidade) : entregaDoPedido(canal, bairro, cidadeDoPedido)) : null
+  // o pedido guiado que já foi com esta sacola: a entrega que foi nele, sem o campo
+  const guiado = usePedidoGuiadoNaSacola()
   // com o cupom valendo (o que entrou sozinho, 22/10), o "Total com a entrega" diz que é sem o desconto: o site nunca
   // faz a conta do cupom (a loja confirma na conversa)
   const { situacao: situacaoCupom } = useCupomNoPedido()
@@ -239,6 +261,8 @@ export function ListaSacola({ compacta = false }: { compacta?: boolean }) {
           <p className="ls-taxa legenda">{textoEntrega(canal)}</p>
         ) : compacta || !canal ? (
           <p className="ls-taxa legenda">{textoEntregaBairro(entregaBairro)}</p>
+        ) : guiado?.entrega ? (
+          <EntregaDoGuiado linha={guiado.entrega} />
         ) : (
           <BairroTaxa canal={canal} cidade={cidadeDoPedido} variante="sacola" subtotal={{ valor: t.subtotal, temConsultar: t.temConsultar, comCupom: situacaoCupom?.tipo === 'ok' }} />
         ))}
@@ -304,7 +328,8 @@ export function SacolaFolha() {
             <PixelArte grade={ilustracoes.mercadorGarrafa} tamanho={132} ancora="base" className="sacola-vazia-arte" />
             <PixelArte grade={palpebrasGarrafa} tamanho={132} ancora="base" className="sacola-vazia-piscar" />
           </div>
-          <p className="adesivo-texto-bloco">
+          {/* o foco vem pra cá quando o "Já mandei" esvazia a sacola (o botão some): fica dentro da folha */}
+          <p id="sacola-vazia-texto" className="adesivo-texto-bloco" tabIndex={-1}>
             <span className="adesivo-texto">{textos.sacolaVazia}</span>
           </p>
           <CupomSacola />

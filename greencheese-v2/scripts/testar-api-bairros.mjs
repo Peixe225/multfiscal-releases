@@ -17,6 +17,8 @@
 // da meia-noite do dia de entrega grátis (a hora do toque); a cópia forjada com o valor vazio, negativo ou em texto;
 // o bairro sem a cidade no estado com mais de uma (a mesma conta do site); e a publicação arquivo a arquivo, na ordem
 // do publicar.mjs, sobre o código que tá no ar (PUBLICAR.md, passo 4): nenhuma rota dá erro 500 no meio do envio.
+// Da revisão da junção (22/10): a volta pro código do passo 4, arquivo a arquivo, sobre o código novo (nenhum erro 500)
+// e a conferência do ETag do PUBLICAR.md rodada como está escrita.
 import { execFileSync } from 'node:child_process'
 import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -635,6 +637,62 @@ export async function testarBairros(t) {
       // no fim, tudo novo: a 107 rodou e o painel vê a taxa por bairro
       const est = (await donoM.get('admin-loja')).json?.loja?.estados?.find((e) => e.uf === 'mg')
       igual([est?.taxaPor, est?.taxaEntrega?.valor], ['estado', sobe.length % 2 ? 9.5 : 9], 'no fim do envio: a taxa por bairro no painel, e a taxa de MG como o dono salvou')
+
+      // a conferência do ETag do PUBLICAR.md (passo 7), rodada como está escrita: tem de imprimir o ETag que o GET loja
+      // devolve. A rota loja só aceita GET: com o HEAD (curl -I), a API responde 405 sem ETag, o grep não imprime nada e
+      // "antes e depois: o mesmo" passava sempre, mesmo com o ETag mudado (revisão da junção, 22/10)
+      const linhaEtag = roteiro.split('\n').find((l) => /grep -i etag/.test(l) && /\bcurl\b/.test(l))
+      ok(!!linhaEtag, 'o PUBLICAR.md tem a conferência do ETag do GET loja')
+      if (linhaEtag) {
+        const comando = linhaEtag.replace(/\s+#.*$/, '')
+        let saida = ''
+        try {
+          saida = execFileSync('sh', ['-c', comando], { encoding: 'utf8', env: { ...process.env, B: b }, timeout: 15000 })
+        } catch (e) {
+          saida = String(e.stdout ?? '')
+        }
+        const etag = (await fetch(`${b}/api/index.php?r=loja`)).headers.get('etag')
+        ok(!!etag && saida.toLowerCase().includes(`etag: ${etag}`.toLowerCase()), `a conferência do ETag do PUBLICAR.md imprime o ETag do GET loja (${JSON.stringify(saida.trim())} × ${etag})`)
+      }
+
+      // ─── e a volta (PUBLICAR.md, passo 8): o commit do passo 4 de novo, arquivo a arquivo, sobre o código novo ───
+      // O banco já foi tocado pelo código novo (o RJ por bairro com a lista, um em massa, um pedido com a taxa do bairro).
+      // A volta sobe os arquivos de antes na mesma ordem: o loja-migracoes.php de antes (sem as contas da taxa por bairro)
+      // chega antes do loja-painel.php, do loja-validar.php e do loja.php, e os novos que ainda estão lá não podem chamar
+      // função que sumiu (revisão da junção, 22/10: o GET loja, o admin-loja e o admin-estado-salvar davam 500 nesses
+      // passos). Nada é apagado no servidor: os arquivos que só o código novo tem ficam.
+      igual((await donoM.post('admin-estado-salvar', { uf: 'rj', taxaPor: 'bairro', bairrosVer: 'site', bairros: [{ nome: 'Copacabana', taxa: 12 }, { nome: 'Leblon', taxa: 15 }] })).status, 200, 'antes de voltar: o RJ por bairro, com a lista (o painel novo)')
+      igual((await donoM.post('admin-produtos-em-massa', { ids: ['dr-pepper'], ufs: ['mg'], acao: 'tirar' })).status, 200, 'antes de voltar: um em massa (o painel novo)')
+      igual((await new Cli(b, '198.18.65.1').post('pedido', pedidoRj({ bairro: 'Copacabana', taxa: { valor: 12, texto: 'taxa R$ 12,00' } }).corpo)).status, 201, 'antes de voltar: um pedido com a taxa do bairro (o site novo)')
+      const novos = new Map(sobe.map((r) => [r, readFileSync(join(pub, r))]))
+      const volta = ordenar([...antes.keys()].filter((r) => !foraDaPublicacao(r) && r !== 'api/instalacao.php' && novos.has(r)))
+      ok(volta.length > 0 && volta.includes('api/nucleo/loja-migracoes.php'), `arquivos da API que voltam pro ${noAr}: ${volta.length}`)
+      const quebrasVolta = []
+      let ipVolta = 0
+      for (const [i, r] of volta.entries()) {
+        writeFileSync(join(h, 'public', r), antes.get(r))
+        const antesDoLog = log().length
+        const passo = `volta ${i + 1}/${volta.length} ${r}`
+        const respostas = [
+          ['GET loja', (await fetch(`${b}/api/index.php?r=loja`)).status],
+          ['admin-loja', (await donoM.get('admin-loja')).status],
+          ['admin-estado-salvar (o corpo do painel de antes)', (await donoM.post('admin-estado-salvar', { uf: 'mg', taxa: i % 2 ? 9 : 9.5 })).status],
+          ['admin-estado-salvar (o painel novo, aberto no meio da volta)', (await donoM.post('admin-estado-salvar', { uf: 'rj', taxa: 13, taxaPor: 'bairro', bairrosVer: 'site', bairros: [{ nome: 'Copacabana', taxa: 12 }, { nome: 'Leblon', taxa: 15 }] })).status],
+          ['admin-eventos', (await donoM.get('admin-eventos')).status],
+          ['POST pedido (o site novo, com o bairro)', (await new Cli(b, `198.18.66.${++ipVolta}`).post('pedido', pedidoRj({ bairro: 'Copacabana', taxa: { valor: 12, texto: 'taxa R$ 12,00' } }).corpo)).status],
+        ]
+        for (const [rota, st] of respostas) if (st >= 500) quebrasVolta.push(`${passo}: ${rota} → ${st}`)
+        const novoNoLog = log().slice(antesDoLog).split('\n').filter((l) => /Error|Fatal|Uncaught/.test(l))
+        for (const l of novoNoLog) quebrasVolta.push(`${passo}: ${l.slice(0, 160)}`)
+      }
+      igual(quebrasVolta.slice(0, 4), [], `a volta pro ${noAr} sem erro 500 em nenhum passo (${volta.length} arquivos, um de cada vez)`)
+      // no fim da volta, o código de antes: a taxa única do RJ de novo no site (o PUBLICAR avisa), e a lista guardada
+      const rjAntes = (await (await fetch(`${b}/api/index.php?r=loja`)).json())?.loja?.estados?.find((e) => e.uf === 'rj')
+      igual([rjAntes && 'taxaPorBairro' in rjAntes, rjAntes?.taxaEntrega?.valor], [false, 13], 'no fim da volta: o código de antes mostra a taxa única guardada do RJ')
+      // e publicar o novo outra vez: a lista de bairros volta (ficou no banco)
+      for (const r of sobe) writeFileSync(join(h, 'public', r), novos.get(r))
+      const rjNovo = (await donoM.get('admin-loja')).json?.loja?.estados?.find((e) => e.uf === 'rj')
+      igual([rjNovo?.taxaPor, rjNovo?.bairros?.length], ['bairro', 2], 'publicado o novo de novo: o RJ volta por bairro, com a lista')
     } finally {
       derrubar(filhoM)
     }

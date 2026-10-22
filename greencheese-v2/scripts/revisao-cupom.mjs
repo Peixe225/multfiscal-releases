@@ -3,7 +3,8 @@
 // tocar em "Usar cupom": ao abrir a sacola, ao chegar no resumo do pedido guiado e na hora de fechar. Com mais de um, o
 // que vence primeiro (empate: o de maior raridade), escolhido de novo a cada mudança enquanto foi ele que entrou sozinho
 // (a OCB cai pra 3 e volta pra 4; chega um prêmio que vence antes). A linha do cupom diz que ele entrou sozinho (e "é o
-// que vence primeiro" só quando é) e deixa trocar ou tirar, também pelo teclado (o foco não cai no <body>);
+// que vence primeiro" só quando é) e deixa trocar ou tirar, também pelo teclado (o foco não cai no <body>, nem no
+// "Tirar" nem no "Já mandei");
 // o que o cliente tirou não volta sozinho naquele pedido (volta depois que a sacola é limpa); o que não vale pra esta
 // sacola (falta produto, outro estado, vencido) não entra, e a dica de como usar continua. A mensagem do WhatsApp (sacola
 // e guiado) leva a linha do cupom, a cópia que vai pro servidor leva o código e o "Já mandei"/"Mandei" marca o cupom
@@ -591,6 +592,29 @@ export async function rodadaCupom({ browser, base, contexto, conferir, foto, vig
       const f2 = await focado()
       conferir(f2.naSacola && f2.rotulo === 'Trocar o cupom SORTE-AAA3', `${vp.width}, teclado: escolhido no "Trocar por", o foco fica na linha do cupom novo ("Trocar o cupom SORTE-AAA3") (${JSON.stringify(f2)})`)
       await foto(page, `cupom-09b-sacola-${vp.width}-teclado`)
+      // o "Tirar" some com o toque (a linha vira o "Usar cupom"): o foco vai pro primeiro cupom dele, e não pro <body>
+      // (revisão da junção, 22/10: o Tab seguinte saía da folha e o leitor de tela não ouvia nada)
+      await page.getByRole('button', { name: 'Tirar o cupom SORTE-AAA3', exact: true }).focus()
+      await page.keyboard.press('Enter')
+      await page.waitForTimeout(500)
+      const f3 = await page.evaluate(() => ({ classe: String(document.activeElement?.className ?? ''), rotulo: document.activeElement?.textContent?.trim().slice(0, 20), noUsar: !!document.activeElement?.closest('.cs-usar') }))
+      conferir(f3.noUsar && f3.classe.includes('cs-chip'), `${vp.width}, teclado: tirado o cupom, o foco vai pro primeiro cupom do "Usar cupom" (${JSON.stringify(f3)})`)
+      // o "Já mandei: limpar a sacola" esvazia a sacola e o botão some: o foco fica dentro da folha (o Tab seguinte não
+      // vai pra página de trás, com a sacola ainda aberta)
+      await page.locator('a.sacola-zap').focus()
+      await page.keyboard.press('Enter')
+      await page.waitForTimeout(600)
+      await page.getByRole('button', { name: 'Já mandei: limpar a sacola', exact: true }).focus()
+      await page.keyboard.press('Enter')
+      await page.waitForTimeout(700)
+      const naFolha = () => page.evaluate(() => ({ foco: `${document.activeElement?.tagName.toLowerCase()}.${String(document.activeElement?.className ?? '').split(' ')[0]}`, dentro: !!document.activeElement?.closest('.folha'), vazia: !!document.querySelector('.sacola-vazia') }))
+      const f4 = await naFolha()
+      conferir(f4.vazia && f4.dentro, `${vp.width}, teclado: "Já mandei" deixa o foco dentro da sacola vazia (${JSON.stringify(f4)})`)
+      await page.keyboard.press('Tab')
+      await page.waitForTimeout(200)
+      const f5 = await naFolha()
+      conferir(f5.dentro, `${vp.width}, teclado: o Tab depois do "Já mandei" continua na sacola (${JSON.stringify(f5)})`)
+      await foto(page, `cupom-09c-sacola-${vp.width}-ja-mandei`)
     }
   })
 }

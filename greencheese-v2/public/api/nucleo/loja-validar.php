@@ -713,8 +713,9 @@ function gc_loja_ler_estado(array $c, ?array $atual, string $uf): array
     }
 
     // a taxa por bairro (migração 107): campo ausente fica como está (o painel de antes, aberto no celular do dono, não
-    // manda nenhum deles e não pode zerar a lista nem voltar o modo)
-    if (gc_loja_tem_bairros()) {
+    // manda nenhum deles e não pode zerar a lista nem voltar o modo). No meio da volta pra versão de antes (o
+    // loja-migracoes.php de antes, sem as contas da taxa por bairro, já no lugar), nada disso: as colunas ficam como estão
+    if (function_exists('gc_loja_tem_bairros') && gc_loja_tem_bairros()) {
         if ($tem('taxaPor')) {
             if (!in_array($c['taxaPor'], ['estado', 'bairro'], true)) {
                 throw gc_invalido('taxaPor', 'A taxa é uma só pro estado ou por bairro.');
