@@ -271,3 +271,17 @@ describe('Safari antigo e celular (CSS)', () => {
     expect(bloco).toMatch(/^@media \(pointer: coarse\) \{\n {2}\.s4-faixa \{[^}]*\}\n {2}\.s4-faixa__l \{ height: 40px; gap: 0 8px; \}/)
   })
 })
+
+describe('o destaque do desafio de prêmio na tela inicial', () => {
+  it('o prêmio escrito com ponto no fim não sai com dois pontos; o longo termina nas reticências', async () => {
+    const { fraseDoPremio } = await import('./DestaqueDesafioCorpo')
+    expect(fraseDoPremio('Kit do LENDA com camisa autografada (texto de teste do painel).')).toBe(': Kit do LENDA com camisa autografada (texto de teste do painel).')
+    expect(fraseDoPremio('Uma camisa')).toBe(': Uma camisa.')
+    expect(fraseDoPremio('Uma camisa!')).toBe(': Uma camisa!')
+    expect(fraseDoPremio('')).toBe(' o prêmio.')
+    expect(fraseDoPremio(null)).toBe(' o prêmio.')
+    const longo = fraseDoPremio('x'.repeat(90) + '.')
+    expect(longo.endsWith('…')).toBe(true)
+    expect(longo).not.toMatch(/\.\.|…\./)
+  })
+})

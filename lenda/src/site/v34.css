@@ -38,13 +38,14 @@
 /* os desafios: só os que cabem inteiros (os que não cabem descem para uma 2ª linha, escondida) */
 .s4-faixa__l { flex: 1 1 auto; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 0 4px; height: 28px; overflow: hidden; }
 .s4-faixa__d { flex: none; display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 9px 0 4px; border-radius: 999px; font: 650 12.5px/1 var(--font-ui); color: var(--text-2); background: transparent; border: 0; cursor: pointer; white-space: nowrap; }
-.s4-faixa__d:hover, .s4-faixa__d:focus-visible { color: var(--text); background: rgba(255, 255, 255, .06); }
+.s4-faixa__d:focus-visible { color: var(--text); background: rgba(255, 255, 255, .06); }
+@media (hover: hover) { .s4-faixa__d:hover { color: var(--text); background: rgba(255, 255, 255, .06); } }
 .s4-faixa__d:focus-visible, .s4-faixa__todos:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .s4-faixa__d.is-tem { color: var(--text); }
 .s4-faixa__d.is-tem::after { content: '✓'; font-size: 11px; color: var(--positive, #3ee6a4); }
 .s4-faixa__todos { flex: none; display: inline-flex; align-items: center; gap: 4px; height: 28px; padding: 0 10px; border-radius: 999px; font: 750 12px/1 var(--font-ui); color: var(--nx-gold-soft, #ffe39a); background: rgba(255, 200, 87, .08); border: 1px solid rgba(255, 200, 87, .22); cursor: pointer; white-space: nowrap; }
 .s4-faixa__todos svg { width: 13px; height: 13px; }
-.s4-faixa__todos:hover { background: rgba(255, 200, 87, .14); }
+@media (hover: hover) { .s4-faixa__todos:hover { background: rgba(255, 200, 87, .14); } }
 /* no celular: os emblemas (sem os nomes), "Desafios com emblema" e "Ver todos" — numa linha só */
 @media (max-width: 34rem) {
   .s4-faixa { gap: 8px; }

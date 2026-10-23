@@ -6,59 +6,14 @@
 // 150 ms) + processador 4× mais lento. medir() procura rolagem lateral, alvos de toque < 40 px (contando a área
 // invisível de ::before/::after), texto cortado sem reticências, campos com fonte < 16 px (zoom do iOS) e
 // elementos fixos por cima do campo focado. Nada aqui escreve no servidor.
-const { chromium } = await import(process.env.LENDA_PLAYWRIGHT ?? '/opt/node22/lib/node_modules/playwright/index.mjs')
 import { mkdirSync } from 'node:fs'
+import { APARELHOS, TODOS, EXE, PLAYWRIGHT, pastaPrints, religarToque, ARGS_TLS, barreiraProd, slug, ouvirErros, inesperados, placar } from './aparelhos.mjs'
+const { chromium } = await import(PLAYWRIGHT)
 
-export const EXE = process.env.LENDA_CHROMIUM ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome'
+export { APARELHOS, EXE, religarToque, barreiraProd, inesperados, placar }
 export const URL0 = (process.env.LENDA_URL ?? 'http://127.0.0.1:9110/lenda/').replace(/\/?$/, '/')
-export const PRINTS = process.env.LENDA_PRINTS ?? '/tmp/claude-0/-home-user-multfiscal-releases/856de241-fe5b-5ff3-9843-1a584641489b/scratchpad/v35-mobile/carreira'
-mkdirSync(PRINTS, { recursive: true })
+export const PRINTS = pastaPrints('carreira')
 export const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
-
-const IOS_SAFARI = (v) => `Mozilla/5.0 (iPhone; CPU iPhone OS ${v} like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/${v.replace(/_/g, '.')} Mobile/15E148 Safari/604.1`
-const CHROME_ANDROID = 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Mobile Safari/537.36'
-
-/** w×h = a janela que a página recebe (a do app já sem a barra dele, no caso dos navegadores de dentro dos apps). */
-export const APARELHOS = {
-  'iphone-se': { w: 375, h: 667, dpr: 2, ios: true, ua: IOS_SAFARI('17_7') },
-  'iphone-14': { w: 390, h: 844, dpr: 3, ios: true, ua: IOS_SAFARI('18_6') },
-  'galaxy-a': { w: 360, h: 800, dpr: 3, ua: 'Mozilla/5.0 (Linux; Android 14; SAMSUNG SM-A546B) AppleWebKit/537.36 (KHTML, like Gecko) SamsungBrowser/28.0 Chrome/130.0.0.0 Mobile Safari/537.36' },
-  'pixel-7': { w: 412, h: 915, dpr: 2.625, ua: CHROME_ANDROID },
-  'pequeno-320': { w: 320, h: 640, dpr: 2, ua: 'Mozilla/5.0 (Linux; Android 9; SM-J260M) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Mobile Safari/537.36' },
-  deitado: { w: 844, h: 390, dpr: 3, ios: true, ua: IOS_SAFARI('18_6') },
-  'tiktok-android': {
-    w: 360,
-    h: 680,
-    dpr: 3,
-    ua: 'Mozilla/5.0 (Linux; Android 14; SM-A546B Build/UP1A.231005.007; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/130.0.6723.107 Mobile Safari/537.36 trill_370104 JsSdk/1.0 NetType/4G Channel/googleplay AppName/trill app_version/37.1.4 ByteLocale/pt-BR ByteFullLocale/pt-BR Region/BR AppId/1180 Spark/1.5.9.1 AppVersion/37.1.4 BytedanceWebview/d8a21c6',
-  },
-  'tiktok-ios': {
-    w: 390,
-    h: 720,
-    dpr: 3,
-    ios: true,
-    ua: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 musical_ly_37.1.0 JsSdk/2.0 NetType/4G Channel/App Store ByteLocale/pt Region/BR isDarkMode/1 WKWebView/1 RevealType/Dialog BytedanceWebview/d8a21c6',
-  },
-  'instagram-android': {
-    w: 412,
-    h: 790,
-    dpr: 2.625,
-    ua: 'Mozilla/5.0 (Linux; Android 15; Pixel 7 Build/AP4A.250205.002; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/133.0.6943.137 Mobile Safari/537.36 Instagram 370.1.0.43.96 Android (35/15; 420dpi; 1080x2219; Google/google; Pixel 7; panther; panther; pt_BR; 704872281)',
-  },
-  'instagram-ios': {
-    w: 390,
-    h: 710,
-    dpr: 3,
-    ios: true,
-    ua: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 Instagram 370.0.0.24.108 (iPhone15,2; iOS 18_6; pt_BR; pt; scale=3.00; 1179x2556; 705050118)',
-  },
-  'whatsapp-android': {
-    w: 360,
-    h: 700,
-    dpr: 3,
-    ua: 'Mozilla/5.0 (Linux; Android 14; SM-A546B Build/UP1A.231005.007; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/130.0.6723.107 Mobile Safari/537.36 WhatsApp/2.24.21.77',
-  },
-}
 
 /** Ajustes do jogo para o teste: som ligado (é o padrão), animações do jeito que a pessoa vê. */
 export const AJUSTES_PADRAO = JSON.stringify({ state: { settings: { sound: true, volume: 0.7, skipAnimations: false, reducedMotion: null, lowFx: false, engine: 'auto' } }, version: 1 })
@@ -69,19 +24,23 @@ export const AJUSTES_PADRAO = JSON.stringify({ state: { settings: { sound: true,
  * que aceita arquivo (como no Android/iOS); omitido = o do Chromium do Linux (não existe, como num WebView).
  */
 export async function abrir(browser, nome, o = {}) {
-  const a = APARELHOS[nome]
+  const a = TODOS[nome]
   if (!a) throw new Error(`aparelho desconhecido: ${nome}`)
   const ctx = await browser.newContext({
     viewport: { width: a.w, height: a.h },
     screen: { width: Math.min(a.w, a.h) === a.w ? a.w : a.h, height: Math.max(a.w, a.h) === a.h ? a.h : a.w },
     deviceScaleFactor: a.dpr,
-    isMobile: true,
-    hasTouch: true,
+    isMobile: !a.desktop,
+    hasTouch: !a.desktop,
     userAgent: a.ua,
     locale: 'pt-BR',
     timezoneId: 'America/Sao_Paulo',
     acceptDownloads: true,
+    // LENDA_IGNORAR_TLS=1: o servidor HTTP/2 de teste (ferramentas/servidor-h2.mjs) tem certificado autoassinado
+    ignoreHTTPSErrors: !!process.env.LENDA_IGNORAR_TLS,
   })
+  // produção: só leitura (o e.php respondido aqui com 204; escrita para /api/ barrada) — ver aparelhos.mjs
+  const barrados = o.prod ? await barreiraProd(ctx) : []
   await ctx.addInitScript(
     ({ ajustes, share }) => {
       try {
@@ -150,30 +109,17 @@ export async function abrir(browser, nome, o = {}) {
     { ajustes: o.ajustes === undefined ? AJUSTES_PADRAO : o.ajustes, share: o.share ?? null },
   )
   const page = await ctx.newPage()
-  const erros = []
-  const avisos = []
-  const rede = []
-  page.on('console', (m) => {
-    const t = m.text()
-    if (m.type() === 'error') erros.push(t)
-    else if (m.type() === 'warning') avisos.push(t)
-  })
-  page.on('pageerror', (e) => erros.push(`pageerror: ${e.message}`))
-  page.on('requestfailed', (r) => {
-    if (o.bloquearApi && /\/api\//.test(r.url())) return
-    rede.push(`falhou ${r.failure()?.errorText} ${r.url()}`)
-  })
-  page.on('response', (r) => {
-    if (r.status() >= 400) rede.push(`${r.status()} ${r.url()}`)
-  })
+  const ou = ouvirErros(page, { ignorarFalha: (r) => o.bloquearApi && /\/api\//.test(r.url()) })
+  const { erros, avisos, rede, s5xx } = ou
   const cdp = await ctx.newCDPSession(page)
+  page.__cdp = cdp
   // bloqueio pelo CDP (e não por ctx.route: interceptar desliga o cache HTTP e a 2ª visita mediria errado)
   if (o.bloquearApi) {
     await cdp.send('Network.enable')
     await cdp.send('Network.setBlockedURLs', { urls: ['*/api/*'] })
   }
   if (o.lento) await lento(cdp)
-  return { ctx, page, cdp, erros, avisos, rede, nome, a }
+  return { ctx, page, cdp, erros, avisos, rede, s5xx, barrados, nome, a }
 }
 
 export async function lento(cdp, { cpu = 4, kbps = 1600, latencia = 150 } = {}) {
@@ -190,9 +136,16 @@ export async function offline(cdp, sim) {
   await cdp.send('Network.emulateNetworkConditions', { offline: !!sim, latency: 0, downloadThroughput: -1, uploadThroughput: -1 })
 }
 
-export const lancar = () => chromium.launch({ executablePath: EXE, args: ['--autoplay-policy=user-gesture-required'] })
+// o Playwright força o loopback pelo proxy (<-loopback>) a não ser que esta variável exista: a pilha local fica direta
+process.env.PLAYWRIGHT_DISABLE_FORCED_CHROMIUM_PROXIED_LOOPBACK ??= '1'
+/** Chromium (com o proxy da máquina para a produção; 127.0.0.1 direto). */
+export const lancar = () =>
+  chromium.launch({
+    executablePath: EXE,
+    args: ['--autoplay-policy=user-gesture-required', ...ARGS_TLS],
+    ...(process.env.HTTPS_PROXY ? { proxy: { server: process.env.HTTPS_PROXY, bypass: '127.0.0.1,localhost' } } : {}),
+  })
 
-const slug = (s) => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-|-$/g, '').toLowerCase()
 /** Print com o nome aparelho_tela.png (fullPage opcional). Devolve o caminho. */
 export async function print(page, aparelho, tela, o = {}) {
   const dir = o.dir ?? PRINTS
@@ -203,6 +156,8 @@ export async function print(page, aparelho, tela, o = {}) {
   await page.screenshot({ path: f, fullPage: !!o.inteira, animations: 'allow', timeout: 60000 }).catch(async (e) => {
     await page.screenshot({ path: f, timeout: 60000 }).catch(() => console.log(`  ..  print falhou (${tela}): ${e.message}`))
   })
+  // o print de página inteira desliga a emulação de toque: religa (senão o resto mediria como se fosse com mouse)
+  if (o.inteira) await religarToque(page)
   await page.evaluate((t1) => (window.__prints = window.__prints ?? []).push([t1 ?? 0, performance.now()]), t1).catch(() => {})
   return f
 }
@@ -256,8 +211,8 @@ export async function medir(page, o = {}) {
           if (el.disabled || el.getAttribute('aria-disabled') === 'true') continue
           let r = vis(el)
           if (!r) continue
-          // campo dentro de um <label>: tocar em qualquer ponto do rótulo já foca o campo
-          const caixa = /INPUT|TEXTAREA|SELECT/.test(el.tagName) ? el.closest('label') : null
+          // campo dentro de um <label> ou de uma caixa que foca o campo em qualquer ponto (a .sc-input de 48 px, a .lx-input)
+          const caixa = /INPUT|TEXTAREA|SELECT/.test(el.tagName) ? el.closest('label, .sc-input, .lx-input, .hl-fsel, .hl-fsearch') : null
           if (caixa && vis(caixa)) r = caixa.getBoundingClientRect()
           // um alvo dentro de outro alvo (o rótulo do switch) conta pelo de fora
           if (el.parentElement?.closest(sel) && vis(el.parentElement.closest(sel))) continue
@@ -312,6 +267,22 @@ export async function medir(page, o = {}) {
       // sobreposição: o texto do centro da barra do topo passando por baixo dos botões da direita; toasts por cima
       // do cabeçalho do sheet da decisão
       const sobrepostos = []
+      // a caixa visível do texto: recortada pelos pais com overflow escondido (o texto com reticências "Perfil do jog…" não
+      // passa por baixo do botão, mesmo que o retângulo do texto inteiro passe)
+      const recorte = (no, r) => {
+        let { left, right, top, bottom } = r
+        for (let e = no.parentElement; e && e !== document.body; e = e.parentElement) {
+          const cs = getComputedStyle(e)
+          if (/hidden|clip/.test(cs.overflowX) || /hidden|clip/.test(cs.overflowY)) {
+            const c = e.getBoundingClientRect()
+            left = Math.max(left, c.left)
+            right = Math.min(right, c.right)
+            top = Math.max(top, c.top)
+            bottom = Math.min(bottom, c.bottom)
+          }
+        }
+        return { left, right, top, bottom, width: right - left, height: bottom - top }
+      }
       const textoRects = (el) => {
         const out = []
         const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT)
@@ -319,7 +290,10 @@ export async function medir(page, o = {}) {
           if (!n.textContent.trim() || n.parentElement.closest('[aria-hidden="true"],.sr-only,.lx-sr-only')) continue
           const rg = document.createRange()
           rg.selectNodeContents(n)
-          for (const r of rg.getClientRects()) if (r.width > 2 && r.height > 2) out.push({ r, t: n.textContent.trim().slice(0, 30) })
+          for (const r0 of rg.getClientRects()) {
+            const r = recorte(n, r0)
+            if (r.width > 2 && r.height > 2) out.push({ r, t: n.textContent.trim().slice(0, 30) })
+          }
         }
         return out
       }

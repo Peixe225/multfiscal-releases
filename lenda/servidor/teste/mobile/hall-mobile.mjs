@@ -9,9 +9,9 @@
 //
 // Cada tela: rolagem lateral, alvos de toque < 40 px, texto cortado, campo com fonte < 16 px (zoom do iPhone), campo
 // escondido pelo teclado (a janela encolhe, como no WebView dos apps), erros de console. Prints em
-// $LENDA_PRINTS_HALL (padrão: scratchpad/v35-mobile/hall) e o relatório JSON no fim.
+// $LENDA_PRINTS_HALL (padrão: <LENDA_PRINTS>/hall, com LENDA_PRINTS em ${TMPDIR:-/tmp}/lenda-mobile) e o relatório JSON no fim.
 import { existsSync, readFileSync } from 'node:fs'
-import { APARELHOS, abrirH, achados, errosDe, esperarTela, girar, lancar, nota, notas, offline, print, salvarRelatorio, sleep, teclado, tocar, ver } from './hall-lib.mjs'
+import { APARELHOS, abrirH, achados, errosDe, esperarTela, girar, lancar, nota, notas, offline, print, salvarRelatorio, sleep, teclado, tocar, ver, fimHall } from './hall-lib.mjs'
 
 const arg = (k, def) => {
   const i = process.argv.indexOf(`--${k}`)
@@ -33,7 +33,17 @@ const browser = await lancar()
 const hash = (d) => d.page.evaluate(() => location.hash)
 const temDialogo = (d) => d.page.locator('[role="dialog"][aria-modal="true"]').count()
 async function ir(d, h, sel, ms = 40000) {
-  await d.page.goto(`${URL0}${h}`, { waitUntil: 'domcontentloaded' })
+  // o diálogo que acabou de fechar (Esc) devolve a entrada dele ao histórico com um history.back() assíncrono: um goto
+  // logo depois (que a pessoa não consegue fazer: o jogo espera a volta no navigate) seria desfeito por ele. Confere o
+  // endereço e navega de novo se a volta o desfez.
+  const alvo = h.includes('#') ? h.slice(h.indexOf('#')) : null
+  for (let i = 0; i < 3; i++) {
+    await d.page.goto(`${URL0}${h}`, { waitUntil: 'domcontentloaded' })
+    if (!alvo) break
+    await sleep(350)
+    const agora = await d.page.evaluate(() => location.hash).catch(() => null)
+    if (agora === alvo || (alvo === '#/' && (agora === '' || agora === '#/'))) break
+  }
   await esperarTela(d.page, sel, ms)
 }
 /** a rolagem do corpo do diálogo (lx-dialog__body): consegue chegar ao fim? e o botão Fechar está à vista? */
@@ -528,15 +538,24 @@ for (const nome of NOMES) {
   if (tem('rede')) {
     await d.ctx.route('**/api/hall.php**', (r) => r.fulfill({ status: 503, contentType: 'application/json', body: '{"erro":"indisponivel"}' }))
     await ir(d, '#/hall?seg=comunidade', '.hl-filtros')
-    await sleep(2500)
-    const msg = await d.page.locator('.hl-cstatus, .hl-cempty').allInnerTexts()
+    // o jogo tenta 3 vezes (~4 s) antes de dizer que não carregou
+    const textos = async (re, ms = 12000) => {
+      const t0 = Date.now()
+      let m = []
+      while (Date.now() - t0 < ms) {
+        m = await d.page.locator('.hl-cstatus, .hl-cempty').allInnerTexts().catch(() => [])
+        if (m.some((x) => re.test(x))) break
+        await sleep(500)
+      }
+      return m
+    }
+    const msg = await textos(/não carregou|não respondeu|Tentar/i)
     nota(d, 'rede-503', msg.some((m) => /não carregou|não respondeu|Tentar/i.test(m)), `hall.php com 503: "${msg.join(' | ').replace(/\s+/g, ' ').slice(0, 160)}"`)
     await ver(d, 'hall-comunidade-servidor-fora')
     await d.ctx.unroute('**/api/hall.php**')
     await offline(d.cdp, true)
     await ir(d, '#/hall?seg=comunidade&pais=URU', '.hl-filtros').catch(() => {})
-    await sleep(2500)
-    const msg2 = await d.page.locator('.hl-cstatus, .hl-cempty').allInnerTexts().catch(() => [])
+    const msg2 = await textos(/internet|conex/i)
     nota(d, 'rede-offline', msg2.some((m) => /internet|conex/i.test(m)), `sem internet: "${msg2.join(' | ').replace(/\s+/g, ' ').slice(0, 160)}"`)
     await ver(d, 'hall-comunidade-sem-internet')
     // desafios sem internet
@@ -573,7 +592,14 @@ for (const nome of NOMES) {
     await ver(d, 'logado-conquistas', { raiz: '[role="dialog"]' })
     const q = d.page.locator('[role="dialog"] .ac-prova__q')
     if (await q.count()) {
-      const b = await q.boundingBox()
+      // a área do toque conta a parte invisível do ::before (inset negativo), como nas outras medidas da suíte
+      const b = await q.evaluate((el) => {
+        const r = el.getBoundingClientRect()
+        const s = getComputedStyle(el, '::before')
+        const n = (v) => (String(v).endsWith('px') ? parseFloat(v) : 0)
+        const extra = s && s.content !== 'none' && s.position === 'absolute' ? { x: -n(s.left) - n(s.right), y: -n(s.top) - n(s.bottom) } : { x: 0, y: 0 }
+        return { width: r.width + Math.max(0, extra.x), height: r.height + Math.max(0, extra.y) }
+      })
       await q.tap()
       await sleep(700)
       const tip = await d.page.evaluate(() => document.querySelector('.lx-tip')?.textContent?.trim().slice(0, 60) ?? null)
@@ -593,3 +619,4 @@ salvarRelatorio(`relatorio-${ALVO}-${NOMES.length === 1 ? NOMES[0] : 'todos'}`)
 const ruins = achados.filter((x) => x.achados.length)
 console.log(`\n${achados.length} telas medidas · ${ruins.length} com achado · ${notas.filter((n) => !n.ok).length} observações ruins`)
 await browser.close()
+fimHall({ telas: true })

@@ -10,7 +10,8 @@
 #   painel-acoes.mjs    ficha em tela cheia, voltar do Android, recarregar, girar, diálogos com teclado, lote, novidade,
 #                       busca, Mensagens, Configurações, tema, gráfico, "Precisa de atenção", sem rede, 4G lento
 #   painel-extras.mjs   recado, o que só existe no computador, WhatsApp/Instagram, iOS 15 sem requestSubmit
-# Prints em $LENDA_PRINTS (padrão: scratchpad/v35-mobile/painel). No fim mata o php -S pelo PID e apaga o banco
+#   painel-correcoes.mjs as correções da v3.5 (topo e aba, menu ⋯, lote, teclado, deitado, Safari antigo)
+# Prints em <LENDA_PRINTS>/painel (padrão ${TMPDIR:-/tmp}/lenda-mobile/painel). No fim mata o php -S pelo PID e apaga o banco
 # (LENDA_PAINEL_MOBILE_MANTER=1 deixa de pé). Código 0 só se nenhum passo anotou problema.
 # Variáveis: LENDA_PAINEL_MOBILE_PORTA (9140), LENDA_PAINEL_MOBILE_BANCO (lenda_v35_painelmobile),
 #   LENDA_PAINEL_MOBILE_BASE (/tmp/lenda-v35-painel-mobile, fora de /tmp/claude-0), LENDA_TESTE_SOCK, LENDA_PRINTS.
@@ -23,7 +24,7 @@ BANCO="${LENDA_PAINEL_MOBILE_BANCO:-lenda_v35_painelmobile}"
 BASE="${LENDA_PAINEL_MOBILE_BASE:-/tmp/lenda-v35-painel-mobile}"
 SOCK="${LENDA_TESTE_SOCK:-/run/mysqld/mysqld.sock}"
 MANTER="${LENDA_PAINEL_MOBILE_MANTER:-0}"
-PASSOS="${*:-abas acoes extras}"
+PASSOS="${*:-abas acoes extras correcoes}"
 export LENDA_PAINEL_BASE="$BASE"
 
 falhar() { echo "PAINEL MOBILE FALHOU (preparação): $*"; exit 1; }
@@ -56,6 +57,7 @@ for p in $PASSOS; do
     abas) echo; echo "═══ abas ═══"; node "$AQUI/painel-abas.mjs" || CODIGO=1 ;;
     acoes) echo; echo "═══ ações ═══"; node "$AQUI/painel-acoes.mjs" || CODIGO=1 ;;
     extras) echo; echo "═══ extras ═══"; node "$AQUI/painel-extras.mjs" || CODIGO=1 ;;
+    correcoes) echo; echo "═══ correções v3.5 ═══"; node "$AQUI/painel-correcoes.mjs" || CODIGO=1 ;;
     *) echo "passo desconhecido: $p" ;;
   esac
 done

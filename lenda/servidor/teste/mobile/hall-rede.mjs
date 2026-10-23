@@ -5,7 +5,8 @@
 //   LENDA_INTEG_BASE=/tmp/lenda-v35-hall node servidor/teste/mobile/hall-rede.mjs [--aparelho galaxy-a]
 //   node servidor/teste/mobile/hall-rede.mjs --alvo prod        (produção: só leitura)
 import { existsSync, readFileSync } from 'node:fs'
-import { abrirH, lancar, nota, offline, print, salvarRelatorio, sleep } from './hall-lib.mjs'
+import { abrirH, lancar, nota, offline, print, salvarRelatorio, sleep, fimHall } from './hall-lib.mjs'
+import { abrirEsperando } from './aparelhos.mjs'
 
 const arg = (k, def) => {
   const i = process.argv.indexOf(`--${k}`)
@@ -29,8 +30,7 @@ const quebrada = (t) => /Algo deu errado|dynamically imported|preload CSS|Import
 const browser = await lancar()
 for (const [nome, h] of TELAS) {
   const d = await abrirH(browser, APARELHO, { prod: PROD })
-  await d.page.goto(`${URL0}#/`)
-  await d.page.waitForSelector('.ld-modes', { timeout: 60000 })
+  await abrirEsperando(d.page, `${URL0}#/`, '.ld-modes', { prod: PROD, ms: 60000 })
   await sleep(2500)
   await offline(d.cdp, true)
   await d.page.evaluate((h) => (location.hash = h), h)
@@ -80,3 +80,4 @@ for (const [nome, h] of TELAS) {
 }
 salvarRelatorio(`relatorio-rede-${PROD ? 'prod' : 'local'}-${APARELHO}`)
 await browser.close()
+fimHall()

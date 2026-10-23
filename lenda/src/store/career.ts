@@ -448,6 +448,9 @@ export const useCareer = create<CareerStore>()((set, get) => {
       set({ busy: true, error: null })
       try {
         const { engine, data } = await ensureEngine(get, set)
+        // v3.5: montar a carreira ocupa a thread principal (~1 s num celular intermediário, mais com o motor frio): antes,
+        // deixa a tela pintar o "carregando" do Confirmar — senão o toque fica sem resposta nenhuma até a 1ª decisão
+        await ateDoisQuadros()
         const seed = opts.seed ?? randomSeed()
         // sem bônus, a chamada é a de sempre (o motor nem vê o parâmetro)
         const state = opts.bonusOvr ? engine.newCareer(data, identity, pace, seed, { bonusOvr: opts.bonusOvr }) : engine.newCareer(data, identity, pace, seed)

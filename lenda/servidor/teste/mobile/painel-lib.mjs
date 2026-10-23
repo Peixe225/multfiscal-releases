@@ -7,42 +7,18 @@
 // medir() procura: rolagem lateral da página, elementos que passam da borda da janela (fora de uma caixa que rola),
 // alvos de toque < 40 px, texto cortado sem reticências, campos com fonte < 16 px (zoom do Safari do iPhone) e o campo
 // focado escondido pelo teclado. Só mexe na pilha local (nunca na produção).
-const { chromium } = await import(process.env.LENDA_PLAYWRIGHT ?? '/opt/node22/lib/node_modules/playwright/index.mjs')
 import { mkdirSync } from 'node:fs'
+import { APARELHOS as TODOS_APARELHOS, EXE, PLAYWRIGHT, pastaPrints, religarToque, slug } from './aparelhos.mjs'
 import { BASE, PAINEL, env, sql } from '../painel/lib.mjs'
+const { chromium } = await import(PLAYWRIGHT)
 
-export { BASE, PAINEL, env, sql }
-export const EXE = process.env.LENDA_CHROMIUM ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome'
-export const PRINTS = process.env.LENDA_PRINTS ?? '/tmp/claude-0/-home-user-multfiscal-releases/856de241-fe5b-5ff3-9843-1a584641489b/scratchpad/v35-mobile/painel'
-mkdirSync(PRINTS, { recursive: true })
+export { BASE, PAINEL, env, sql, EXE }
+export const PRINTS = pastaPrints('painel')
 export const PIN_DONO = process.env.LENDA_PIN_DONO ?? '729153'
 export const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
-const IOS_SAFARI = (v) => `Mozilla/5.0 (iPhone; CPU iPhone OS ${v} like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/${v.replace(/_/g, '.')} Mobile/15E148 Safari/604.1`
-const CHROME_ANDROID = 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Mobile Safari/537.36'
-
-/** w×h = a janela que a página recebe. */
-export const APARELHOS = {
-  'iphone-se': { w: 375, h: 667, dpr: 2, ios: true, ua: IOS_SAFARI('17_7') },
-  'iphone-14': { w: 390, h: 844, dpr: 3, ios: true, ua: IOS_SAFARI('18_6') },
-  'galaxy-a': { w: 360, h: 800, dpr: 3, ua: 'Mozilla/5.0 (Linux; Android 14; SAMSUNG SM-A546B) AppleWebKit/537.36 (KHTML, like Gecko) SamsungBrowser/28.0 Chrome/130.0.0.0 Mobile Safari/537.36' },
-  'pixel-7': { w: 412, h: 915, dpr: 2.625, ua: CHROME_ANDROID },
-  'pequeno-320': { w: 320, h: 640, dpr: 2, ua: 'Mozilla/5.0 (Linux; Android 9; SM-J260M) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Mobile Safari/537.36' },
-  deitado: { w: 844, h: 390, dpr: 3, ios: true, ua: IOS_SAFARI('18_6') },
-  'whatsapp-android': {
-    w: 360,
-    h: 700,
-    dpr: 3,
-    ua: 'Mozilla/5.0 (Linux; Android 14; SM-A546B Build/UP1A.231005.007; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/130.0.6723.107 Mobile Safari/537.36 WhatsApp/2.24.21.77',
-  },
-  'instagram-ios': {
-    w: 390,
-    h: 710,
-    dpr: 3,
-    ios: true,
-    ua: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 Instagram 370.0.0.24.108 (iPhone15,2; iOS 18_6; pt_BR; pt; scale=3.00; 1179x2556; 705050118)',
-  },
-}
+/** Os aparelhos do painel (os de aparelhos.mjs; o painel não é aberto pelos navegadores do TikTok). */
+export const APARELHOS = Object.fromEntries(['iphone-se', 'iphone-14', 'galaxy-a', 'pixel-7', 'pequeno-320', 'deitado', 'whatsapp-android', 'instagram-ios'].map((k) => [k, TODOS_APARELHOS[k]]))
 
 export const lancar = () => chromium.launch({ executablePath: EXE, args: ['--lang=pt-BR'] })
 
@@ -154,7 +130,6 @@ export async function irAba(page, hash, ms = 1500) {
   await page.waitForTimeout(ms)
 }
 
-const slug = (s) => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-|-$/g, '').toLowerCase()
 /** Print aparelho_tela.png na pasta (o.inteira = a página toda). Devolve o caminho. */
 export async function print(page, aparelho, tela, o = {}) {
   const dir = o.dir ?? PRINTS
@@ -163,6 +138,7 @@ export async function print(page, aparelho, tela, o = {}) {
   await page.screenshot({ path: f, fullPage: !!o.inteira, animations: 'disabled', timeout: 60000 }).catch(async (e) => {
     await page.screenshot({ path: f, timeout: 60000 }).catch(() => console.log(`  ..  print falhou (${tela}): ${e.message}`))
   })
+  if (o.inteira) await religarToque(page)
   return f
 }
 

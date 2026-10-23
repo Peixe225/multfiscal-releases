@@ -7,7 +7,8 @@
 // Mede (ms desde o início da navegação): a tela pronta para usar, os bytes baixados, as tarefas longas (> 50 ms) e o
 // maior "congelamento" (a soma das tarefas longas seguidas) ao abrir as conquistas, trocar de categoria e rolar o Hall.
 import { existsSync, readFileSync } from 'node:fs'
-import { abrirH, lancar, nota, salvarRelatorio, sleep, print, tocar, longasDesde, agora } from './hall-lib.mjs'
+import { abrirH, lancar, nota, salvarRelatorio, sleep, print, tocar, longasDesde, agora, fimHall } from './hall-lib.mjs'
+import { abrirEsperando } from './aparelhos.mjs'
 
 const arg = (k, def) => {
   const i = process.argv.indexOf(`--${k}`)
@@ -17,7 +18,9 @@ const ALVO = arg('alvo', 'local')
 const PROD = ALVO === 'prod'
 const BASE = process.env.LENDA_INTEG_BASE ?? '/tmp/lenda-v35-hall'
 const env = !PROD ? Object.fromEntries(readFileSync(`${BASE}/segredos.env`, 'utf8').trim().split('\n').map((l) => [l.slice(0, l.indexOf('=')), l.slice(l.indexOf('=') + 1)])) : {}
-const URL0 = PROD ? 'https://oprojeto.online/lenda/' : `http://127.0.0.1:${env.PORTA}/lenda/`
+// local: LENDA_URL troca o endereço (o rodar.sh aponta para o servidor HTTP/2 com brotli da área "carga": no php -S, sem
+// compressão, a 1ª visita baixa ~2,5 MB e os números do 4G lento não dizem nada)
+const URL0 = PROD ? 'https://oprojeto.online/lenda/' : (process.env.LENDA_URL ?? `http://127.0.0.1:${env.PORTA}/lenda/`).replace(/\/?$/, '/')
 const SEM = !PROD && existsSync(`${BASE}/hall-semente.json`) ? JSON.parse(readFileSync(`${BASE}/hall-semente.json`, 'utf8')) : null
 const CODIGO = PROD ? arg('perfil', null) : SEM?.codigo
 const APARELHO = arg('aparelho', 'galaxy-a')
@@ -72,8 +75,7 @@ await frio('home-faixa', '#/', '.ld-modes', async (d) => {
 // 5. interações no Hall já aberto: conquistas, categoria, rolagem
 {
   const d = await abrirH(browser, APARELHO, { prod: PROD, lento: true, hall: SEM?.entradas })
-  await d.page.goto(`${URL0}#/`, { waitUntil: 'commit', timeout: 120000 })
-  await d.page.waitForSelector('.ld-modes', { timeout: 90000 })
+  await abrirEsperando(d.page, `${URL0}#/`, '.ld-modes', { prod: PROD, ms: 120000 })
   await sleep(4000)
   // conquistas: do toque ao diálogo com a lista
   let t1 = await agora(d.page)
@@ -173,3 +175,4 @@ await frio('home-faixa', '#/', '.ld-modes', async (d) => {
 
 salvarRelatorio(`relatorio-lento-${ALVO}-${APARELHO}`)
 await browser.close()
+fimHall()

@@ -5,8 +5,10 @@
 #   ALVO=prod bash servidor/teste/mobile/hall-rodar.sh  # só leitura na produção (nenhum POST, sem medição de visita)
 #   APARELHOS=galaxy-a,iphone-se ETAPAS=hall,filtros bash servidor/teste/mobile/hall-rodar.sh
 #
-# Variáveis: LENDA_INTEG_BASE (padrão /tmp/lenda-v35-hall), PORTA (9120), BANCO (lenda_v35_hall), LENDA_PRINTS_HALL.
-# No fim, com LIMPAR=1: para o php -S pelo PID e apaga o banco do teste.
+# Variáveis: LENDA_INTEG_BASE (padrão /tmp/lenda-v35-hall), PORTA (9120), BANCO (lenda_v35_hall), LENDA_PRINTS (pasta-raiz
+# dos prints; padrão ${TMPDIR:-/tmp}/lenda-mobile, a área escreve em <raiz>/hall) ou LENDA_PRINTS_HALL (a pasta da área).
+# No fim, com LIMPAR=1: para o php -S pelo PID e apaga o banco do teste. Código 1 se algum script falhou.
+# (Para rodar todas as áreas numa pilha só: servidor/teste/mobile/rodar.sh.)
 set -eu
 PROJ="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 M="$PROJ/servidor/teste/mobile"
@@ -18,21 +20,23 @@ ARGS=()
 [ -n "${ETAPAS:-}" ] && ARGS+=(--etapas "$ETAPAS")
 if [ "$ALVO" = prod ]; then
   PERFIL=${PERFIL:-$(curl -s https://oprojeto.online/lenda/api/hall.php | php -r '$j=json_decode(stream_get_contents(STDIN),true); echo $j["itens"][0]["perfil"] ?? "";')}
-  export LENDA_PRINTS_HALL=${LENDA_PRINTS_HALL:-/tmp/claude-0/-home-user-multfiscal-releases/856de241-fe5b-5ff3-9843-1a584641489b/scratchpad/v35-mobile/hall/producao}
-  node "$M/hall-mobile.mjs" --alvo prod --perfil "$PERFIL" "${ARGS[@]}" --etapas "${ETAPAS:-faixa,desafios,hall,filtros,ficha,comunidade,conquistas,ligas,creditos,perfil,privacidade,voltar}"
-  node "$M/hall-lento.mjs" --alvo prod --perfil "$PERFIL" --aparelho "${APARELHO:-galaxy-a}"
-  node "$M/hall-rede.mjs" --alvo prod --perfil "$PERFIL" --aparelho "${APARELHO:-galaxy-a}"
-  exit 0
+  export LENDA_PRINTS_HALL=${LENDA_PRINTS_HALL:-${LENDA_PRINTS:-${TMPDIR:-/tmp}/lenda-mobile}/hall/producao}
+  C=0
+  node "$M/hall-mobile.mjs" --alvo prod --perfil "$PERFIL" "${ARGS[@]}" --etapas "${ETAPAS:-faixa,desafios,hall,filtros,ficha,comunidade,conquistas,ligas,creditos,perfil,privacidade,voltar}" || C=1
+  node "$M/hall-lento.mjs" --alvo prod --perfil "$PERFIL" --aparelho "${APARELHO:-galaxy-a}" || C=1
+  node "$M/hall-rede.mjs" --alvo prod --perfil "$PERFIL" --aparelho "${APARELHO:-galaxy-a}" || C=1
+  exit $C
 fi
 if [ "${SEM_BUILD:-0}" != 1 ]; then (cd "$PROJ" && npm run build:site); fi
 bash "$PROJ/servidor/teste/integracao/subir.sh"
 node "$M/hall-semear.mjs" --de-novo
-node "$M/hall-mobile.mjs" "${ARGS[@]}"
-node "$M/hall-lento.mjs" --aparelho "${APARELHO:-galaxy-a}"
-node "$M/hall-rede.mjs" --aparelho "${APARELHO:-galaxy-a}"
-node "$M/hall-safari.mjs"
-node "$M/hall-medicao.mjs"
+C=0
+node "$M/hall-mobile.mjs" "${ARGS[@]}" || C=1
+node "$M/hall-lento.mjs" --aparelho "${APARELHO:-galaxy-a}" || C=1
+node "$M/hall-rede.mjs" --aparelho "${APARELHO:-galaxy-a}" || C=1
+node "$M/hall-safari.mjs" || C=1
 if [ "${LIMPAR:-0}" = 1 ]; then
   kill "$(cat "$LENDA_INTEG_BASE/php.pid")" 2>/dev/null || true
   mariadb --socket="${LENDA_INTEG_SOCK:-/run/mysqld/mysqld.sock}" -uroot -e "DROP DATABASE IF EXISTS \`$BANCO\`"
 fi
+exit $C

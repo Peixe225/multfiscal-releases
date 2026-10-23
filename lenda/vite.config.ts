@@ -184,9 +184,45 @@ const precarga = {
   },
 }
 
+/**
+ * v3.5 · Safari < 16.2 (iOS 15 e 16.0–16.1) não tem color-mix(). Uma declaração com color-mix() E var() não é conferida
+ * na leitura (por causa do var()): ela vence a declaração de reserva escrita antes dela e só falha depois, já calculada —
+ * e aí a propriedade volta ao valor inicial (o emblema sem fundo, a borda sem cor). Este plugin do PostCSS tira cada
+ * declaração assim da regra e a põe numa cópia da regra logo depois, dentro de @supports (color: color-mix(...)): quem
+ * tem color-mix() vê o mesmo de antes; quem não tem fica com a reserva (ou com o que a cascata já dava). Ficam de fora as
+ * variáveis (--x: …), o que já está dentro de um @supports de color-mix e os @keyframes.
+ */
+type NoCss = { type: string; name?: string; params?: string; parent?: NoCss; prop?: string; value?: string; clone(o?: object): NoCss; append(n: NoCss): NoCss; after(n: NoCss): NoCss; remove(): void; next?(): NoCss | undefined }
+const SUPORTA_COLOR_MIX = '(color: color-mix(in srgb, red 50%, blue))'
+const colorMixComReserva = {
+  postcssPlugin: 'lenda:color-mix-com-reserva',
+  Declaration(decl: NoCss, { AtRule }: { AtRule: new (o: { name: string; params: string }) => NoCss }) {
+    const v = decl.value ?? ''
+    if (!/color-mix\(/i.test(v) || !/var\(/i.test(v) || decl.prop?.startsWith('--')) return
+    const regra = decl.parent
+    if (!regra || regra.type !== 'rule') return
+    for (let p = regra.parent; p; p = p.parent) {
+      if (p.type === 'atrule' && (/keyframes$/i.test(p.name ?? '') || (p.name === 'supports' && /color-mix/i.test(p.params ?? '')))) return
+    }
+    // a cópia da regra (no mesmo @media/@layer) logo depois dela, com as declarações de color-mix seguidas que já foram para lá
+    let bloco = regra.next?.()
+    const ehNosso = (n: NoCss | undefined) => !!n && n.type === 'atrule' && n.name === 'supports' && n.params === SUPORTA_COLOR_MIX && (n as unknown as { __lenda?: NoCss }).__lenda === regra
+    if (!ehNosso(bloco)) {
+      bloco = new AtRule({ name: 'supports', params: SUPORTA_COLOR_MIX })
+      ;(bloco as unknown as { __lenda?: NoCss }).__lenda = regra
+      bloco.append(regra.clone({ nodes: [] }))
+      regra.after(bloco)
+    }
+    const copia = (bloco as unknown as { first: NoCss }).first
+    copia.append(decl.clone())
+    decl.remove()
+  },
+}
+
 export default defineConfig({
   base: './',
   plugins: [react(), tailwindcss(), backdropGuard, siteMeta, medicaoCedo, precarga],
+  css: { postcss: { plugins: [colorMixComReserva] } },
   resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },
   build: {
     // v3.5: e o Safari 15 (iPhone com iOS 15): o que for sintaxe nova demais para ele é reescrito (as APIs que faltam

@@ -17,7 +17,7 @@
 //
 // Uso: LENDA_INTEG_BASE=/tmp/lenda-v35-conta node servidor/teste/mobile/conta-cadastro.mjs [--etapas=convite,campos]
 //      [--aparelhos=iphone-se,galaxy-a]   (a pilha: LENDA_INTEG_BASE=... PORTA=9130 BANCO=lenda_v35_conta bash servidor/teste/integracao/subir.sh)
-// Prints em $LENDA_PRINTS (padrão: scratchpad/v35-mobile/conta). Sai com 1 se alguma conferência falhou.
+// Prints em $LENDA_PRINTS (padrão: ${TMPDIR:-/tmp}/lenda-mobile/conta). Sai com 1 se alguma conferência falhou.
 import {
   APARELHOS, URL0, painelDeslocado, atributos, botaoVisivel, campoVisivel, codigoDoEmail, colar, dialogo, fim, girar, home, lancar, lento, medirTela, menu, novoAparelho, nota, offline, ok, print, semDialogo, semLentidao, sleep, sql, teclado,
 } from './conta-lib.mjs'

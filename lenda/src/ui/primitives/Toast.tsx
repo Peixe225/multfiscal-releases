@@ -228,21 +228,23 @@ export function topoLivre(base: number, altura: number, janela: number, obstacul
   return Math.min(abaixo, Math.max(base, janela - altura - 8))
 }
 
-function useLugarDoAviso(ativo: boolean, ref: { current: HTMLDivElement | null }, dep: unknown) {
+function useLugarDoAviso(phone: boolean, ativo: boolean, ref: { current: HTMLDivElement | null }, dep: unknown) {
   useLayoutEffect(() => {
     const el = ref.current
-    if (!ativo || !el || typeof window === 'undefined') {
-      if (el) el.style.top = ''
-      return
-    }
+    // sem aviso (o último está saindo, com a animação de saída): fica onde estava — voltar ao topo agora levaria o aviso
+    // que some para cima do cabeçalho do diálogo aberto. O próximo aviso mede de novo; fora do celular, o lugar de sempre.
+    if (!phone && el) el.style.top = ''
+    if (!ativo || !el || typeof window === 'undefined') return
     const medir = () => {
       el.style.top = ''
-      const base = el.getBoundingClientRect().top
+      const caixa = el.getBoundingClientRect()
+      const base = caixa.top
       const altura = el.offsetHeight
-      // o de cima: o último no DOM que está à vista
+      // o de cima: o último no DOM que está à vista (e que fica embaixo do aviso também na horizontal: deitado, o aviso
+      // vai para o canto esquerdo e o painel da decisão, à direita, não é obstáculo)
       const obs = [...document.querySelectorAll<HTMLElement>(OBSTACULOS)].filter((o) => {
         const r = o.getBoundingClientRect()
-        return r.height > 0 && r.bottom > base && r.top < innerHeight
+        return r.height > 0 && r.bottom > base && r.top < innerHeight && r.right > caixa.left && r.left < caixa.right
       })
       const o = obs[obs.length - 1]
       let alvo: number | null = null
@@ -254,15 +256,15 @@ function useLugarDoAviso(ativo: boolean, ref: { current: HTMLDivElement | null }
       if (alvo !== null) el.style.top = `${Math.round(alvo)}px`
     }
     medir()
-    // a folha sobe animando, o teclado abre, a pessoa rola: confere de novo enquanto há aviso
-    const t = window.setInterval(medir, 250)
+    // a folha sobe animando, o teclado abre, a pessoa rola: confere de novo enquanto há aviso (a cada 120 ms: a folha que
+    // sobe leva ~300 ms, e com 250 ms o aviso ficava um instante por cima do cabeçalho dela)
+    const t = window.setInterval(medir, 120)
     window.addEventListener('resize', medir)
     return () => {
       window.clearInterval(t)
       window.removeEventListener('resize', medir)
-      el.style.top = ''
     }
-  }, [ativo, ref, dep])
+  }, [phone, ativo, ref, dep])
 }
 
 export function Toaster() {
@@ -273,7 +275,7 @@ export function Toaster() {
   // a viewport that shrank to phone width keeps the extra visible ones hidden (they count as queued)
   const items = phone ? all.slice(0, 1) : all
   const queued = queuedCount + (all.length - items.length)
-  useLugarDoAviso(phone && items.length > 0, ref, items[0]?.id)
+  useLugarDoAviso(phone, phone && items.length > 0, ref, items[0]?.id)
   if (typeof document === 'undefined') return null
   return createPortal(
     <div ref={ref} className="lx-toaster" aria-live="polite" aria-relevant="additions">

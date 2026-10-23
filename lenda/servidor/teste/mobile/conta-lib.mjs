@@ -7,9 +7,11 @@
 import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs'
 import { APARELHOS, abrir, lancar, lento, semLentidao, offline, medir, relatar, teclado, girar, sleep, lerKv } from './carreira-lib.mjs'
+import { EXTRAS, pastaPrints, religarToque, slug } from './aparelhos.mjs'
 
-// o Galaxy A deitado (Chrome do Android: o teclado encolhe a janela, que deitada fica com ~150 px)
-APARELHOS['galaxy-a-deitado'] = { ...APARELHOS['galaxy-a'], w: 800, h: 360 }
+// o Galaxy A deitado (Chrome do Android: o teclado encolhe a janela, que deitada fica com ~150 px) — nesta área ele entra
+// na lista (os scripts da conta o tiram do "todos" e o usam nos passos de teclado deitado)
+APARELHOS['galaxy-a-deitado'] = EXTRAS['galaxy-a-deitado']
 
 export { APARELHOS, lancar, lento, semLentidao, offline, medir, relatar, teclado, girar, sleep, lerKv }
 
@@ -18,8 +20,7 @@ if (!existsSync(`${BASE}/segredos.env`)) throw new Error(`sem ${BASE}/segredos.e
 export const env = Object.fromEntries(readFileSync(`${BASE}/segredos.env`, 'utf8').trim().split('\n').map((l) => [l.slice(0, l.indexOf('=')), l.slice(l.indexOf('=') + 1)]))
 export const ORIGEM = `http://127.0.0.1:${env.PORTA}`
 export const URL0 = `${ORIGEM}/lenda/`
-export const PRINTS = process.env.LENDA_PRINTS ?? '/tmp/claude-0/-home-user-multfiscal-releases/856de241-fe5b-5ff3-9843-1a584641489b/scratchpad/v35-mobile/conta'
-mkdirSync(PRINTS, { recursive: true })
+export const PRINTS = pastaPrints('conta')
 
 export const sql = (q) =>
   execFileSync('mariadb', [`--socket=${env.SOCK || '/run/mysqld/mysqld.sock'}`, '--default-character-set=utf8mb4', '-uroot', '-N', '-B', env.BANCO, '-e', q], { encoding: 'utf8' }).trim()
@@ -98,12 +99,12 @@ export async function novoAparelho(browser, nome, o = {}) {
 }
 
 /** Print com nome aparelho_tela.png na pasta da área (o.sub = subpasta). */
-const slug = (s) => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-|-$/g, '').toLowerCase()
 export async function print(page, aparelho, tela, o = {}) {
   const dir = o.sub ? `${PRINTS}/${o.sub}` : PRINTS
   mkdirSync(dir, { recursive: true })
   const f = `${dir}/${slug(aparelho)}_${slug(tela)}.png`
   await page.screenshot({ path: f, fullPage: !!o.inteira, timeout: 60000 }).catch((e) => console.log(`  ..  print falhou (${tela}): ${e.message}`))
+  if (o.inteira) await religarToque(page)
   return f
 }
 

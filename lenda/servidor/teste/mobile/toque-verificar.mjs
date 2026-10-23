@@ -8,10 +8,12 @@
 // 2. linha da comunidade no Hall: tocar no meio da linha abre o resumo (o esperado) ou o perfil do dono?
 // 3. switch do menu: tocar na descrição ("Efeitos sonoros sintetizados") liga/desliga?
 // 4. a faixa dos avisos (toasts: conquista, emblema, erro) × o cabeçalho dos diálogos no celular: geometria
-// 5. pontos dos desafios na Home (24×28, 2 px entre eles): o toque no vão entre dois pontos abre o quê?
-// Prints em $LENDA_PRINTS_TOQUE/verificar/. Na produção só lê (nada de POST, sem medição de visita, sem conta).
+// 5. pontos dos desafios na Home: 40×40 com 8 px de vão (v3.5; antes 24×28 com 2 px) — o toque no vão abre o vizinho?
+// Prints em <LENDA_PRINTS>/toque/verificar/ (ou $LENDA_PRINTS_TOQUE/verificar/). Na produção só lê (nada de POST, sem
+// medição de visita, sem conta). Sai com código 1 se alguma confirmação falhou.
 import { readFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { abrirT, lancarT, sleep, PRINTS } from './toque-lib.mjs'
+import { abrirEsperando } from './aparelhos.mjs'
 
 const arg = (k, d) => {
   const i = process.argv.indexOf(`--${k}`)
@@ -77,8 +79,7 @@ const passo = async (nome, fn) => {
   }
 }
 
-await page.goto(URL0, { waitUntil: 'domcontentloaded', timeout: 120000 })
-await page.locator('.ld-ctas__start').waitFor({ state: 'visible', timeout: 120000 })
+await abrirEsperando(page, URL0, '.ld-ctas__start', { prod: PROD })
 await sleep(1500)
 
 // 5. pontos dos desafios
@@ -95,7 +96,9 @@ await passo('pontos-desafios', async () => {
   const hash = await page.evaluate(() => location.hash)
   const dlg = await page.locator('[role="dialog"]:visible').count()
   const f = await pr('desafios-pontos-toque-no-vao')
-  nota(false, 'pontos dos desafios', `${Math.round(b0.width)}×${Math.round(b0.height)} px com ${gap} px entre eles; tocando no meio do vão foi para ${hash || '#/'}${dlg ? ' (abriu diálogo)' : ''}`, { print: f })
+  // v3.5: o certo é 40×40 com ≥ 8 px de vão e o toque no vão não abrir o desafio vizinho (fica na Home, sem diálogo)
+  const bom = b0.width >= 40 && b0.height >= 40 && gap >= 8 && (!hash || hash === '#/') && !dlg
+  nota(bom, 'pontos dos desafios', `${Math.round(b0.width)}×${Math.round(b0.height)} px com ${gap} px entre eles; tocando no meio do vão foi para ${hash || '#/'}${dlg ? ' (abriu diálogo)' : ''}`, { print: f })
   await fechar()
   await ir('#/', '.ld-ctas__start')
 })
@@ -135,14 +138,17 @@ await passo('avisos-cabecalho', async () => {
   await page.locator('button[aria-label="Menu"]').first().tap()
   await sleep(900)
   const fb = await page.locator('[role="dialog"] button[aria-label="Fechar"]').first().boundingBox()
+  // v3.5: com um diálogo aberto, o Toaster (Toast.tsx) põe o aviso abaixo do cabeçalho dele — a posição de repouso do
+  // .lx-toaster vazio (y=64) não diz nada. Confere o aviso DE VERDADE, se houver um na tela; sem aviso, só registra (o
+  // carreira-dialogos.mjs confere com os avisos de conquista que aparecem durante a carreira).
   const g = await page.evaluate(() => {
-    const t = document.querySelector('.lx-toaster')
     const dl = document.querySelector('[role="dialog"]')
-    return { toaster: t ? Math.round(t.getBoundingClientRect().top) : null, dialogo: dl ? Math.round(dl.getBoundingClientRect().top) : null }
+    const ts = [...document.querySelectorAll('.lx-toast')].map((e) => e.getBoundingClientRect()).filter((r) => r.height > 0)
+    return { dialogo: dl ? Math.round(dl.getBoundingClientRect().top) : null, avisos: ts.map((r) => ({ top: Math.round(r.top), bottom: Math.round(r.bottom) })) }
   })
   const f = await pr('menu-cabecalho-e-faixa-dos-avisos')
-  const cobre = fb && g.toaster != null && g.toaster < fb.y + fb.height && g.toaster + 56 > fb.y
-  nota(!cobre, 'avisos × cabeçalho do diálogo', `os avisos (toasts) aparecem a partir de y=${g.toaster}px; o sheet começa em y=${g.dialogo}px e o "Fechar" dele ocupa y=${fb ? Math.round(fb.y) : '?'}–${fb ? Math.round(fb.y + fb.height) : '?'}px${cobre ? ' → um aviso que chega com o sheet aberto fica por cima do "Fechar"' : ''}`, { print: f })
+  const cobre = !!fb && g.avisos.some((r) => r.top < fb.y + fb.height && r.bottom > fb.y)
+  nota(!cobre, 'avisos × cabeçalho do diálogo', g.avisos.length ? `aviso em y=${g.avisos.map((r) => `${r.top}–${r.bottom}`).join(', ')}; o "Fechar" do sheet ocupa y=${fb ? Math.round(fb.y) : '?'}–${fb ? Math.round(fb.y + fb.height) : '?'}px${cobre ? ' → o aviso cobre o "Fechar"' : ''}` : `nenhum aviso na tela neste passo (o sheet começa em y=${g.dialogo}px; com diálogo aberto o aviso desce para baixo do cabeçalho — conferido no carreira-dialogos)`, { print: f })
   await fechar()
 })
 
@@ -192,3 +198,7 @@ await passo('linha-comunidade', async () => {
 writeFileSync(`${DIR}/${AP}${PROD ? '-prod' : ''}.json`, JSON.stringify(R, null, 1))
 if (d.bloqueados?.length) console.log(`  ..  produção: ${d.bloqueados.length} pedido(s) que escreveriam foram bloqueados`)
 await browser.close()
+const ruins = R.filter((x) => !x.ok)
+console.log(`\ntoque-verificar (${AP}${PROD ? ', produção' : ''}): ${R.length - ruins.length} ok · ${ruins.length} falha(s)`)
+for (const x of ruins) console.log(`   XX ${x.area}: ${x.msg}`)
+process.exitCode = ruins.length ? 1 : 0

@@ -7,10 +7,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Info, TriangleAlert, X } from 'lucide-react'
 import { avisosVisiveis, proximoVencimento, useAcesso, type AvisoSite } from '@/store/acesso'
-import { cx } from '@/ui/primitives'
+import { cx, useMediaQuery } from '@/ui/primitives'
 import './aviso.css'
 
 const CHAVE = 'lenda:aviso-fechado'
+/** Celular (em pé ou deitado): a mesma consulta dos avisos (toasts) do jogo. */
+const CELULAR = '(max-width: 44.99rem), (max-height: 32.5rem)'
 /** Quantas assinaturas de avisos fechados ficam guardadas (as mais antigas saem). */
 const FECHADOS_MAX = 30
 
@@ -66,7 +68,12 @@ export function AvisoFaixa() {
   // outra aba fechou (ou chegou aviso novo): relê o que está fechado
   useEffect(() => setFechados(ler()), [assinaturas])
   const abertos = lista.filter((a) => !fechados.includes(assinaturaDe(a)))
+  // v3.5 · no celular, um aviso por vez (o próximo aparece quando este fecha): três faixas empilhadas tomavam ~130 px e,
+  // deitado (390 px de altura), empurravam o "Começar carreira" para fora da primeira tela. O "+N" diz que há mais.
+  const celular = useMediaQuery(CELULAR)
   if (!abertos.length) return null
+  const mostrar = celular ? abertos.slice(0, 1) : abertos
+  const depois = abertos.length - mostrar.length
   const fechar = (a: AvisoSite) => {
     const novo = comFechado(fechados, assinaturaDe(a))
     setFechados(novo)
@@ -78,12 +85,17 @@ export function AvisoFaixa() {
   }
   return (
     <div className="lx-avisos">
-      {abertos.map((a) => {
+      {mostrar.map((a) => {
         const Ico = a.tipo === 'alerta' ? TriangleAlert : Info
         return (
           <div key={assinaturaDe(a)} className={cx('lx-aviso', a.tipo === 'alerta' && 'lx-aviso--alerta')} role={a.tipo === 'alerta' ? 'alert' : 'status'}>
             <Ico className="lx-aviso__i" aria-hidden="true" />
             <p className="lx-aviso__t">{a.texto}</p>
+            {depois > 0 && (
+              <span className="lx-aviso__mais" title={`Mais ${depois} ${depois === 1 ? 'aviso' : 'avisos'}`}>
+                +{depois}
+              </span>
+            )}
             <button type="button" className="lx-aviso__x" aria-label="Fechar aviso" onClick={() => fechar(a)}>
               <X aria-hidden="true" />
             </button>

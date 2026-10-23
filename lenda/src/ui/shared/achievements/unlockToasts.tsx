@@ -63,8 +63,9 @@ export function showUnlockToast(ids: string[]) {
     title: one ? 'Conquista desbloqueada!' : `Você desbloqueou ${sorted.length} conquistas`,
     description: (
       <>
-        {/* até 2 linhas (no celular cortava em "Você desbloqueou 4 conqui…" e no meio do nome da conquista) */}
-        <span className="block line-clamp-2">{one ? sorted[0].title : sorted.map((a) => a.title).join(' · ')}</span>
+        {/* até 2 linhas (no celular cortava em "Você desbloqueou 4 conqui…" e no meio do nome da conquista). Sem "block":
+            no CSS gerado o .block vem depois do .line-clamp-2 e troca o display: -webkit-box, e o corte em 2 linhas some */}
+        <span className="line-clamp-2">{one ? sorted[0].title : sorted.map((a) => a.title).join(' · ')}</span>
         {!one && stack(sorted.map((a) => a.id))}
       </>
     ),

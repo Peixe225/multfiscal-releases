@@ -10,40 +10,17 @@
 // ver(d, tela, o): espera, mede (rolagem lateral, alvos < 40 px, texto cortado, campo coberto, fonte < 16 px), relata no
 //   console, tira o print <aparelho>_<tela>.png e guarda o achado para o relatório final (achados[]).
 import { mkdirSync, writeFileSync } from 'node:fs'
-import { APARELHOS, abrir, medir, relatar, print as printBase, sleep, teclado, girar, lento, semLentidao, offline, longasDesde, agora } from './carreira-lib.mjs'
-const { chromium } = await import(process.env.LENDA_PLAYWRIGHT ?? '/opt/node22/lib/node_modules/playwright/index.mjs')
+import { APARELHOS, EXE, abrir, lancar, medir, relatar, print as printBase, sleep, teclado, girar, lento, semLentidao, offline, longasDesde, agora } from './carreira-lib.mjs'
+import { pastaPrints, esperado } from './aparelhos.mjs'
 
-export { APARELHOS, medir, relatar, sleep, teclado, girar, lento, semLentidao, offline, longasDesde, agora }
-export const EXE = process.env.LENDA_CHROMIUM ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome'
-export const PRINTS = process.env.LENDA_PRINTS_HALL ?? '/tmp/claude-0/-home-user-multfiscal-releases/856de241-fe5b-5ff3-9843-1a584641489b/scratchpad/v35-mobile/hall'
-mkdirSync(PRINTS, { recursive: true })
-
-/** Chromium com o proxy da máquina (produção e a ESPN das Ligas ao vivo); 127.0.0.1 direto. */
-// o Playwright força o loopback pelo proxy (<-loopback>) a não ser que esta variável exista: a pilha local fica direta
-process.env.PLAYWRIGHT_DISABLE_FORCED_CHROMIUM_PROXIED_LOOPBACK ??= '1'
-export const lancar = () =>
-  chromium.launch({
-    executablePath: EXE,
-    args: ['--autoplay-policy=user-gesture-required'],
-    ...(process.env.HTTPS_PROXY ? { proxy: { server: process.env.HTTPS_PROXY, bypass: '127.0.0.1,localhost' } } : {}),
-  })
+export { APARELHOS, EXE, lancar, medir, relatar, sleep, teclado, girar, lento, semLentidao, offline, longasDesde, agora }
+// LENDA_PRINTS_HALL (a pasta da área, como antes) ou <LENDA_PRINTS>/hall — ver aparelhos.mjs
+export const PRINTS = pastaPrints('hall', process.env.LENDA_PRINTS_HALL)
 
 export async function abrirH(browser, nome, o = {}) {
-  const d = await abrir(browser, nome, { lento: o.lento, ajustes: o.ajustes })
-  d.bloqueados = []
-  if (o.prod) {
-    await d.ctx.route('**/api/**', (r) => {
-      const q = r.request()
-      if (q.method() !== 'GET' || /\/api\/e\.php/.test(q.url())) {
-        d.bloqueados.push(`${q.method()} ${q.url().replace(/\?.*/, '')}`)
-        return r.abort('blockedbyclient')
-      }
-      return r.continue()
-    })
-    // o sendBeacon da medição não passa pelo route em todo caso: bloqueio também pelo CDP
-    await d.cdp.send('Network.enable')
-    await d.cdp.send('Network.setBlockedURLs', { urls: ['*/api/e.php*'] })
-  }
+  // o.prod: a barreira de aparelhos.mjs (e.php respondido aqui com 204, escrita para /api/ barrada pelo CDP e na página)
+  const d = await abrir(browser, nome, { lento: o.lento, ajustes: o.ajustes, prod: o.prod })
+  d.bloqueados = d.barrados
   if (o.hall || o.ach) {
     await d.ctx.addInitScript(
       ({ hall, ach }) => {
@@ -95,10 +72,26 @@ export function nota(d, tela, ok, texto, extra = {}) {
 
 /** Os erros de console/rede do aparelho desde a última chamada (e zera). */
 export function errosDe(d, ignorar = /status of 401|ERR_BLOCKED_BY_CLIENT|blockedbyclient|ERR_(FAILED|ABORTED).*e\.php/) {
-  const e = [...d.erros, ...d.rede].filter((x) => !ignorar.test(x))
+  const e = [...d.erros, ...d.rede].filter((x) => !ignorar.test(x) && !esperado(x))
   d.erros.length = 0
   d.rede.length = 0
   return e
+}
+
+/**
+ * Fecha o script: código 1 se alguma observação saiu ruim (nota com ok=false) ou, com o.telas, se alguma tela medida
+ * teve achado (rolagem lateral, texto cortado, campo < 16 px, campo escondido pelo teclado; alvos < 40 px só com o.alvos).
+ */
+export function fimHall(o = {}) {
+  const ruins = notas.filter((n) => !n.ok)
+  const telas = o.telas
+    ? achados.filter((a) => a.lateral > 0 || a.cortados.length || a.fonteCampo.length || (a.coberto && (a.coberto.fora || a.coberto.porCima)) || (o.alvos && a.pequenos.length))
+    : []
+  console.log(`\n${achados.length} telas medidas · ${telas.length} com achado que reprova · ${ruins.length} observação(ões) ruim(ns)`)
+  for (const n of ruins.slice(0, 30)) console.log(`   XX ${n.aparelho ?? '-'} · ${n.tela}: ${n.texto}`)
+  for (const t of telas.slice(0, 30)) console.log(`   XX ${t.aparelho} · ${t.tela}: ${t.achados.join(' | ')}`)
+  process.exitCode = ruins.length || telas.length ? 1 : 0
+  return ruins.length + telas.length
 }
 
 export function salvarRelatorio(nome) {

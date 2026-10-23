@@ -28,30 +28,22 @@
 // movimento(d): animações rodando agora (CSS/WAAPI), quadros por segundo de requestAnimationFrame e o data-motion.
 import { mkdirSync } from 'node:fs'
 import { createRequire } from 'node:module'
-import { APARELHOS, abrir } from './carreira-lib.mjs'
+import { APARELHOS, EXE, abrir, lancar } from './carreira-lib.mjs'
+import { pastaPrints, religarToque } from './aparelhos.mjs'
 
-const { chromium } = await import(process.env.LENDA_PLAYWRIGHT ?? '/opt/node22/lib/node_modules/playwright/index.mjs')
 const PROJ = new URL('../../../', import.meta.url).pathname
 const sharp = createRequire(`${PROJ}package.json`)('sharp')
 
-export const EXE = process.env.LENDA_CHROMIUM ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome'
-export const PRINTS = process.env.LENDA_PRINTS_TOQUE ?? '/tmp/claude-0/-home-user-multfiscal-releases/856de241-fe5b-5ff3-9843-1a584641489b/scratchpad/v35-mobile/toque'
-mkdirSync(PRINTS, { recursive: true })
+// LENDA_PRINTS_TOQUE (a pasta da área, como antes) ou <LENDA_PRINTS>/toque — ver aparelhos.mjs
+export const PRINTS = pastaPrints('toque', process.env.LENDA_PRINTS_TOQUE)
 export const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
-export { APARELHOS }
+export { APARELHOS, EXE, religarToque }
 
 /** As quatro larguras pedidas → o aparelho do carreira-lib com essa largura. */
 export const LARGURAS = { 320: 'pequeno-320', 360: 'galaxy-a', 390: 'iphone-14', 412: 'pixel-7' }
 
-// o Playwright força o loopback pelo proxy (<-loopback>) a não ser que esta variável exista: a pilha local fica direta
-process.env.PLAYWRIGHT_DISABLE_FORCED_CHROMIUM_PROXIED_LOOPBACK ??= '1'
-/** Chromium com o proxy da máquina (produção e a ESPN das Ligas ao vivo); 127.0.0.1 direto. */
-export const lancarT = () =>
-  chromium.launch({
-    executablePath: EXE,
-    args: ['--autoplay-policy=user-gesture-required'],
-    ...(process.env.HTTPS_PROXY ? { proxy: { server: process.env.HTTPS_PROXY, bypass: '127.0.0.1,localhost' } } : {}),
-  })
+/** Chromium com o proxy da máquina (produção e a ESPN das Ligas ao vivo); 127.0.0.1 direto (o lancar do carreira-lib). */
+export const lancarT = lancar
 
 /**
  * Aparelho para a medição: o do carreira-lib (viewport, DPR, isMobile, hasTouch, UA de verdade) e mais:
@@ -62,7 +54,8 @@ export const lancarT = () =>
  * Conta os quadros de requestAnimationFrame (window.__raf) para o teste de movimento.
  */
 export async function abrirT(browser, nome, o = {}) {
-  const d = await abrir(browser, nome, { ajustes: o.ajustes })
+  // o.prod: a barreira de aparelhos.mjs (e.php respondido aqui com 204, escrita para /api/ barrada pelo CDP e na página)
+  const d = await abrir(browser, nome, { ajustes: o.ajustes, prod: o.prod })
   if (o.reduzir) await d.page.emulateMedia({ reducedMotion: 'reduce' })
   await d.ctx.addInitScript(() => {
     window.__raf = 0
@@ -73,19 +66,7 @@ export async function abrirT(browser, nome, o = {}) {
         cb(t)
       })
   })
-  d.bloqueados = []
-  if (o.prod) {
-    await d.ctx.route('**/api/**', (r) => {
-      const q = r.request()
-      if (q.method() !== 'GET' || /\/api\/e\.php/.test(q.url())) {
-        d.bloqueados.push(`${q.method()} ${q.url().replace(/\?.*/, '')}`)
-        return r.abort('blockedbyclient')
-      }
-      return r.continue()
-    })
-    await d.cdp.send('Network.enable')
-    await d.cdp.send('Network.setBlockedURLs', { urls: ['*/api/e.php*'] })
-  }
+  d.bloqueados = d.barrados
   if (o.hall) {
     await d.ctx.addInitScript(
       ({ hall }) => {

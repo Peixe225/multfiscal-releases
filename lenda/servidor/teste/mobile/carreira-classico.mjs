@@ -14,8 +14,11 @@
 // sala de troféus, lendas, Nota de Legado) → Compartilhar → voltar do resumo.
 // Saída: prints em $LENDA_PRINTS (aparelho_tela.png) e o relatório JSON <aparelho>_<ritmo>.json na mesma pasta.
 // Não escreve nada no servidor além do que o jogo manda sozinho (medição de visitas); sem conta.
+// Sai com código 1 se houver algum achado (rolagem lateral, sobreposição, campo escondido pelo teclado, card do fim fora
+// da tela, trava > 2 s, compartilhar lento, erro no console…). Trava entre 1 e 2 s com --lento fica como nota: a
+// simulação da temporada ainda roda na thread principal (o "Simulando…" aparece antes; ver naoFeito da v3.5).
 import { readFileSync, writeFileSync } from 'node:fs'
-import { abrir, lancar, print, medir, relatar, teclado, girar, lerKv, sleep, URL0, PRINTS, longasDesde, agora } from './carreira-lib.mjs'
+import { abrir, lancar, print, medir, relatar, teclado, girar, lerKv, sleep, URL0, PRINTS, longasDesde, agora, inesperados } from './carreira-lib.mjs'
 
 const arg = (k, d) => {
   const i = process.argv.indexOf(`--${k}`)
@@ -440,7 +443,8 @@ while (Date.now() - tJogo < LIMITE) {
     const ls = await longasDesde(page, tl0)
     d.longas = { n: ls.length, maiorMs: Math.max(0, ...ls), somaMs: ls.reduce((x, y) => x + y, 0) }
     d.teveprint = (await page.evaluate(() => (window.__prints ?? []).length).catch(() => 0)) > printsAntes
-    if (d.longas.maiorMs > 1000) achado(`decisão ${n} (${kind}): a tela travou ${d.longas.maiorMs} ms seguidos (tarefa longa) no ciclo escolha→próxima decisão`)
+    if (d.longas.maiorMs > 2000) achado(`decisão ${n} (${kind}): a tela travou ${d.longas.maiorMs} ms seguidos (tarefa longa) no ciclo escolha→próxima decisão`)
+    else if (d.longas.maiorMs > 1000) console.log(`  ..  decisão ${n} (${kind}): tarefa longa de ${d.longas.maiorMs} ms (o "Simulando…" já está na tela)`)
   }
   R.decisoes.push(d)
   console.log(`  ..  #${n} ${kind} · "${titulo.slice(0, 40)}" → ${d.escolha.slice(0, 30)} · motor ${d.motorMs} ms · ciclo ${d.cicloMs} ms${d.quadros ? ` · ${d.quadros.fps} fps, maior intervalo ${d.quadros.maiorIntervaloMs} ms` : ''} · longas ${d.longas.n} (maior ${d.longas.maiorMs} ms)${d.teveprint ? ' [com print]' : ''}`)
@@ -581,10 +585,13 @@ R.longas = await page
 const longas = [...R.longas].sort((x, y) => y.d - x.d)
 R.extras.tarefasLongas = { n: R.longas.length, maiores: longas.slice(0, 8), acimaDe1s: R.longas.filter((l) => l.d > 1000).length, somaMs: R.longas.reduce((s, l) => s + l.d, 0) }
 console.log(`  ..  tarefas longas: ${JSON.stringify(R.extras.tarefasLongas)}`)
-R.erros = ap.erros
+R.erros = inesperados(ap.erros)
 R.avisos = ap.avisos.slice(0, 30)
 R.rede = ap.rede.filter((x) => !/e\.php/.test(x) || !/ERR_ABORTED/.test(x))
 if (R.erros.length) achado(`erros no console: ${[...new Set(R.erros)].slice(0, 6).join(' || ')}`)
+if (ap.s5xx.length) achado(`respostas 5xx do servidor: ${[...new Set(ap.s5xx)].slice(0, 4).join(' || ')}`)
 writeFileSync(`${PRINTS}/${TAG}.json`, JSON.stringify(R, null, 2))
 console.log(`\n${TAG}: ${n} decisões, fim=${fim}, ${R.achados.length} achados · tempos ${JSON.stringify(R.tempos)}\nrelatório: ${PRINTS}/${TAG}.json`)
+for (const x of R.achados) console.log(`   XX ${x}`)
 await browser.close()
+process.exitCode = R.achados.length ? 1 : 0

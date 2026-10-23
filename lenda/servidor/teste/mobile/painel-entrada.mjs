@@ -83,8 +83,12 @@ for (const nome of ['galaxy-a', 'iphone-14', 'pequeno-320', 'iphone-se', 'pixel-
   await page.waitForFunction(() => /PIN criado/.test(document.getElementById('avisos').textContent), null, { timeout: 15000 })
   console.log('  ok  PIN do Dono criado pelo celular')
   await sleep(500)
-  // sair pelo botão do topo (celular)
-  await page.locator('.botoes-topo-celular [data-acao="sair"]').tap()
+  // sair pelo menu "⋯" do topo do celular (v3.5): "Sair do painel" pergunta antes
+  await page.locator('.botoes-topo-celular [data-acao="menu"]').tap()
+  await page.waitForSelector('dialog[open] .menu-celular', { timeout: 10000 })
+  await page.locator('dialog[open] .menu-celular button', { hasText: 'Sair do painel' }).tap()
+  await page.waitForFunction(() => [...document.querySelectorAll('dialog[open]')].some((d) => /Sair do painel\?/.test(d.textContent)), null, { timeout: 10000 })
+  await page.locator('dialog[open] button', { hasText: /^Sair$/ }).last().tap()
   await page.waitForSelector('#form-entrar:not([hidden])', { timeout: 15000 })
   // entrar de novo: agora pede o PIN
   await page.locator('#senha').tap()

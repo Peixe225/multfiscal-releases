@@ -15,6 +15,7 @@
 //
 // Uso: LENDA_INTEG_BASE=/tmp/lenda-v35-conta node servidor/teste/mobile/conta-extras.mjs [--etapas=voltar,link]
 import { AJUSTES_RAPIDOS, URL0, codigoDoEmail, contaPelaApi, dialogo, fim, home, jogarCelular, lancar, medirTela, menu, novoAparelho, nota, ok, print, semDialogo, sleep, sql, toasts } from './conta-lib.mjs'
+import { simularSafari } from './aparelhos.mjs'
 
 const arg = (k, d) => process.argv.find((a) => a.startsWith(`--${k}=`))?.slice(k.length + 3) ?? d
 const ETAPAS = arg('etapas', 'voltar,link,politica,safari15,toque,recarregar').split(',')
@@ -221,7 +222,8 @@ await etapa('safari15', async () => {
     await page.reload()
     await page.waitForSelector('.ld-modes', { timeout: 60000 })
     await sleep(1200)
-    ok(await page.evaluate(() => typeof [].at === 'undefined'), `${nome}: Array.prototype.at apagado nesta página (como no Safari 15.3)`)
+    // apagado antes do jogo carregar (como no Safari 15.0–15.3): o polyfill da v3.5 (src/polyfills.ts) põe de volta
+    ok(await page.evaluate(() => typeof [].at === 'function' && !/\[native code\]/.test(String([].at))), `${nome}: sem o Array.prototype.at do navegador (Safari 15.3), o jogo usa o polyfill`)
     // sem conta, Minhas carreiras abre pelo atalho do topo do Hall
     await page.goto(`${URL0}#/hall`)
     await sleep(1500)
@@ -251,17 +253,11 @@ await etapa('safari15', async () => {
   } finally {
     await ap.ctx.close()
   }
-  // b) o sheet sem max-height (92dvh ignorado): o convite das 5 partidas no iPhone SE
+  // b) sem dvh (Safari < 15.4): o CSS servido como o Safari 15.3 o leria (aparelhos.mjs: a declaração com dvh fica
+  // inválida e vale a reserva escrita antes) — o convite das 5 partidas no iPhone SE tem de caber
   const ap2 = await novoAparelho(browser, nome, { partidas: 5 })
   try {
-    await ap2.ctx.addInitScript(() => {
-      const css = `.lx-sheet, .sc-modal.lx-sheet { max-height: none !important; }`
-      document.addEventListener('DOMContentLoaded', () => {
-        const s = document.createElement('style')
-        s.textContent = css
-        document.head.appendChild(s)
-      })
-    })
+    await simularSafari(ap2.ctx, 'safari-15.3')
     await home(ap2.page)
     const d = dialogo(ap2.page)
     await d.waitFor({ timeout: 20000 })
@@ -274,7 +270,7 @@ await etapa('safari15', async () => {
       return { top: Math.round(r.top), altura: Math.round(r.height), janela: innerHeight, corpoRola: b.scrollHeight > b.clientHeight + 2, fecharTop: x ? Math.round(x.top) : null }
     })
     const f = await print(ap2.page, nome, 'safari15-sem-dvh-convite', { sub: SUB })
-    ok(g.top >= 0, `${nome} (Safari 15.0–15.3, sem dvh): o convite cabe na tela (${JSON.stringify(g)})`, { print: f })
+    ok(g.top >= 0 && g.top + g.altura <= g.janela + 1 && (g.fecharTop ?? 0) >= 0, `${nome} (Safari 15.0–15.3, sem dvh): o convite cabe na tela (${JSON.stringify(g)})`, { print: f })
   } finally {
     await ap2.ctx.close()
   }

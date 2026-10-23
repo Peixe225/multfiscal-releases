@@ -8,7 +8,10 @@
 // carreira salva no servidor ou Fale conosco). A carreira começada fica só no IndexedDB deste navegador descartável.
 // Mede: Home com o botão "Começar carreira" · toque → tela da identidade · Confirmar → 1ª decisão tocável · bytes
 // baixados (o que o CDP viu) e os maiores arquivos.
-import { abrir, lancar, print, sleep, URL0, PRINTS } from './carreira-lib.mjs'
+// --metas: falha (código 1) se, na 1ª visita, o botão passar de 5 s ou o toque → identidade passar de 2 s (as metas da
+// revisão; valem para a produção ou um servidor com compressão — o php -S da pilha local não comprime nada). Sem --metas
+// só falha com erro de JavaScript.
+import { abrir, lancar, print, sleep, URL0, PRINTS, inesperados, placar } from './carreira-lib.mjs'
 import { writeFileSync } from 'node:fs'
 
 const arg = (k, d) => {
@@ -20,8 +23,11 @@ const arg = (k, d) => {
 const NOME = arg('aparelho', 'galaxy-a')
 const VEZES = Number(arg('vezes', 2))
 const SEM_FILME = !!arg('sem-filme', false)
+const METAS = !!arg('metas', false)
+const P = placar(`carreira-tempo-4g (${NOME})`)
 const browser = await lancar()
-const ap = await abrir(browser, NOME, { lento: true, bloquearApi: true })
+// só leitura: a /api/ inteira bloqueada pelo CDP e a barreira de aparelhos.mjs (e.php e o sendBeacon do pagehide)
+const ap = await abrir(browser, NOME, { lento: true, bloquearApi: true, prod: true })
 const { page, cdp } = ap
 const bytes = new Map()
 let tNav = 0
@@ -90,8 +96,15 @@ for (let v = 1; v <= VEZES; v++) {
   R.rodadas.push(r)
   await sleep(1500)
 }
-R.erros = ap.erros.filter((e) => !/api\/|Failed to fetch|ERR_FAILED|net::/.test(e))
+R.erros = inesperados(ap.erros.filter((e) => !/api\/|Failed to fetch|ERR_FAILED|net::/.test(e)))
 R.errosDeRedeBloqueadaDeProposito = ap.erros.length - R.erros.length
 writeFileSync(`${PRINTS}/tempo-4g_${tag}.json`, JSON.stringify(R, null, 2))
-console.log(`erros (fora os da /api/ bloqueada): ${JSON.stringify(R.erros)}`)
+const [v1] = R.rodadas
+console.log(`\nresumo: botão ${v1?.homeComBotaoMs} ms (${v1?.kbAntesDoBotao} KB) · toque → identidade ${v1?.toqueAteIdentidadeMs} ms · Confirmar → 1ª decisão ${v1?.confirmarAtePrimeiraDecisaoMs} ms${R.rodadas[1] ? ` · 2ª visita: botão ${R.rodadas[1].homeComBotaoMs} ms` : ''}`)
+if (METAS) {
+  P.ok(v1?.homeComBotaoMs <= 5000, '4G lento + CPU 4×, cache vazio: "Começar carreira" em até 5 s', `${v1?.homeComBotaoMs} ms`)
+  P.ok(v1?.toqueAteIdentidadeMs <= 2000, '4G lento + CPU 4×: toque em Começar → identidade em até 2 s', `${v1?.toqueAteIdentidadeMs} ms`)
+} else P.nota('sem --metas: os tempos ficam só no relatório')
+P.ok(!R.erros.length, 'sem erro de JavaScript no console (fora os da /api/ barrada de propósito)', R.erros.slice(0, 5))
 await browser.close()
+P.fim()

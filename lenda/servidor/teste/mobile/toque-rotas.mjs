@@ -17,6 +17,7 @@ import { readFileSync, writeFileSync, existsSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { auditar, focoVisivel, movimento, abrirT, lancarT, dialogoAberto, assentar, sleep, LARGURAS, PRINTS } from './toque-lib.mjs'
 import { piores } from './toque-relatorio.mjs'
+import { abrirEsperando } from './aparelhos.mjs'
 
 const arg = (k, dflt) => {
   const i = process.argv.indexOf(`--${k}`)
@@ -129,8 +130,7 @@ async function rodarLargura(browser, w, o = {}) {
   }
   const linhaMenu = (re) => page.locator('[role="dialog"] button, [role="dialog"] a').filter({ hasText: re }).first()
 
-  await page.goto(URL0, { waitUntil: 'domcontentloaded', timeout: 120000 })
-  await page.locator('.ld-ctas__start').waitFor({ state: 'visible', timeout: 120000 })
+  await abrirEsperando(page, URL0, '.ld-ctas__start', { prod: PROD })
   await sleep(1500)
 
   await etapa('home', async () => {
@@ -308,7 +308,10 @@ async function rodarLargura(browser, w, o = {}) {
     if ((await pronta()) !== 'decisao') throw new Error('a primeira decisão não apareceu')
     await sleep(800)
     await medir('15-carreira-1a-decisao', { maxPassos: 10 })
-    // duas decisões: a tabela e as abas ganham conteúdo
+    // o teste de foco (na largura com --foco) passa pelo Tab nas abas atrás do sheet, e o jogo recolhe o sheet para o
+    // foco aparecer (useFoldOnFocusBehind): reabre pelo puxador antes de escolher
+    if ((await pronta(20000)) !== 'decisao') throw new Error('a decisão não voltou depois do teste de foco')
+    // três decisões: a tabela e as abas ganham conteúdo
     for (let i = 0; i < 3; i++) {
       await escolher(i)
       if ((await pronta()) !== 'decisao') break

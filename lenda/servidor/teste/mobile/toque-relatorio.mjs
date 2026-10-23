@@ -2,11 +2,18 @@
 // LENDA v3.5 · suíte mobile · TOQUE — os piores casos a partir dos relatórios JSON do toque-rotas.mjs.
 //
 //   node servidor/teste/mobile/toque-relatorio.mjs toque-local.json [toque-prod.json …] > toque-piores.md
+//   node servidor/teste/mobile/toque-relatorio.mjs --alvo local|prod     (lê <pasta do toque>/toque-<alvo>.json e grava
+//                                                                         toque-<alvo>-piores.md ao lado)
+//
+// Sai com código 1 quando há algo GRAVE (graves() abaixo): rolagem lateral, elemento interativo ou texto vazando a
+// largura da janela, campo com fonte < 16 px (zoom do iPhone), texto cortado sem reticências, diálogo que não cabe nem
+// rola, falha de navegação, erro de JavaScript no console, ou botão (não link no meio do texto, não arte) com o menor
+// lado < 32 px. Contraste, texto < 12 px e alvos entre 32 e 40 px ficam no relatório (são acabamento, não quebra).
 //
 // Junta as medidas de várias rodadas (local, produção), agrupa por seletor (sem os :nth-of-type, que só mudam de linha
 // para linha da mesma lista) e ordena pelo pior valor. "arte" = texto/alvo dentro de uma ilustração aria-hidden grande
 // (a arte da Home, o cartão do jogador desenhado): vai para o fim de cada lista.
-import { readFileSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
 // sem os :nth-of-type e com os ids que o React gera (useId: #_r_2k_, #sc_r_9p_) trocados por um curinga
@@ -134,11 +141,45 @@ export function piores(relatorios) {
   return md.join('\n')
 }
 
+/** O que reprova (lista de frases); vazia = passou. */
+export function graves(relatorios) {
+  const telas = relatorios.flatMap((r) => r.telas.map((t) => ({ ...t, alvo: r.alvo })))
+  const todos = (cat) => telas.flatMap((t) => (t.achados[cat] ?? []).map((a) => ({ ...a, tela: t.tela, largura: t.largura, alvo: t.alvo })))
+  const g = []
+  for (const t of telas.filter((t) => t.lateral > 0)) g.push(`rolagem lateral de ${t.lateral}px · ${t.largura} · ${t.tela}`)
+  for (const a of todos('vaza').filter((a) => !a.decorativo && a.passa > 2)) g.push(`vaza ${a.passa}px à ${a.lado} (${a.interativo ? 'interativo' : 'texto'}) · ${a.sel} "${String(a.nome).slice(0, 40)}" · ${a.largura} · ${a.tela}`)
+  for (const a of todos('campoZoom')) g.push(`campo com ${a.fonte}px (zoom do iPhone) · ${a.sel} "${a.nome}" · ${a.largura} · ${a.tela}`)
+  for (const a of todos('textoCortado').filter((a) => !a.arte && a.visivel < 90)) g.push(`texto cortado (${a.visivel}% visível) "${String(a.texto).slice(0, 40)}" · ${a.sel} · ${a.largura} · ${a.tela}`)
+  for (const t of telas.filter((t) => t.dialogoCabe && !t.dialogoCabe.cabe)) g.push(`diálogo passa da janela sem rolar · ${t.largura} · ${t.tela}`)
+  for (const r of relatorios) for (const f of r.falhas) g.push(`falha de navegação · ${r.alvo} · ${f.largura} · ${f.tela}: ${f.erro}`)
+  const ESPERADOS = /perfil\.php.*404|status of 401|ERR_BLOCKED_BY_CLIENT|blockedbyclient|barrado: produção só leitura|ERR_ABORTED.*e\.php/
+  for (const t of telas) for (const e of t.erros ?? []) if (!ESPERADOS.test(e)) g.push(`erro no console · ${t.largura} · ${t.tela}: ${String(e).slice(0, 140)}`)
+  for (const a of todos('alvos').filter((a) => !a.noTexto && !a.arte && Math.min(a.w, a.h) < 32)) g.push(`alvo de toque ${a.w}×${a.h} · ${a.sel} "${String(a.nome).slice(0, 40)}" · ${a.largura} · ${a.tela}`)
+  return [...new Set(g)]
+}
+
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  const arqs = process.argv.slice(2)
-  if (!arqs.length) {
-    console.error('uso: node toque-relatorio.mjs relatorio.json [outro.json …]')
-    process.exit(1)
+  const iAlvo = process.argv.indexOf('--alvo')
+  let arqs = process.argv.slice(2).filter((a, i, l) => !a.startsWith('--') && l[i - 1] !== '--alvo')
+  let saida = null
+  if (iAlvo > 0) {
+    const { PRINTS } = await import('./toque-lib.mjs')
+    const alvo = process.argv[iAlvo + 1]
+    arqs = [`${PRINTS}/toque-${alvo}.json`]
+    saida = `${PRINTS}/toque-${alvo}-piores.md`
   }
-  process.stdout.write(piores(arqs.map((a) => JSON.parse(readFileSync(a, 'utf8')))))
+  if (!arqs.length) {
+    console.error('uso: node toque-relatorio.mjs relatorio.json [outro.json …]  |  node toque-relatorio.mjs --alvo local|prod')
+    process.exit(2)
+  }
+  const rels = arqs.map((a) => JSON.parse(readFileSync(a, 'utf8')))
+  const md = piores(rels)
+  if (saida) {
+    writeFileSync(saida, md)
+    console.log(`relatório: ${saida}`)
+  } else process.stdout.write(md)
+  const gs = graves(rels)
+  console.error(`\ntoque-relatorio: ${gs.length} achado(s) grave(s)`)
+  for (const x of gs.slice(0, 60)) console.error(`   XX ${x}`)
+  process.exitCode = gs.length ? 1 : 0
 }

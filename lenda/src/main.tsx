@@ -2,6 +2,7 @@
 import './polyfills'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
+import { ehFalhaDeCarga } from './ui/shell/pedacos'
 import { MotionConfig } from 'motion/react'
 import './styles/index.css'
 import App from './App'
@@ -117,7 +118,14 @@ if (import.meta.env.VITE_SITE === '1') {
 }
 
 if (!semEstilo) {
-  createRoot(document.getElementById('root')!).render(
+  // v3.5: o React 19 escreve no console.error todo erro que uma barreira (ErrorBoundary) já pegou. Pedaço que não chegou
+  // por falta de rede (túnel, elevador) é esperado e já vira o aviso "Sem conexão" na tela: fica como aviso no console.
+  createRoot(document.getElementById('root')!, {
+    onCaughtError(erro, info) {
+      if (ehFalhaDeCarga(erro)) console.warn('[LENDA] sem conexão: um pedaço do jogo não chegou', String((erro as Error)?.message ?? erro))
+      else console.error(erro, info?.componentStack ?? '')
+    },
+  }).render(
     <StrictMode>
       {/* "user": motion follows prefers-reduced-motion; the in-game setting is handled per component */}
       <MotionConfig reducedMotion="user">

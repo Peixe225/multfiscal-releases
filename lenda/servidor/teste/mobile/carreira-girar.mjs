@@ -6,8 +6,11 @@
 // Cria uma carreira (sem animação, para ir rápido), joga 3 decisões e passa a mesma tela por uma lista de tamanhos de
 // celular de verdade (em pé e deitado). Em cada um: rolagem lateral, sobreposição na barra do topo (o "Temporada ·
 // Ritmo" passando por baixo dos botões), o sheet da decisão (quanto da tela ele toma, se as opções cabem) e um print.
+// Falha (código 1) com rolagem lateral, sobreposição, opções da decisão inalcançáveis ou erro no console.
 import { writeFileSync } from 'node:fs'
-import { abrir, lancar, medir, print, sleep, URL0, PRINTS } from './carreira-lib.mjs'
+import { abrir, lancar, medir, print, sleep, URL0, PRINTS, inesperados, placar } from './carreira-lib.mjs'
+
+const P = placar('carreira-girar')
 
 const RAPIDO = JSON.stringify({ state: { settings: { sound: false, volume: 0, skipAnimations: true, reducedMotion: true, lowFx: false, engine: 'auto' } }, version: 1 })
 const TAMANHOS = [
@@ -51,8 +54,18 @@ for (const [w, h] of TAMANHOS) {
   const f = await print(page, `${w}x${h}`, 'girar-carreira')
   const linha = { tamanho: `${w}x${h}`, deitado: w > h, lateral: m.lateral, sobrepostos: m.sobrepostos, sheet, print: f }
   R.push(linha)
-  console.log(`  ${m.lateral > 0 || m.sobrepostos.length ? '!!' : 'ok'}  ${w}x${h}: lateral ${m.lateral} · ${m.sobrepostos.join(' | ') || 'sem sobreposição'} · sheet ${JSON.stringify(sheet)}`)
+  P.ok(m.lateral <= 0 && !m.sobrepostos.length, `${w}x${h}: sem rolagem lateral nem sobreposição`, `lateral ${m.lateral} · ${m.sobrepostos.join(' | ') || 'sem sobreposição'} · sheet ${JSON.stringify(sheet)}`)
+  // as opções: ou cabem, ou o sheet/painel rola por dentro (a 1ª opção tem de dar para alcançar)
+  const alcanca = await page.evaluate(() => {
+    const o = document.querySelector('.ck-opt:not(.is-locked)')
+    if (!o) return false
+    o.scrollIntoView({ block: 'nearest' })
+    const r = o.getBoundingClientRect()
+    return r.top >= 0 && r.bottom <= innerHeight + 1
+  })
+  P.ok(alcanca, `${w}x${h}: a 1ª opção da decisão dá para alcançar (rolando o sheet ou a página)`)
 }
 writeFileSync(`${PRINTS}/girar.json`, JSON.stringify(R, null, 2))
-console.log(`erros: ${JSON.stringify(ap.erros)}`)
+P.ok(!inesperados([...ap.erros, ...ap.s5xx]).length, 'sem erro no console nem 5xx', inesperados([...ap.erros, ...ap.s5xx]).slice(0, 5))
 await browser.close()
+P.fim()

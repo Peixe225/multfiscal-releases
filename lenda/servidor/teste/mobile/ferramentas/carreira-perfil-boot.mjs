@@ -1,12 +1,13 @@
 #!/usr/bin/env node
 // LENDA v3.5 · suíte mobile — o que trava o celular ao abrir/recarregar a carreira do Clássico.
+// (ferramenta, fora da suíte: mede e imprime, não confere nada — não roda no rodar.sh nem no mobile.mjs)
 //
-//   LENDA_URL=http://127.0.0.1:9110/lenda/ node servidor/teste/mobile/carreira-perfil-boot.mjs [--aparelho galaxy-a] [--lento]
+//   LENDA_URL=http://127.0.0.1:9110/lenda/ node servidor/teste/mobile/ferramentas/carreira-perfil-boot.mjs [--aparelho galaxy-a] [--lento]
 //
 // Cria uma carreira pela tela (assistente do celular), depois recarrega a página em #/carreira com o Profiler do CDP
 // ligado e mede: tempo até a 1ª decisão ficar tocável, tarefas longas (> 50 ms) e as funções que mais gastaram CPU
 // (tempo próprio, agrupado por função e arquivo). Repete na Home (#/) e no resumo de uma carreira terminada não.
-import { abrir, lancar, sleep, URL0 } from './carreira-lib.mjs'
+import { abrir, lancar, sleep, URL0 } from '../carreira-lib.mjs'
 
 const arg = (k, d) => {
   const i = process.argv.indexOf(`--${k}`)

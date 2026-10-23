@@ -94,6 +94,9 @@ await secao('ficha', async () => {
   ok(!e.gaveta, `depois de fechar a ficha pelo botão, o voltar do Android não reabre a ficha (${JSON.stringify(e)})`)
   if (e.gaveta) await print(page, 'galaxy-a', 'voltar-reabre-ficha')
   if (e.gaveta) await page.locator('#gaveta .gaveta-voltar').tap().catch(() => {})
+  // v3.5: fechar pelo botão já desfaz a entrada da ficha no histórico (history.back): o voltar seguinte vai para a aba
+  // anterior. Volta para Usuários para seguir.
+  if (!/usuarios/.test(e.hash)) await irAba(page, '#/usuarios')
   // recarregar com a ficha aberta: volta na mesma ficha
   await page.locator(`${aba} tr.clicavel`).nth(1).tap()
   await page.waitForSelector('#gaveta:not([hidden]) .gaveta-corpo .perfil', { timeout: 20000 })
@@ -386,22 +389,34 @@ await secao('config', async () => {
   await ap.ctx.close()
 })
 
-// ═══ tema: claro, alto contraste, original (pelo botão do topo do celular) ═══
+// ═══ tema: claro, alto contraste, original (v3.5: pela Aparência do menu "⋯" do topo do celular) ═══
 await secao('tema', async () => {
   const ap = await aberto('iphone-14', { hash: '#/hall' })
   const { page } = ap
   await irAba(page, '#/hall')
-  for (let i = 0; i < 3; i++) {
-    await page.locator('.botoes-topo-celular [data-acao="tema"]').tap()
-    await sleep(600)
-    const t = await page.evaluate(() => ({ tema: document.documentElement.getAttribute('data-tema') || 'original', meta: document.querySelector('meta[name="theme-color"]').content, fundo: getComputedStyle(document.body).backgroundColor, aviso: document.querySelector('#avisos .aviso-flutuante:last-child')?.textContent }))
-    console.log(`      toque ${i + 1}: ${JSON.stringify(t)}`)
+  const menu = async () => {
+    await page.locator('.botoes-topo-celular [data-acao="menu"]').tap()
+    await page.waitForSelector('dialog[open] .menu-celular', { timeout: 10000 })
+    await sleep(300)
+  }
+  for (const v of ['claro', 'alto', 'original']) {
+    await menu()
+    await page.locator(`dialog[open] .menu-celular [data-valor="${v}"]`).first().tap()
+    await sleep(500)
+    const t = await page.evaluate(() => ({ tema: document.documentElement.getAttribute('data-tema') || 'original', meta: document.querySelector('meta[name="theme-color"]').content, fundo: getComputedStyle(document.body).backgroundColor }))
+    console.log(`      aparência ${v}: ${JSON.stringify(t)}`)
+    ok(t.tema === v, `o menu ⋯ › Aparência › ${v} troca o tema (${t.tema})`)
+    await print(page, 'iphone-14', `tema-menu-${v}`)
+    await page.keyboard.press('Escape')
+    await sleep(400)
     await page.evaluate(() => window.scrollTo(0, 0))
     await print(page, 'iphone-14', `tema-${t.tema}`)
   }
   // a preferência fica no aparelho: recarregar mantém
-  await page.locator('.botoes-topo-celular [data-acao="tema"]').tap()
+  await menu()
+  await page.locator('dialog[open] .menu-celular [data-valor="claro"]').first().tap()
   await sleep(300)
+  await page.keyboard.press('Escape')
   await page.reload()
   await esperarDecisao(page)
   const t2 = await page.evaluate(() => document.documentElement.getAttribute('data-tema'))
@@ -436,6 +451,16 @@ await secao('atencao', async () => {
   const ap = await aberto('galaxy-a')
   const { page } = ap
   await irAba(page, '#/visao')
+  // v3.5: no celular a caixa vem recolhida numa linha ("⚠ N alertas · M graves ▸"); abre com um toque
+  const dobrar = page.locator('#atencao .atencao-dobrar')
+  if ((await dobrar.isVisible().catch(() => false)) && (await dobrar.getAttribute('aria-expanded')) === 'false') {
+    const yAba = await page.evaluate(() => Math.round(document.getElementById('titulo-aba').getBoundingClientRect().top))
+    ok(yAba < (await page.evaluate(() => innerHeight)), `com a atenção recolhida, o título da aba aparece sem rolar (y=${yAba})`)
+    await dobrar.tap()
+    await sleep(500)
+    ok((await dobrar.getAttribute('aria-expanded')) === 'true', 'tocar na linha "⚠ alertas" abre a lista dos alertas')
+    await print(page, 'galaxy-a', 'atencao-aberta')
+  }
   const link = page.locator('#atencao a.atencao-texto', { hasText: 'denúncias abertas' }).first()
   await link.scrollIntoViewIfNeeded()
   await link.tap()

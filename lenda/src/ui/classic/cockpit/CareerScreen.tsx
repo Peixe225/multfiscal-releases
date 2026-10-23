@@ -241,7 +241,8 @@ function MobileSheet() {
         <span className="ck-sheet__peekrow">
           <span className="lx-eyebrow ck-kind">
             <span className={cx('lx-dot', !revealing && 'lx-dot--pulse')} aria-hidden="true" />
-            {revealing ? 'Simulando…' : (DECISION_KIND_LABEL[d.kind] ?? 'Decisão')}
+            {/* o texto num span próprio: num inline-flex, as reticências não valem para o texto solto (ele era só cortado) */}
+            <span className="ck-kind__t">{revealing ? 'Simulando…' : (DECISION_KIND_LABEL[d.kind] ?? 'Decisão')}</span>
           </span>
           <span className="ck-sheet__step">
             Decisão {idx} de {prog.total}

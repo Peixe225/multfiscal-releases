@@ -8,6 +8,7 @@
 @container ckdec (max-width: 500px) { .ck-dots { display: none; } }
 .ck-decision__top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .ck-kind { display: inline-flex; align-items: center; gap: 8px; color: var(--warning); white-space: nowrap; }
+.ck-kind__t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ck-step { font-size: 11.5px; color: var(--text-3); font-weight: 600; display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
 .ck-dots { display: flex; gap: 3px; }
 .ck-dots i { width: 12px; height: 4px; border-radius: 3px; background: rgba(255, 255, 255, .09); }
@@ -36,15 +37,16 @@
 .ck-opt__vshort { display: none; }
 .ck-opt__name { font: 800 19px/1.2 var(--font-display); letter-spacing: -.02em; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 .ck-opt.is-locked { cursor: default; }
-.ck-opt.is-locked:not(.is-chosen):hover { transform: none; box-shadow: none; border-color: var(--border-strong); }
-.ck-opt.is-chosen { border-color: rgba(255, 255, 255, .7);
+@media (hover: hover) { .ck-opt.is-locked:not(.is-chosen):hover { transform: none; box-shadow: none; border-color: var(--border-strong); } }
+.ck-opt.is-chosen { border-color: rgba(255, 255, 255, .7); box-shadow: 0 0 0 2px rgba(255, 255, 255, .85), 0 30px 60px -24px rgba(0, 0, 0, .6);
   box-shadow: 0 0 0 2px rgba(255, 255, 255, .85), 0 0 0 6px color-mix(in srgb, var(--oc) 14%, transparent), 0 30px 60px -24px color-mix(in srgb, var(--oc) 55%, transparent); }
 .ck-opt.is-dim { filter: grayscale(.8); }
 
 /* club card */
 .ck-opt__crest { flex: none; }
 .ck-opt__crest .lx-crest-box { transition: transform var(--dur-3) var(--ease-spring); }
-.ck-opt:hover .ck-opt__crest .lx-crest-box, .ck-opt.is-focus .ck-opt__crest .lx-crest-box, .ck-opt:focus-visible .ck-opt__crest .lx-crest-box { transform: scale(1.05) rotate(-2deg); }
+.ck-opt.is-focus .ck-opt__crest .lx-crest-box, .ck-opt:focus-visible .ck-opt__crest .lx-crest-box { transform: scale(1.05) rotate(-2deg); }
+@media (hover: hover) { .ck-opt:hover .ck-opt__crest .lx-crest-box { transform: scale(1.05) rotate(-2deg); } }
 .ck-opt.is-locked .ck-opt__crest .lx-crest-box { transform: none; }
 .ck-opt__meta { display: flex; justify-content: center; align-items: center; gap: 7px; font-size: 11.5px; font-weight: 600; color: var(--text-2); margin-bottom: 10px; min-width: 0; }
 .ck-opt__lg, .ck-opt__ct { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
@@ -95,8 +97,9 @@
 
 /* ── event art (src/ui/art/EventArt: foto graduada para o palco Noite) ─ */
 .ck-opt__media > .lx-event-art { --ea-filter: saturate(.72) contrast(1.06) brightness(.8); --ea-zoom: 1.02; box-shadow: none !important; }
-.ck-opt:hover .ck-opt__media > .lx-event-art, .ck-opt.is-focus .ck-opt__media > .lx-event-art { --ea-filter: saturate(.88) contrast(1.05) brightness(.9); }
-.ck-opt:hover .ck-opt__media > .lx-event-art { --ea-zoom: 1.07; }
+.ck-opt.is-focus .ck-opt__media > .lx-event-art { --ea-filter: saturate(.88) contrast(1.05) brightness(.9); }
+@media (hover: hover) { .ck-opt:hover .ck-opt__media > .lx-event-art { --ea-filter: saturate(.88) contrast(1.05) brightness(.9); } }
+@media (hover: hover) { .ck-opt:hover .ck-opt__media > .lx-event-art { --ea-zoom: 1.07; } }
 .ck-end__art.lx-event-art { --ea-filter: grayscale(.6) brightness(.6); }
 
 /* ── end card ────────────────────────────────────────────────────────── */
@@ -130,13 +133,15 @@
 .ck-pen__frame { position: absolute; inset: -6px -6px 0; border: 6px solid #f4f5f8; border-bottom: 0; border-radius: 4px 4px 0 0; box-shadow: 0 0 20px rgba(255, 255, 255, .25), inset 0 0 0 1px rgba(0, 0, 0, .2); }
 .ck-pen__zone { all: unset; position: relative; z-index: 2; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 10px; padding-top: 8%; border-radius: 6px; transition: background-color var(--dur-2); }
 .ck-pen__zone:disabled { cursor: default; }
-.ck-pen__zone:not(:disabled):hover, .ck-pen__zone.is-on { background: rgba(255, 255, 255, .07); }
+.ck-pen__zone.is-on { background: rgba(255, 255, 255, .07); }
+@media (hover: hover) { .ck-pen__zone:not(:disabled):hover { background: rgba(255, 255, 255, .07); } }
 .ck-pen__zone:focus-visible { outline: 2px solid #fff; outline-offset: -4px; }
 .ck-pen__zone.is-off { opacity: .35; }
 .ck-pen__target { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; color: #fff;
   background: rgba(62, 230, 164, .14); box-shadow: 0 0 0 2px rgba(62, 230, 164, .7), 0 0 24px rgba(62, 230, 164, .45); transition: transform var(--dur-3) var(--ease-spring), opacity var(--dur-2); }
 .ck-pen__target svg { width: 18px; height: 18px; stroke-width: 2.6; }
-.ck-pen__zone:not(:disabled):hover .ck-pen__target, .ck-pen__zone.is-on .ck-pen__target { transform: scale(1.12); }
+.ck-pen__zone.is-on .ck-pen__target { transform: scale(1.12); }
+@media (hover: hover) { .ck-pen__zone:not(:disabled):hover .ck-pen__target { transform: scale(1.12); } }
 .ck-pen__zone:disabled:not(.is-on) .ck-pen__target { opacity: 0; }
 .ck-pen__zlabel { order: -1; display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 700; color: #fff; padding: 3px 8px 3px 4px; border-radius: 99px; background: rgba(7, 8, 12, .6); backdrop-filter: blur(6px); white-space: nowrap; }
 .ck-pen__zlabel b { color: var(--positive); font-size: 13px; }

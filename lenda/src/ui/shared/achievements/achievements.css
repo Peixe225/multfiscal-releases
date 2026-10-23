@@ -14,7 +14,7 @@
 .ac-list { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; margin: 0; padding: 0; list-style: none; }
 @media (min-width: 45rem) { .ac-list { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .ac-item { position: relative; display: flex; align-items: center; gap: 12px; min-height: 76px; padding: 10px 12px; border-radius: 16px; border: 1px solid var(--border); background: var(--surface); }
-.ac-item.is-on { background: linear-gradient(180deg, rgba(255, 255, 255, .06), rgba(255, 255, 255, .025)); border-color: color-mix(in srgb, var(--ac-ring, rgba(255, 255, 255, .2)) 70%, transparent); box-shadow: 0 16px 30px -24px var(--ac-glow, transparent); }
+.ac-item.is-on { background: linear-gradient(180deg, rgba(255, 255, 255, .06), rgba(255, 255, 255, .025)); border-color: var(--ac-ring, rgba(255, 255, 255, .2)); border-color: color-mix(in srgb, var(--ac-ring, rgba(255, 255, 255, .2)) 70%, transparent); box-shadow: 0 16px 30px -24px var(--ac-glow, transparent); }
 .ac-item.is-off .ac-item__t { color: var(--text-2); }
 .ac-item.is-fresh { box-shadow: 0 0 0 1px rgba(255, 214, 110, .5), 0 0 30px -8px rgba(255, 200, 90, .45); }
 .ac-item__t { margin: 0; font: 800 14.5px/1.2 var(--font-display); letter-spacing: -.01em; display: flex; align-items: center; gap: 8px; padding-right: 70px; }
@@ -61,6 +61,9 @@
   .ac-prova__q::before { content: ''; position: absolute; inset: -8px; }
   .ac-rpill, .ac-new { font-size: 11px; height: 20px; }
   .ac-date, .ac-pct, .ac-ppill { font-size: 11.5px; height: 21px; }
+  /* a data com 11,5 px tem ~90 px de largura: com a reserva de 70 px, um título como "100 assistências" passava por
+     baixo dela em 320 px */
+  .ac-item__t { padding-right: 100px; }
 }
 .ac-ppill { display: inline-flex; align-items: center; gap: 4px; height: 18px; padding: 0 7px; border-radius: 6px; font-size: 10.5px; font-weight: 700; color: var(--text-3); border: 1px dashed var(--border-strong); white-space: nowrap; flex: none; }
 .ac-ppill.is-ok { color: #b9f1cf; border: 1px solid rgba(120, 220, 160, .35); background: rgba(120, 220, 160, .1); }

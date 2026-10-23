@@ -1,11 +1,12 @@
 // LENDA v3.5 · suíte mobile · a visita de quem chega ao Hall / perfil público / desafios pelo navegador de dentro do
 // TikTok, do Instagram e do WhatsApp conta como PESSOA (não robô) e com o aparelho e a origem certos. Só na pilha LOCAL
 // (lê a tabela visitas do banco do teste).
+// (ferramenta, fora da suíte: o primeira-impressao.mjs --etapas=medicao faz o mesmo e ainda confere o painel)
 //
-//   LENDA_INTEG_BASE=/tmp/lenda-v35-hall node servidor/teste/mobile/hall-medicao.mjs
+//   LENDA_INTEG_BASE=/tmp/lenda-v35-hall node servidor/teste/mobile/ferramentas/hall-medicao.mjs
 import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
-import { APARELHOS, abrirH, lancar, nota, salvarRelatorio, sleep } from './hall-lib.mjs'
+import { APARELHOS, abrirH, lancar, nota, salvarRelatorio, sleep } from '../hall-lib.mjs'
 
 const BASE = process.env.LENDA_INTEG_BASE ?? '/tmp/lenda-v35-hall'
 const env = Object.fromEntries(readFileSync(`${BASE}/segredos.env`, 'utf8').trim().split('\n').map((l) => [l.slice(0, l.indexOf('=')), l.slice(l.indexOf('=') + 1)]))

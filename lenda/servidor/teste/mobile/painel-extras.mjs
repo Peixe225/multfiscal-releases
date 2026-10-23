@@ -54,22 +54,38 @@ const aba = '.aba:not([hidden])'
   await esperarDecisao(dono.page)
   await esperarPulso(dono.page)
   await sleep(800)
-  // ── o que fica só no computador ──
+  // ── o que no computador fica no pé da lateral: no celular (v3.5) está no menu "⋯" do topo ──
+  await dono.page.locator('.botoes-topo-celular [data-acao="menu"]').tap()
+  await dono.page.waitForSelector('dialog[open] .menu-celular', { timeout: 10000 })
+  await sleep(500)
   const so = await dono.page.evaluate(() => {
     const visivel = (el) => { if (!el) return false; const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== 'hidden' }
+    const m = document.querySelector('dialog[open] .menu-celular')
     return {
-      discreto: [...document.querySelectorAll('[data-acao="discreto"]')].some(visivel),
-      atalhos: [...document.querySelectorAll('[data-acao="atalhos"]')].some(visivel),
-      abrirJogo: [...document.querySelectorAll('.lateral a[href="../"]')].some(visivel),
-      estadoSite: visivel(document.getElementById('estado-site')),
-      chipsEstado: [...document.querySelectorAll('#estado-site .chip')].map((c) => c.textContent),
-      tema: [...document.querySelectorAll('[data-acao="tema"]')].some(visivel),
+      discreto: visivel(m?.querySelector('input[role="switch"]')),
+      abrirJogo: visivel(m?.querySelector('a[href="../"]')),
+      estadoSite: visivel(m?.querySelector('.menu-estado')),
+      chipsEstado: [...(m?.querySelectorAll('.menu-estado .chip') ?? [])].map((c) => c.textContent),
+      tema: visivel(m?.querySelector('[data-valor="claro"]')),
+      sair: [...(m?.querySelectorAll('button') ?? [])].some((b) => /Sair do painel/.test(b.textContent) && visivel(b)),
     }
   })
-  console.log(`      no celular: ${JSON.stringify(so)}`)
-  ok(so.discreto, 'há um botão para ligar/desligar o modo discreto no celular')
-  ok(so.abrirJogo, 'há o link "Abrir o jogo" no celular')
-  ok(so.estadoSite, `o estado do site (${so.chipsEstado.join(' · ')}) aparece no celular`)
+  console.log(`      no celular (menu ⋯): ${JSON.stringify(so)}`)
+  await print(dono.page, 'galaxy-a', 'menu-celular')
+  ok(so.discreto, 'o menu ⋯ tem o interruptor do modo discreto')
+  ok(so.abrirJogo, 'o menu ⋯ tem o link "Abrir o jogo"')
+  ok(so.estadoSite, `o menu ⋯ mostra o estado do site (${so.chipsEstado.join(' · ')})`)
+  ok(so.tema && so.sair, 'o menu ⋯ tem a Aparência e o "Sair do painel"')
+  // Sair pergunta antes (entrar de novo pede senha e PIN)
+  await dono.page.locator('dialog[open] .menu-celular button', { hasText: 'Sair do painel' }).tap()
+  await sleep(600)
+  const pergunta = await dono.page.evaluate(() => [...document.querySelectorAll('dialog[open]')].map((d) => d.textContent.replace(/\s+/g, ' ').slice(0, 80)).join(' | '))
+  ok(/Sair do painel\?/.test(pergunta), `"Sair do painel" pergunta antes de sair (${pergunta.slice(0, 80)})`)
+  for (let i = 0; i < 3 && (await dono.page.locator('dialog[open]').count()); i++) {
+    await dono.page.keyboard.press('Escape')
+    await sleep(400)
+  }
+  ok(await dono.page.isVisible('#tela-painel'), 'cancelar o "Sair?" mantém o painel aberto')
   // ── editor de desafio: o topo (barra "Desafio novo" + "Todos os desafios") ──
   await irAba(dono.page, '#/desafios?parte=novo')
   await dono.page.evaluate(() => document.getElementById('titulo-aba').scrollIntoView({ block: 'start' }))

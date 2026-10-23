@@ -100,7 +100,7 @@
 .hl-duel__v { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 8px; }
 .hl-duel__v b { font: 800 20px/1 var(--font-num); font-variant-numeric: tabular-nums; }
 .hl-duel__bar { height: 6px; border-radius: 6px; background: linear-gradient(90deg, transparent, rgba(255, 214, 110, .55)); overflow: hidden; position: relative; }
-.hl-duel__bar i { position: absolute; inset: 0 auto 0 0; border-radius: inherit; background: linear-gradient(90deg, color-mix(in srgb, var(--club, #fff) 70%, #fff), #fff); box-shadow: 0 0 10px rgba(255, 255, 255, .35); }
+.hl-duel__bar i { position: absolute; inset: 0 auto 0 0; border-radius: inherit; background: #fff; background: linear-gradient(90deg, color-mix(in srgb, var(--club, #fff) 70%, #fff), #fff); box-shadow: 0 0 10px rgba(255, 255, 255, .35); }
 .hl-duel.is-run { border-color: rgba(255, 255, 255, .22); background: linear-gradient(180deg, rgba(255, 255, 255, .08), rgba(255, 255, 255, .03)); }
 .hl-duel.is-run .hl-duel__a { color: #fff; }
 .hl-duel.is-legend .hl-duel__b { color: #ffe39a; }
@@ -169,7 +169,7 @@
 .hl-bar { display: none; height: 6px; border-radius: 6px; background: rgba(255, 255, 255, .07); overflow: hidden; flex: 1; }
 @media (min-width: 52rem) { .hl-bar { display: block; } }
 .hl-bar i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #ffe7a3, #e7b54a); transform-origin: 0 50%; box-shadow: 0 0 10px rgba(255, 200, 90, .5); }
-.hl-row.is-run .hl-bar i { background: linear-gradient(90deg, color-mix(in srgb, var(--rc, #fff) 50%, #fff), #fff); box-shadow: 0 0 10px rgba(255, 255, 255, .4); }
+.hl-row.is-run .hl-bar i { background: #fff; background: linear-gradient(90deg, color-mix(in srgb, var(--rc, #fff) 50%, #fff), #fff); box-shadow: 0 0 10px rgba(255, 255, 255, .4); }
 .hl-gap { display: flex; justify-content: center; gap: 5px; padding: 2px 0; }
 .hl-gap i { width: 4px; height: 4px; border-radius: 50%; background: var(--nx-text-4, #555b6b); }
 .hl-more { justify-self: center; display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 16px; border-radius: 12px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--text); font-size: 13px; font-weight: 700; cursor: pointer; }
@@ -241,6 +241,8 @@
 @media (min-width: 45rem) { .hl-step__who b { font-size: 16px; } }
 .hl-step__who small { font-size: 10.5px; font-weight: 700; letter-spacing: .1em; color: var(--text-3); }
 .hl-step__who .hl-runtag { margin-left: 0; }
+/* v3.5 · 320 px: no pódio, o "CARREIRA Nº 2" passava 5 px da coluna (a etiqueta não quebrava): quebra em duas linhas */
+.hl-step__who .hl-runtag { white-space: normal; height: auto; min-height: 20px; padding: 3px 6px; line-height: 1.15; justify-content: center; text-align: center; }
 .hl-step__block { position: relative; width: 100%; display: grid; justify-items: center; align-content: start; gap: 2px; padding: 14px 6px 12px; border-radius: 18px 18px 8px 8px; background: linear-gradient(180deg, rgba(255, 255, 255, .08), rgba(255, 255, 255, .015)); border: 1px solid var(--border); border-bottom: 0; }
 .hl-step--1 .hl-step__block { min-height: 176px; background: linear-gradient(180deg, rgba(255, 214, 110, .24), rgba(255, 214, 110, .03)); border-color: rgba(255, 214, 110, .4); box-shadow: 0 -10px 40px -18px rgba(255, 196, 80, .6); }
 .hl-step--2 .hl-step__block { min-height: 132px; }
@@ -272,6 +274,8 @@
 .hl-myruns ul { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 4px; }
 .hl-myruns button { display: grid; grid-template-columns: 38px minmax(0, 1fr) auto; align-items: center; gap: 10px; width: 100%; padding: 6px 4px; border: 0; background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer; border-radius: 8px; }
 @media (hover: hover) { .hl-myruns button:hover { background: rgba(255, 255, 255, .04); } }
+/* no toque, cada carreira de "Suas carreiras" com 44 px (em 412 px, com o nome numa linha só, ficava com 37 e 4 px de vão) */
+@media (pointer: coarse) { .hl-myruns button { min-height: 44px; } }
 .hl-myruns b { font: 800 14px/1.1 var(--font-display); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .hl-myruns__pos { font-size: 17px; font-weight: 800; color: #fff; }
 .hl-myruns .num:last-child { font-size: 15px; font-weight: 700; color: var(--text-2); }

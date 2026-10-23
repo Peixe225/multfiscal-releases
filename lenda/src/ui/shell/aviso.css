@@ -11,3 +11,9 @@
 /* v3.2 (N14): vários avisos empilhados, cada um com o seu X */
 .lx-avisos { position: relative; z-index: 6; display: grid; flex: none; }
 .lx-avisos > .lx-aviso + .lx-aviso { border-top: 0; }
+/* v3.5 · no celular, um aviso por vez: "+N" diz quantos vêm depois deste (AvisoFaixa.tsx) */
+.lx-aviso__mais { flex: none; font-size: 12px; font-weight: 700; color: var(--text-2); padding: 2px 7px; border-radius: 999px; background: rgba(255, 255, 255, .08); font-variant-numeric: tabular-nums; }
+/* toque: o X com 40 px de área (a faixa continua com a mesma altura: a margem negativa come o que passa) */
+@media (pointer: coarse) {
+  .lx-aviso__x { width: 40px; height: 40px; margin: -6px -6px -6px 0; }
+}

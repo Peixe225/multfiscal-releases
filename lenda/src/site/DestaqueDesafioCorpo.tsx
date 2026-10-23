@@ -33,12 +33,23 @@ export default function DestaqueDesafioCorpo() {
       <span className="sv-destaque__t">
         <b>{d.titulo}</b>
         <span>
-          Desafio valendo: {criterioEmFrase(d.criterio)}. O primeiro leva{d.premio ? `: ${d.premio.length > 80 ? `${d.premio.slice(0, 78)}…` : d.premio}` : ' o prêmio'}.
+          Desafio valendo: {criterioEmFrase(d.criterio)}. O primeiro leva{fraseDoPremio(d.premio)}
         </span>
       </span>
       <ArrowRight aria-hidden="true" />
     </button>
   )
+}
+
+/**
+ * v3.5: o fim da frase do destaque (": <prêmio>." ou " o prêmio."). O prêmio escrito no painel com ponto no fim não sai
+ * com dois pontos ("…(texto).."), e o cortado em 80 letras termina nas reticências.
+ */
+export function fraseDoPremio(premio: string | null | undefined): string {
+  const p = (premio ?? '').trim().replace(/[\s.]+$/, '')
+  if (!p) return ' o prêmio.'
+  if (p.length > 80) return `: ${p.slice(0, 78).trimEnd()}…`
+  return /[!?…]$/.test(p) ? `: ${p}` : `: ${p}.`
 }
 
 /** v3.4: a faixa discreta dos desafios de emblema (uma linha: 2 ou 3 desafios e "Ver todos"). */

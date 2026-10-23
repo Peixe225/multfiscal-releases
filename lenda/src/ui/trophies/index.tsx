@@ -25,6 +25,7 @@
 import { useCallback, useEffect, useId, useState, type CSSProperties } from 'react'
 import type { Trophy, TrophyFamily } from '@/engine/types'
 import { TROPHIES } from '@/data/catalog/trophies'
+import { useData } from '@/store/data'
 import { TROPHY_PHOTO_ASPECT, TROPHY_PHOTO_IDS, TROPHY_PHOTO_VARIANTS } from './photo-manifest'
 
 export type TrophyArtVariant = 'auto' | 'svg' | 'photo'
@@ -63,7 +64,10 @@ export function trophyPhotoUrl(id: string, height?: number): string {
   const base = `${import.meta.env.BASE_URL}trophies/`
   if (!height) return `${base}${id}.webp`
   const dpr = typeof window !== 'undefined' ? Math.min(3, window.devicePixelRatio || 1) : 1
-  const need = height * dpr
+  // v3.5: até 15% abaixo do pixel exato ainda vale a variante leve (a diferença não se vê): no iPhone (DPR 3), a taça de
+  // 118 px dos cartões da Home pedia a foto de 720 px (golden-boot: 207 KB) em vez da h320 (39 KB), e no 4G lento ela
+  // dividia a banda com o pacote de dados logo depois de o botão aparecer
+  const need = height * dpr * 0.85
   const h = TROPHY_PHOTO_VARIANTS.find((v) => v >= need)
   return h ? `${base}h${h}/${id}.webp` : `${base}${id}.webp`
 }
@@ -152,10 +156,18 @@ const loaded = new Map<string, string>()
 function loadSvg(art: string): Promise<string> {
   let p = cache.get(art)
   if (!p) {
-    p = files[pathOf(art)]().then((raw) => {
-      loaded.set(art, raw)
-      return raw
-    })
+    p = files[pathOf(art)]().then(
+      (raw) => {
+        loaded.set(art, raw)
+        return raw
+      },
+      (e: unknown) => {
+        // sem rede (túnel, elevador): o pedaço do SVG não chegou. Sai do cache para a próxima montagem tentar de novo
+        // (o React/Vite guardaria a falha para sempre) — enquanto isso fica o desenho genérico/placeholder.
+        cache.delete(art)
+        throw e
+      },
+    )
     cache.set(art, p)
   }
   return p
@@ -231,8 +243,15 @@ function warmIdle() {
     for (const id of TROPHY_PHOTO_IDS) void preloadPhoto(trophyPhotoUrl(id, 1))
   }
   const ric = (window as { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }).requestIdleCallback
-  if (ric) ric(run, { timeout: 4000 })
-  else setTimeout(run, 1500)
+  const agendar = () => (ric ? ric(run, { timeout: 4000 }) : setTimeout(run, 1500))
+  // v3.5: só depois de o pacote de dados chegar (a Home pinta antes dele). No 4G lento, as 20 fotos (~120 KB) saíam logo
+  // depois do botão e dividiam a banda com o game-data: quem tocava em "Começar" esperava ~1 s a mais pela identidade
+  if (useData.getState().status === 'ready') return void agendar()
+  const parar = useData.subscribe((s) => {
+    if (s.status !== 'ready' && s.status !== 'error') return
+    parar()
+    agendar()
+  })
 }
 
 export function TrophyArt({ id, size = 48, trophy, className, style, title, variant = 'auto' }: TrophyArtProps) {
@@ -260,7 +279,9 @@ export function TrophyArt({ id, size = 48, trophy, className, style, title, vari
       return
     }
     let alive = true
-    loadSvg(art).then((r) => alive && setRaw(r))
+    loadSvg(art)
+      .then((r) => alive && setRaw(r))
+      .catch(() => {}) // sem rede: fica o placeholder (antes virava um erro de página não tratado)
     return () => {
       alive = false
     }

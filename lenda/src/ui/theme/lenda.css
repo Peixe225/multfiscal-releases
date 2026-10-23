@@ -235,6 +235,12 @@
   @media (max-height: 32.5rem) and (min-width: 45rem) {
     .lx-toaster { width: min(380px, calc(100vw - 48px)); }
   }
+  /* v3.5 · celular deitado: no canto de baixo, à esquerda (em cima da coluna da tabela), e não no meio do topo — lá ele
+     cobria o título da decisão, que deitada fica num painel à direita. O Toaster só desvia de um diálogo que fique
+     embaixo dele (Toast.tsx confere a sobreposição dos dois lados). */
+  @media (max-height: 32.5rem) and (orientation: landscape) {
+    .lx-toaster { top: auto; bottom: calc(env(safe-area-inset-bottom, 0px) + 12px); left: max(12px, env(safe-area-inset-left, 0px)); right: auto; transform: none; width: min(380px, 46vw); }
+  }
 
   /* ---------------------------------------------------------------- skeleton */
   .lx-skel { position: relative; overflow: hidden; background: rgba(255, 255, 255, .055); border-radius: var(--radius-sm); }

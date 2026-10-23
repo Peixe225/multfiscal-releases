@@ -1840,11 +1840,16 @@ await etapa('g12. v3.3: perfil público pelo link do código (quem abre chega co
   await P.page.locator('.sm-chip--com').waitFor({ timeout: 20000 })
   ok(P.page.url().includes('de=comunidade') && (await P.page.locator('a.sm-chip--link').getAttribute('href')) === `#/jogador/${estado.codigoR}`, 'a carreira abre o resumo da comunidade; "Carreira de Rei do Teste" leva ao perfil')
   await P.page.goto(`${URL0}#/hall?seg=comunidade`)
-  const dono = P.page.locator('.hl-com__dono.is-link', { hasText: APELIDO_R }).first()
-  await dono.waitFor({ timeout: 20000 })
-  await dono.click()
+  // v3.5 (revisão mobile): o apelido deixou de ser um link dentro da linha (no celular o dedo no meio da linha caía nele e
+  // ia para o perfil em vez do resumo). A linha abre o resumo, e o "Carreira de <apelido>" de lá leva ao perfil.
+  const linha = P.page.locator('.hl-row.is-com', { hasText: APELIDO_R }).first()
+  await linha.waitFor({ timeout: 20000 })
+  ok((await P.page.locator('.hl-row.is-com .hl-com__dono.is-link, .hl-row.is-com a.hl-com__dono').count()) === 0, 'Hall da comunidade: o apelido não é um link dentro da linha (v3.5)')
+  await linha.click()
+  await P.page.locator('a.sm-chip--link').waitFor({ timeout: 20000 })
+  await P.page.locator('a.sm-chip--link').click()
   await P.page.waitForSelector('.sv-perfil h1', { timeout: 15000 })
-  ok(P.page.url().endsWith(`#/jogador/${estado.codigoR}`), 'Hall da comunidade: o apelido abre o perfil')
+  ok(P.page.url().endsWith(`#/jogador/${estado.codigoR}`), 'Hall da comunidade: a linha abre o resumo e "Carreira de <apelido>" abre o perfil')
   const pf = await (await fetch(`${URL0}api/perfil.php?c=${estado.codigoR}`)).json()
   ok(pf.apelido === APELIDO_R && pf.desafiosVencidos?.includes('tacas-do-rei-teste') && pf.carreiras.length >= 1, `perfil.php: apelido, carreiras e desafiosVencidos (${JSON.stringify(pf.desafiosVencidos)})`)
   // perfil fechado (o B põe o Hall em "Não mostrar") = 404 no servidor e "Perfil não encontrado" no jogo
@@ -1955,7 +1960,10 @@ await etapa('h1. v3.4: E cria a conta e joga pela tela a carreira real da fila �
     `o servidor deu sozinho os 2 emblemas fáceis que a carreira cumpre (Bandeira do clube: 18 temporadas no mesmo clube + 20 títulos; Noite de gala: Bola de Ouro + Champions) (${emb})`)
   const avisou = await page.getByText(/2 emblemas novos|Emblema novo/).first().waitFor({ timeout: 15000 }).then(() => true, () => false)
   ok(avisou, 'o aviso dourado dos emblemas novos (pelo emblemasNovos do salvar)')
-  ok(await page.getByText(/conquistas? provadas? na conta/).first().isVisible().catch(() => false), 'o aviso discreto: "N conquistas provadas na conta"')
+  // no máximo 2 avisos à vista: se o "Você desbloqueou N conquistas" da última decisão chegou antes, o discreto fica na
+  // fila e aparece quando um dos dois sai (o de conquistas dura 4 s)
+  const discreto = await page.getByText(/conquistas? provadas? na conta/).first().waitFor({ state: 'visible', timeout: 15000 }).then(() => true, () => false)
+  ok(discreto, 'o aviso discreto: "N conquistas provadas na conta"')
   await print(page, 'h1-E-fim-carreira-prova-emblemas')
   ok((await page.locator('.ck-end .sc-saved').count()) === 1 && (await page.locator('.ck-end').getByRole('button', { name: 'Salvar na minha conta' }).count()) === 0, 'o fim da carreira mostra "Salva na sua conta" (sem o botão)')
 })

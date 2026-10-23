@@ -9,9 +9,12 @@
 //   · `100dvh/100svh` não existem no Safari < 15.4 → a declaração inteira é ignorada (vale o valor anterior/inicial).
 //   · `@container`/`cqi` (Safari 16), `color-mix()` (16.2), `:has()` (15.4): lista as regras do CSS do build que
 //     dependem deles (o que muda de aparência no iPhone com iOS 15).
-// E a busca no JS do build por APIs que o Safari 15.0–15.3 não tem (structuredClone, Array.at, Object.hasOwn…).
+// E a busca no JS do build por APIs que o Safari 15.0–15.3 não tem (structuredClone, Array.at, Object.hasOwn…), e uma
+// carreira jogada num aparelho SEM essas três APIs (apagadas antes do jogo carregar, como no Safari 15.0–15.3): os
+// polyfills da v3.5 (src/polyfills.ts) têm de cobrir a carreira, o resumo e o Hall.
+// Falha (código 1) com rolagem lateral sem o clip, erro de JavaScript sem as APIs, ou erro no console.
 import { readdirSync, readFileSync } from 'node:fs'
-import { abrir, lancar, print, sleep, URL0 } from './carreira-lib.mjs'
+import { abrir, lancar, print, sleep, URL0, inesperados, placar } from './carreira-lib.mjs'
 
 const arg = (k, d) => {
   const i = process.argv.indexOf(`--${k}`)
@@ -20,6 +23,7 @@ const arg = (k, d) => {
   return !v || v.startsWith('--') ? true : v
 }
 const NOME = arg('aparelho', 'iphone-se')
+const P = placar(`carreira-ios15 (${NOME})`)
 const DIST = arg('dist', new URL('../../../dist-site/assets/', import.meta.url).pathname)
 const RAPIDO = JSON.stringify({ state: { settings: { sound: false, volume: 0, skipAnimations: true, reducedMotion: true, lowFx: false, engine: 'auto' } }, version: 1 })
 const browser = await lancar()
@@ -53,7 +57,7 @@ async function tela(rot) {
   await sleep(800)
   const r = await semClip()
   await print(page, NOME, `ios15-${rot}`)
-  console.log(`  ${r.lateralSemClip > 0 ? '!!' : 'ok'}  ${rot}: ${JSON.stringify(r)}`)
+  P.ok(r.lateralSemClip <= 0, `${rot}: sem rolagem lateral com o overflow:clip desligado (Safari < 16)`, r.lateralSemClip > 0 ? r : undefined)
   await page.evaluate(() => {
     for (const el of window.__clipados ?? []) el.style.overflowX = el.style.overflowY = ''
     window.__clipados = []
@@ -110,5 +114,48 @@ for (const f of js) {
     if (re.test(t)) (apis[k] = apis[k] ?? []).push(f)
 }
 console.log('JS do build (Safari < 15.4 não tem):', JSON.stringify(apis))
-console.log(`erros no console: ${JSON.stringify(ap.erros)}`)
+P.ok(!inesperados([...ap.erros, ...ap.s5xx]).length, 'sem erro no console nem 5xx', inesperados([...ap.erros, ...ap.s5xx]).slice(0, 5))
+await ap.ctx.close()
+
+// ── o aparelho sem structuredClone, Array.prototype.at e Object.hasOwn (Safari 15.0–15.3) ──
+const v = await abrir(browser, NOME, { ajustes: RAPIDO })
+await v.ctx.addInitScript(() => {
+  try {
+    delete Array.prototype.at
+    delete String.prototype.at
+    for (const T of [Int8Array, Uint8Array, Uint8ClampedArray, Int16Array, Uint16Array, Int32Array, Uint32Array, Float32Array, Float64Array]) delete Object.getPrototypeOf(T.prototype).at
+    delete Object.hasOwn
+    delete window.structuredClone
+  } catch {}
+})
+await v.page.goto(URL0)
+await v.page.locator('.ld-ctas__start').waitFor({ timeout: 120000 })
+P.ok(await v.page.evaluate(() => typeof [].at === 'function' && typeof structuredClone === 'function' && typeof Object.hasOwn === 'function'), 'sem as APIs do Safari 15.4: os polyfills do jogo as repõem')
+await v.page.goto(`${URL0}#/identidade?ritmo=expressa`)
+await v.page.locator('input[placeholder="Buscar país"]').waitFor({ timeout: 60000 })
+await v.page.locator('input[placeholder="Buscar país"]').fill('Brasil')
+await v.page.locator('input[placeholder="Buscar país"]').press('Enter')
+await v.page.getByRole('button', { name: /^Continuar/ }).tap()
+await v.page.locator('#id-surname').fill('POLYFILL')
+await v.page.getByRole('button', { name: /^Continuar/ }).tap()
+await v.page.locator('[role="radiogroup"][aria-label="Posição em campo"]').getByRole('radio', { name: 'Centroavante', exact: true }).tap()
+await v.page.getByRole('button', { name: /^Confirmar$/ }).tap()
+let decisoes = 0
+for (let k = 0; k < 40 && !(await v.page.locator('.ck-end').count()); k++) {
+  const ok = await v.page.locator('.ck-opt:not(.is-locked), .ck-end').first().waitFor({ timeout: 60000 }).then(() => true).catch(() => false)
+  if (!ok || (await v.page.locator('.ck-end').count())) break
+  await v.page.locator('.ck-opt:not(.is-locked)', { hasNotText: /Aposentar/ }).first().tap().catch(() => {})
+  decisoes++
+  await sleep(300)
+}
+P.ok((await v.page.locator('.ck-end').count()) > 0, `sem as APIs: a carreira inteira roda (${decisoes} decisões) até o fim`)
+await v.page.goto(`${URL0}#/resumo`)
+P.ok(await v.page.locator('.sm-top').waitFor({ timeout: 60000 }).then(() => true).catch(() => false), 'sem as APIs: o resumo abre')
+await v.page.goto(`${URL0}#/hall`)
+await sleep(4000)
+await print(v.page, NOME, 'ios15-sem-apis-hall')
+P.ok((await v.page.locator('.hl-row, .hl-table').count()) > 0 && !(await v.page.getByText(/Algo deu errado/).count()), 'sem as APIs: o Hall abre')
+const errV = inesperados([...v.erros, ...v.s5xx])
+P.ok(!errV.length, 'sem as APIs: nenhum erro de JavaScript', errV.slice(0, 5))
 await browser.close()
+P.fim()

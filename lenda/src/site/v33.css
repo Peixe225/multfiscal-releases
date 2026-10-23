@@ -12,7 +12,7 @@
 .sv-head__p { margin: 0; max-width: 640px; font-size: 14px; line-height: 1.5; color: var(--text-2); }
 .sv-acoes { margin-top: 4px; }
 .sv-link { color: var(--text); font-weight: 800; text-decoration: underline; text-underline-offset: 3px; }
-.sv-link:hover { color: var(--nx-gold-soft, #ffe39a); }
+@media (hover: hover) { .sv-link:hover { color: var(--nx-gold-soft, #ffe39a); } }
 .sv-rodape { margin: 4px 0 0; display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-3); }
 .sv-rodape svg { width: 16px; height: 16px; flex: none; }
 .sv-rodape .sc-link { font-size: 13px; }
@@ -84,7 +84,7 @@
 
 /* ── destaque na tela inicial e linha no menu ── */
 .sv-destaque { display: grid; grid-template-columns: 44px minmax(0, 1fr) 18px; gap: 12px; align-items: center; width: 100%; max-width: 560px; margin-top: 14px; padding: 11px 14px; border-radius: var(--radius-lg, 18px); text-align: left; color: inherit; font: inherit; cursor: pointer; background: linear-gradient(110deg, rgba(255, 200, 87, .16), rgba(255, 200, 87, .04) 70%); border: 1px solid rgba(255, 200, 87, .34); box-shadow: 0 14px 40px -26px rgba(255, 200, 87, .7); transition: filter .15s, transform .15s; }
-.sv-destaque:hover { filter: brightness(1.08); }
+@media (hover: hover) { .sv-destaque:hover { filter: brightness(1.08); } }
 .sv-destaque:active { transform: scale(.99); }
 .sv-destaque:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .sv-destaque__i { width: 44px; height: 44px; display: grid; place-items: center; }
@@ -108,7 +108,7 @@
 .sv-contato__a { color: var(--text); font-weight: 750; text-decoration: underline; text-underline-offset: 2px; }
 .sv-contato__copiar { flex: none; width: 32px; height: 32px; display: grid; place-items: center; border-radius: var(--radius-sm, 9px); color: var(--text-2); background: var(--surface-2); border: 1px solid var(--border); cursor: pointer; }
 .sv-contato__copiar svg { width: 15px; height: 15px; }
-.sv-contato__copiar:hover { color: var(--text); }
+@media (hover: hover) { .sv-contato__copiar:hover { color: var(--text); } }
 .sv-contato__copiar:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .sv-contato.is-compacto { margin: 0; }
 .sv-protocolo { font-family: var(--font-num, inherit); letter-spacing: .06em; }
@@ -141,7 +141,7 @@
 .sv-vencidos b { color: var(--text); }
 .sv-perfil__lista { list-style: none; margin: 0; padding: 0; }
 .sv-carreira { width: 100%; text-align: left; color: inherit; font: inherit; cursor: pointer; transition: border-color .15s, transform .15s; }
-.sv-carreira:hover { border-color: rgba(255, 255, 255, .28); }
+@media (hover: hover) { .sv-carreira:hover { border-color: rgba(255, 255, 255, .28); } }
 .sv-carreira:active { transform: scale(.995); }
 .sv-carreira:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .sv-carreira .sc-card__hl { display: block; }

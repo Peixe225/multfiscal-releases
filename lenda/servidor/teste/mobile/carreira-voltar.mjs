@@ -10,9 +10,11 @@
 //   D. carreira durante a revelação (logo depois de escolher) → voltar → Continuar (a escolha ficou?)
 //   E. resumo com "Sua imagem" (Compartilhar sem Web Share) aberto → voltar  (esperado: fecha a folha)
 //   F. "Jogar novamente" → identidade → voltar                 (o que aparece?)
-// Prints em $LENDA_PRINTS/<aparelho>_voltar-*.png. Sem conta.
+// Prints em <LENDA_PRINTS>/carreira/<aparelho>_voltar-*.png. Sem conta. Falha (código 1) se algum cenário não fizer o
+// esperado (v3.5: os passos do assistente estão no histórico; diálogos e folhas fecham com o voltar; "Jogar novamente"
+// troca a entrada do histórico, então o voltar leva à Home e não a uma carreira vazia).
 import { writeFileSync } from 'node:fs'
-import { abrir, lancar, print, lerKv, sleep, URL0, PRINTS } from './carreira-lib.mjs'
+import { abrir, lancar, print, lerKv, sleep, URL0, PRINTS, inesperados, placar } from './carreira-lib.mjs'
 
 const arg = (k, d) => {
   const i = process.argv.indexOf(`--${k}`)
@@ -21,6 +23,7 @@ const arg = (k, d) => {
   return !v || v.startsWith('--') ? true : v
 }
 const NOME = arg('aparelho', 'galaxy-a')
+const P = placar(`carreira-voltar (${NOME})`)
 const RAPIDO = JSON.stringify({ state: { settings: { sound: false, volume: 0, skipAnimations: true, reducedMotion: true, lowFx: false, engine: 'auto' } }, version: 1 })
 const browser = await lancar()
 const ap = await abrir(browser, NOME, { ajustes: RAPIDO })
@@ -58,6 +61,10 @@ await voltar()
 const depoisA = await onde()
 await print(page, NOME, 'voltar-A-assistente-passo3')
 log('A_assistente_passo3', { antes: antesA, depois: depoisA, ficouNoAssistente: /identidade/.test(depoisA.hash) })
+P.ok(/identidade/.test(depoisA.hash) && /2/.test(depoisA.passo), 'A: voltar no passo 3 do assistente leva ao passo 2 (não sai da identidade)', depoisA)
+P.ok((await page.locator('#id-surname').inputValue().catch(() => '')) === 'VOLTAR', 'A: o sobrenome preenchido continua lá')
+// de volta ao passo 3 (o voltar deixou no passo 2)
+if (/identidade/.test(depoisA.hash) && (await page.locator('#id-surname').count())) await page.getByRole('button', { name: /^Continuar/ }).tap()
 // de volta ao passo 3 para começar a carreira
 if (!/identidade/.test(depoisA.hash)) {
   await page.goto(`${URL0}#/identidade?ritmo=expressa`)
@@ -96,12 +103,16 @@ if (await verTodas.count()) {
   const depoisB = await onde()
   await print(page, NOME, 'voltar-B-depois')
   log('B_sala_de_trofeus', { antes: antesB, depois: depoisB, saiuDaCarreira: !/carreira/.test(depoisB.hash) })
+  P.ok(antesB.dialogo > 0 && depoisB.dialogo === 0 && /carreira/.test(depoisB.hash), 'B: com a Sala de troféus aberta, o voltar fecha o diálogo e fica na carreira', depoisB)
   if (!/carreira/.test(depoisB.hash)) {
     await page.goForward({ waitUntil: 'commit' }).catch(() => {})
     await sleep(1000)
   }
   if (await page.locator('[role="dialog"]').count()) await page.keyboard.press('Escape')
-} else log('B_sala_de_trofeus', { pulado: 'sem "Ver todas" na vitrine' })
+} else {
+  log('B_sala_de_trofeus', { pulado: 'sem "Ver todas" na vitrine' })
+  P.nota('B: pulado (a vitrine ainda não tinha "Ver todas")')
+}
 
 // C — Menu aberto
 const menu = page.getByRole('button', { name: /^Menu$/ }).first()
@@ -113,6 +124,7 @@ if (await menu.count()) {
   await voltar()
   const depoisC = await onde()
   log('C_menu', { antes: antesC, depois: depoisC, saiuDaCarreira: !/carreira/.test(depoisC.hash) })
+  P.ok(antesC.dialogo > 0 && depoisC.dialogo === 0 && /carreira/.test(depoisC.hash), 'C: com o Menu aberto, o voltar fecha o menu e fica na carreira', depoisC)
   if (!/carreira/.test(depoisC.hash)) {
     await page.goForward({ waitUntil: 'commit' }).catch(() => {})
     await sleep(1000)
@@ -138,7 +150,10 @@ await print(page, NOME, 'voltar-D-durante-revelacao')
 const cont = page.getByRole('button', { name: /Continuar carreira/ })
 if (await cont.count()) await cont.first().tap()
 await page.locator('.ck-opt:not(.is-locked), .ck-end').first().waitFor({ timeout: 60000 }).catch(() => {})
-log('D_durante_revelacao', { picksAntes: pD0, depois: depoisD, picksAoVoltar: (await lerKv(page, 'career:current'))?.replay?.picks?.length })
+const pD1 = (await lerKv(page, 'career:current'))?.replay?.picks?.length
+log('D_durante_revelacao', { picksAntes: pD0, depois: depoisD, picksAoVoltar: pD1 })
+P.ok(!/identidade/.test(depoisD.hash), 'D: voltar durante a revelação não abre o formulário de identidade', depoisD)
+P.ok(pD1 > pD0, 'D: voltar durante a revelação e continuar: a escolha ficou gravada', { pD0, pD1 })
 
 // termina a carreira rápido
 await page.evaluate(() => {
@@ -166,6 +181,7 @@ await voltar()
 const depoisE = await onde()
 await print(page, NOME, 'voltar-E-depois')
 log('E_resumo_sua_imagem', { antes: antesE, depois: depoisE, saiuDoResumo: !/resumo/.test(depoisE.hash) })
+P.ok(antesE.dialogo > 0 && depoisE.dialogo === 0 && /resumo/.test(depoisE.hash), 'E: com "Sua imagem" aberta no resumo, o voltar fecha a folha e fica no resumo', depoisE)
 
 // F — Jogar novamente → identidade → voltar
 await page.goto(`${URL0}#/carreira`)
@@ -177,8 +193,10 @@ const depoisF = await onde()
 await print(page, NOME, 'voltar-F-jogar-novamente-voltar')
 const textoF = ((await page.locator('main').first().textContent().catch(() => '')) || '').replace(/\s+/g, ' ').slice(0, 160)
 log('F_jogar_novamente_voltar', { depois: depoisF, texto: textoF })
+P.ok(!/Nenhuma carreira em andamento/.test(textoF) && !/identidade/.test(depoisF.hash), 'F: "Jogar novamente" → identidade → voltar leva à Home (não a uma carreira vazia)', depoisF)
 
 R.erros = ap.erros
 writeFileSync(`${PRINTS}/${NOME}_voltar.json`, JSON.stringify(R, null, 2))
-console.log(`erros no console: ${JSON.stringify(ap.erros)}`)
+P.ok(!inesperados([...ap.erros, ...ap.s5xx]).length, 'sem erro no console nem 5xx', inesperados([...ap.erros, ...ap.s5xx]).slice(0, 5))
 await browser.close()
+P.fim()
