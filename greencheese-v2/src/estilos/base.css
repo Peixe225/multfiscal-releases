@@ -1,0 +1,396 @@
+/* Green Cheese — base. Preto puro, branco e três cinzas. A cor vem do produto. */
+
+:root {
+  --preto: #000;
+  --bolha: #262626;
+  --chiado: #636363;
+  --legenda: #a8a8a8;
+  --branco: #fff;
+
+  /* o 2 e o 5 redesenhados (GC Digitos, digitos.css no CSS principal) na frente da Pixelify: lá o 5 lia S e o 2 lia Z */
+  --pixel: 'GC Digitos', 'Pixelify Sans', ui-monospace, 'Courier New', monospace;
+  --ui: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+
+  --seg-topo: env(safe-area-inset-top, 0px);
+  --seg-baixo: env(safe-area-inset-bottom, 0px);
+  --barra-baixo: 64px; /* barra de mensagem do story, fixa no rodapé */
+  --lateral: 0px; /* barra lateral (desktop) */
+  /* no iPhone deitado (viewport-fit=cover), o gutter cresce até sair da faixa do notch e dos cantos */
+  --seg-esq: env(safe-area-inset-left, 0px);
+  --seg-dir: env(safe-area-inset-right, 0px);
+  --gutter: max(16px, var(--seg-esq), var(--seg-dir));
+
+  /* Duas vozes de movimento: app (liso, funcional) e pixel (em degraus, decorativo). */
+  --ease-app: cubic-bezier(0.22, 1, 0.36, 1);
+
+  color-scheme: dark;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  /* sem ligaduras: na Pixelify o "fi" vira um glifo que lê "A" ("a confirmar" → "a conArmar"). !important porque o
+     atalho font: (usado em muita regra) volta as ligaduras pro normal */
+  font-variant-ligatures: none !important;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  background: var(--preto);
+  overflow-x: hidden;
+}
+
+body {
+  margin: 0;
+  background: var(--preto);
+  color: var(--branco);
+  font: 400 15px/1.4 var(--ui);
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  overflow-x: hidden;
+  min-height: 100vh; /* reserva para navegador sem dvh (iOS < 15,4, WebView antiga) */
+  min-height: 100dvh;
+}
+
+html.travado,
+body.travado {
+  overflow: hidden;
+}
+/* a barra de rolagem do desktop não some ao travar (sem pulo de largura atrás da folha) */
+html {
+  scrollbar-gutter: stable;
+}
+
+img,
+svg,
+canvas {
+  display: block;
+  max-width: 100%;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+
+ul,
+ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+:focus-visible {
+  outline: 2px solid var(--branco);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: var(--branco);
+  color: var(--preto);
+}
+
+.sr-only {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ---------- Tipografia: a marca escreve em pixel, o app fala em system-ui ---------- */
+
+.px {
+  font-family: var(--pixel);
+  /* 500, nunca 700: no 700 o C da Pixelify fecha e vira O (COCA → OOOA) */
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1;
+  font-synthesis: none;
+}
+.px-16 { font-size: 16px; font-weight: 400; } /* em 16 px só o 400 deixa o C aberto */
+.px-20 { font-size: 20px; }
+.px-24 { font-size: 24px; }
+.px-32 { font-size: 32px; }
+.px-40 { font-size: 40px; }
+.px-48 { font-size: 48px; }
+.px-n { font-weight: 400; }
+
+.legenda {
+  color: var(--legenda);
+}
+
+/* ---------- Cantos em degrau de pixel (no lugar de border-radius nas peças da marca) ---------- */
+
+.degrau {
+  clip-path: polygon(
+    0 8px, 4px 8px, 4px 4px, 8px 4px, 8px 0,
+    calc(100% - 8px) 0, calc(100% - 8px) 4px, calc(100% - 4px) 4px, calc(100% - 4px) 8px, 100% 8px,
+    100% calc(100% - 8px), calc(100% - 4px) calc(100% - 8px), calc(100% - 4px) calc(100% - 4px), calc(100% - 8px) calc(100% - 4px), calc(100% - 8px) 100%,
+    8px 100%, 8px calc(100% - 4px), 4px calc(100% - 4px), 4px calc(100% - 8px), 0 calc(100% - 8px)
+  );
+}
+
+.degrau-topo {
+  clip-path: polygon(
+    0 8px, 4px 8px, 4px 4px, 8px 4px, 8px 0,
+    calc(100% - 8px) 0, calc(100% - 8px) 4px, calc(100% - 4px) 4px, calc(100% - 4px) 8px, 100% 8px,
+    100% 100%, 0 100%
+  );
+}
+
+/* ---------- Toque: inversão de pixel (sem escala, sem ripple) ---------- */
+
+.toque {
+  position: relative;
+  isolation: isolate;
+}
+.toque::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: currentColor;
+  mix-blend-mode: difference;
+  opacity: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  transition: opacity 0.08s steps(1);
+}
+.toque:active::after {
+  opacity: 1;
+  transition: none;
+}
+
+/* ---------- Botões no idioma do Instagram ---------- */
+
+.botao {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 20px;
+  border-radius: 999px;
+  font: 600 15px/1 var(--ui);
+  white-space: nowrap;
+}
+.botao-cheio {
+  background: var(--branco);
+  color: var(--preto);
+}
+.botao-contorno {
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  color: var(--branco);
+}
+.botao-cinza {
+  background: var(--bolha);
+  color: var(--branco);
+}
+.botao-largo {
+  width: 100%;
+}
+.botao:disabled,
+.botao[aria-disabled='true'] {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+/* Alvo de toque mínimo para ícones */
+.icone-botao {
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  flex: none;
+}
+
+/* ---------- Adesivos do story ---------- */
+
+/* Adesivo de texto: caixa branca colada em cada linha, como o texto do story. */
+.adesivo-texto {
+  display: inline;
+  background: var(--branco);
+  color: var(--preto);
+  font: 700 17px/1.55 var(--ui);
+  padding: 3px 8px;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  border-radius: 4px;
+}
+.adesivo-texto-bloco {
+  display: inline-block;
+  transform: rotate(-2deg);
+  transform-origin: left center;
+  max-width: 100%;
+}
+
+/* Adesivo de menção: @PERFIL em caixa branca */
+.adesivo-mencao {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 4px 10px;
+  background: var(--branco);
+  color: var(--preto);
+  border-radius: 6px;
+  font: 800 13px/1.1 var(--ui);
+  text-transform: uppercase;
+  letter-spacing: 0.01em;
+  word-break: break-all;
+}
+
+/* Carimbo pixel (DEMO, NA SACOLA, confirmar) */
+.carimbo {
+  display: inline-block;
+  font-family: var(--pixel);
+  font-weight: 400;
+  font-size: 11px;
+  line-height: 1;
+  padding: 3px 4px 2px;
+  border: 1px solid currentColor;
+  color: var(--legenda);
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+
+/* ---------- Folhas (sacola, chat, seletor): preto, canto em degrau, fio cinza ---------- */
+
+.cortina {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  /* transparência do jeito pixel: 3 de cada 4 pixels pretos, sem blur */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='2' height='2' shape-rendering='crispEdges'%3E%3Crect width='2' height='1'/%3E%3Crect y='1' width='1' height='1'/%3E%3C/svg%3E");
+  background-size: 4px 4px;
+  background-color: rgba(0, 0, 0, 0.5);
+  image-rendering: pixelated;
+  /* arrastar na área escurecida não rola a página de trás (o iOS antigo ignora o overflow do html) */
+  touch-action: none;
+  overscroll-behavior: contain;
+}
+
+.folha {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: var(--teclado, 0px);
+  z-index: 61;
+  max-height: calc(100vh - var(--seg-topo) - 24px - var(--teclado, 0px));
+  max-height: calc(100dvh - var(--seg-topo) - 24px - var(--teclado, 0px));
+  display: flex;
+  flex-direction: column;
+  background: var(--preto);
+  padding-bottom: var(--seg-baixo);
+}
+/* com o teclado aberto, a área segura de baixo fica atrás dele */
+.com-teclado .folha {
+  padding-bottom: 0;
+}
+.folha::before {
+  /* fio de 1 px que acompanha o degrau */
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-top: 1px solid var(--bolha);
+}
+.folha-alca {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  padding: 10px 0 6px;
+}
+.folha-alca i {
+  width: 4px;
+  height: 4px;
+  background: var(--branco);
+}
+
+@media (min-width: 900px) {
+  .folha {
+    left: calc(50% + var(--lateral) / 2 - 220px);
+    right: auto;
+    width: 440px;
+    bottom: 24px;
+    max-height: min(820px, calc(100vh - 48px));
+    max-height: min(820px, calc(100dvh - 48px));
+    outline: 1px solid var(--bolha);
+  }
+  .folha::before {
+    display: none;
+  }
+}
+
+/* ---------- Movimento reduzido: cortes secos ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+.folha-topo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 4px 0 var(--gutter);
+  min-height: 48px;
+  border-bottom: 1px solid var(--bolha);
+}
+.folha-titulo {
+  flex: 1;
+  min-width: 0;
+  font: 700 16px/1.2 var(--ui);
+}
+.folha-corpo {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+/* corpo focável (só texto, rola pelo teclado): o anel por dentro, a folha corta o que passa da borda */
+.folha-corpo:focus-visible {
+  outline-offset: -2px;
+}
+.folha-rodape {
+  border-top: 1px solid var(--bolha);
+  padding: 12px var(--gutter);
+}
+.folha:focus {
+  outline: none;
+}

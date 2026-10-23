@@ -1,0 +1,1127 @@
+<?php
+declare(strict_types=1);
+defined('GC_API') || exit;
+
+// Conferência do que o painel manda pra loja: textos, preço, combos, variações, cores, horário, Instagram, cidades,
+// prêmios (as mesmas regras de src/lib/cupom.ts) e as listas de palavras: a do tabaco e vape (Anvisa, a mesma do
+// rateio: gc_termo_proibido) em tudo, a PALAVRAS_PROIBIDAS do site (src/dados/sorte.ts) nos prêmios e nos textos da
+// loja, e a gíria e a promessa dela (GC_LOJA_PALAVRAS_LOJA) no produto, na categoria e no estado. Na edição, campo
+// ausente fica como está. Erro sempre com o campo que a tela marca.
+
+/** PALAVRAS_PROIBIDAS de src/dados/sorte.ts (o scripts/testar-api.mjs confere que é a mesma lista, na mesma ordem). */
+const GC_LOJA_PALAVRAS = [
+    'folha', 'erva', 'flor', 'prensado', 'marofa', 'fumaça', 'fumar', 'brisa', 'chapar', 'larica', 'tapa', 'trago', '420',
+    'grátis', 'frete', 'prazo', 'entrega', 'sorteio', 'cigarro', 'charuto', 'backwoods', 'fumo', 'tabaco',
+];
+
+/**
+ * As da GC_LOJA_PALAVRAS que valem também no produto, na categoria e no estado (nome, detalhe, descrição, variação,
+ * nome do perfil, destaque, cidade): a gíria e a promessa. Ficam de fora as que têm uso de verdade nesses textos:
+ * "folha" (seda de 50 folhas), "erva" (erva-mate da cuia, licor de ervas), "flor" (floral), "trago" e "tapa", "entrega"
+ * (o story de entrega do estado) e as do tabaco (a lista da Anvisa já pega, em tudo). O mesmo PALAVRAS_LOJA do painel.
+ */
+const GC_LOJA_PALAVRAS_LOJA = ['fumaça', 'fumar', 'marofa', 'brisa', 'chapar', 'larica', 'prensado', '420', 'grátis', 'frete', 'prazo', 'sorteio'];
+
+/**
+ * Bebida alcoólica no nome: prêmio não cai em produto assim (a regra é a categoria marcada como bebida; esta lista e a
+ * do desenho são a rede pra quando o produto foi parar na categoria errada): os tipos e as marcas comuns. Palavra (ou
+ * palavras) inteira, sem acento. A mesma lista em src/lib/alcool.ts (o scripts/testar-api-loja.mjs confere).
+ */
+const GC_LOJA_ALCOOL = [
+    'whisky', 'whiskey', 'uisque', 'gin', 'vodka', 'vodca', 'rum', 'tequila', 'cachaca', 'conhaque', 'cognac', 'licor',
+    'cerveja', 'chopp', 'vinho', 'espumante', 'champagne', 'jagermeister', 'absinto', 'bourbon', 'mezcal', 'chope',
+    'chopes', 'cervejas', 'vinhos', 'champanhe', 'prosecco', 'sidra', 'sake', 'saque', 'soju', 'vermute', 'vermouth',
+    'martini', 'pinga', 'aguardente', 'ice beer', 'beats', 'jager', 'jack daniel', 'jack daniels', 'smirnoff',
+    'absolut', 'ciroc', 'grey goose', 'johnnie walker', 'red label', 'black label', 'blue label', 'gold label',
+    'double black', 'chivas', 'jameson', 'ballantines', 'white horse', 'old parr', 'buchanans', 'jim beam',
+    'wild turkey', 'makers mark', 'glenfiddich', 'macallan', 'tanqueray', 'beefeater', 'bombay sapphire', 'gordons',
+    'bacardi', 'havana club', 'malibu', 'jose cuervo', 'cuervo', 'campari', 'aperol', 'baileys', 'amarula',
+    'cointreau', 'ypioca', 'velho barreiro', 'sagatiba', 'askov', 'catuaba', 'heineken', 'brahma', 'skol', 'budweiser',
+    'stella', 'corona', 'amstel', 'itaipava', 'eisenbahn', 'spaten', 'becks', 'devassa', 'bohemia', 'guinness',
+    'hoegaarden', 'michelob', 'kirin', 'sapporo', 'asahi', 'jinro', 'xeque mate',
+];
+
+/**
+ * Formatos do desenho que são de bebida (lata alta e garrafas): produto assim não vira prêmio, mesmo fora de categoria
+ * de bebida. A lata comum fica de fora: é o desenho que todo produto novo ganha no painel. O ARTES_DE_BEBIDA do site.
+ */
+const GC_LOJA_ARTES_BEBIDA = ['lata-alta', 'garrafa-quadrada', 'garrafa-gin', 'garrafa-conhaque', 'garrafa-licor'];
+
+/** Texto pra comparar: minúsculo, sem acento (também o acento solto, de teclado que manda a letra decomposta). */
+function gc_loja_comparavel(string $s): string
+{
+    return gc_sem_acento((string) preg_replace('/\p{Mn}+/u', '', $s));
+}
+
+/** Texto limpo (gc_texto) e na forma composta do Unicode quando o PHP tem o intl. null = não é texto. */
+function gc_loja_limpo(mixed $v, bool $linhas = false): ?string
+{
+    $t = gc_texto($v, $linhas);
+    if ($t !== null && $t !== '' && class_exists('Normalizer')) {
+        $n = Normalizer::normalize($t, Normalizer::FORM_C);
+        $t = is_string($n) ? $n : $t;
+    }
+    return $t;
+}
+
+/** Primeira palavra da PALAVRAS_PROIBIDAS no texto, no começo de palavra como no site ("tapa" não pega "etapa"). */
+function gc_loja_palavra_proibida(string $texto): ?string
+{
+    $t = gc_loja_comparavel($texto);
+    foreach (GC_LOJA_PALAVRAS as $p) {
+        if (preg_match('/(^|[^a-z0-9])' . preg_quote(gc_loja_comparavel($p), '/') . '/', $t) === 1) {
+            return $p;
+        }
+    }
+    return null;
+}
+
+/**
+ * Primeira palavra da GC_LOJA_PALAVRAS_LOJA no texto: no começo de palavra, como no site ("brisa" pega "brisada"), e
+ * número inteiro ("420" não pega "4200").
+ */
+function gc_loja_palavra_da_loja(string $texto): ?string
+{
+    $t = gc_loja_comparavel($texto);
+    foreach (GC_LOJA_PALAVRAS_LOJA as $p) {
+        $c = gc_loja_comparavel($p);
+        if (preg_match('/(^|[^a-z0-9])' . preg_quote($c, '/') . (ctype_digit($c) ? '(?![0-9])' : '') . '/', $t) === 1) {
+            return $p;
+        }
+    }
+    return null;
+}
+
+/**
+ * Produto, categoria e estado: nem tabaco nem a gíria e a promessa da GC_LOJA_PALAVRAS_LOJA.
+ * @param array<string, string> $campos
+ */
+function gc_loja_sem_palavras_da_loja(array $campos): void
+{
+    gc_loja_sem_tabaco($campos);
+    foreach ($campos as $campo => $texto) {
+        $p = gc_loja_palavra_da_loja($texto);
+        if ($p !== null) {
+            throw new ErroApi('proibido', "Tira o “{$p}”: o site não usa essa palavra.", 422, ['campo' => $campo, 'termo' => $p, 'lista' => 'palavras']);
+        }
+    }
+}
+
+/** Nome com cara de bebida alcoólica? O apóstrofo sai antes ("Jack Daniel's" e "Gordon's" são "daniels" e "gordons"). */
+function gc_loja_parece_alcool(string $texto): bool
+{
+    $sem = str_replace(["'", '’', '`', '´'], '', gc_loja_comparavel($texto));
+    $t = ' ' . trim((string) preg_replace('/[^a-z0-9]+/', ' ', $sem)) . ' ';
+    foreach (GC_LOJA_ALCOOL as $p) {
+        if (str_contains($t, " $p ")) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/**
+ * O produto é bebida pelo que ele mesmo diz, sem olhar a categoria: o desenho de bebida ou o nome de bebida alcoólica.
+ * @param mixed $arte o JSON da coluna arte (ou já lido)
+ */
+function gc_loja_bebida_pelo_produto(string $nome, mixed $arte): bool
+{
+    $a = is_string($arte) ? json_decode($arte, true) : $arte;
+    $tipo = is_array($a) ? ($a['tipo'] ?? null) : null;
+    return in_array($tipo, GC_LOJA_ARTES_BEBIDA, true) || gc_loja_parece_alcool($nome);
+}
+
+/**
+ * Tabaco e vape não entram (Anvisa), em campo nenhum.
+ * @param array<string, string> $campos campo => texto
+ */
+function gc_loja_sem_tabaco(array $campos): void
+{
+    foreach ($campos as $campo => $texto) {
+        $termo = gc_termo_proibido(gc_loja_comparavel($texto));
+        if ($termo !== null) {
+            throw new ErroApi('proibido', 'Derivado do tabaco e cigarro eletrônico não entram no site (Anvisa).', 422, ['campo' => $campo, 'termo' => $termo, 'lista' => 'tabaco']);
+        }
+    }
+}
+
+/**
+ * Nem tabaco nem as palavras que o site não usa (gíria e promessa: "grátis", "frete", "prazo"…).
+ * @param array<string, string> $campos
+ */
+function gc_loja_sem_palavras(array $campos): void
+{
+    gc_loja_sem_tabaco($campos);
+    foreach ($campos as $campo => $texto) {
+        $p = gc_loja_palavra_proibida($texto);
+        if ($p !== null) {
+            throw new ErroApi('proibido', "Tira o “{$p}”: o site não usa essa palavra.", 422, ['campo' => $campo, 'termo' => $p, 'lista' => 'palavras']);
+        }
+    }
+}
+
+/** Reais (número ou "14,90") em centavos, de R$ 0,00 a R$ 100.000,00. null = inválido. */
+function gc_loja_centavos(mixed $v): ?int
+{
+    if ($v === 0 || $v === 0.0 || (is_string($v) && preg_match('/^\s*(R\$\s*)?0+([.,]0{1,2})?\s*$/', $v) === 1)) {
+        return 0;
+    }
+    return gc_centavos($v);
+}
+
+function gc_loja_cor(mixed $v): ?string
+{
+    return is_string($v) && preg_match('/^#[0-9a-fA-F]{6}$/', $v) === 1 ? strtolower($v) : null;
+}
+
+/** "HH:MM" de 00:00 a 23:59. */
+function gc_loja_hora(mixed $v): ?string
+{
+    return is_string($v) && preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $v) === 1 ? $v : null;
+}
+
+/** @ do Instagram (aceita com @, com espaço ou o link do perfil colado): letras, números, ponto e _, até 30. */
+function gc_loja_instagram(mixed $v): ?string
+{
+    if (!is_string($v) || strlen($v) > 120) {
+        return null;
+    }
+    $i = strtolower(trim($v));
+    $i = (string) preg_replace('#^(https?://)?(www\.)?instagram\.com/#', '', $i);
+    $i = trim(ltrim($i, '@'), "/ \t");
+    return preg_match('/^(?!.*\.\.)(?!\.)[a-z0-9._]{1,30}(?<!\.)$/', $i) === 1 ? $i : null;
+}
+
+function gc_loja_bool(array $c, string $k, string $msg): bool
+{
+    if (!is_bool($c[$k])) {
+        throw gc_invalido($k, $msg);
+    }
+    return $c[$k];
+}
+
+/** Slug (a-z, 0-9 e hífen, até 60) de um nome; vazio vira $padrao. */
+function gc_loja_slug(string $texto, string $padrao): string
+{
+    $s = trim((string) preg_replace('/[^a-z0-9]+/', '-', gc_loja_comparavel($texto)), '-');
+    if (strlen($s) > 60) {
+        $s = substr($s, 0, 60);
+        $corte = strrpos($s, '-');
+        if ($corte !== false && $corte > 20) {
+            $s = substr($s, 0, $corte);
+        }
+        $s = rtrim($s, '-');
+    }
+    return $s === '' ? $padrao : $s;
+}
+
+/** Id livre numa tabela da loja (o slug, ou slug-2, slug-3…). */
+function gc_loja_id_livre(string $base, string $tabela): string
+{
+    $id = $base;
+    for ($n = 2; gc_valor("SELECT 1 FROM $tabela WHERE id = ?", [$id]) !== null; $n++) {
+        $id = $n <= 99 ? substr($base, 0, 56) . '-' . $n : substr($base, 0, 50) . '-' . bin2hex(random_bytes(3));
+    }
+    return $id;
+}
+
+// ─── produto ────────────────────────────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Imagem de fábrica (foto ou capa da thumb animada, do build do site): `produtos/<nome>`, nome só com minúscula,
+ * número e traço, o mesmo que o FilesMatch de public/produtos/.htaccess serve (o resto dá 403 no Apache) e que o site
+ * aceita (src/store/loja-ler.ts).
+ */
+const GC_LOJA_FABRICA_IMAGEM = '#^produtos/([a-z0-9][a-z0-9-]{0,80}\.(?:webp|jpe?g|png))$#';
+/** Vídeo de fábrica (a thumb animada que vem no build): `produtos/<nome>.mp4|webm`, com o mesmo nome simples. */
+const GC_LOJA_FABRICA_VIDEO = '#^produtos/([a-z0-9][a-z0-9-]{0,80}\.(?:mp4|webm))$#';
+
+/** A pasta da mídia de fábrica (produtos/, ao lado da api/ no build; o servidor só confere se o arquivo existe). */
+function gc_pasta_produtos(): string
+{
+    return dirname(__DIR__, 2) . '/produtos';
+}
+
+/**
+ * Combos coerentes: com o preço da unidade, quantidade sem repetir, cada um mais barato que comprar avulso e o total
+ * subindo com a quantidade.
+ * @param list<array{qtd: int, total: int}> $combos (em ordem de quantidade)
+ */
+function gc_loja_conferir_combos(array $combos, ?int $preco): void
+{
+    if ($combos === []) {
+        return;
+    }
+    if ($preco === null) {
+        throw gc_invalido('combos', 'Combo precisa do preço da unidade (com “Consultar” não dá pra fechar a conta).');
+    }
+    $antes = null;
+    foreach ($combos as $i => $c) {
+        if ($antes !== null && $c['qtd'] === $antes['qtd']) {
+            throw gc_invalido('combos', "Dois combos de {$c['qtd']}: deixa um só.", ['indice' => $i]);
+        }
+        if ($c['total'] >= $c['qtd'] * $preco) {
+            throw gc_invalido('combos', "O combo de {$c['qtd']} tem que sair mais barato que {$c['qtd']} avulsos (R$ " . gc_reais_texto($c['qtd'] * $preco) . ').', ['indice' => $i]);
+        }
+        if ($antes !== null && $c['total'] <= $antes['total']) {
+            throw gc_invalido('combos', "O combo de {$c['qtd']} tem que custar mais que o de {$antes['qtd']}.", ['indice' => $i]);
+        }
+        $antes = $c;
+    }
+}
+
+/** @return list<array{qtd: int, total: int}> */
+function gc_loja_ler_combos(mixed $v, ?int $preco): array
+{
+    $v ??= [];
+    if (!is_array($v) || !array_is_list($v) || count($v) > 5) {
+        throw gc_invalido('combos', 'Até 5 combos.');
+    }
+    $out = [];
+    foreach ($v as $i => $c) {
+        $qtd = is_array($c) ? gc_inteiro($c['qtd'] ?? null, 2, 99) : null;
+        if ($qtd === null) {
+            throw gc_invalido('combos', 'Combo é de 2 unidades pra cima (até 99).', ['indice' => $i, 'parte' => 'qtd']);
+        }
+        $total = is_array($c) ? gc_centavos($c['total'] ?? null) : null;
+        if ($total === null) {
+            throw gc_invalido('combos', 'Põe o preço do combo (ex.: 14,99).', ['indice' => $i, 'parte' => 'total']);
+        }
+        $out[] = ['qtd' => $qtd, 'total' => $total];
+    }
+    usort($out, static fn (array $a, array $b): int => $a['qtd'] <=> $b['qtd']);
+    gc_loja_conferir_combos($out, $preco);
+    return $out;
+}
+
+/**
+ * Variações (sabor, tamanho, modelo): nome de 1 a 40, sem repetir; preço próprio opcional. O id fica o mesmo na edição
+ * (a sacola e os links guardam ele); variação nova ganha o id do nome.
+ * @return list<array{id: string, nome: string, preco?: int}>
+ */
+function gc_loja_ler_variacoes(mixed $v): array
+{
+    $v ??= [];
+    if (!is_array($v) || !array_is_list($v) || count($v) > 12) {
+        throw gc_invalido('variacoes', 'Até 12 variações.');
+    }
+    $out = [];
+    $ids = [];
+    $nomes = [];
+    foreach ($v as $i => $x) {
+        $nome = is_array($x) ? gc_loja_limpo($x['nome'] ?? null) : null;
+        if (!is_string($nome) || gc_tamanho($nome) < 1 || gc_tamanho($nome) > 40) {
+            throw gc_invalido('variacoes', 'Nome da variação de 1 a 40 letras.', ['indice' => $i]);
+        }
+        gc_loja_sem_palavras_da_loja(['variacoes' => $nome]);
+        $chave = gc_loja_comparavel($nome);
+        if (isset($nomes[$chave])) {
+            throw gc_invalido('variacoes', "Duas variações “{$nome}”: deixa uma só.", ['indice' => $i]);
+        }
+        $nomes[$chave] = true;
+        $id = isset($x['id']) && gc_id_valido($x['id']) ? (string) $x['id'] : gc_loja_slug($nome, 'opcao');
+        $base = $id;
+        for ($n = 2; isset($ids[$id]); $n++) {
+            $id = substr($base, 0, 56) . '-' . $n;
+        }
+        $ids[$id] = true;
+        $item = ['id' => $id, 'nome' => $nome];
+        if (array_key_exists('preco', $x) && $x['preco'] !== null && $x['preco'] !== '') {
+            $preco = gc_loja_centavos($x['preco']);
+            if ($preco === null) {
+                throw gc_invalido('variacoes', 'Preço da variação de R$ 0,00 a R$ 100.000,00 (ou vazio: vale o do produto).', ['indice' => $i]);
+            }
+            $item['preco'] = $preco;
+        }
+        $out[] = $item;
+    }
+    return $out;
+}
+
+/**
+ * Disponível e estoque por estado vindos do formulário: { uf: { disponivel, estoque } }. Só estados da loja.
+ * @return array<string, array{disponivel: bool, estoque: int|null}>
+ */
+function gc_loja_ler_por_uf(mixed $v): array
+{
+    if (!is_array($v) || ($v !== [] && array_is_list($v))) {
+        throw gc_invalido('estados', 'Disponibilidade por estado veio torta. Recarrega e tenta de novo.');
+    }
+    $out = [];
+    foreach ($v as $uf => $e) {
+        $uf = gc_uf($uf);
+        if ($uf === null || gc_um('SELECT 1 FROM loja_estados WHERE uf = ?', [$uf]) === null) {
+            throw gc_invalido('estados', 'Estado que a loja não atende.');
+        }
+        if (!is_array($e) || !is_bool($e['disponivel'] ?? null)) {
+            throw gc_invalido('estados', 'Disponível é sim ou não.', ['uf' => $uf]);
+        }
+        $estoque = $e['estoque'] ?? null;
+        if ($estoque !== null) {
+            $estoque = gc_inteiro($estoque, 0, 99999);
+            if ($estoque === null) {
+                throw gc_invalido('estados', 'Estoque de 0 a 99.999 unidades (ou sem contar).', ['uf' => $uf]);
+            }
+        }
+        $out[$uf] = ['disponivel' => $e['disponivel'], 'estoque' => $estoque];
+    }
+    return $out;
+}
+
+/**
+ * Lê e confere um produto. Tabaco e vape não entram em nome, tamanho, detalhe, descrição nem variação, nem a gíria e
+ * a promessa da GC_LOJA_PALAVRAS_LOJA ("larica", "420", "frete grátis", "prazo").
+ * @param array<string, mixed> $c
+ * @param array<string, mixed>|null $atual a linha de loja_produtos (edição)
+ * @return array<string, mixed> colunas
+ */
+function gc_loja_ler_produto(array $c, ?array $atual): array
+{
+    $tem = static fn (string $k): bool => array_key_exists($k, $c);
+    $col = [];
+
+    $nome = $tem('nome') ? gc_loja_limpo($c['nome']) : ($atual['nome'] ?? null);
+    if (!is_string($nome) || gc_tamanho($nome) < 2 || gc_tamanho($nome) > 60) {
+        throw gc_invalido('nome', 'Nome de 2 a 60 letras.');
+    }
+    $col['nome'] = $nome;
+    foreach (['tamanho' => [20, 'Tamanho até 20 letras (ex.: 350 ml, 1 L).'], 'detalhe' => [60, 'Detalhe até 60 letras.']] as $k => [$max, $msg]) {
+        $v = $tem($k) ? gc_loja_limpo($c[$k]) : ($atual[$k] ?? '');
+        if (!is_string($v) || gc_tamanho($v) > $max) {
+            throw gc_invalido($k, $msg);
+        }
+        $col[$k] = $v;
+    }
+    $descricao = $tem('descricao') ? gc_loja_limpo($c['descricao'], true) : ($atual['descricao'] ?? '');
+    if (!is_string($descricao) || gc_tamanho($descricao) > 300) {
+        throw gc_invalido('descricao', 'Descrição até 300 letras.');
+    }
+    $col['descricao'] = $descricao;
+    gc_loja_sem_palavras_da_loja(['nome' => $nome, 'tamanho' => $col['tamanho'], 'detalhe' => $col['detalhe'], 'descricao' => $descricao]);
+
+    $categoria = $tem('categoria') ? $c['categoria'] : ($atual['categoria_id'] ?? null);
+    if (!gc_id_valido($categoria) || gc_um('SELECT 1 FROM loja_categorias WHERE id = ?', [$categoria]) === null) {
+        throw gc_invalido('categoria', 'Escolhe a categoria.');
+    }
+    $col['categoria_id'] = (string) $categoria;
+
+    // preço: null = "Consultar" (nunca inventar preço)
+    if ($tem('preco')) {
+        $preco = $c['preco'] === null || $c['preco'] === '' ? null : gc_loja_centavos($c['preco']);
+        if ($preco === null && $c['preco'] !== null && $c['preco'] !== '') {
+            throw gc_invalido('preco', 'Preço de R$ 0,00 a R$ 100.000,00, ou vazio pra aparecer “Consultar”.');
+        }
+    } else {
+        $preco = $atual === null ? null : gc_int_ou_nulo($atual['preco']);
+    }
+    $col['preco'] = $preco;
+
+    // combos: conferidos de novo quando o preço muda (o combo de antes pode ter ficado mais caro que o avulso)
+    if ($tem('combos')) {
+        $combos = gc_loja_ler_combos($c['combos'], $preco);
+    } else {
+        $combos = $atual === null ? [] : array_map(static fn (array $x): array => ['qtd' => (int) $x['qtd'], 'total' => (int) $x['total']], gc_loja_combos($atual));
+        gc_loja_conferir_combos($combos, $preco);
+    }
+    $col['combos'] = gc_loja_json($combos);
+    $col['variacoes'] = gc_loja_json($tem('variacoes') ? gc_loja_ler_variacoes($c['variacoes']) : ($atual === null ? [] : gc_loja_variacoes($atual)));
+
+    if ($tem('combinaCom')) {
+        $lista = $c['combinaCom'] ?? [];
+        if (!is_array($lista) || !array_is_list($lista) || count($lista) > 8) {
+            throw gc_invalido('combinaCom', 'Até 8 produtos em “Combina com”.');
+        }
+        $ids = [];
+        foreach ($lista as $id) {
+            if (!gc_id_valido($id) || $id === ($atual['id'] ?? null) || gc_um('SELECT 1 FROM loja_produtos WHERE id = ?', [$id]) === null) {
+                throw gc_invalido('combinaCom', 'Produto do “Combina com” não encontrado.');
+            }
+            $ids[(string) $id] = true;
+        }
+        $col['combina_com'] = gc_loja_json(array_keys($ids));
+    } else {
+        $col['combina_com'] = (string) ($atual['combina_com'] ?? '[]');
+    }
+
+    // foto: a enviada pelo painel (uploads/…) ou uma do build do site (produtos/…, nome só com minúscula, número e
+    // traço: o que o .htaccess de produtos/ serve); sem foto, o site desenha a arte. Caminho novo tem de existir (o
+    // que já estava salvo passa, pra editar outro campo de um produto cuja foto de fábrica saiu do build)
+    $foto = $tem('foto') ? $c['foto'] : ($atual['foto'] ?? null);
+    if ($foto === '' || $foto === null) {
+        $foto = null;
+    } elseif (!is_string($foto)) {
+        throw gc_invalido('foto', 'Foto inválida. Envia de novo.');
+    } elseif (preg_match('#^uploads/([a-z0-9]{8,64}\.(?:webp|jpe?g|png))$#', $foto, $m) === 1) {
+        if ($foto !== ($atual['foto'] ?? null) && !is_file(gc_pasta_uploads() . '/' . $m[1])) {
+            throw gc_invalido('foto', 'Foto não encontrada. Envia de novo.');
+        }
+    } elseif (preg_match(GC_LOJA_FABRICA_IMAGEM, $foto, $m) === 1) {
+        if ($foto !== ($atual['foto'] ?? null) && !is_file(gc_pasta_produtos() . '/' . $m[1])) {
+            throw gc_invalido('foto', 'Foto não encontrada. Envia de novo.');
+        }
+    } else {
+        throw gc_invalido('foto', 'Foto inválida. Envia de novo.');
+    }
+    $col['foto'] = $foto;
+
+    // thumb animada: o vídeo curto que o painel tratou e mandou pelo admin-video-upload, e a capa dele (o 1º quadro,
+    // imagem do admin-upload: antes de tocar e onde vídeo não roda). Os dois juntos; sem vídeo, sem capa. Como a foto,
+    // também vale a de fábrica, que vem no build do site (produtos/<nome>.mp4|webm, a capa em produtos/<nome>.webp):
+    // só nome simples (letra, número e traço), nunca outra pasta; o servidor não apaga nem regrava nada de lá.
+    $video = $tem('video') ? $c['video'] : ($atual['video'] ?? null);
+    if ($video === '' || $video === null) {
+        $video = null;
+    } elseif (!is_string($video)) {
+        throw gc_invalido('video', 'Vídeo inválido. Envia de novo.');
+    } elseif (preg_match('#^uploads/([a-z0-9]{8,64}\.(?:mp4|webm))$#', $video, $m) === 1) {
+        if ($video !== ($atual['video'] ?? null) && !is_file(gc_pasta_uploads() . '/' . $m[1])) {
+            throw gc_invalido('video', 'Vídeo não encontrado. Envia de novo.');
+        }
+    } elseif (preg_match(GC_LOJA_FABRICA_VIDEO, $video, $m) === 1) {
+        if ($video !== ($atual['video'] ?? null) && !is_file(gc_pasta_produtos() . '/' . $m[1])) {
+            throw gc_invalido('video', 'Vídeo não encontrado. Envia de novo.');
+        }
+    } else {
+        throw gc_invalido('video', 'Vídeo inválido. Envia de novo.');
+    }
+    $capa = $video === null ? null : ($tem('capa') ? $c['capa'] : ($atual['capa'] ?? null));
+    if ($video !== null) {
+        if (!is_string($capa) || $capa === '') {
+            throw gc_invalido('capa', 'Falta a capa do vídeo. Manda o vídeo de novo.');
+        }
+        if (preg_match('#^uploads/([a-z0-9]{8,64}\.(?:webp|jpe?g|png))$#', $capa, $m) === 1) {
+            if ($capa !== ($atual['capa'] ?? null) && !is_file(gc_pasta_uploads() . '/' . $m[1])) {
+                throw gc_invalido('capa', 'Capa do vídeo não encontrada. Manda o vídeo de novo.');
+            }
+        } elseif (preg_match(GC_LOJA_FABRICA_IMAGEM, $capa, $m) === 1) {
+            if ($capa !== ($atual['capa'] ?? null) && !is_file(gc_pasta_produtos() . '/' . $m[1])) {
+                throw gc_invalido('capa', 'Capa do vídeo não encontrada. Manda o vídeo de novo.');
+            }
+        } else {
+            throw gc_invalido('capa', 'Capa do vídeo inválida. Manda o vídeo de novo.');
+        }
+    }
+    $col['video'] = $video;
+    $col['capa'] = $capa;
+
+    $cor = $tem('cor') ? gc_loja_cor($c['cor']) : ($atual['cor'] ?? '#a8a8a8');
+    if ($cor === null) {
+        throw gc_invalido('cor', 'Cor em #rrggbb (ex.: #d8325f).');
+    }
+    $col['cor'] = $cor;
+
+    if ($tem('arte')) {
+        $a = $c['arte'];
+        if (!is_array($a) || !in_array($a['tipo'] ?? null, GC_LOJA_ARTES, true)) {
+            throw gc_invalido('arte', 'Escolhe o formato do desenho.');
+        }
+        $arte = ['tipo' => (string) $a['tipo']];
+        foreach (['corpo', 'faixa', 'rotulo', 'detalhe', 'tampa'] as $k) {
+            if (($a[$k] ?? null) === null || $a[$k] === '') {
+                if ($k === 'corpo') {
+                    throw gc_invalido('arte', 'Cor do desenho em #rrggbb.');
+                }
+                continue;
+            }
+            $arte[$k] = gc_loja_cor($a[$k]) ?? throw gc_invalido('arte', 'Cor do desenho em #rrggbb.');
+        }
+        $col['arte'] = gc_loja_json($arte);
+    } else {
+        $col['arte'] = $atual === null ? gc_loja_json(['tipo' => 'lata', 'corpo' => $cor]) : (string) $atual['arte'];
+    }
+
+    $obs = $tem('obs') ? gc_loja_limpo($c['obs'], true) : ($atual['obs'] ?? '');
+    if (!is_string($obs) || gc_tamanho($obs) > 300) {
+        throw gc_invalido('obs', 'Anotação até 300 letras.');
+    }
+    $col['obs'] = $obs;
+    $col['demo'] = $tem('demo') ? (gc_loja_bool($c, 'demo', 'Exemplo é sim ou não.') ? 1 : 0) : (int) ($atual['demo'] ?? 0);
+    $col['ativo'] = $tem('ativo') ? (gc_loja_bool($c, 'ativo', 'No site é sim ou não.') ? 1 : 0) : (int) ($atual['ativo'] ?? 1);
+    return $col;
+}
+
+// ─── categoria ──────────────────────────────────────────────────────────────────────────────────────────────────
+
+/** @return array<string, mixed> colunas */
+function gc_loja_ler_categoria(array $c, ?array $atual): array
+{
+    $tem = static fn (string $k): bool => array_key_exists($k, $c);
+    $nome = $tem('nome') ? gc_loja_limpo($c['nome']) : ($atual['nome'] ?? null);
+    if (!is_string($nome) || gc_tamanho($nome) < 2 || gc_tamanho($nome) > 30) {
+        throw gc_invalido('nome', 'Nome de 2 a 30 letras.');
+    }
+    $curto = $tem('curto') ? gc_loja_limpo($c['curto']) : ($atual['curto'] ?? (gc_tamanho($nome) <= 14 ? $nome : null));
+    if (!is_string($curto) || gc_tamanho($curto) < 2 || gc_tamanho($curto) > 14) {
+        throw gc_invalido('curto', 'Nome curto de 2 a 14 letras (é o que aparece embaixo da bolinha).');
+    }
+    gc_loja_sem_palavras_da_loja(['nome' => $nome, 'curto' => $curto]);
+    $icone = $tem('icone') ? $c['icone'] : ($atual['icone'] ?? null);
+    if (!in_array($icone, GC_LOJA_ICONES, true)) {
+        throw gc_invalido('icone', 'Escolhe o ícone.');
+    }
+    // categoria nova é bebida até o dono dizer que não (bebida nunca entra em prêmio)
+    $bebida = $tem('bebida') ? (gc_loja_bool($c, 'bebida', 'Bebida é sim ou não.') ? 1 : 0) : (int) ($atual['bebida'] ?? 1);
+    // a marca "Bebida alcoólica" (fora da rua do mercador e de prêmio): só quando o dono marca, e sempre com "é bebida"
+    $alcool = $tem('alcool') ? (gc_loja_bool($c, 'alcool', 'Bebida alcoólica é sim ou não.') ? 1 : 0) : (int) ($atual['alcool'] ?? 0);
+    if ($alcool === 1 && $bebida === 0) {
+        throw $tem('alcool') && !empty($c['alcool'])
+            ? gc_invalido('alcool', 'Bebida alcoólica é bebida: liga o “É bebida” também.')
+            : gc_invalido('bebida', 'Essa categoria tá marcada como bebida alcoólica: desliga o “Bebida alcoólica” antes.');
+    }
+    return ['nome' => $nome, 'curto' => $curto, 'icone' => (string) $icone, 'bebida' => $bebida, 'alcool' => $alcool];
+}
+
+// ─── estado ─────────────────────────────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Horário da semana: 7 dias (domingo primeiro), cada um null (fechado) ou [abre, fecha] em "HH:MM". Fechar antes de
+ * abrir é madrugada do dia seguinte (["18:00", "02:00"]).
+ * @return list<array{0: string, 1: string}|null>
+ */
+function gc_loja_ler_horario(mixed $v): array
+{
+    if (!is_array($v) || !array_is_list($v) || count($v) !== 7) {
+        throw gc_invalido('horario', 'Horário dos 7 dias, de domingo a sábado.');
+    }
+    $dias = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];
+    $out = [];
+    foreach ($v as $i => $t) {
+        if ($t === null) {
+            $out[] = null;
+            continue;
+        }
+        $abre = is_array($t) && array_is_list($t) && count($t) === 2 ? gc_loja_hora($t[0]) : null;
+        $fecha = is_array($t) && array_is_list($t) && count($t) === 2 ? gc_loja_hora($t[1]) : null;
+        if ($abre === null || $fecha === null) {
+            throw gc_invalido('horario', "Horário de {$dias[$i]} em HH:MM (ex.: 14:00).", ['dia' => $i]);
+        }
+        if ($abre === $fecha) {
+            throw gc_invalido('horario', "Em {$dias[$i]}, abre e fecha no mesmo horário.", ['dia' => $i]);
+        }
+        $out[] = [$abre, $fecha];
+    }
+    return $out;
+}
+
+/**
+ * Lê e confere um estado (o canal de atendimento). Na criação (ativar um estado novo), Instagram e as formas de
+ * pagamento são obrigatórios; o resto nasce "a confirmar".
+ * @return array<string, mixed> colunas
+ */
+function gc_loja_ler_estado(array $c, ?array $atual, string $uf): array
+{
+    $tem = static fn (string $k): bool => array_key_exists($k, $c);
+    $col = [];
+
+    $destaque = $tem('destaque') ? gc_loja_limpo($c['destaque']) : ($atual['destaque'] ?? 'DELIVERY ' . strtoupper($uf));
+    if (!is_string($destaque) || gc_tamanho($destaque) < 2 || gc_tamanho($destaque) > 20) {
+        throw gc_invalido('destaque', 'Nome do destaque de 2 a 20 letras (ex.: DELIVERY RJ).');
+    }
+    $col['destaque'] = $destaque;
+
+    $perfil = $tem('nomePerfil') ? $c['nomePerfil'] : ($atual['nome_perfil'] ?? null);
+    if ($perfil === null || $perfil === '') {
+        $perfil = null;
+    } else {
+        $perfil = gc_loja_limpo($perfil);
+        if (!is_string($perfil) || gc_tamanho($perfil) < 2 || gc_tamanho($perfil) > 40) {
+            throw gc_invalido('nomePerfil', 'Nome do perfil de 2 a 40 letras (ou vazio: aparece só o @).');
+        }
+    }
+    $col['nome_perfil'] = $perfil;
+
+    $instagram = $tem('instagram') ? gc_loja_instagram($c['instagram']) : ($atual['instagram'] ?? null);
+    if ($instagram === null) {
+        throw gc_invalido('instagram', 'Põe o @ do Instagram do estado (letras, números, ponto e _).');
+    }
+    $col['instagram'] = $instagram;
+
+    $whats = $tem('whatsapp') ? $c['whatsapp'] : ($atual['whatsapp'] ?? null);
+    if ($whats === null || $whats === '') {
+        $whats = null;
+    } else {
+        $whats = gc_whatsapp($whats) ?? throw gc_invalido('whatsapp', 'Esse WhatsApp não fecha. Põe DDD + 9 dígitos (ou deixa o da loja).');
+    }
+    $col['whatsapp'] = $whats;
+
+    if ($tem('cidades')) {
+        $lista = $c['cidades'] ?? [];
+        if (!is_array($lista) || !array_is_list($lista) || count($lista) > 30) {
+            throw gc_invalido('cidades', 'Até 30 cidades.');
+        }
+        $cidades = [];
+        $slugs = [];
+        foreach ($lista as $i => $x) {
+            $nome = gc_loja_limpo(is_array($x) ? ($x['nome'] ?? null) : $x);
+            if (!is_string($nome) || gc_tamanho($nome) < 2 || gc_tamanho($nome) > 60) {
+                throw gc_invalido('cidades', 'Nome da cidade de 2 a 60 letras.', ['indice' => $i]);
+            }
+            gc_loja_sem_palavras_da_loja(['cidades' => $nome]);
+            $slug = gc_loja_slug($nome, 'cidade');
+            if (isset($slugs[$slug])) {
+                throw gc_invalido('cidades', "“{$nome}” tá duas vezes.", ['indice' => $i]);
+            }
+            $slugs[$slug] = true;
+            $cidades[] = ['slug' => $slug, 'nome' => $nome];
+        }
+        $col['cidades'] = gc_loja_json($cidades);
+    } else {
+        $col['cidades'] = (string) ($atual['cidades'] ?? '[]');
+    }
+
+    // horário, taxa, entrega grátis e pagamento: o que veio do painel deixa de ser exemplo (a não ser que venha marcado)
+    $demo = static function (string $k, string $coluna, bool $mudou) use ($c, $atual, $tem): int {
+        if ($tem($k)) {
+            if (!is_bool($c[$k])) {
+                throw gc_invalido($k, 'Exemplo é sim ou não.');
+            }
+            return $c[$k] ? 1 : 0;
+        }
+        return $mudou ? 0 : (int) ($atual[$coluna] ?? 0);
+    };
+    if ($tem('horario')) {
+        $col['horario'] = gc_loja_json(gc_loja_ler_horario($c['horario']));
+    } else {
+        $col['horario'] = (string) ($atual['horario'] ?? gc_loja_json(array_fill(0, 7, null)));
+    }
+    // estado novo sem horário: "a confirmar" (o site não mostra horário de exemplo)
+    $col['horario_demo'] = $atual === null && !$tem('horario') && !$tem('horarioDemo') ? 1 : $demo('horarioDemo', 'horario_demo', $tem('horario'));
+
+    if ($tem('taxa')) {
+        $taxa = $c['taxa'] === null || $c['taxa'] === '' ? null : gc_loja_centavos($c['taxa']);
+        if ($taxa === null && $c['taxa'] !== null && $c['taxa'] !== '') {
+            throw gc_invalido('taxa', 'Taxa de R$ 0,00 a R$ 100.000,00, ou “A confirmar”.');
+        }
+    } else {
+        $taxa = $atual === null ? null : gc_int_ou_nulo($atual['taxa']);
+    }
+    $col['taxa'] = $taxa;
+    $col['taxa_demo'] = $demo('taxaDemo', 'taxa_demo', $tem('taxa'));
+
+    // o pedido mínimo pra entrega (migração 105): vazio, null ou R$ 0 = sem mínimo; o resto, de R$ 0,01 a R$ 1.000,00
+    if (gc_loja_tem_minimo()) {
+        if ($tem('pedidoMinimo')) {
+            $v = $c['pedidoMinimo'];
+            $minimo = $v === null || $v === '' ? 0 : gc_loja_centavos($v);
+            if ($minimo === null || $minimo > GC_LOJA_MINIMO_MAX) {
+                throw gc_invalido('pedidoMinimo', 'Pedido mínimo de R$ 0,01 a R$ 1.000,00, ou vazio (sem mínimo).');
+            }
+            $col['pedido_minimo'] = $minimo === 0 ? null : $minimo;
+        } else {
+            $col['pedido_minimo'] = $atual === null ? null : gc_int_ou_nulo($atual['pedido_minimo'] ?? null);
+        }
+    }
+
+    // a taxa por bairro (migração 107): campo ausente fica como está (o painel de antes, aberto no celular do dono, não
+    // manda nenhum deles e não pode zerar a lista nem voltar o modo). No meio da volta pra versão de antes (o
+    // loja-migracoes.php de antes, sem as contas da taxa por bairro, já no lugar), nada disso: as colunas ficam como estão
+    if (function_exists('gc_loja_tem_bairros') && gc_loja_tem_bairros()) {
+        if ($tem('taxaPor')) {
+            if (!in_array($c['taxaPor'], ['estado', 'bairro'], true)) {
+                throw gc_invalido('taxaPor', 'A taxa é uma só pro estado ou por bairro.');
+            }
+            $col['taxa_por'] = $c['taxaPor'];
+        } else {
+            $col['taxa_por'] = $atual === null ? 'estado' : gc_loja_taxa_por($atual);
+        }
+        if ($tem('bairrosVer')) {
+            if (!in_array($c['bairrosVer'], ['site', 'consulta'], true)) {
+                throw gc_invalido('bairrosVer', 'O cliente vê a taxa do bairro no site ou consulta na conversa.');
+            }
+            $col['bairros_ver'] = $c['bairrosVer'];
+        } else {
+            $col['bairros_ver'] = $atual === null ? 'site' : gc_loja_bairros_ver($atual);
+        }
+        if ($tem('bairros')) {
+            $col['bairros'] = gc_loja_json(gc_loja_ler_bairros($c['bairros'], (array) gc_loja_lido($col['cidades'], [])));
+        } else {
+            $col['bairros'] = $atual === null ? '[]' : (string) ($atual['bairros'] ?? '[]');
+            // as cidades mudaram e a lista não veio (o painel de antes, ou só a cidade mexida): a lista guardada tem de
+            // continuar valendo com as cidades novas. Bairro de uma cidade que saiu fica sem cidade nenhuma que case (o
+            // site nunca acharia ele) e o salvar seguinte da lista seria recusado por um bairro que o dono nem mexeu:
+            // recusa agora, dizendo qual. O painel novo resolve antes de mandar (apaga ou muda os bairros da cidade)
+            if ($tem('cidades') && $atual !== null) {
+                gc_loja_bairros_com_cidades(gc_loja_bairros_de(['bairros' => $col['bairros']]), (array) gc_loja_lido($col['cidades'], []));
+            }
+        }
+    }
+
+    if ($tem('entregaGratis')) {
+        $g = $c['entregaGratis'];
+        if ($g === null) {
+            $col['entrega_gratis'] = null;
+        } else {
+            $dias = is_array($g) ? ($g['dias'] ?? null) : null;
+            if (!is_array($dias) || !array_is_list($dias) || $dias === []) {
+                throw gc_invalido('entregaGratis', 'Escolhe em que dia da semana a entrega é grátis.');
+            }
+            $lista = [];
+            foreach ($dias as $d) {
+                $n = gc_inteiro($d, 0, 6);
+                if ($n === null) {
+                    throw gc_invalido('entregaGratis', 'Dia da semana de domingo (0) a sábado (6).');
+                }
+                $lista[$n] = true;
+            }
+            ksort($lista);
+            $texto = gc_loja_limpo($g['texto'] ?? null);
+            if (!is_string($texto) || gc_tamanho($texto) < 2 || gc_tamanho($texto) > 40) {
+                throw gc_invalido('entregaGratis', 'Frase da entrega grátis de 2 a 40 letras (ex.: Sextou com entrega grátis!).');
+            }
+            gc_loja_sem_tabaco(['entregaGratis' => $texto]);
+            $col['entrega_gratis'] = gc_loja_json(['dias' => array_keys($lista), 'texto' => $texto]);
+        }
+    } else {
+        $col['entrega_gratis'] = $atual['entrega_gratis'] ?? null;
+    }
+    $col['entrega_gratis_demo'] = $demo('entregaGratisDemo', 'entrega_gratis_demo', $tem('entregaGratis'));
+
+    if ($tem('pagamentos')) {
+        $p = $c['pagamentos'];
+        if (!is_array($p) || !array_is_list($p) || $p === [] || array_diff($p, GC_LOJA_PAGAMENTOS) !== []) {
+            throw gc_invalido('pagamentos', 'Escolhe pelo menos uma forma de pagamento.');
+        }
+        $col['pagamentos'] = gc_loja_json(array_values(array_intersect(GC_LOJA_PAGAMENTOS, $p)));
+    } elseif ($atual === null) {
+        throw gc_invalido('pagamentos', 'Escolhe pelo menos uma forma de pagamento.');
+    } else {
+        $col['pagamentos'] = (string) $atual['pagamentos'];
+    }
+    $col['pagamentos_demo'] = $demo('pagamentosDemo', 'pagamentos_demo', $tem('pagamentos'));
+
+    gc_loja_sem_palavras_da_loja(['destaque' => $destaque, 'nomePerfil' => (string) $perfil]);
+    $col['ativo'] = $tem('ativo') ? (gc_loja_bool($c, 'ativo', 'Ativo é sim ou não.') ? 1 : 0) : (int) ($atual['ativo'] ?? 1);
+    return $col;
+}
+
+/**
+ * A lista de bairros do estado (a taxa por bairro, 22/10): até 400, cada um com o nome (2 a 60 letras, as mesmas
+ * palavras que a cidade não aceita), a cidade (vazia = vale pra qualquer cidade do estado; preenchida, uma das cidades
+ * dele) e a taxa (de R$ 0,00 a R$ 500,00, ou null = consultar). O mesmo bairro duas vezes na mesma cidade (sem acento,
+ * sem maiúscula, espaço e pontuação iguais: gc_loja_chave_bairro) não entra. O erro diz o índice, pro painel apontar.
+ * @param list<array{slug: string, nome: string}> $cidades as cidades do estado (depois desta edição)
+ * @return list<array{nome: string, cidade: string, taxa: int|null}>
+ */
+function gc_loja_ler_bairros(mixed $v, array $cidades): array
+{
+    if (!is_array($v) || !array_is_list($v)) {
+        throw gc_invalido('bairros', 'A lista de bairros não veio certa. Recarrega a página e tenta de novo.');
+    }
+    if (count($v) > GC_LOJA_BAIRROS_MAX) {
+        throw gc_invalido('bairros', 'Até ' . GC_LOJA_BAIRROS_MAX . ' bairros por estado.');
+    }
+    $daCidade = [];
+    foreach ($cidades as $c) {
+        if (is_array($c) && is_string($c['nome'] ?? null)) {
+            $daCidade[gc_loja_chave_bairro($c['nome'])] = $c['nome'];
+        }
+    }
+    $out = [];
+    $vistos = [];
+    foreach ($v as $i => $x) {
+        $nome = gc_loja_limpo(is_array($x) ? ($x['nome'] ?? null) : null);
+        if (!is_string($nome) || gc_tamanho($nome) < 2 || gc_tamanho($nome) > 60 || gc_loja_chave_bairro($nome) === '') {
+            throw gc_invalido('bairros', 'Nome do bairro de 2 a 60 letras.', ['indice' => $i]);
+        }
+        try {
+            gc_loja_sem_palavras_da_loja(['bairros' => $nome]);
+        } catch (ErroApi $e) {
+            throw new ErroApi($e->codigo, $e->getMessage(), $e->status, $e->extra + ['indice' => $i]);
+        }
+        // o separador da lista colada (";", ":", "=" ou o tab da planilha) nunca é parte do nome: "Laranjeiras;10" é a
+        // linha da planilha que não foi lida, e o cliente que digita "Laranjeiras" nunca casaria com ele
+        if (preg_match('/[;:=\t]/', $nome) === 1) {
+            throw gc_invalido('bairros', "“{$nome}”: o nome do bairro não leva “;”, “:” nem “=” (a taxa vai no campo dela).", ['indice' => $i]);
+        }
+        $cidade = '';
+        $pedida = is_array($x) ? ($x['cidade'] ?? null) : null;
+        if ($pedida !== null && $pedida !== '') {
+            $c = is_string($pedida) ? ($daCidade[gc_loja_chave_bairro($pedida)] ?? null) : null;
+            if ($c === null) {
+                $qual = is_string($pedida) ? " ({$pedida})" : '';
+                throw gc_invalido('bairros', "A cidade de “{$nome}”{$qual} não tá nas cidades do estado.", ['indice' => $i]);
+            }
+            $cidade = $c;
+        }
+        $t = is_array($x) && array_key_exists('taxa', $x) ? $x['taxa'] : null;
+        $taxa = null;
+        if ($t !== null && $t !== '') {
+            $taxa = gc_loja_centavos($t);
+            if ($taxa === null || $taxa > GC_LOJA_TAXA_BAIRRO_MAX) {
+                throw gc_invalido('bairros', "Taxa de “{$nome}” de R$ 0,00 a R$ 500,00, ou “consultar”.", ['indice' => $i]);
+            }
+        }
+        $chave = gc_loja_chave_bairro($cidade) . '|' . gc_loja_chave_bairro($nome);
+        if (isset($vistos[$chave])) {
+            throw gc_invalido('bairros', "“{$nome}” tá duas vezes" . ($cidade !== '' ? " em {$cidade}." : '.'), ['indice' => $i]);
+        }
+        $vistos[$chave] = true;
+        $out[] = ['nome' => $nome, 'cidade' => $cidade, 'taxa' => $taxa];
+    }
+    return $out;
+}
+
+/**
+ * A lista guardada continua valendo com as cidades novas do estado? (as cidades mudaram e a lista não veio no corpo:
+ * o painel de antes, aberto no celular do dono, só manda as cidades). Bairro de uma cidade que saiu: recusa, com o
+ * campo "cidades" e o nome do bairro e da cidade (o "Centro" de Vitória e o de Vila Velha são dois).
+ * @param list<array{nome: string, cidade: string, taxa: int|null}> $bairros
+ * @param list<mixed> $cidades as cidades do estado depois desta edição
+ */
+function gc_loja_bairros_com_cidades(array $bairros, array $cidades): void
+{
+    $tem = [];
+    foreach ($cidades as $c) {
+        if (is_array($c) && is_string($c['nome'] ?? null)) {
+            $tem[gc_loja_chave_bairro($c['nome'])] = true;
+        }
+    }
+    $orfaos = array_values(array_filter($bairros, static fn (array $b): bool => $b['cidade'] !== '' && !isset($tem[gc_loja_chave_bairro($b['cidade'])])));
+    if ($orfaos === []) {
+        return;
+    }
+    $cidade = $orfaos[0]['cidade'];
+    $daCidade = array_values(array_filter($orfaos, static fn (array $b): bool => $b['cidade'] === $cidade));
+    $nomes = array_map(static fn (array $b): string => $b['nome'], array_slice($daCidade, 0, 3));
+    $lista = count($daCidade) > 3 ? implode(', ', $nomes) . ' e mais ' . (count($daCidade) - 3) : implode(' e ', array_filter([implode(', ', array_slice($nomes, 0, -1)), end($nomes)]));
+    throw gc_invalido(
+        'cidades',
+        (count($daCidade) === 1 ? "O bairro {$lista} é" : "Os bairros {$lista} são") . " de {$cidade}, na lista de bairros da taxa de entrega: apaga "
+        . (count($daCidade) === 1 ? 'ele' : 'eles') . " ou muda a cidade antes de tirar {$cidade} (recarrega o painel se não tá vendo a lista).",
+        ['bairros' => count($orfaos)],
+    );
+}
+
+// ─── loja (ajustes e textos) e Teste minha sorte ────────────────────────────────────────────────────────────────
+
+/** Uma lista de textos curtos (bio, falas): de $min a $max itens, cada um de 1 a $letras. @return list<string> */
+function gc_loja_ler_linhas(mixed $v, string $campo, int $min, int $max, int $letras, string $msg): array
+{
+    if (!is_array($v) || !array_is_list($v)) {
+        throw gc_invalido($campo, $msg);
+    }
+    $out = [];
+    foreach ($v as $i => $x) {
+        $t = gc_loja_limpo($x);
+        if ($t === null || $t === '') {
+            continue; // linha em branco some
+        }
+        if (gc_tamanho($t) > $letras) {
+            throw gc_invalido($campo, "Cada linha até $letras letras.", ['indice' => $i]);
+        }
+        $out[] = $t;
+    }
+    if (count($out) < $min || count($out) > $max) {
+        throw gc_invalido($campo, $msg);
+    }
+    return $out;
+}
+
+/**
+ * Textos da loja (src/dados/textos-loja.ts): curtos, sem tabaco e sem as palavras que o site não usa.
+ * @param array<string, mixed> $atual
+ * @return array{bio: list<string>, fraseStory: string, sacolaVazia: string, falasMercado: list<string>}
+ */
+function gc_loja_ler_textos(mixed $v, array $atual): array
+{
+    if (!is_array($v) || ($v !== [] && array_is_list($v))) {
+        throw gc_invalido('textos', 'Textos vieram tortos. Recarrega e tenta de novo.');
+    }
+    $out = $atual;
+    if (array_key_exists('bio', $v)) {
+        $out['bio'] = gc_loja_ler_linhas($v['bio'], 'bio', 1, 3, 80, 'A bio tem de 1 a 3 linhas.');
+        if (gc_tamanho(implode("\n", $out['bio'])) > 150) {
+            throw gc_invalido('bio', 'A bio inteira até 150 letras (como a do Instagram).');
+        }
+    }
+    foreach (['fraseStory' => [28, 'A frase do story de 2 a 28 letras.'], 'sacolaVazia' => [48, 'O texto da sacola vazia de 2 a 48 letras.']] as $k => [$max, $msg]) {
+        if (array_key_exists($k, $v)) {
+            $t = gc_loja_limpo($v[$k]);
+            if (!is_string($t) || gc_tamanho($t) < 2 || gc_tamanho($t) > $max) {
+                throw gc_invalido($k, $msg);
+            }
+            $out[$k] = $t;
+        }
+    }
+    if (array_key_exists('falasMercado', $v)) {
+        $out['falasMercado'] = gc_loja_ler_linhas($v['falasMercado'], 'falasMercado', 1, 5, 32, 'De 1 a 5 falas do mercador.');
+    }
+    gc_loja_sem_palavras([
+        'bio' => implode(' · ', $out['bio']),
+        'fraseStory' => $out['fraseStory'],
+        'sacolaVazia' => $out['sacolaVazia'],
+        'falasMercado' => implode(' · ', $out['falasMercado']),
+    ]);
+    return $out;
+}
+
+/**
+ * Lê e confere um prêmio do Teste minha sorte: as regras de src/lib/cupom.ts (motivoInvalido). Só acessório: nada em
+ * bebida (categoria marcada como bebida, desenho de bebida ou nome de bebida alcoólica), peso > 0, validade de 1 a 30 dias, percentual
+ * de 1 a 50, leve > pague, produto e categoria que existem, e nenhuma palavra da lista nos textos.
+ * @return array<string, mixed> colunas
+ */
+function gc_loja_ler_premio(array $c, ?array $atual): array
+{
+    $tem = static fn (string $k): bool => array_key_exists($k, $c);
+    $col = [];
+    $tipo = $tem('tipo') ? $c['tipo'] : ($atual['tipo'] ?? null);
+    if (!in_array($tipo, ['desconto-percentual', 'leve-x-pague-y', 'brinde'], true)) {
+        throw gc_invalido('tipo', 'Escolhe o tipo do prêmio.');
+    }
+    $col['tipo'] = $tipo;
+
+    // produto que pode virar prêmio: existe e não é bebida
+    $acessorio = static function (mixed $id, string $campo): array {
+        $p = gc_loja_produto_e_categoria($id);
+        if ($p === null) {
+            throw gc_invalido($campo, 'Produto não encontrado.');
+        }
+        if ((int) $p['bebida'] === 1 || gc_loja_bebida_pelo_produto((string) $p['nome'], $p['arte'])) {
+            throw gc_invalido($campo, "“{$p['nome']}” é bebida: prêmio só em acessório (sedas, piteiras, acessórios).");
+        }
+        return $p;
+    };
+
+    $valor = $tem('valor') ? $c['valor'] : ($atual === null || ($tem('tipo') && $tipo !== $atual['tipo']) ? null : gc_loja_lido($atual['valor'], null));
+    if ($tipo === 'desconto-percentual') {
+        $n = gc_inteiro($valor, 1, 50);
+        if ($n === null) {
+            throw gc_invalido('valor', 'Desconto de 1% a 50%.');
+        }
+        $col['valor'] = gc_loja_json($n);
+    } elseif ($tipo === 'leve-x-pague-y') {
+        $leve = is_array($valor) ? gc_inteiro($valor['leve'] ?? null, 2, 20) : null;
+        $pague = is_array($valor) ? gc_inteiro($valor['pague'] ?? null, 1, 19) : null;
+        if ($leve === null || $pague === null || $leve <= $pague) {
+            throw gc_invalido('valor', 'Leva tem que ser mais que paga (ex.: leva 4, paga 3).');
+        }
+        $col['valor'] = gc_loja_json(['leve' => $leve, 'pague' => $pague]);
+    } else {
+        $qtd = is_array($valor) ? gc_inteiro($valor['qtd'] ?? 1, 1, 10) : null;
+        if (!is_array($valor) || $qtd === null) {
+            throw gc_invalido('valor', 'Escolhe o produto que vai de brinde (de 1 a 10).');
+        }
+        $b = $acessorio($valor['produto'] ?? null, 'valor');
+        $col['valor'] = gc_loja_json(['produto' => (string) $b['id'], 'qtd' => $qtd]);
+    }
+
+    $aplica = $tem('aplicaA') ? $c['aplicaA'] : ($atual === null ? null : gc_loja_lido($atual['aplica_a'], null));
+    if (!is_array($aplica) || ($aplica !== [] && array_is_list($aplica))) {
+        throw gc_invalido('aplicaA', 'Escolhe em que produto ou categoria o prêmio vale.');
+    }
+    $produtos = $aplica['produtos'] ?? [];
+    $categorias = $aplica['categorias'] ?? [];
+    if (!is_array($produtos) || !array_is_list($produtos) || !is_array($categorias) || !array_is_list($categorias) || count($produtos) > 20 || count($categorias) > 10) {
+        throw gc_invalido('aplicaA', 'Escolhe em que produto ou categoria o prêmio vale.');
+    }
+    if ($produtos === [] && $categorias === []) {
+        throw gc_invalido('aplicaA', 'Escolhe em que produto ou categoria o prêmio vale.');
+    }
+    $ap = [];
+    foreach ($produtos as $id) {
+        $ap['produtos'][] = (string) $acessorio($id, 'aplicaA')['id'];
+    }
+    foreach ($categorias as $id) {
+        $cat = gc_id_valido($id) ? gc_um('SELECT id, nome, (bebida OR alcool) AS bebida FROM loja_categorias WHERE id = ?', [$id]) : null;
+        if ($cat === null) {
+            throw gc_invalido('aplicaA', 'Categoria não encontrada.');
+        }
+        if ((int) $cat['bebida'] === 1) {
+            throw gc_invalido('aplicaA', "“{$cat['nome']}” é de bebida: prêmio só em acessório.");
+        }
+        $ap['categorias'][] = (string) $cat['id'];
+    }
+    foreach ($ap as $k => $ids) {
+        $ap[$k] = array_values(array_unique($ids));
+    }
+    $col['aplica_a'] = gc_loja_json($ap);
+
+    $textos = [];
+    foreach ([
+        'titulo' => ['titulo', 2, 60, 'Nome interno de 2 a 60 letras.'],
+        'descricao' => ['descricao', 2, 40, 'A linha de apoio de 2 a 40 letras (até 28 cabe numa linha no celular).'],
+        'regra' => ['regra', 2, 120, 'A regra de 2 a 120 letras (é a frase que vai no WhatsApp).'],
+        'comoUsar' => ['como_usar', 0, 160, 'Como usar até 160 letras.'],
+    ] as $k => [$coluna, $min, $max, $msg]) {
+        $t = $tem($k) ? gc_loja_limpo($c[$k]) : ($atual[$coluna] ?? ($min === 0 ? '' : null));
+        if (!is_string($t) || gc_tamanho($t) < $min || gc_tamanho($t) > $max) {
+            throw gc_invalido($k, $msg);
+        }
+        $col[$coluna] = $t;
+        $textos[$k] = $t;
+    }
+    gc_loja_sem_palavras($textos);
+
+    // o peso vale dentro da raridade (relativo aos outros prêmios dela); prêmio novo sem peso: 1
+    $peso = $tem('peso') ? gc_inteiro($c['peso'], 1, 1000) : ($atual === null ? 1 : (int) $atual['peso']);
+    if ($peso === null) {
+        throw gc_invalido('peso', 'Peso de 1 a 1000 (dentro da raridade: quanto maior, mais sai).');
+    }
+    $col['peso'] = $peso;
+    // a raridade (prêmio novo sem raridade: comum; na edição, sem o campo, fica a que era)
+    $col['raridade'] = $tem('raridade') ? gc_loja_ler_raridade($c['raridade']) : ($atual === null ? 'comum' : gc_raridade_de($atual));
+    $validade = $tem('validadeDias') ? gc_inteiro($c['validadeDias'], 1, 30) : ($atual === null ? null : (int) $atual['validade_dias']);
+    if ($validade === null) {
+        throw gc_invalido('validadeDias', 'Validade de 1 a 30 dias.');
+    }
+    $col['validade_dias'] = $validade;
+    $col['ativo'] = $tem('ativo') ? (gc_loja_bool($c, 'ativo', 'No jogo é sim ou não.') ? 1 : 0) : (int) ($atual['ativo'] ?? 1);
+    $col['demo'] = $tem('demo') ? (gc_loja_bool($c, 'demo', 'Exemplo é sim ou não.') ? 1 : 0) : (int) ($atual['demo'] ?? 0);
+    return $col;
+}
+
+/** O produto (nome e desenho) com o "bebida" da categoria dele, ou null. @return array<string, mixed>|null */
+function gc_loja_produto_e_categoria(mixed $id): ?array
+{
+    if (!gc_id_valido($id)) {
+        return null;
+    }
+    return gc_um('SELECT p.id, p.nome, p.arte, (c.bebida OR c.alcool) AS bebida FROM loja_produtos p JOIN loja_categorias c ON c.id = p.categoria_id WHERE p.id = ?', [$id]);
+}
+
+/**
+ * Regras do Teste minha sorte (src/dados/sorte.ts, regrasSorte): ligado, giros sem conta, a frequência com conta
+ * (`girosPorIntervalo` giros a cada `intervaloDias` dias; o `girosPorDiaComConta` de antes ainda vale como
+ * `girosPorIntervalo`, pro painel com o JS velho no cache), as horas que o prêmio de quem girou sem conta fica guardado
+ * e as chances de cada raridade (gc_chances_ler: somam 100, até 1 casa, quanto mais raro, menor).
+ * @param array<string, mixed> $atual
+ * @return array<string, mixed> o gc_loja_sorte() novo
+ */
+function gc_loja_ler_sorte(array $c, array $atual): array
+{
+    $out = $atual;
+    if (array_key_exists('ligado', $c)) {
+        $out['ligado'] = gc_loja_bool($c, 'ligado', 'Ligado é sim ou não.');
+    }
+    if (array_key_exists('girosPorDiaComConta', $c) && !array_key_exists('girosPorIntervalo', $c)) {
+        $c['girosPorIntervalo'] = $c['girosPorDiaComConta'];
+        $campoPorIntervalo = 'girosPorDiaComConta';
+    }
+    // sem conta gira pelo menos 1 vez: conta é incentivo, nunca pedágio (DECISOES.md, item 13)
+    foreach ([
+        'girosSemConta' => [1, 3, 'Giros sem conta de 1 a 3 (o primeiro é sempre livre).'],
+        'intervaloDias' => [1, 30, 'A cada quantos dias: de 1 (todo dia) a 30 (1x por mês).'],
+        'girosPorIntervalo' => [1, 5, 'Giros por vez com conta de 1 a 5.'],
+        'reservaSemContaHoras' => [1, 72, 'O prêmio sem conta fica guardado de 1 a 72 horas.'],
+    ] as $k => [$min, $max, $msg]) {
+        if (array_key_exists($k, $c)) {
+            $out[$k] = gc_inteiro($c[$k], $min, $max) ?? throw gc_invalido($k === 'girosPorIntervalo' ? ($campoPorIntervalo ?? $k) : $k, $msg);
+        }
+    }
+    $out['girosPorDiaComConta'] = $out['girosPorIntervalo'];
+    if (array_key_exists('chances', $c)) {
+        $lidas = gc_chances_ler($c['chances']);
+        if ($lidas['chances'] === null) {
+            throw gc_invalido('chances', (string) $lidas['erro'], $lidas['raridade'] === null ? [] : ['raridade' => $lidas['raridade']]);
+        }
+        $out['chances'] = $lidas['chances'];
+    }
+    return $out;
+}
+
+/** A raridade do prêmio: comum, raro, epico ou lendario. */
+function gc_loja_ler_raridade(mixed $v): string
+{
+    return is_string($v) && in_array($v, GC_RARIDADES, true) ? $v : throw gc_invalido('raridade', 'Escolhe a raridade: comum, raro, épico ou lendário.');
+}

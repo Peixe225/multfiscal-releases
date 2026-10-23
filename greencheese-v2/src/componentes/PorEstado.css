@@ -1,0 +1,277 @@
+.estados {
+  /* o lado a lado depende da largura da própria seção (com ou sem barra lateral), não da tela */
+  container: estados / inline-size;
+  padding: 48px var(--gutter) 40px;
+  scroll-margin-top: 70px;
+}
+/* em tela muito larga o bloco não se espalha: título, mapa e lista ficam juntos, no meio */
+.estados-caixa {
+  max-width: 1400px;
+  margin-inline: auto;
+}
+.estados-titulo {
+  margin: 0 0 24px 4px;
+}
+.estados-grade {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+.estados-mapa {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+/* legenda do mapa, como num mapa de verdade */
+.estados-legenda {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  font-size: 12px;
+  line-height: 1.3;
+}
+.estados-chave {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+}
+.estados-chave + .estados-chave,
+.estados-legenda .estados-chave:not(:first-child) {
+  margin-left: 8px;
+}
+.estados-chave-aceso {
+  background: var(--legenda);
+}
+.estados-chave-apagado {
+  background-color: var(--preto);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='2' height='2' shape-rendering='crispEdges'%3E%3Crect width='1' height='1' fill='%23636363'/%3E%3C/svg%3E");
+  background-size: 4px 4px;
+  image-rendering: pixelated;
+}
+.estados-fonte {
+  margin-left: auto;
+  color: #8e8e8e; /* 5,9:1 no preto */
+}
+
+/* balão do estado sem atendimento */
+.estados-balao-botoes {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.estados-balao-botao {
+  background: var(--preto);
+  color: var(--branco);
+  padding: 0 18px;
+  font-size: 14px;
+}
+.estados-balao-fechar {
+  margin-right: -8px;
+  color: var(--preto);
+}
+
+/* ── o "trocar de conta" do Instagram: folha preta com canto em degrau, alça de pixel e as contas ── */
+.pe-contas {
+  --pad: var(--gutter);
+  position: relative;
+  margin-inline: calc(-1 * var(--gutter));
+  padding-bottom: 6px;
+  background: var(--preto);
+}
+.pe-contas::before {
+  /* fio de 1 px que acompanha o degrau, como nas folhas do site */
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-top: 1px solid var(--bolha);
+  pointer-events: none;
+}
+.pe-contas-alca {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  padding: 12px 0 6px;
+}
+.pe-contas-alca i {
+  width: 4px;
+  height: 4px;
+  background: var(--branco);
+}
+.pe-contas-lista {
+  display: flex;
+  flex-direction: column;
+}
+
+.pe-conta-linha {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 72px;
+  padding: 10px var(--pad);
+  text-align: left;
+}
+.pe-conta-avatar {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+}
+/* anel cinza nos outros perfis (como story já visto); o do cliente fica com o anel branco */
+.pe-avatar-visto {
+  box-shadow: inset 0 0 0 1.5px var(--chiado) !important;
+}
+/* a sigla do estado no canto do avatar, como o selo do story */
+.pe-conta-uf {
+  position: absolute;
+  right: -5px;
+  bottom: -3px;
+  padding: 2px 3px 1px;
+  background: var(--branco);
+  color: var(--preto);
+  font-size: 11px;
+  font-weight: 400;
+  box-shadow: 0 0 0 2px var(--preto);
+}
+.pe-conta-avatar-vazio {
+  border: 1.5px dashed var(--chiado);
+  border-radius: 50%;
+  color: var(--legenda);
+  font-size: 24px;
+}
+.pe-conta-avatar-mais {
+  border: 1.5px solid var(--branco);
+  border-radius: 50%;
+}
+.pe-conta-txt {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.pe-conta-arroba {
+  font: 600 15px/1.25 var(--ui);
+}
+.pe-conta-sub {
+  font: 400 13px/1.3 var(--ui);
+}
+.pe-contas-confirmar {
+  font-style: normal;
+}
+.pe-conta-aqui {
+  color: var(--branco);
+}
+.pe-conta-sub .carimbo {
+  margin-right: 2px;
+}
+
+/* o "rádio" da conta: vazio nas outras, branco com o check na do cliente */
+.pe-conta-radio {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 1.5px solid var(--chiado);
+  border-radius: 50%;
+}
+.pe-conta-radio.marcado {
+  background: var(--branco);
+  border-color: var(--branco);
+  color: var(--preto);
+}
+.pe-conta-seta {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  color: var(--legenda);
+}
+
+.pe-conta-mais {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 0 var(--pad) 16px calc(var(--pad) + 64px);
+  margin-top: -4px;
+}
+.pe-conta-horario {
+  font-size: 13px;
+}
+.pe-conta-sextou {
+  font: 700 14px/1.2 var(--ui);
+}
+.pe-conta-botoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+}
+.pe-conta-botoes .botao {
+  padding: 0 16px;
+  font-size: 14px;
+}
+
+/* a conta atual também é um botão (o foco não se perde ao trocar), mas não faz nada: sem cara de clicável */
+.pe-conta.atual .pe-conta-linha {
+  cursor: default;
+}
+
+@media (hover: hover) {
+  .pe-conta:not(.atual) button.pe-conta-linha:hover,
+  a.pe-conta-linha:hover {
+    background: rgba(255, 255, 255, 0.05);
+  }
+  .pe-conta:not(.atual) button.pe-conta-linha:hover .pe-conta-radio {
+    border-color: var(--branco);
+  }
+}
+
+/* celular estreito: as ações ocupam a largura toda embaixo do avatar (os dois botões cabem numa linha) */
+@media (max-width: 379px) {
+  .pe-conta-mais {
+    padding-left: var(--pad);
+  }
+}
+@media (max-width: 359px) {
+  .pe-conta-linha {
+    gap: 10px;
+  }
+  .pe-conta-arroba {
+    font-size: 14px;
+  }
+}
+
+@media (min-width: 900px) {
+  .estados {
+    padding: 72px clamp(24px, 4vw, 64px) 56px;
+  }
+  /* empilhado (seção estreita, ao lado da barra lateral): a lista embaixo do mapa, na largura de uma folha */
+  .pe-contas {
+    --pad: 16px;
+    max-width: 560px;
+    margin-inline: 0;
+  }
+  .pe-contas::before {
+    border: 1px solid var(--bolha);
+  }
+}
+
+/* Lado a lado só quando a coluna do mapa comporta o Brasil com a lupa (>= 440 px: 910 - 48 de vão - 420 da lista).
+   Mais estreito que isso o mapa encolheria sem lupa: fica empilhado. */
+@container estados (min-width: 910px) {
+  .estados-grade {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(340px, 420px);
+    gap: 48px;
+    align-items: start;
+  }
+  .pe-contas {
+    max-width: none;
+  }
+}

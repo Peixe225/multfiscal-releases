@@ -1,0 +1,53 @@
+.info-quadro {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 80px 10% 40px;
+  text-align: center;
+}
+.info-titulo {
+  font-size: 32px;
+  text-wrap: balance;
+}
+.info-grande {
+  font-size: 24px;
+  line-height: 1.15;
+}
+.info-txt {
+  font: 400 15px/1.4 var(--ui);
+  /* sem palavra sozinha na última linha ("DM.", "loja.") */
+  text-wrap: balance;
+}
+.info-emblema {
+  image-rendering: pixelated;
+}
+.info-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.info-lista li {
+  font-size: 24px;
+}
+.info-quadro .botao {
+  min-width: 240px;
+}
+/* o @ do estado inteiro numa linha, no branco forte (é ele que a pessoa procura no Instagram) */
+.info-arroba {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+/* celular deitado: o quadro fica largo e baixo (StoryShell.css), o conteúdo aperta na altura */
+@media (max-height: 480px) and (orientation: landscape) {
+  .info-quadro {
+    gap: 8px;
+    padding: 64px 8% 12px;
+  }
+  .info-titulo {
+    font-size: 24px;
+  }
+}

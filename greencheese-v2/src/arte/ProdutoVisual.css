@@ -1,0 +1,100 @@
+.pv {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* halo pontilhado (pixel nítido) atrás do produto. A caixa é a do próprio desenho (9:16, centrada; o mesmo lugar do
+   "contain" na caixa toda): no story do celular a caixa do produto é mais larga que a tela, e a borda cortada mudava a
+   área que o navegador conta para a LCP de um produto para o outro — o 2º story virava a LCP aos ~8 s */
+.pv-com-halo::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  height: 100%;
+  width: auto;
+  aspect-ratio: 9 / 16;
+  max-width: 100%;
+  background: var(--pv-halo) center / contain no-repeat;
+  image-rendering: pixelated;
+  pointer-events: none;
+}
+
+.pv-real {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  -webkit-user-drag: none;
+  user-select: none;
+}
+img.pv-real,
+video.pv-real {
+  /* foto recortada sobre preto: o preto da foto some no preto da página */
+  mix-blend-mode: lighten;
+}
+/* foto recortada (com transparência): cobre o halo como a ilustração, sem o halo vazar nas partes escuras */
+img.pv-real[data-alfa] {
+  mix-blend-mode: normal;
+}
+/* a thumb animada: invisível até o 1º quadro chegar (a capa embaixo segura o lugar), sem piscar */
+video.pv-real {
+  opacity: 0;
+  pointer-events: none;
+}
+video.pv-real[data-tocando] {
+  opacity: 1;
+}
+/* o vídeo já tem quadro: a capa (o 1º quadro dele) sai de baixo; tocando ou pausado, fica só o vídeo */
+.pv[data-video] > img.pv-real {
+  opacity: 0;
+}
+
+/* enquanto sintoniza, o produto real espera escondido sob a camada */
+.pv[data-real='nao'] .pv-real {
+  opacity: 0;
+}
+
+.pv-camada {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  image-rendering: pixelated;
+  pointer-events: none;
+}
+
+/* indisponível: cinza, apagado, com dither na silhueta e chiado andando em degraus (só transform) */
+.pv-off .pv-real {
+  filter: grayscale(1) brightness(0.62) contrast(0.95);
+}
+.pv-chiado {
+  animation: pv-chiado 0.72s steps(1, end) infinite;
+}
+.pv[data-fora] .pv-chiado {
+  animation-play-state: paused;
+}
+@keyframes pv-chiado {
+  0% { transform: translate(0, 0); }
+  25% { transform: translate(-17px, 11px); }
+  50% { transform: translate(9px, -23px); }
+  75% { transform: translate(-29px, -7px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pv-chiado {
+    animation: none;
+  }
+}
+
+/* Esperando a ilustração (a pixel art em cima do halo, DES-01): o quadro da pixel art já nasce 9:16 e centrado, o lugar
+   que o ResizeObserver dela acerta no quadro seguinte. Na caixa toda (a reserva dela), a 1ª pintura do produto vinha
+   larga e o quadro pulava pro meio logo depois: era a mudança de layout (CLS) do 1º story da Home 2 */
+.pv > .arte-produto .arte-quadro {
+  width: auto;
+  aspect-ratio: 9 / 16;
+  max-width: 100%;
+}

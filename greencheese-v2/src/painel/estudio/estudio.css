@@ -1,0 +1,271 @@
+/* Estúdio do produto (foto e thumb animada). Entra com o pedaço do Estúdio (estilo.ts), não no CSS do painel. */
+
+.pn-folha-estudio .pn-folha-corpo {
+  overscroll-behavior: contain;
+}
+@media (min-width: 900px) {
+  .pn-folha-estudio.pn-folha-larga {
+    left: calc(50% + var(--lateral) / 2 - 440px);
+    width: 880px;
+  }
+}
+
+.pn-est {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 12px var(--gutter) 20px;
+}
+.pn-est-abrindo {
+  display: grid;
+  place-items: center;
+  gap: 12px;
+  min-height: 240px;
+  color: var(--legenda);
+  font-size: 14px;
+}
+
+/* ─── antes | depois e as vitrines ─── */
+
+.pn-est-vista {
+  flex-wrap: wrap;
+}
+.pn-est-vista .pn-filtro {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.pn-est-vitrines {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 14px;
+}
+.pn-est-fig {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+}
+.pn-est-fig figcaption {
+  font-size: 12px;
+  color: var(--legenda);
+}
+.pn-est-vitrine {
+  position: relative;
+  flex: none;
+  background: var(--preto);
+  overflow: hidden;
+}
+/* o halo pontilhado do site (o mesmo desenho), atrás do produto */
+.pn-est-vitrine::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--pn-est-halo) center / contain no-repeat;
+  image-rendering: pixelated;
+  pointer-events: none;
+}
+/* a thumb animada fica sem o halo, como no site (o quadro não tem transparência: o halo vazava pelo escuro do produto) */
+.pn-est-vitrine.pn-est-sem-halo::before {
+  content: none;
+}
+.pn-est-vitrine > canvas,
+.pn-est-vitrine > video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.pn-est-palco {
+  position: absolute;
+  inset: 0;
+}
+.pn-est-palco > canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.pn-est-real {
+  /* como no site: o preto da foto some no preto (e o halo aparece por trás) */
+  mix-blend-mode: lighten;
+}
+.pn-est-real.pn-est-alfa {
+  mix-blend-mode: normal;
+}
+.pn-est-camada {
+  image-rendering: pixelated;
+  pointer-events: none;
+}
+.pn-est-vitrine[data-real='nao'] .pn-est-real {
+  opacity: 0;
+}
+.pn-est-cinza .pn-est-real {
+  filter: grayscale(1) brightness(0.62) contrast(0.95);
+}
+.pn-est-grande {
+  border: 1px solid var(--bolha);
+  touch-action: none;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.pn-est-toque-apagar,
+.pn-est-toque-devolver {
+  cursor: crosshair;
+}
+.pn-est-card .pn-sq-arte {
+  display: grid;
+  place-items: center;
+}
+
+/* ─── controles ─── */
+
+.pn-est-controles {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.pn-est-faixa-linha {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--legenda);
+}
+.pn-est-faixa-linha input[type='range'] {
+  flex: 1;
+  min-width: 0;
+  height: 44px;
+  accent-color: var(--branco);
+  background: transparent;
+}
+.pn-est-toque {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.pn-est-toque .pn-filtros {
+  flex-wrap: wrap;
+}
+.pn-est-ajuste {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.pn-est-b {
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--bolha);
+  font: 600 18px/1 var(--ui);
+  color: var(--branco);
+}
+.pn-est-cor {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.pn-est-amostra {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--bolha);
+}
+
+/* ─── pé: os botões grandes ─── */
+
+.pn-est-pe {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.pn-est-pe-dupla {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.pn-est-pe-dupla > .pn-botao {
+  flex: 1 1 auto;
+}
+.pn-est-pe-dupla > .pn-botao-texto {
+  flex: 0 0 auto;
+}
+/* celular pequeno (320×568): a foto aparece sem rolar — o subtítulo sai e o rodapé fica em duas linhas, não três */
+@media (max-height: 700px) {
+  .pn-folha-estudio .pn-folha-sub {
+    display: none;
+  }
+}
+@media (max-width: 400px) {
+  .pn-est-pe-dupla {
+    flex-wrap: nowrap;
+  }
+  .pn-est-pe-dupla > .pn-botao {
+    min-width: 0;
+    padding-inline: 12px;
+    white-space: normal;
+    line-height: 1.15;
+  }
+}
+
+/* ─── thumb animada: o trecho ─── */
+
+.pn-est-trecho {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.pn-est-trecho-linha {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--legenda);
+}
+.pn-est-trecho-linha input[type='range'] {
+  flex: 1;
+  min-width: 0;
+  height: 44px;
+  accent-color: var(--branco);
+}
+.pn-est-trecho-linha output {
+  min-width: 5ch;
+  text-align: right;
+  color: var(--branco);
+  font-variant-numeric: tabular-nums;
+}
+.pn-est-quadros {
+  display: flex;
+  gap: 2px;
+  height: 44px;
+  overflow: hidden;
+  border: 1px solid var(--bolha);
+}
+.pn-est-quadros canvas {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  object-fit: cover;
+}
+.pn-est-numeros {
+  font-size: 12px;
+  color: var(--legenda);
+}
+
+@media (min-width: 900px) {
+  .pn-est-corpo-largo {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 24px;
+    align-items: start;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pn-est-camada {
+    display: none;
+  }
+}
