@@ -1,9 +1,26 @@
 /* LENDA · site — conta, convite e carreiras salvas (só no build do site; prefixo sc-).
    Usa os tokens do tema ativo (Noite ou Transmissão), então combina com qualquer tela. */
 
-/* ── diálogo: sobe acima do teclado do celular (a --sc-kb vem do visualViewport) ── */
-.sc-modal.lx-sheet { margin-bottom: var(--sc-kb, 0px); max-height: calc(92dvh - var(--sc-kb, 0px)); transition: margin-bottom .18s ease-out; }
+/* ── diálogo: sobe acima do teclado do celular (a --sc-kb vem do visualViewport) ──
+   v3.5: o dvh só dentro do @supports. Fora dele, a regra com dvh E var() não caía para a anterior no Safari < 15.4: com var()
+   a declaração é aceita na leitura e só fica inválida depois, e aí o max-height virava "none" (o convite subia 165 px acima
+   da tela). Sem dvh vale a altura de agora da janela (--sc-ih, do useTecladoVirtual; o 100vh do Safari antigo é a janela sem a
+   barra, maior que a área visível). */
+.sc-modal.lx-sheet { margin-bottom: var(--sc-kb, 0px); max-height: calc(var(--sc-ih, 100vh) * .92 - var(--sc-kb, 0px)); transition: margin-bottom .18s ease-out; }
+/* a caixa central (celular deitado, tablet): também sobe acima do teclado e cabe na janela que sobra */
+.sc-modal.lx-dialog { margin-bottom: var(--sc-kb, 0px); max-height: calc(min(var(--sc-ih, 100vh) * .88, 860px) - var(--sc-kb, 0px)); }
+@supports (height: 1dvh) {
+  .sc-modal.lx-sheet { max-height: calc(92dvh - var(--sc-kb, 0px)); }
+  .sc-modal.lx-dialog { max-height: calc(min(88dvh, 860px) - var(--sc-kb, 0px)); }
+}
 .sc-modal .lx-dialog__body { scroll-padding: 16px 0 96px; }
+/* v3.5: o botão "Criar conta" preso no rodapé do sheet (com o "Agora não" ao lado, no convite) */
+.sc-cta { display: flex; align-items: center; gap: 8px; width: 100%; }
+.sc-cta > .lx-btn--primary { order: 2; flex: 1 1 auto; min-width: 0; }
+.sc-cta > .lx-btn:not(.lx-btn--primary) { order: 1; flex: none; }
+.sc-modal .lx-dialog__foot:has(> .sc-cta) { padding-top: 10px; padding-bottom: 12px; }
+/* o "Agora não" dentro do corpo (teclado aberto, janela baixa): rola junto com o resto */
+.sc-foot--corpo { padding-top: 10px; }
 
 /* ── cabeçalho do convite ── */
 .sc-hero { position: relative; display: grid; gap: 6px; padding: 14px 0 14px; }
@@ -237,3 +254,51 @@
 .sc-sec--alvo:focus { outline: none; }
 /* a promessa do convite (e o "Entrar / Criar conta") quebra a linha no celular em vez de cortar */
 .sc-row--cta .sc-row__t > span { white-space: normal; text-overflow: clip; }
+
+/* ── v3.5: celular ── */
+/* o aceite e o link da política lado a lado (o link saiu de dentro do <label>: errar o toque abria a política) */
+.sc-aceite { display: flex; align-items: center; justify-content: space-between; gap: 4px 12px; flex-wrap: wrap; }
+.sc-aceite .sc-check { flex: 1 1 220px; min-width: 0; }
+.sc-aceite__ler { flex: none; font-size: 12.5px; }
+/* o seletor do Hall público: rótulo curto na tela estreita, nunca em 2 linhas dentro da pílula */
+.sc-hp__curto { display: none; }
+.sc-hp .lx-seg__item { white-space: nowrap; }
+@media (max-width: 26rem) {
+  .sc-hp__longo { display: none; }
+  .sc-hp__curto { display: inline; }
+  .sc-hp [role="radiogroup"] > * { flex: 1 1 auto; padding-left: 8px !important; padding-right: 8px !important; }
+}
+/* Minhas carreiras em 320 px: as abas (ícone + nome + selo) não cabiam ("Neste aparell") */
+@media (max-width: 359.98px) {
+  .sc-modal :is(.lx-dialog__head, .lx-dialog__body, .lx-dialog__foot) { padding-left: 16px; padding-right: 16px; }
+  .sc-tabs .lx-tab { padding: 0 6px; font-size: 12.5px; }
+  .sc-tabs .lx-tab svg { display: none; }
+  .sc-tabs .lx-tabs__label { gap: 5px; }
+  .sc-tabs .lx-tab__badge { padding: 1px 5px; }
+}
+
+/* alvos de toque de 44 px no celular (o dedo não é o mouse) */
+@media (pointer: coarse) {
+  .sc-modal .sc-link, .sc-modal .sc-more { min-height: 44px; display: inline-flex; align-items: center; padding-top: 0; padding-bottom: 0; }
+  .sc-modal .sc-links { gap: 0 18px; }
+  .sc-input__btn { height: 40px; min-width: 64px; margin-right: -10px; position: relative; }
+  .sc-input__btn::before { content: ''; position: absolute; inset: -4px -2px; }
+  .sc-check { padding: 11px 0; align-items: center; }
+  .sc-check input { width: 24px; height: 24px; }
+  .sc-check { grid-template-columns: 24px 1fr; }
+  .sc-hp .lx-seg__item { height: 44px !important; }
+  /* as abas dos diálogos (Criar conta / Já tenho conta, Na conta / Neste aparelho) e o X do convite (deitado: 32 px) */
+  .sc-modal .sc-tabs .lx-tab { height: 44px; }
+  .sc-hero__x.lx-icon-btn { width: 44px; height: 44px; }
+  /* o campo do link de convite: 16 px, senão o Safari do iPhone dá zoom ao tocar para selecionar */
+  .sc-conv__link .lx-input { font-size: 16px; height: 46px; }
+}
+
+/* letras: piso de 12 px no celular (11 px só nas siglas e rótulos em caixa alta) */
+@media (max-width: 44.99rem), (pointer: coarse) {
+  .sc-hero__k, .sc-sec, .sc-stat dt { font-size: 11px; }
+  .sc-label small, .sc-hint, .sc-legal, .sc-row__t > span, .sc-me__t > span, .sc-meta, .sc-card__meta, .sc-chip, .sc-avisoconta small, .sc-degrau__e, .sc-conv__meta, .sc-stat dd small { font-size: 12px; }
+  .sc-card__ovr small, .sc-card__nota small, .sc-card__nums dt { font-size: 11px; letter-spacing: .04em; }
+  .sc-card__nota small { margin-top: 3px; }
+  .sc-chip { height: 24px; }
+}

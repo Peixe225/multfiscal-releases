@@ -4,7 +4,7 @@
  */
 import { memo, useEffect, useRef, useState } from 'react'
 import { motion } from 'motion/react'
-import { ArrowRight, Crown, RotateCcw, Sparkles } from 'lucide-react'
+import { ArrowRight, Crown, RotateCcw, Sparkles, WifiOff } from 'lucide-react'
 import { navigate } from '@/store/app'
 import { useCareer } from '@/store/career'
 import { newLegendNow } from '@/live/autopilot'
@@ -13,14 +13,36 @@ import { useLiveSession } from '@/live/config'
 import { topSupporters, useLive } from '@/live/store'
 import { coinsLabel, useSafePortrait } from '@/ui/live/bits'
 import { LiveRanking } from '@/ui/live/LiveRanking'
-import { Button, cx, formatInt, useReducedMotion } from '@/ui/primitives'
+import { Button, cx, formatInt, toast, useReducedMotion } from '@/ui/primitives'
 import { EventArt } from '@/ui/art/EventArt'
 import { careerTotals, isKeeper } from './model'
 import type { CockpitData } from './view'
 import { lazySite } from '@/ui/shell/lazySite'
+import { recolocarEstilosQueFalharam } from './chunks'
 
 /** Só no site público: "Salvar na minha conta" (src/site). */
 const SalvarNaConta = import.meta.env.VITE_SITE === '1' ? lazySite('SalvarNaConta', () => import('@/site/SalvarNaConta')) : null
+
+/**
+ * "Ver resumo": o código do resumo normalmente já veio (pré-carga da carreira); sem ele e sem internet, a rota
+ * cairia na tela de erro. Aqui a pessoa fica na carreira, com o aviso em pt-BR, e toca de novo quando a rede voltar.
+ */
+export async function abrirResumo(): Promise<boolean> {
+  try {
+    // o mesmo import da rota (sem "?tentativa=": a rota carrega pelo endereço de sempre)
+    await recolocarEstilosQueFalharam()
+    await import('@/ui/classic/summary/SummaryScreen')
+  } catch (e) {
+    console.warn('[LENDA] resumo sem conexão', String((e as Error)?.message ?? e))
+    toast.error('Sem conexão', 'O resumo abre quando a internet voltar. A sua carreira está salva neste aparelho.')
+    // o aviso também fica no cartão do fim (a pilha de avisos pode estar ocupada pelas conquistas da última temporada)
+    window.dispatchEvent(new Event(RESUMO_SEM_REDE))
+    return false
+  }
+  navigate('/resumo')
+  return true
+}
+const RESUMO_SEM_REDE = 'lenda:resumo-sem-rede'
 
 export const EndCard = memo(function EndCard({ data }: { data: CockpitData }) {
   const { state } = data
@@ -34,6 +56,17 @@ export const EndCard = memo(function EndCard({ data }: { data: CockpitData }) {
   // fica (senão, ao caber, voltaria a crescer e a transbordar)
   const safePortrait = useSafePortrait()
   const [tight, setTight] = useState(false)
+  const [semRede, setSemRede] = useState(false)
+  useEffect(() => {
+    const on = () => setSemRede(true)
+    const off = () => setSemRede(false)
+    window.addEventListener(RESUMO_SEM_REDE, on)
+    window.addEventListener('online', off)
+    return () => {
+      window.removeEventListener(RESUMO_SEM_REDE, on)
+      window.removeEventListener('online', off)
+    }
+  }, [])
   const compact = live && (safePortrait || tight)
   // live: a janela é capturada e ninguém rola a página — o fim de carreira vem para o meio da faixa VISÍVEL
   // (entre a faixa da live e a sobreposição de baixo do TikTok). Mais alto que ela, o topo do cartão encosta
@@ -93,9 +126,10 @@ export const EndCard = memo(function EndCard({ data }: { data: CockpitData }) {
         ['Assist.', t.assists],
         ['Títulos', t.titles],
       ]
+  // replace: o "voltar" do celular depois daqui não abre a carreira que acabou de ser descartada ("Nenhuma carreira")
   const again = async () => {
     await abandon()
-    navigate('/identidade')
+    navigate('/identidade', { replace: true })
   }
   return (
     <motion.section
@@ -137,7 +171,7 @@ export const EndCard = memo(function EndCard({ data }: { data: CockpitData }) {
           <LiveEndActions careerId={state.id} compact={compact} />
         ) : (
           <div className="ck-end__actions">
-            <Button variant="primary" size="lg" iconRight={ArrowRight} onClick={() => navigate('/resumo')}>
+            <Button variant="primary" size="lg" iconRight={ArrowRight} onClick={() => void abrirResumo()}>
               Ver resumo
             </Button>
             <Button variant="ghost" size="lg" icon={RotateCcw} onClick={again}>
@@ -145,6 +179,11 @@ export const EndCard = memo(function EndCard({ data }: { data: CockpitData }) {
             </Button>
             {SalvarNaConta && <SalvarNaConta careerId={state.id} finished />}
           </div>
+        )}
+        {!live && semRede && (
+          <p className="ck-end__err" role="alert">
+            <WifiOff aria-hidden="true" /> Sem conexão: o resumo abre quando a internet voltar. A sua carreira está salva neste aparelho.
+          </p>
         )}
       </div>
     </motion.section>

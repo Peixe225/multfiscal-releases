@@ -29,6 +29,23 @@ export const LiveTicker = memo(function LiveTicker() {
       .filter((x): x is NonNullable<typeof x> => !!x)
   }, [data, index])
 
+  // a Home pinta antes do pacote de dados: a faixa já ocupa o lugar dela (sem a página pular quando os dados chegam)
+  if (!data)
+    return (
+      <section className="ld-ticker lx-glass" aria-hidden="true">
+        <div className="ld-ticker__l">
+          <span className="lx-dot" aria-hidden="true" />
+          <div>
+            Ao vivo
+            <small>Líderes das ligas</small>
+          </div>
+        </div>
+        <div className="flex-1 min-w-0 flex items-center gap-3 px-4">
+          <span className="lx-skel" style={{ width: 150, height: 26 }} />
+          <span className="lx-skel max-sm:hidden" style={{ width: 150, height: 26 }} />
+        </div>
+      </section>
+    )
   if (!items.length) return null
   const row = (dup: boolean) =>
     items.map((it) => (

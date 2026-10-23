@@ -8,20 +8,22 @@
  *
  * - Desktop: no canto superior direito, logo abaixo da barra do topo (fora da coluna da decisão e das
  *   últimas linhas da tabela, onde a revelação acontece), 340px, no máximo 2 visíveis.
- * - Celular (< 720px): 1 visível, compacto (1 linha de título + 1 de texto), opaco, abaixo da barra
- *   do topo (menu/som/salvar continuam livres).
+ * - Celular (< 720px) e deitado (altura < 520px): 1 visível (o resto vira "+N"), opaco, título em até 2 linhas e
+ *   texto em até 3 (nada de "Ganhe bônus de OVR compa…"). Fica abaixo da barra do topo; com um diálogo, folha ou a
+ *   folha da decisão abertos, vai para o espaço livre acima dela ou logo abaixo do cabeçalho dela (o título, o X e
+ *   o "Decisão X de Y" continuam à vista). Ação e X com área de toque de 40 px.
  * - A ação aparece só como ícone (o rótulo fica no aria-label/title), para não cortar o título.
  * - Os demais esperam na fila (chip "+N") e entram quando um sai.
  * - Duração padrão: curta para avisos sem ação (2,4 s; erro 4 s; dourado 3,2 s) e 4,5 s quando há
  *   um botão. O timer pausa com o ponteiro/foco em cima e só começa quando o toast aparece.
  */
-import { useEffect, useRef, type ComponentType, type ReactNode, type Ref } from 'react'
+import { useEffect, useLayoutEffect, useRef, type ComponentType, type ReactNode, type Ref } from 'react'
 import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'motion/react'
 import { create } from 'zustand'
 import { ArrowRight, Check, Info, Sparkles, TriangleAlert, X, type LucideProps } from 'lucide-react'
 import { cx } from './cx'
-import { useIsDesktop, useReducedMotion } from './hooks'
+import { useMediaQuery, useReducedMotion } from './hooks'
 import { sfx } from '@/ui/shell/sfx'
 
 export type ToastTone = 'default' | 'success' | 'danger' | 'gold'
@@ -44,7 +46,8 @@ type ToastInput = Partial<Omit<ToastItem, 'id'>> & { title: ReactNode }
 
 /** Toasts visíveis ao mesmo tempo (desktop; no celular, 1). */
 export const MAX_VISIBLE_TOASTS = 2
-const PHONE_QUERY = '(max-width: 44.99rem)'
+/** Celular em pé ou deitado (a altura é que falta): um aviso por vez, no espaço livre. */
+const PHONE_QUERY = '(max-width: 44.99rem), (max-height: 32.5rem)'
 function maxVisible(): number {
   try {
     return typeof matchMedia === 'function' && matchMedia(PHONE_QUERY).matches ? 1 : MAX_VISIBLE_TOASTS
@@ -210,16 +213,70 @@ function ToastView({ t, fromTop, ref }: { t: ToastItem; fromTop: boolean; ref?: 
   )
 }
 
+/** O que não pode ficar coberto: o diálogo/folha de cima (e o cabeçalho dele), a folha da decisão aberta, o card de fim. */
+const OBSTACULOS = '.lx-sheet[role="dialog"], .lx-dialog[role="dialog"], .ck-sheet:not(.is-collapsed), .ck-end'
+const CABECALHO = '.lx-dialog__head, .ck-sheet__peek, h1, h2, h3'
+
+/**
+ * Onde o aviso cabe sem cobrir o que importa (celular). null = o lugar de sempre (abaixo da barra do topo).
+ * Acima do obstáculo, se couber; senão, logo abaixo do cabeçalho dele.
+ */
+export function topoLivre(base: number, altura: number, janela: number, obstaculo: { top: number; cabecalho: number } | null): number | null {
+  if (!obstaculo) return null
+  if (obstaculo.top >= base + altura + 8) return null
+  const abaixo = Math.max(base, obstaculo.cabecalho + 6)
+  return Math.min(abaixo, Math.max(base, janela - altura - 8))
+}
+
+function useLugarDoAviso(ativo: boolean, ref: { current: HTMLDivElement | null }, dep: unknown) {
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!ativo || !el || typeof window === 'undefined') {
+      if (el) el.style.top = ''
+      return
+    }
+    const medir = () => {
+      el.style.top = ''
+      const base = el.getBoundingClientRect().top
+      const altura = el.offsetHeight
+      // o de cima: o último no DOM que está à vista
+      const obs = [...document.querySelectorAll<HTMLElement>(OBSTACULOS)].filter((o) => {
+        const r = o.getBoundingClientRect()
+        return r.height > 0 && r.bottom > base && r.top < innerHeight
+      })
+      const o = obs[obs.length - 1]
+      let alvo: number | null = null
+      if (o) {
+        const r = o.getBoundingClientRect()
+        const cab = o.querySelector<HTMLElement>(CABECALHO)?.getBoundingClientRect()
+        alvo = topoLivre(base, altura, innerHeight, { top: r.top, cabecalho: cab ? cab.bottom : r.top })
+      }
+      if (alvo !== null) el.style.top = `${Math.round(alvo)}px`
+    }
+    medir()
+    // a folha sobe animando, o teclado abre, a pessoa rola: confere de novo enquanto há aviso
+    const t = window.setInterval(medir, 250)
+    window.addEventListener('resize', medir)
+    return () => {
+      window.clearInterval(t)
+      window.removeEventListener('resize', medir)
+      el.style.top = ''
+    }
+  }, [ativo, ref, dep])
+}
+
 export function Toaster() {
   const all = useToasts((s) => s.items)
   const queuedCount = useToasts((s) => s.queue.length)
-  const desktop = useIsDesktop()
-  if (typeof document === 'undefined') return null
+  const phone = useMediaQuery(PHONE_QUERY)
+  const ref = useRef<HTMLDivElement>(null)
   // a viewport that shrank to phone width keeps the extra visible ones hidden (they count as queued)
-  const items = desktop ? all : all.slice(0, 1)
+  const items = phone ? all.slice(0, 1) : all
   const queued = queuedCount + (all.length - items.length)
+  useLugarDoAviso(phone && items.length > 0, ref, items[0]?.id)
+  if (typeof document === 'undefined') return null
   return createPortal(
-    <div className="lx-toaster" aria-live="polite" aria-relevant="additions">
+    <div ref={ref} className="lx-toaster" aria-live="polite" aria-relevant="additions">
       <AnimatePresence initial={false} mode="popLayout">
         {items.map((t) => (
           <ToastView key={t.id} t={t} fromTop />

@@ -21,6 +21,10 @@
   LP.$ = (id) => document.getElementById(id);
   const calmo = () => window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   LP.calmo = calmo;
+  // v3.5: "celular" = em pé até 760 px, ou até 960 px com toque ou com pouca altura (deitado). A MESMA consulta do painel.css:
+  // a barra de lote fixa, o "Precisa de atenção" recolhido, os números numa faixa e a rolagem até o título da aba.
+  LP.Q_CELULAR = '(max-width: 760px), (max-width: 960px) and (pointer: coarse), (max-width: 960px) and (max-height: 500px)';
+  LP.celular = () => !!window.matchMedia && window.matchMedia(LP.Q_CELULAR).matches;
 
   // ── formatação ──────────────────────────────────────────────────────────────────────────────
   const nf = new Intl.NumberFormat('pt-BR');
@@ -413,6 +417,7 @@
       t.value = texto;
       document.body.appendChild(t);
       t.select();
+      try { t.setSelectionRange(0, t.value.length); } catch (e3) { /* o Safari do iPhone só copia com a seleção explícita */ }
       try { ok = document.execCommand('copy'); } catch (e2) { ok = false; }
       t.remove();
     }
@@ -805,13 +810,15 @@
       };
       if (entradaDigitar) { entradaDigitar.addEventListener('input', conferirDigitar); conferirDigitar(); }
 
+      let veu = null;
       function fim(valor) {
         if (terminado) return;
         terminado = true;
         const i = pilha.indexOf(controle);
         if (i >= 0) pilha.splice(i, 1);
-        if (d.open) d.close();
+        if (d.open && typeof d.close === 'function') d.close();
         d.remove();
+        if (veu) veu.remove();
         if (antes && antes.isConnected && typeof antes.focus === 'function') antes.focus();
         resolver(valor);
       }
@@ -895,7 +902,19 @@
       const controle = { cancelar: () => fim(null) };
       pilha.push(controle);
       document.body.appendChild(d);
-      d.showModal();
+      if (typeof d.showModal === 'function') {
+        d.showModal();
+      } else {
+        // Safari antes do 15.4 (sem <dialog>): aberto por cima de um véu próprio; Esc e o toque no véu fecham
+        veu = h('div', { class: 'dialogo-veu', 'aria-hidden': 'true' });
+        veu.addEventListener('click', () => { if (!trabalhando) fim(null); });
+        document.body.insertBefore(veu, d);
+        d.setAttribute('open', '');
+        d.classList.add('dialogo-sem-modal');
+        d.addEventListener('keydown', (ev) => {
+          if (ev.key === 'Escape' && pilha[pilha.length - 1] === controle) { ev.preventDefault(); ev.stopPropagation(); if (!trabalhando) fim(null); }
+        });
+      }
       const primeiro = op.campos && op.campos.length ? entradas[op.campos[0].nome] : entradaDigitar;
       if (primeiro && primeiro.focus && primeiro.tagName !== 'DIV' && primeiro.type !== 'checkbox') primeiro.focus();
       else if (confirmar && !op.perigo) confirmar.focus();
@@ -1267,7 +1286,15 @@
         h('div', { class: 'botoes barra-lote-acoes' }, acoes));
       no.classList.toggle('com-marcados', n > 0);
       document.body.classList.toggle('com-lote', n > 0 && no.isConnected);
+      medirLote();
     };
+    // No celular a barra com marcados fica fixa no rodapé: a altura dela (que muda ao quebrar linha e ao girar) vai para
+    // --altura-lote, e os avisos, a pílula de novidade e o fim da lista ficam acima dela (painel.css).
+    const medirLote = () => {
+      const fixa = no.isConnected && no.classList.contains('com-marcados') && getComputedStyle(no).position === 'fixed';
+      document.documentElement.style.setProperty('--altura-lote', fixa ? Math.ceil(no.getBoundingClientRect().height) + 'px' : '0px');
+    };
+    if (window.ResizeObserver) new ResizeObserver(medirLote).observe(no);
     return { no: no, atualizar: atualizar };
   };
   /** Resumo do lote para o toast: "7 ocultadas · 2 puladas (já estavam ocultas)". */
@@ -1384,7 +1411,10 @@
     const velho = caixa.querySelector('[data-origem="' + de + '"]');
     const item = h('div', { class: 'novidade-item', dataset: { origem: de } });
     const tirar = () => { item.remove(); caixa.hidden = !caixa.firstChild; };
-    LP.trocar(item, h('button', { type: 'button', class: 'novidade-botao', onclick: () => { tirar(); aoClicar(); } }, LP.icone('sino'), h('span', null, texto)),
+    // "3 denúncias novas — clique para ver": no celular só a primeira parte (a pílula fica numa linha só)
+    const partes = String(texto).split(' — ');
+    const rotulo = h('span', { class: 'novidade-texto' }, partes[0], partes.length > 1 ? h('span', { class: 'novidade-dica' }, ' — ' + partes.slice(1).join(' — ')) : null);
+    LP.trocar(item, h('button', { type: 'button', class: 'novidade-botao', title: texto, onclick: () => { tirar(); aoClicar(); } }, LP.icone('sino'), rotulo),
       h('button', { type: 'button', class: 'novidade-fechar', 'aria-label': 'Dispensar', onclick: tirar }, '×'));
     if (velho) caixa.replaceChild(item, velho); else caixa.appendChild(item);
     caixa.hidden = false;
@@ -1396,6 +1426,40 @@
     if (origem === 'todas') LP.limpar(c);
     else { const x = c.querySelector('[data-origem="' + (origem || 'fila') + '"]'); if (x) x.remove(); }
     c.hidden = !c.firstChild;
+  };
+  /**
+   * Ao trocar de aba (ou de página da lista): no computador, o topo da página. No celular, acima da aba vêm o topo fixo,
+   * os números, as faixas e o "Precisa de atenção": se o título da aba (com a página no topo) ficaria abaixo de 45% da
+   * tela, rola até ele, logo abaixo do topo fixo. A aba ainda carregando (página curta demais para chegar lá): termina
+   * de rolar quando o conteúdo chegar, por até 4 s, se a pessoa não tiver rolado antes.
+   */
+  let roRolagem = null;
+  LP.rolarParaAba = function () {
+    if (roRolagem) { roRolagem.disconnect(); roRolagem = null; }
+    if (!LP.celular()) { window.scrollTo(0, 0); return; }
+    const alvo = () => {
+      const cab = document.querySelector('.principal > .cabeca');
+      const lat = document.querySelector('.lateral');
+      if (!cab) return 0;
+      const fixo = lat && /sticky|fixed/.test(getComputedStyle(lat).position) ? lat.getBoundingClientRect().height : 0;
+      const y = cab.getBoundingClientRect().top + window.scrollY;
+      return y <= window.innerHeight * 0.45 ? 0 : Math.max(0, Math.round(y - fixo - 4));
+    };
+    const y0 = alvo();
+    window.scrollTo(0, y0);
+    const sec = document.querySelector('.principal > .aba:not([hidden])');
+    if (!y0 || window.scrollY + 2 >= y0 || !sec || !window.ResizeObserver) return;
+    const ate = Date.now() + 4000;
+    let ultimo = window.scrollY;
+    const ro = new ResizeObserver(() => {
+      if (Date.now() > ate || Math.abs(window.scrollY - ultimo) > 2) { ro.disconnect(); return; }
+      const y = alvo();
+      window.scrollTo(0, y);
+      ultimo = window.scrollY;
+      if (ultimo + 2 >= y) ro.disconnect();
+    });
+    ro.observe(sec);
+    roRolagem = ro;
   };
   /** Troca o conteúdo de uma lista viva sem a tela pular: a rolagem de agora (não a de 4 s atrás) fica onde estava. */
   LP.trocarNoLugar = function (no) {
@@ -1410,8 +1474,10 @@
   // ── rota (hash): #/aba?chave=valor (+ conta=<id> ou carreira=<pk>: o painel lateral) ─────────
   const PARAMS_GAVETA = ['conta', 'carreira', 'mensagem'];
   LP.PARAMS_GAVETA = PARAMS_GAVETA;
-  LP.rota = function () {
-    const bruto = location.hash.replace(/^#\/?/, '');
+  LP.rota = () => LP.rotaDe(location.hash);
+  /** A rota de um hash qualquer (o de antes de um hashchange, por exemplo). */
+  LP.rotaDe = function (hash) {
+    const bruto = String(hash || '').replace(/^#\/?/, '');
     const i = bruto.indexOf('?');
     const caminho = i >= 0 ? bruto.slice(0, i) : bruto;
     const q = i >= 0 ? bruto.slice(i + 1) : '';
@@ -1448,7 +1514,8 @@
     PARAMS_GAVETA.forEach((k) => { if (r.query[k]) q[k] = r.query[k]; });
     const novo = LP.hash(caminho, q);
     if (location.hash !== novo) {
-      history.replaceState(null, '', novo);
+      // o estado da entrada (a marca da ficha aberta por cima da lista, ver LP.gaveta) fica
+      history.replaceState(history.state, '', novo);
       // o painel passa a saber que a aba está neste endereço: "Limpar filtros" (#/aba sem nada) remonta a aba
       if (typeof LP.aoTrocarQuery === 'function') LP.aoTrocarQuery();
     }
@@ -1487,16 +1554,23 @@
   // ── painel lateral (ficha da conta / da carreira) ───────────────────────────────────────────
   // Um só, por cima da aba: 420–560 px à direita no computador, tela cheia no celular. Aberto pelo hash (conta= ou
   // carreira=), então recarregar volta para a mesma ficha. Esc fecha; o foco volta para onde estava.
-  const gav = { aberta: null, foco: null, conteudo: null };
+  const gav = { aberta: null, foco: null, conteudo: null, voltando: null };
+  // v3.5: a entrada do histórico da ficha guarda (history.state) a lista de onde ela foi empilhada. Fechar pelo botão
+  // (ou pelo Esc, ou depois de excluir) é então um history.back(): o próximo "voltar" do Android não reabre a ficha.
+  const MARCA_ORIGEM = 'lpFichaSobre';
   LP.gaveta = {
     /** Abre com um título e devolve o nó do corpo (quem chama desenha dentro). */
     abrir: function (tipo, id, titulo) {
       const g = LP.$('gaveta');
       if (!g) return null;
+      // trocou de ficha (voltar/avançar do histórico) com um diálogo aberto: o diálogo era da ficha de antes
+      if (gav.aberta && LP.dialogoAberto()) LP.fecharDialogo(true);
       if (!gav.aberta) gav.foco = document.activeElement;
       gav.aberta = { tipo: tipo, id: String(id) };
       const corpo = h('div', { class: 'gaveta-corpo' });
-      const voltar = h('button', { type: 'button', class: 'gaveta-voltar' }, LP.icone('voltar'), h('span', null, 'Voltar para ' + (LP.tituloAbaAtual ? LP.tituloAbaAtual() : 'a lista')));
+      const rotVoltar = 'Voltar para ' + (LP.tituloAbaAtual ? LP.tituloAbaAtual() : 'a lista');
+      // no celular estreito só a seta aparece (o nome da ficha ganha o espaço); o texto fica no aria-label
+      const voltar = h('button', { type: 'button', class: 'gaveta-voltar', 'aria-label': rotVoltar, title: rotVoltar }, LP.icone('voltar'), h('span', { class: 'gaveta-voltar-texto' }, rotVoltar));
       voltar.addEventListener('click', () => LP.gaveta.fechar());
       const x = h('button', { type: 'button', class: 'botao-icone', 'aria-label': 'Fechar a ficha' }, LP.icone('x'));
       x.addEventListener('click', () => LP.gaveta.fechar());
@@ -1511,14 +1585,59 @@
     titulo: function (t) { const e = LP.$('gaveta-titulo'); if (e) e.textContent = t || ''; },
     aberta: () => gav.aberta,
     corpo: () => gav.conteudo,
-    /** Fecha (tira conta=/carreira= do hash; a aba de baixo fica como estava). */
+    /**
+     * No começo de cada hashchange (painel.js). Com uma volta do fechar() pendente: um hash diferente da lista no meio é
+     * anotado; quando a volta chega depois dele (ela o desfaria), o painel vai de novo para o hash anotado. Devolve true
+     * quando já trocou o endereço (o hashchange de agora não precisa desenhar nada).
+     */
+    conferirVolta: function (ev) {
+      const v = gav.voltando;
+      if (!v) return false;
+      if (Date.now() > v.ate) { gav.voltando = null; return false; }
+      const url = ev && typeof ev.newURL === 'string' ? ev.newURL : location.href;
+      const i = url.indexOf('#');
+      const novo = i >= 0 ? url.slice(i) : '';
+      const ehLista = LP.hashBase(novo) === v.alvo && !PARAMS_GAVETA.some((k) => LP.rotaDe(novo).query[k]);
+      if (!ehLista) { v.depois = novo; return false; }
+      gav.voltando = null;
+      if (v.depois && location.hash !== v.depois) { location.hash = v.depois; return true; }
+      return false;
+    },
+    /**
+     * A ficha desta entrada do histórico foi empilhada por cima da lista `hashLista` (o painel.js chama no hashchange
+     * que abriu a ficha vindo da lista da mesma aba).
+     */
+    marcarOrigem: function (hashLista) {
+      try {
+        const st = Object.assign({}, history.state || {});
+        st[MARCA_ORIGEM] = String(hashLista);
+        history.replaceState(st, '', location.href);
+      } catch (e) { /* sem history.state: fecha trocando a entrada, como antes */ }
+    },
+    /**
+     * Fecha (tira conta=/carreira=/mensagem= do hash; a aba de baixo fica como estava). Se a ficha foi empilhada por cima
+     * desta mesma lista, volta uma entrada no histórico; senão (aberta pelo endereço, ou de outra ficha) troca a entrada
+     * de agora pela da lista, sem empilhar.
+     */
     fechar: function () {
       const r = LP.rota();
       if (PARAMS_GAVETA.some((k) => r.query[k])) {
         const q = Object.assign({}, r.query);
         PARAMS_GAVETA.forEach((k) => delete q[k]);
         delete q.de;
-        location.hash = LP.hash(r.partes.join('/') || 'visao', q);
+        const destino = LP.hash(r.partes.join('/') || 'visao', q);
+        const origem = history.state && history.state[MARCA_ORIGEM];
+        if (origem && LP.hashBase(origem) === LP.hashBase(destino)) {
+          // fecha já (o back() chega um instante depois) e anota a volta: uma navegação feita antes dela chegar (Esc e
+          // logo um atalho, um toque) não é desfeita por ela (LP.gaveta.conferirVolta, no hashchange)
+          gav.voltando = { alvo: LP.hashBase(origem), ate: Date.now() + 2000, depois: null };
+          LP.gaveta.esconder();
+          history.back();
+          return;
+        }
+        history.replaceState(null, '', destino);
+        LP.gaveta.esconder();
+        if (typeof LP.aoTrocarQuery === 'function') LP.aoTrocarQuery();
         return;
       }
       LP.gaveta.esconder();
@@ -1526,6 +1645,8 @@
     esconder: function () {
       const g = LP.$('gaveta');
       if (!g || g.hidden) { gav.aberta = null; return; }
+      // um diálogo aberto por cima da ficha (Suspender, Excluir…) sai junto: nunca age numa conta que já não está à vista
+      if (LP.dialogoAberto()) LP.fecharDialogo(true);
       g.hidden = true;
       LP.limpar(g);
       gav.aberta = null;

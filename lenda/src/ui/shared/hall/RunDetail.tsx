@@ -1,5 +1,5 @@
 /** Hall das Lendas — detalhe de uma run, ficha de uma lenda e "como a nota é calculada". */
-import { useMemo, useState } from 'react'
+import { startTransition, useEffect, useMemo, useState } from 'react'
 import { ArrowRight, BookOpen, CalendarCheck, CircleHelp, Medal, Quote, Trash2, Trophy, TrendingUp, Zap } from 'lucide-react'
 import {
   CATEGORIES,
@@ -294,6 +294,21 @@ export function LegendDetail({ entry, hall, onClose }: { entry: LegendLegacy | n
     setTab('resumo')
   }
   const awardsHall = l ? sumN((l.awards ?? []).filter((a) => a.key !== 'other' && !OTHER_KEYS.has(a.key))) : 0
+  // celular lento: o cabeçalho e as abas saem junto com a folha; o Resumo (o pedaço pesado) entra no quadro seguinte,
+  // numa transição (o React fatia o trabalho) — abrir a ficha travava ~0,45 s com o processador 4× mais lento
+  const [resumoDe, setResumoDe] = useState<string | null>(null)
+  const id = entry?.id ?? null
+  useEffect(() => {
+    if (!id) return
+    let r2 = 0
+    const r1 = requestAnimationFrame(() => {
+      r2 = requestAnimationFrame(() => startTransition(() => setResumoDe(id)))
+    })
+    return () => {
+      cancelAnimationFrame(r1)
+      cancelAnimationFrame(r2)
+    }
+  }, [id])
   return (
     <Modal
       open={!!entry}
@@ -320,7 +335,7 @@ export function LegendDetail({ entry, hall, onClose }: { entry: LegendLegacy | n
             ]}
           />
           <TabPanel idPrefix="hl-lf" value="resumo" active={tab === 'resumo'} className="hl-lf__panel">
-            <LegendSummary entry={entry} hall={hall} awardsHall={awardsHall} />
+            {resumoDe === entry.id ? <LegendSummary entry={entry} hall={hall} awardsHall={awardsHall} /> : <div className="hl-lf__espera" aria-busy="true" aria-label="Carregando o resumo" />}
           </TabPanel>
           <TabPanel idPrefix="hl-lf" value="titulos" active={tab === 'titulos'} className="hl-lf__panel">
             <LegendHonours entry={entry} />

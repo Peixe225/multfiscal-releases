@@ -155,7 +155,7 @@
         { rotulo: 'Ações', acoes: true, celula: (x) => (x.status === 'recusada' || !LP.pode('bonus') ? null : LP.botao('Recusar', () => LP.recusarIndicacao(x, () => { LP.depoisDeAgir(); recarregar(); }), { tipo: 'perigo', pequeno: true })) },
       ],
     });
-    LP.trocarNoLugar(ind.corpo, filtroIndicador, lote ? lote.no : null, ind.tabela, LP.paginacao(d.total || 0, d.pagina || ind.pagina, d.porPagina || 50, (p) => { ind.pagina = p; ind.marcados.clear(); carregar(); window.scrollTo(0, 0); }));
+    LP.trocarNoLugar(ind.corpo, filtroIndicador, lote ? lote.no : null, ind.tabela, LP.paginacao(d.total || 0, d.pagina || ind.pagina, d.porPagina || 50, (p) => { ind.pagina = p; ind.marcados.clear(); carregar(); LP.rolarParaAba(); }));
     if (lote) lote.atualizar();
   }
 
@@ -228,7 +228,7 @@
           ],
         }));
     });
-    LP.trocar(ind.corpo, ajuda, cab, h('div', null, cartoes), LP.paginacao(d.total || 0, d.pagina || ind.pagina, d.porPagina || 50, (p) => { ind.pagina = p; carregar(); window.scrollTo(0, 0); }));
+    LP.trocar(ind.corpo, ajuda, cab, h('div', null, cartoes), LP.paginacao(d.total || 0, d.pagina || ind.pagina, d.porPagina || 50, (p) => { ind.pagina = p; carregar(); LP.rolarParaAba(); }));
   }
 
   // ── bônus (X5) ──
@@ -273,7 +273,7 @@
         { rotulo: 'Ações', acoes: true, celula: (b) => (b.usadoEm || !LP.pode('bonus') ? null : LP.botao('Tirar', () => LP.tirarBonus(b, b.usuario && b.usuario.apelido, () => { LP.depoisDeAgir(); carregar(); }), { tipo: 'perigo', pequeno: true, icone: 'menos' })) },
       ],
     });
-    LP.trocar(ind.corpo, filtros, lote ? lote.no : null, ind.tabela, LP.paginacao(d.total || 0, d.pagina || ind.pagina, d.porPagina || 50, (p) => { ind.pagina = p; ind.marcados.clear(); carregar(); window.scrollTo(0, 0); }));
+    LP.trocar(ind.corpo, filtros, lote ? lote.no : null, ind.tabela, LP.paginacao(d.total || 0, d.pagina || ind.pagina, d.porPagina || 50, (p) => { ind.pagina = p; ind.marcados.clear(); carregar(); LP.rolarParaAba(); }));
     if (lote) lote.atualizar();
   }
   async function tirarLote(ids) {

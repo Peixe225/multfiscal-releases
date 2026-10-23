@@ -68,7 +68,7 @@
 .id-search__ic { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-3); pointer-events: none; }
 .id-pop { display: flex; gap: 6px; margin: 12px 0; align-items: center; flex-wrap: nowrap; overflow-x: auto; }
 .id-pop__lbl { font-size: 10.5px; font-weight: 700; letter-spacing: .12em; color: var(--text-3); text-transform: uppercase; margin-right: 4px; flex: none; }
-.id-pop button { flex: none; height: 30px; padding: 0 10px 0 7px; border-radius: 9px; background: var(--surface); border: 1px solid var(--border); display: inline-flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 650; color: var(--text-2); cursor: pointer; transition: background-color var(--dur-2), color var(--dur-2), border-color var(--dur-2); }
+.id-pop button { flex: none; height: 30px; position: relative; padding: 0 10px 0 7px; border-radius: 9px; background: var(--surface); border: 1px solid var(--border); display: inline-flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 650; color: var(--text-2); cursor: pointer; transition: background-color var(--dur-2), color var(--dur-2), border-color var(--dur-2); }
 .id-pop button:hover { background: var(--surface-2); color: var(--text); border-color: var(--border-strong); }
 .id-list { position: relative; flex: 1 1 0; min-height: 240px; border-radius: 16px; border: 1px solid var(--border); background: rgba(0, 0, 0, .18); display: flex; flex-direction: column; }
 .id-list::after { content: ''; position: absolute; left: 1px; right: 1px; bottom: 1px; height: 56px; border-radius: 0 0 15px 15px; background: linear-gradient(transparent, rgba(8, 9, 13, .92)); pointer-events: none; }
@@ -125,6 +125,36 @@
 .id-wiz__foot { position: sticky; bottom: 0; z-index: 5; display: grid; grid-template-columns: 2fr 3fr; gap: 10px; padding: 12px 0 calc(12px + env(safe-area-inset-bottom)); margin-top: 10px; background: linear-gradient(transparent, var(--bg, #07080b) 30%); }
 .id-wiz .id-col--pos { display: flex; border-top: 0; }
 .id-wiz .id-pitch { max-width: 360px; }
+
+/* ── v3.5 · celular ─────────────────────────────────────────────────── */
+/* teclado aberto (a janela encolhe no WebView do TikTok/Instagram/WhatsApp): o rodapé fixo "Voltar · Continuar" sai de
+   cima do campo e vai para o fim da página; o campo focado sobe com folga para o rótulo (scroll-margin) */
+.id-wrap.is-kb .id-wiz__foot { position: static; background: none; }
+.id-wrap :is(input, textarea) { scroll-margin-top: 34px; scroll-margin-bottom: 96px; }
+/* deitado (altura < 480 px): rodapé e barra de ações nunca fixos — ocupavam ~1/3 da tela */
+@media (max-height: 480px) {
+  .id-wiz__foot { position: static; background: none; }
+  .id-actions { position: static !important; }
+}
+/* toque: o Safari do iPhone (e o WKWebView do Instagram/TikTok) dá zoom em campo com letra < 16 px e não volta.
+   O sobrenome fica em 16 px; nomes longos cabem apertando o espaçamento (e, no celular estreito, com o número embaixo) */
+@media (pointer: coarse) {
+  .id-field .lx-input--name, .id-field .lx-input--name[data-len] { font-size: 16px; }
+  .id-field .lx-input--name[data-len="l"] { letter-spacing: .04em; }
+  .id-field .lx-input--name[data-len="xl"] { letter-spacing: .005em; }
+  .id-wrap .lx-input input { font-size: 16px; }
+  /* alvos de toque ≥ 40 px: chips "Populares", posições no campo */
+  .id-pop button { height: 40px; padding: 0 12px 0 9px; font-size: 13px; }
+  .id-pitch .lx-pchip { min-width: 54px; height: 40px; font-size: 16px; }
+  /* o campo ocupa a caixa inteira (tocar em qualquer ponto dela foca), e o −/+ do número com 40 px */
+  .id-field .lx-input--name > input { align-self: stretch; height: 100%; }
+  .id-stepper { grid-template-columns: 40px minmax(0, 1fr) 40px; }
+  .id-stepper input { align-self: stretch; height: 100%; }
+}
+@media (pointer: coarse) and (max-width: 27.5rem) {
+  .id-fields { grid-template-columns: minmax(0, 168px) minmax(0, 1fr); row-gap: 12px; }
+  .id-fields .id-field:first-child { grid-column: 1 / -1; }
+}
 }
 @layer components {
 .id-search input[type="search"]::-webkit-search-cancel-button, .id-search input[type="search"]::-webkit-search-decoration { -webkit-appearance: none; appearance: none; display: none; }

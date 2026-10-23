@@ -493,7 +493,7 @@
       });
     }
     return h('section', { class: 'cartao cartao-ganharam' }, cab, h('div', { class: 'ferramentas' }, filtros), lista,
-      dz.total > (dz.porPagina || 50) ? LP.paginacao(dz.total, dz.pagina, dz.porPagina || 50, (p) => { dz.pagina = p; carregarDesafio(true); window.scrollTo(0, 0); }) : null);
+      dz.total > (dz.porPagina || 50) ? LP.paginacao(dz.total, dz.pagina, dz.porPagina || 50, (p) => { dz.pagina = p; carregarDesafio(true); LP.rolarParaAba(); }) : null);
   }
   function celulaCarreiraE(x) {
     const c = x.carreira;
@@ -573,7 +573,7 @@
       lista = h('div', { class: 'lista-candidatos' }, dz.itens.map((k, i) => cartaoCandidato(k, dz.estado ? null : base + i + 1)));
     }
     return h('section', { class: 'cartao' }, cab, h('div', { class: 'ferramentas' }, filtros), lista,
-      dz.total > (dz.porPagina || 50) ? LP.paginacao(dz.total, dz.pagina, dz.porPagina || 50, (p) => { dz.pagina = p; carregarDesafio(true); window.scrollTo(0, 0); }) : null);
+      dz.total > (dz.porPagina || 50) ? LP.paginacao(dz.total, dz.pagina, dz.porPagina || 50, (p) => { dz.pagina = p; carregarDesafio(true); LP.rolarParaAba(); }) : null);
   }
 
   function linkVerificar(k, texto, tipo) {

@@ -155,7 +155,16 @@ export const TopBar = memo(function TopBar({ path }: { path: RoutePath }) {
   return (
     <header className={cx('lx-topbar', h === 72 && 'lx-topbar--tall', h === 62 && 'lx-topbar--mid')}>
       <Brand sub={slots.sub ?? SUB[path]} href="#/" />
-      <div className="lx-topbar__center">{slots.center !== undefined ? slots.center : <DefaultCenter path={path} />}</div>
+      {/* o centro padrão ("Temporada 2031 · Ritmo Normal") some abaixo de 640 px: passava por baixo do som e do menu */}
+      <div className="lx-topbar__center">
+        {slots.center !== undefined ? (
+          slots.center
+        ) : (
+          <span className="contents max-sm:hidden">
+            <DefaultCenter path={path} />
+          </span>
+        )}
+      </div>
       <div className="lx-topbar__right">
         {SiteTopo && <SiteTopo path={path} />}
         {slots.extraActions}

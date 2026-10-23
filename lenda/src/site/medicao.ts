@@ -15,11 +15,20 @@
  * "Na área" do painel (v3.2, P1-4): o servidor guarda a tela do último `view` e o modo do último batimento. Sessão que
  * começa sem trocar de tela (a aba ficou 30 min no fundo) leva um `view` da tela de agora no primeiro envio — um evento
  * por sessão nova, nada a mais nos batimentos.
+ *
+ * v3.5 (celular no 4G lento): a visita é contada antes de o jogo carregar. O index.html do site traz um <script> embutido
+ * (src/site/medicaoCedo.ts, montado pelo plugin lenda:medicao-cedo do vite.config.ts) que manda o 1º `view` assim que a
+ * página chega — quem desiste olhando a tela de abertura também aparece no painel. Ele deixa o visitante, a sessão e o
+ * envio em window.__lendaMedicao; o main.tsx liga a medição antes de desenhar o jogo (iniciarMedicao com um estado
+ * provisório) e continua a mesma sessão; o vigias.ts (SiteRoot) chama iniciarMedicao de novo só para pôr o estado real.
+ * Origem: utm, senão o convite, senão o referrer (android-app://com.whatsapp/ → "whatsapp"), senão o navegador de dentro
+ * do app pelo user agent (TikTok, Instagram, Facebook…), que vai como utm implícito (medium "app").
  */
 import { apiUrl } from './api'
 import { codigoValido } from './indicacao'
 
-export type TipoEvento = 'view' | 'hb' | 'jogo_inicio' | 'jogo_fim' | 'partida_fim' | 'gate_ver' | 'gate_fechar' | 'cadastro' | 'login' | 'logout' | 'compartilhar'
+/** v3.5: "erro" = um diálogo do site caiu por erro de JS (d: onde, msg); o e.php antigo o descarta em silêncio. */
+export type TipoEvento = 'view' | 'hb' | 'jogo_inicio' | 'jogo_fim' | 'partida_fim' | 'gate_ver' | 'gate_fechar' | 'cadastro' | 'login' | 'logout' | 'compartilhar' | 'erro'
 export type ModoJogo = 'classico' | 'imersivo' | 'live'
 
 export interface Evento {
@@ -92,11 +101,14 @@ export function uuid4(): string {
 /** Armazém sobre localStorage/sessionStorage; se o navegador bloquear, guarda só na memória. */
 export function armazem(pegar: () => Storage | undefined): Armazem {
   const mem = new Map<string, string>()
+  // v3.5: as chaves que o storage não aceitou gravar (cheio, aba anônima do Safari antigo: lê, mas o setItem lança). Só
+  // para elas a memória vale quando o storage devolve null — o resto segue o storage (que outra parte pode ter limpado)
+  const soNaMemoria = new Set<string>()
   return {
     get(k) {
       try {
         const s = pegar()
-        if (s) return s.getItem(k)
+        if (s) return s.getItem(k) ?? (soNaMemoria.has(k) ? mem.get(k) ?? null : null)
       } catch {
         /* bloqueado */
       }
@@ -105,9 +117,14 @@ export function armazem(pegar: () => Storage | undefined): Armazem {
     set(k, v) {
       mem.set(k, v)
       try {
-        pegar()?.setItem(k, v)
+        const s = pegar()
+        if (s) {
+          s.setItem(k, v)
+          soNaMemoria.delete(k)
+        }
       } catch {
-        /* bloqueado: fica na memória */
+        /* bloqueado ou cheio: fica na memória */
+        soNaMemoria.add(k)
       }
     },
   }
@@ -158,15 +175,75 @@ export function dispositivo(ua: string, largura: number, toque = 0): Contexto['d
   return 'desktop'
 }
 
-/** Domínio de quem mandou a visita (sem "www."); vazio quando veio direto ou do próprio site. */
+/**
+ * v3.5: o app que abriu o link, pelo pacote do Android (referrer android-app://<pacote>/: a Custom Tab do Chrome que o
+ * WhatsApp, o Gmail… abrem). A mesma lista do normalizarOrigem do servidor (servidor/api/_lib.php).
+ */
+export const PACOTES_APP: ReadonlyMap<string, string> = new Map([
+  ['com.whatsapp', 'whatsapp'],
+  ['com.whatsapp.w4b', 'whatsapp'],
+  ['com.zhiliaoapp.musically', 'tiktok'],
+  ['com.zhiliaoapp.musically.go', 'tiktok'],
+  ['com.ss.android.ugc.trill', 'tiktok'],
+  ['com.ss.android.ugc.aweme', 'tiktok'],
+  ['com.instagram.android', 'instagram'],
+  ['com.instagram.lite', 'instagram'],
+  ['com.facebook.katana', 'facebook'],
+  ['com.facebook.lite', 'facebook'],
+  ['com.facebook.orca', 'facebook'],
+  ['com.facebook.mlite', 'facebook'],
+  ['com.google.android.gm', 'gmail'],
+  ['com.google.android.googlequicksearchbox', 'google'],
+  ['com.google.android.youtube', 'youtube'],
+  ['com.twitter.android', 'x'],
+  ['com.reddit.frontpage', 'reddit'],
+  ['org.telegram.messenger', 'telegram'],
+  ['com.discord', 'discord'],
+  ['com.kwai.video', 'kwai'],
+  ['com.kwai.bulldog', 'kwai'],
+])
+
+/**
+ * Domínio de quem mandou a visita (sem "www."); vazio quando veio direto ou do próprio site. Um app do Android
+ * (android-app://com.whatsapp/) vira o nome da rede ("whatsapp"); um app fora da lista fica com o nome do pacote.
+ */
 export function dominioDeOrigem(referrer: string, hostAtual: string): string {
   if (!referrer) return ''
   try {
-    const h = new URL(referrer).hostname.toLowerCase().replace(/^www\./, '')
+    const u = new URL(referrer)
+    const h = u.hostname.toLowerCase().replace(/^www\./, '')
+    if (u.protocol === 'android-app:') return (PACOTES_APP.get(h) ?? h).slice(0, 120)
     return h === hostAtual.toLowerCase().replace(/^www\./, '') ? '' : h.slice(0, 120)
   } catch {
     return ''
   }
+}
+
+/**
+ * v3.5: o navegador de dentro de um app, pelo user agent (o TikTok e o Instagram não mandam referrer). Vazio quando é
+ * um navegador comum. Só para a origem da visita — nada de robô aqui (isso é o servidor, ROBO_UA do e.php).
+ */
+export function appDoNavegador(ua: string): string {
+  if (/BytedanceWebview|musical_ly|[\s_/]trill[\s_/]|AppName\/(?:trill|musical_ly)|TikTok/i.test(ua)) return 'tiktok'
+  if (/\bInstagram\s\d/i.test(ua)) return 'instagram'
+  if (/FBAN\/|FBAV\/|FB_IAB|FBIOS|FB4A|\[FB/i.test(ua)) return 'facebook'
+  if (/\bWhatsApp\b/i.test(ua)) return 'whatsapp'
+  if (/Snapchat/i.test(ua)) return 'snapchat'
+  if (/Twitter for|TwitterAndroid/i.test(ua)) return 'x'
+  if (/\bKwai|kwai_/i.test(ua)) return 'kwai'
+  if (/LinkedInApp/i.test(ua)) return 'linkedin'
+  if (/Pinterest/i.test(ua)) return 'pinterest'
+  return ''
+}
+
+/**
+ * Os utm da visita com a origem implícita (v3.5): sem utm_source e sem referrer, o app do navegador (user agent) vira
+ * utm_source e o medium fica "app" — o servidor não precisa ler o user agent, e o painel separa (Campanhas · medium).
+ */
+export function utmComApp(utm: Contexto['utm'], ref: string, ua: string): Contexto['utm'] {
+  if (utm.source || ref) return utm
+  const app = appDoNavegador(ua)
+  return app ? { ...utm, source: app, medium: utm.medium || 'app' } : utm
 }
 
 export function utmDe(search: string): Contexto['utm'] {
@@ -202,7 +279,8 @@ const REDES: [string, string[], RegExp][] = [
   ['whatsapp', ['whatsapp', 'zap', 'wa.me'], /(^|\.)whatsapp\.com$/],
   ['google', ['google'], /(^|\.)google\.[a-z.]+$/],
 ]
-const rede = (h: string) => REDES.find(([, nomes, dominio]) => nomes.includes(h) || dominio.test(h))?.[0]
+// v3.5: o pacote do app (a sessão gravada por uma versão de antes, que guardava "com.whatsapp" cru) também vale
+const rede = (h: string) => PACOTES_APP.get(h) ?? REDES.find(([, nomes, dominio]) => nomes.includes(h) || dominio.test(h))?.[0]
 
 /** Origem resumida (mesma regra do painel): utm_source, senão o domínio normalizado, senão "direto". */
 export function origemResumida(ctx: Pick<Contexto, 'ref' | 'utm'>): string {
@@ -291,6 +369,54 @@ export function comTelaDaSessao(eventos: Evento[], nova: boolean, tela: string |
   return [{ t: 'view', m: null, ts: agora, d: { rota: tela } }, ...eventos]
 }
 
+/**
+ * A tela pelo endereço (#/hall → "/hall", #/jogador/ABC → "/jogador"), para quando o roteador do jogo ainda não carregou
+ * (o script embutido do index.html). O que não cabe no formato do servidor vira "/" (como o jogo faz com rota desconhecida).
+ */
+export function rotaDoEndereco(hash: string): string {
+  const p = hash.replace(/^#/, '').split('?')[0] || '/'
+  const r = /^\/jogador\/[^/]+\/?$/.test(p) ? '/jogador' : p
+  return ROTA_RE.test(r) ? r : '/'
+}
+
+/**
+ * v3.5: o que o <script> embutido do index.html (src/site/medicaoCedo.ts) deixa em window.__lendaMedicao: o visitante e a
+ * sessão que ele usou (os mesmos do storage; com o storage bloqueado, só aqui), o contexto, a tela do `view` que ele
+ * mandou e o envio (true = chegou ao servidor; false = não chegou, e o view vai de novo pela fila).
+ */
+export interface SementeMedicao {
+  v: string
+  s: string
+  ctx: Contexto
+  em: number
+  rota: string
+  p?: Promise<boolean>
+}
+
+declare global {
+  interface Window {
+    __lendaMedicao?: SementeMedicao
+  }
+}
+
+/** A semente, se for uma de verdade (o script embutido rodou nesta página). */
+export function sementeValida(x: unknown): SementeMedicao | null {
+  if (!x || typeof x !== 'object') return null
+  const s = x as Partial<SementeMedicao>
+  if (typeof s.v !== 'string' || !UUID_V4.test(s.v) || typeof s.s !== 'string' || !UUID_V4.test(s.s)) return null
+  if (typeof s.em !== 'number' || !Number.isFinite(s.em) || typeof s.rota !== 'string' || !s.ctx || typeof s.ctx !== 'object') return null
+  return s as SementeMedicao
+}
+
+/** Robô de navegador automatizado (o servidor também olha o user agent: ROBO_UA do e.php). */
+export function botDoNavegador(): 0 | 1 {
+  try {
+    return navigator.webdriver ? 1 : 0
+  } catch {
+    return 0
+  }
+}
+
 interface Runtime {
   ls: Armazem
   ss: Armazem
@@ -301,15 +427,19 @@ interface Runtime {
   /** A tela de agora (rota, ou "/conta" com Minha conta aberta…), para a sessão nova. */
   telaAtual: (() => string | null) | null
   enviando: boolean
+  /** v3.5: a tela do último `view` (o mesmo de novo seguido não vai: o do main.tsx e o 1º do vigias.ts são um só). */
+  ultimaView: string | null
 }
 
 let rt: Runtime | null = null
 
-function contextoAgora(): Contexto {
+/** O contexto desta página (origem, utm, aparelho, idioma, tela). Também usado pelo script embutido (medicaoCedo.ts). */
+export function contextoAgora(): Contexto {
   const largura = Math.round(window.innerWidth || screen.width || 0)
+  const ref = dominioDeOrigem(document.referrer, location.hostname)
   return {
-    ref: dominioDeOrigem(document.referrer, location.hostname),
-    utm: utmDaVisita(location.search),
+    ref,
+    utm: utmComApp(utmDaVisita(location.search), ref, navigator.userAgent || ''),
     dev: dispositivo(navigator.userAgent, largura, navigator.maxTouchPoints || 0),
     lang: (navigator.language || '').slice(0, 16),
     tela: `${screen.width || 0}x${screen.height || 0}`,
@@ -377,6 +507,11 @@ async function enviar(fechando = false) {
 export function track(t: Exclude<TipoEvento, 'hb'>, m: ModoJogo | null = null, d?: Record<string, unknown>) {
   const r = rt
   if (!r) return
+  if (t === 'view') {
+    const rota = typeof d?.rota === 'string' ? d.rota : null
+    if (rota !== null && rota === r.ultimaView) return
+    r.ultimaView = rota
+  }
   const e: Evento = { t, m, ts: Date.now() }
   if (d && Object.keys(d).length) e.d = d
   r.fila.push(e)
@@ -425,22 +560,58 @@ export function origemAtual(): string | null {
 }
 
 /**
- * Liga a medição (uma vez). `estadoJogo` diz, a cada batimento, se o visitante está jogando e em que modo; `telaAtual`,
- * a tela de agora (para a sessão que começa sem trocar de tela).
+ * Liga a medição. `estadoJogo` diz, a cada batimento, se o visitante está jogando e em que modo; `telaAtual`, a tela de
+ * agora (para a sessão que começa sem trocar de tela).
+ * v3.5: a 1ª chamada é a do main.tsx (antes de desenhar o jogo, com um estado provisório) e manda o 1º `view` na hora —
+ * ou, se o script embutido do index.html já mandou o desta página, só confere que ele chegou. As seguintes (o vigias.ts,
+ * quando o SiteRoot carrega) só trocam `estadoJogo` e `telaAtual`.
  */
 export function iniciarMedicao(opts: { estadoJogo: () => EstadoJogo; telaAtual?: () => string | null }): void {
-  if (rt || typeof window === 'undefined') return
+  if (typeof window === 'undefined') return
+  if (rt) {
+    rt.estadoJogo = opts.estadoJogo
+    if (opts.telaAtual) rt.telaAtual = opts.telaAtual
+    return
+  }
   const ls = armazem(() => window.localStorage)
   const ss = armazem(() => window.sessionStorage)
-  let bot: 0 | 1 = 0
+  let sem: SementeMedicao | null = null
   try {
-    bot = navigator.webdriver ? 1 : 0
+    sem = sementeValida(window.__lendaMedicao)
   } catch {
-    /* ignora */
+    sem = null
   }
-  rt = { ls, ss, fila: new FilaEventos(), vid: obterVisitante(ls), bot, estadoJogo: opts.estadoJogo, telaAtual: opts.telaAtual ?? null, enviando: false }
+  if (sem) {
+    // com o storage bloqueado, o visitante e a sessão do script embutido só existem nele: continuam os mesmos
+    if (!ls.get(CHAVE_VID)) ls.set(CHAVE_VID, sem.v)
+    if (!ss.get(CHAVE_SID)) {
+      ss.set(CHAVE_SID, sem.s)
+      ss.set(CHAVE_SID_ULTIMO, String(sem.em))
+      ss.set(CHAVE_SID_CTX, JSON.stringify(sem.ctx))
+    }
+  }
+  const r: Runtime = { ls, ss, fila: new FilaEventos(), vid: obterVisitante(ls), bot: botDoNavegador(), estadoJogo: opts.estadoJogo, telaAtual: opts.telaAtual ?? null, enviando: false, ultimaView: null }
+  rt = r
   // a sessão começa já (o contexto da primeira página é o que vale)
-  tocarSessao(ss, Date.now(), contextoAgora)
+  const { sid } = tocarSessao(ss, Date.now(), contextoAgora)
+  const tela = telaDe(r) ?? rotaDoEndereco(location.hash)
+  if (sem && sem.s === sid && sem.rota === tela) {
+    // o view desta página já foi pelo script embutido; se ele não chegou (sem rede), vai pela fila, com a hora dele
+    r.ultimaView = tela
+    const s0 = sem
+    void s0.p?.then(
+      (ok) => {
+        if (ok || rt !== r) return
+        r.fila.push({ t: 'view', m: null, ts: s0.em, d: { rota: s0.rota } })
+        void enviar()
+      },
+      () => undefined,
+    )
+  } else {
+    // sem o script embutido (ou numa tela que ele não sabia): o 1º view vai já, sem esperar o batimento de 1,5 s
+    track('view', null, { rota: tela })
+    void enviar()
+  }
 
   const batimento = () => {
     const r = rt

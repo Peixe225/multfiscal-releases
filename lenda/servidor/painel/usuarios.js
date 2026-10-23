@@ -196,7 +196,7 @@
         ] : null) },
       ],
     });
-    LP.trocar(lista.corpo, tabela, LP.paginacao(total, d.pagina || lista.pagina, d.porPagina || 50, (p) => { lista.pagina = p; carregar(); window.scrollTo(0, 0); }));
+    LP.trocar(lista.corpo, tabela, LP.paginacao(total, d.pagina || lista.pagina, d.porPagina || 50, (p) => { lista.pagina = p; carregar(); LP.rolarParaAba(); }));
   }
 
   /**
@@ -560,7 +560,7 @@
     }) : h('p', { class: 'texto-3' }, 'Ainda não indicou ninguém.');
     return secundario('Indicações', feitas.length ? LP.inteiro(feitas.filter((i) => i.status === 'valida').length) + ' válidas de ' + feitas.length : '',
       [h('h3', null, 'Recebida'), recebida, h('h3', null, 'Feitas'), regras ? h('p', { class: 'texto-3' }, regras) : null, tabela,
-        feitas.length ? h('p', null, h('a', { href: '#/indicacoes?indicador=' + u.id }, 'Ver na aba Indicações →')) : null], !!rec || feitas.length > 0);
+        feitas.length ? h('p', null, h('a', { href: '#/indicacoes?indicador=' + u.id, class: 'link-bloco' }, 'Ver na aba Indicações →')) : null], !!rec || feitas.length > 0);
   }
 
   /** U15: por que esta conta não entra? (nunca pede nem testa a senha do jogador) + as sessões ativas. */

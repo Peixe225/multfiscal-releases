@@ -566,8 +566,9 @@ await ctx.close()
   const { ctx: c3, page: p3 } = await aparelho(390)
   await secao(p3, '9. celular', async () => {
     await entrar(p3)
-    const g = await p3.evaluate(() => getComputedStyle(document.getElementById('numeros-acao')).gridTemplateColumns.split(' ').length)
-    ok(g === 4 && await p3.locator('#na-mensagensNovas .na-curto').isVisible() && !(await p3.locator('#na-mensagensNovas .na-longo').isVisible()), 'celular: 8 números em 4 colunas, com o rótulo curto')
+    // v3.5 (revisão mobile): no celular os 8 números ficam numa faixa de uma linha que rola de lado
+    const g = await p3.evaluate(() => { const n = document.getElementById('numeros-acao'); return { display: getComputedStyle(n).display, linhas: new Set(Array.from(n.children).map((c) => Math.round(c.getBoundingClientRect().top))).size } })
+    ok(g.display === 'flex' && g.linhas === 1 && await p3.locator('#na-mensagensNovas .na-curto').count() === 1 && await p3.evaluate(() => getComputedStyle(document.querySelector('#na-mensagensNovas .na-curto')).display !== 'none' && getComputedStyle(document.querySelector('#na-mensagensNovas .na-longo')).display === 'none'), 'celular: 8 números numa faixa de uma linha, com o rótulo curto (' + JSON.stringify(g) + ')')
     for (const [hash, nome] of [['#/mensagens', 'Mensagens'], ['#/mensagens?status=todas', 'Mensagens (todas)'], [`#/mensagens?status=todas&mensagem=${M.recomendacao.id}`, 'ficha da mensagem'],
       ['#/desafios', 'Desafios'], [`#/desafios?id=${D.tacas}`, 'desafio com candidatos'], [`#/desafios?id=${D.tacas}&parte=editar`, 'editor de desafio'], ['#/desafios?parte=novo', 'desafio novo'],
       ['#/usuarios?verificado=0', 'Usuários não confirmados'], ['#/config', 'Configurações']]) {

@@ -13,9 +13,14 @@
  *      (cache de 1 ano);
  *   3. copia a imagem de compartilhamento (scripts/site/og.jpg, 1200×630 — refaça com
  *      `node scripts/site/render-og.mjs`) e gera o apple-touch-icon.png (180×180) a partir do favicon.svg;
+ *   3c. (v3.5) o manifesto (manifest.webmanifest: nome curto "LENDA", ícones 192/512 e o maskable — o "Instalar app" do
+ *      Android) e o favicon em PNG (favicon-32.png) e em ICO (favicon.ico) dentro da pasta: quem não usa o SVG ia buscar
+ *      /favicon.ico na raiz do domínio, que é o ícone de outro site;
  *   3b. (v3.4) SEO: título e descrição para busca, JSON-LD de VideoGame, sitemap.xml e o arquivo da chave do IndexNow
  *      (scripts/indexnow.mjs avisa os buscadores depois do deploy);
- *   4. tira o carimbo .lenda-build (é da ponte, só faz sentido no dist/ local) e confere o resultado;
+ *   4. tira o carimbo .lenda-build (é da ponte, só faz sentido no dist/ local) e confere o resultado (v3.5: também a
+ *      medição embutida no index.html, com o hash na CSP, e as pré-cargas da abertura — plugins lenda:medicao-cedo e
+ *      lenda:precarga do vite.config.ts);
  *   5. imprime um resumo (arquivos, tamanho, os maiores).
  *   Antes do .htaccess, copia o servidor (servidor/CONTRATO.md), se já existir: servidor/api → api/ (sem
  *   _config.php nem testes), servidor/painel → painel/ e servidor/privacidade.html. Faltando, segue sem eles.
@@ -351,6 +356,7 @@ ${regrasLinks}
   AddType application/manifest+json .webmanifest
   AddType image/svg+xml .svg
   AddType image/webp .webp
+  AddType image/x-icon .ico
   AddType font/woff2 .woff2
   AddType application/xml .xml
   AddType text/plain .txt
@@ -472,11 +478,126 @@ await sharp(iconBg)
   .png({ compressionLevel: 9 })
   .toFile(join(out, 'apple-touch-icon.png'))
 
+// ── 3c. (v3.5) manifesto + ícones do "Instalar app" + favicon em PNG/ICO ──
+// O escudo do favicon.svg desenhado em cada tamanho (nada de reduzir o PNG grande: em 16/32 px o traço fica borrado).
+const svgFavicon = readFileSync(join(root, 'public', 'favicon.svg'))
+const escudo = (lado) => sharp(svgFavicon, { density: Math.max(72, Math.ceil((72 * lado) / 32)) }).resize(lado, lado).png().toBuffer()
+// "any": o escudo num quadrado escuro com o brilho dourado (o mesmo desenho do apple-touch-icon, em 192 e 512)
+const iconeQuadrado = async (lado, escala) => {
+  const e = Math.round(lado * escala)
+  const fundo = Buffer.from(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${lado}" height="${lado}"><defs><radialGradient id="g" cx="50%" cy="44%" r="62%">` +
+      `<stop offset="0" stop-color="#3a2a0e"/><stop offset=".55" stop-color="#14110c"/><stop offset="1" stop-color="#07080c"/></radialGradient></defs>` +
+      `<rect width="${lado}" height="${lado}" fill="url(#g)"/></svg>`,
+  )
+  return sharp(fundo)
+    .composite([{ input: await escudo(e), top: Math.round((lado - e) / 2 - lado * 0.01), left: Math.round((lado - e) / 2) }])
+    .flatten({ background: '#07080c' })
+    .png({ compressionLevel: 9 })
+    .toBuffer()
+}
+const ICONES = [
+  ['icon-192.png', await iconeQuadrado(192, 132 / 180)],
+  ['icon-512.png', await iconeQuadrado(512, 132 / 180)],
+  // maskable: o Android corta num círculo/gota — o escudo fica dentro da zona segura (o círculo de 80% do meio)
+  ['icon-maskable-512.png', await iconeQuadrado(512, 0.52)],
+  ['favicon-32.png', await escudo(32)],
+]
+for (const [nome, buf] of ICONES) writeFileSync(join(out, nome), buf)
+// favicon.ico com PNG dentro (16, 32 e 48 px): o formato que todo navegador desde o IE11 entende
+{
+  const pngs = await Promise.all([16, 32, 48].map(async (l) => [l, await escudo(l)]))
+  const cab = Buffer.alloc(6 + 16 * pngs.length)
+  cab.writeUInt16LE(0, 0)
+  cab.writeUInt16LE(1, 2)
+  cab.writeUInt16LE(pngs.length, 4)
+  let pos = cab.length
+  pngs.forEach(([l, png], i) => {
+    const o = 6 + 16 * i
+    cab.writeUInt8(l, o)
+    cab.writeUInt8(l, o + 1)
+    cab.writeUInt8(0, o + 2)
+    cab.writeUInt8(0, o + 3)
+    cab.writeUInt16LE(1, o + 4)
+    cab.writeUInt16LE(32, o + 6)
+    cab.writeUInt32LE(png.length, o + 8)
+    cab.writeUInt32LE(pos, o + 12)
+    pos += png.length
+  })
+  writeFileSync(join(out, 'favicon.ico'), Buffer.concat([cab, ...pngs.map(([, png]) => png)]))
+}
+const manifesto = {
+  id: './',
+  name: 'LENDA — Simulador de carreira de futebol',
+  short_name: 'LENDA',
+  description: SEO_DESCRICAO,
+  lang: 'pt-BR',
+  dir: 'ltr',
+  start_url: './',
+  scope: './',
+  display: 'standalone',
+  background_color: '#07080c',
+  theme_color: '#07080c',
+  categories: ['games', 'sports', 'entertainment'],
+  icons: [
+    { src: 'icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+    { src: 'icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+    { src: 'icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+  ],
+}
+writeFileSync(join(out, 'manifest.webmanifest'), `${JSON.stringify(manifesto, null, 2)}\n`)
+
 // ── 4. limpeza e conferência ──
 rmSync(join(out, '.lenda-build'), { force: true })
 const html = readFileSync(join(out, 'index.html'), 'utf8')
-for (const need of [`<link rel="canonical" href="${siteUrl}"`, `content="${siteUrl}og.jpg"`, 'twitter:card', 'apple-touch-icon']) {
+for (const need of [
+  `<link rel="canonical" href="${siteUrl}"`,
+  `content="${siteUrl}og.jpg"`,
+  'twitter:card',
+  'apple-touch-icon',
+  '<link rel="manifest" href="./manifest.webmanifest">',
+  'href="./favicon-32.png"',
+  '<meta name="apple-mobile-web-app-title" content="LENDA">',
+]) {
   if (!html.includes(need)) fail(`index.html sem ${need} (o plugin lenda:site-meta do vite.config.ts rodou?)`)
+}
+// v3.5: manifesto e ícones
+{
+  const m = JSON.parse(readFileSync(join(out, 'manifest.webmanifest'), 'utf8'))
+  if (m.short_name !== 'LENDA' || m.display !== 'standalone' || m.start_url !== './') fail('manifest.webmanifest sem short_name/display/start_url')
+  for (const i of m.icons) {
+    const meta = await sharp(join(out, i.src)).metadata()
+    if (`${meta.width}x${meta.height}` !== i.sizes) fail(`${i.src} com ${meta.width}×${meta.height} (o manifesto diz ${i.sizes})`)
+  }
+  const ico = readFileSync(join(out, 'favicon.ico'))
+  if (ico.readUInt16LE(2) !== 1 || ico.readUInt16LE(4) !== 3) fail('favicon.ico inválido')
+}
+// v3.5: a medição de quem abre e sai logo (lenda:medicao-cedo) — embutida ANTES da folha de estilo e com o hash na CSP
+{
+  const i = html.indexOf('window.__lendaMedicao')
+  const css = html.search(/<link rel="stylesheet"/)
+  if (i < 0) fail('index.html sem a medição embutida (o plugin lenda:medicao-cedo do vite.config.ts rodou?)')
+  if (css >= 0 && i > css) fail('a medição embutida ficou depois da folha de estilo (assim ela espera o CSS chegar)')
+  // a folha de estilo do jogo no <head>, ANTES das que os pedaços acrescentam (fora dele, ela venceria o CSS da Home no desempate)
+  if (css < 0 || css > html.indexOf('</head>')) fail('a folha de estilo do jogo não está no <head>')
+  if (html.includes('<!--lenda:medicao-cedo-->')) fail('o marcador <!--lenda:medicao-cedo--> sobrou no index.html')
+  if (scriptHashes.length !== new Set(inlineScripts).size || scriptHashes.length < 2) fail(`a CSP tem ${scriptHashes.length} hash(es) de script embutido (eram para ser o do tema e o da medição)`)
+}
+// v3.5: as pré-cargas da abertura (lenda:precarga): os pedaços data e LandingScreen e a fonte do título (Inter Tight)
+{
+  const pre = [...html.matchAll(/<link rel="modulepreload"[^>]*href="\.\/assets\/([^"]+)"/g)].map((m) => m[1])
+  for (const nome of ['data-', 'LandingScreen-']) {
+    if (!pre.some((f) => f.startsWith(nome))) fail(`index.html sem <link rel=modulepreload> do pedaço ${nome}* (a abertura volta a chegar em cascata)`)
+  }
+  for (const f of ['inter-tight-latin-wght-normal-']) {
+    if (!new RegExp(`<link rel="preload" as="font" type="font/woff2" crossorigin href="\\./assets/${f}`).test(html)) fail(`index.html sem o preload da fonte ${f}*`)
+  }
+  // os ícones (lucide-react) num pedaço só: um pedaço pequeno com o desenho de um ícone ([["path",{d:…}]]) quer dizer que o
+  // codeSplitting do vite.config.ts parou de valer (eram ~60 arquivos de 1,4 KB, um pedido de 150 ms cada no 4G)
+  const soltos = readdirSync(join(out, 'assets')).filter(
+    (f) => f.endsWith('.js') && statSync(join(out, 'assets', f)).size < 3000 && /\[\[[`"'](?:path|circle|rect|line|polyline|polygon|ellipse)[`"'],\{/.test(readFileSync(join(out, 'assets', f), 'utf8')),
+  )
+  if (soltos.length) fail(`${soltos.length} ícone(s) num pedaço próprio (${soltos.slice(0, 3).join(', ')}…): o grupo "icones" do codeSplitting no vite.config.ts não pegou`)
 }
 // SEO: o JSON-LD é JSON de verdade, o sitemap e a chave do IndexNow estão na pasta
 {

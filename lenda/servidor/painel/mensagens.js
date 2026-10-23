@@ -190,7 +190,7 @@
       ],
     });
     LP.trocarNoLugar(msg.corpo, lote ? lote.no : null, msg.tabela,
-      LP.paginacao(total, d.pagina || msg.pagina, d.porPagina || 50, (p) => { msg.pagina = p; msg.marcados.clear(); carregar(); window.scrollTo(0, 0); }));
+      LP.paginacao(total, d.pagina || msg.pagina, d.porPagina || 50, (p) => { msg.pagina = p; msg.marcados.clear(); carregar(); LP.rolarParaAba(); }));
     if (lote) lote.atualizar();
   }
 

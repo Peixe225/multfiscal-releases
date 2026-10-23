@@ -71,6 +71,8 @@ export function buildIndex(d: GameData): GameIndex {
 const dataModules = import.meta.glob('../data/index.ts')
 
 let inflight: Promise<GameData> | null = null
+/** Site público (VITE_SITE=1): sem dados de exemplo. */
+const SITE = import.meta.env.VITE_SITE === '1'
 
 export const useData = create<DataStore>()((set, get) => ({
   status: 'idle',
@@ -105,9 +107,13 @@ export const useData = create<DataStore>()((set, get) => ({
           const size = Number(mod.CREST_SIZE)
           configureCrests({ cols: cols > 0 ? cols : undefined, cell: size > 0 ? size : undefined })
         } catch (err) {
+          // no site público, nunca os dados de exemplo: a pessoa jogaria uma carreira falsa ("Taças reais", escudos
+          // genéricos, 16 países) sem saber. O erro vai para o status 'error' (a splash pede para tentar de novo).
+          if (SITE) throw err
           console.warn('[LENDA] loadGameData falhou — usando dados de exemplo.', err)
         }
       }
+      if (!data && SITE) throw new Error('O pacote de dados do jogo veio vazio.')
       let final: GameData
       if (data) final = data
       else {
@@ -119,6 +125,8 @@ export const useData = create<DataStore>()((set, get) => ({
       return final
     })().catch((err) => {
       inflight = null
+      // a mensagem técnica fica no console; a splash fala com a pessoa em pt-BR
+      console.error('[LENDA] os dados do jogo não carregaram', err)
       set({ status: 'error', error: String(err?.message ?? err) })
       throw err
     })

@@ -432,6 +432,7 @@ function Overall({ hall, linhas, com, filtro, seg, onSeg, onOpen }: { hall: Hall
         {opts.length > 2 && (
           <Segmented<Filter>
             size="sm"
+            className="hl-seg"
             value={filter}
             onChange={(f) => {
               onSeg(f)

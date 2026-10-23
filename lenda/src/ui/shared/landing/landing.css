@@ -140,7 +140,7 @@
 @media (min-width: 36rem) { .ld-ticker__l { padding: 0 18px; } .ld-ticker__l small { display: block; } }
 .ld-ticker .lx-marquee { flex: 1; min-width: 0; }
 .ld-tk { display: flex; align-items: center; gap: 10px; padding: 0 22px; height: 58px; border-right: 1px solid var(--border); white-space: nowrap; color: inherit; text-decoration: none; transition: background-color var(--dur-2) var(--ease-out); }
-.ld-tk:hover { background: rgba(255, 255, 255, .03); }
+@media (hover: hover) { .ld-tk:hover { background: rgba(255, 255, 255, .03); } }
 .ld-tk:focus-visible { outline: 2px solid var(--accent, #fff); outline-offset: -3px; border-radius: 12px; }
 .ld-tk__nm { font-size: 12.5px; font-weight: 700; } .ld-tk__rd { font-size: 11px; color: var(--text-3); font-weight: 600; }
 .ld-ld { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 8px 0 5px; border-radius: 8px; background: var(--surface); border: 1px solid var(--border); font-size: 12px; font-weight: 650; }
@@ -175,18 +175,75 @@
 /* landing nav (top bar) */
 .ld-nav { display: flex; align-items: center; gap: 4px; margin-left: 20px; }
 .ld-nav a { height: 34px; padding: 0 12px; display: inline-flex; align-items: center; gap: 7px; border-radius: 10px; font-size: 13.5px; font-weight: 600; color: var(--text-2); text-decoration: none; transition: color var(--dur-2) var(--ease-out), background-color var(--dur-2) var(--ease-out); }
-.ld-nav a:hover { color: var(--text); background: var(--surface); }
+@media (hover: hover) { .ld-nav a:hover { color: var(--text); background: var(--surface); } }
 .ld-soon { display: inline-flex; align-items: center; height: 17px; padding: 0 6px; border-radius: 5px; font-size: 9.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #1b1405; background: linear-gradient(100deg, #ffe7a3, #f3c65c); white-space: nowrap; }
-.ld-mode.is-off { cursor: not-allowed; opacity: .62; filter: saturate(.6); }
-.ld-mode.is-off:hover { transform: none; }
+.ld-mode.is-off { cursor: not-allowed; opacity: .78; filter: saturate(.6); }
+@media (hover: hover) { .ld-mode.is-off:hover { transform: none; } }
 .ld-mode__dev { margin-top: 3px; }
 .ld-nav__off { height: 34px; padding: 0 12px; display: inline-flex; align-items: center; gap: 7px; font-size: 13.5px; font-weight: 600; color: var(--text-3); cursor: default; }
+@media (pointer: coarse), (max-width: 44.99rem), (max-height: 32.5rem) {
+  .ld-soon { font-size: 11px; height: 19px; }
+  .ld-medal__count { font-size: 11.5px; height: 19px; }
+  .ld-mode__k { font-size: 12px; }
+}
 .ld-soon--ghost { color: #ffe39a; background: rgba(255, 210, 110, .12); box-shadow: inset 0 0 0 1px rgba(255, 210, 110, .35); }
 
 @media (prefers-reduced-motion: reduce) { .ld-fan { transition: none; transform: none; } }
 :root[data-motion="reduced"] .ld-fan { transition: none; transform: none; }
 }
 @layer components {
+/* toque: o link de 14 px ganha área de 40 px sem mexer no texto do rodapé */
+@media (pointer: coarse), (max-width: 44.99rem), (max-height: 32.5rem) { .ld-footer__link { display: inline-block; padding: 13px 4px; margin: -13px -4px; } }
 .ld-footer__link { color: var(--text-2); text-decoration: underline; text-decoration-color: rgba(255, 255, 255, .25); text-underline-offset: 3px; white-space: nowrap; }
-.ld-footer__link:hover { color: var(--text); text-decoration-color: #ffd36e; }
+@media (hover: hover) { .ld-footer__link:hover { color: var(--text); text-decoration-color: #ffd36e; } }
+}
+
+/* ── v3.5 · celular: o "Começar carreira" e a arte que vende o jogo na primeira tela ──────────────────────
+   Retrato (< 720px): pílula, título, frase, "Começar carreira", a arte (cartas 52→94, Bola de Ouro, Copa) e
+   só depois os modos e o ritmo (a identidade também escolhe o ritmo). O .ld-copy vira "contents" para os filhos
+   dele entrarem na ordem junto com a arte; no computador nada muda.
+   Deitado (altura < 520px): duas colunas — o texto e o botão à esquerda, a arte menor à direita. */
+@layer components {
+.ld-meta__sk { display: inline-block; width: 52px; height: 9px; border-radius: 5px; background: rgba(255, 255, 255, .12); vertical-align: -1px; }
+@media (max-width: 44.99rem) {
+  .ld-hero { display: flex; flex-direction: column; }
+  .ld-copy { display: contents; }
+  .ld-copy > * { order: 20; position: relative; z-index: 3; }
+  .ld-o-pill { order: 1; } .ld-o-h1 { order: 2; } .ld-o-lead { order: 3; } .ld-o-ctas { order: 4; } .ld-o-also { order: 5; }
+  .ld-art { order: 6; height: 300px; margin-top: 4px; }
+  .ld-o-modes { order: 7; margin-top: 2px; }
+  .ld-o-rhythm { order: 8; }
+  .ld-h1 { margin: 10px 0 10px; }
+  .ld-lead { margin: 0 0 16px; }
+  .ld-fanwrap { transform: translateX(-50%) scale(.56); }
+  .ld-tf--bo { top: 6px; height: 84px; }
+  .ld-tf--wc { bottom: 54px; height: 96px; }
+}
+/* o Modo Imersivo ainda em desenvolvimento: uma linha só (título + "Em desenvolvimento") */
+@media (max-width: 44.99rem), (orientation: landscape) and (max-height: 32.5rem) {
+  .ld-mode.is-off { padding: 10px 14px; }
+  .ld-mode.is-off .ld-mode__d, .ld-mode.is-off .ld-mini { display: none; }
+  .ld-mode.is-off .ld-mode__ic { width: 30px; height: 30px; border-radius: 9px; }
+  .ld-mode.is-off .ld-mode__t { font-size: 15px; }
+  .ld-mode.is-off > span:first-of-type { padding-right: 0; }
+  .ld-mode.is-off > span:first-of-type > span:last-child { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; }
+  .ld-mode.is-off .ld-mode__dev { margin-top: 0; }
+}
+@media (orientation: landscape) and (max-height: 32.5rem) and (min-width: 36rem) {
+  .ld-hero { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, .8fr); gap: 0 16px; padding: 0; align-items: start; }
+  .ld-copy { display: flex; flex-direction: column; align-items: stretch; }
+  .ld-copy > * { order: 20; }
+  .ld-o-pill { order: 1; align-self: flex-start; } .ld-o-h1 { order: 2; } .ld-o-lead { order: 3; } .ld-o-ctas { order: 4; } .ld-o-also { order: 5; }
+  .ld-o-modes { order: 7; margin-top: 16px; } .ld-o-rhythm { order: 8; }
+  .ld-h1 { font-size: 36px; margin: 10px 0 8px; }
+  .ld-lead { font-size: 14px; line-height: 1.45; margin: 0 0 14px; }
+  .ld-lead__long { display: none; } .ld-lead__short { display: inline; }
+  .ld-art { order: 0; height: 330px; margin: 0; position: sticky; top: 0; }
+  .ld-art .lx-halo { width: 420px; top: 40%; } .ld-art .lx-rays { width: 620px; top: 40%; }
+  .ld-fanwrap { top: 0; transform: translateX(-50%) scale(.52); }
+  .ld-tf--bo { right: 4%; top: 8px; height: 86px; } .ld-tf--wc { left: 2%; bottom: 52px; height: 100px; }
+  .ld-trail { bottom: 8px; gap: 6px; padding: 6px 10px; }
+  .ld-trail__lab, .ld-trail__n { display: none; }
+  .ld-modes { grid-template-columns: minmax(0, 1fr); }
+}
 }

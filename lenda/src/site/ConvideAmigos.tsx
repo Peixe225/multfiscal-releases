@@ -4,18 +4,21 @@
  * carreiras. Dados do GET bonus.php (servidor/CONTRATO-v3.md §6).
  */
 import { useEffect, useState } from 'react'
-import { Check, Copy, Gift, Hourglass, Lock, RefreshCw, Share2, Sparkles, UserPlus } from 'lucide-react'
+import { Check, Copy, Gift, Hourglass, Lock, MessageCircle, RefreshCw, Share2, Sparkles, UserPlus } from 'lucide-react'
 import { Button, cx, toast } from '@/ui/primitives'
 import { bonusDoSite } from './acesso'
 import { degrausIndicacao, ROTULO_ORIGEM, textoFaltam, useBonus } from './bonus'
 import { track } from './medicao'
 import './site.css'
 
+/** O "Mandar no WhatsApp": https://wa.me/?text=… (abre o app no celular e o WhatsApp Web no computador). */
+export const linkWhatsApp = (texto: string) => `https://wa.me/?text=${encodeURIComponent(texto)}`
+
 export default function ConvideAmigos() {
   const dados = useBonus((s) => s.dados)
   const carregando = useBonus((s) => s.carregando)
   const erro = useBonus((s) => s.erro)
-  const [copiado, setCopiado] = useState(false)
+  const [copiado, setCopiado] = useState<'copiar' | 'compartilhar' | null>(null)
   useEffect(() => {
     void useBonus.getState().carregar(true)
   }, [])
@@ -38,13 +41,16 @@ export default function ConvideAmigos() {
   const link = dados.linkConvite
   const total = dados.disponiveis.reduce((a, b) => a + b.valor, 0)
   const texto = 'Bora ver quem faz a maior lenda do futebol? Joga o LENDA comigo:'
-  const copiar = async () => {
+  /** `de`: o botão tocado (é ele que vira "Copiado"); pelo Compartilhar sem a folha do aparelho, avisa onde colar. */
+  const copiar = async (de: 'copiar' | 'compartilhar' = 'copiar') => {
     if (!link) return
     try {
       await navigator.clipboard.writeText(link)
-      setCopiado(true)
-      window.setTimeout(() => setCopiado(false), 2200)
-      track('compartilhar', null, { acao: 'convite_copiar', rota: '/conta' })
+      setCopiado(de)
+      window.setTimeout(() => setCopiado(null), 2600)
+      // v3.5: dentro do TikTok/WhatsApp (WebView do Android, sem navigator.share) o "Compartilhar" copiava em silêncio
+      if (de === 'compartilhar') toast.success('Link copiado!', 'Cole no WhatsApp, no Direct ou onde quiser.', { key: 'convite-copiado' })
+      track('compartilhar', null, { acao: de === 'compartilhar' ? 'convite_copiar_share' : 'convite_copiar', rota: '/conta' })
     } catch {
       toast.info('Copie o link', link, { duration: 9000 })
     }
@@ -52,12 +58,12 @@ export default function ConvideAmigos() {
   const compartilhar = async () => {
     if (!link) return
     const data: ShareData = { title: 'LENDA', text: texto, url: link }
-    if (!navigator.share || (navigator.canShare && !navigator.canShare(data))) return copiar()
+    if (!navigator.share || (navigator.canShare && !navigator.canShare(data))) return copiar('compartilhar')
     try {
       await navigator.share(data)
       track('compartilhar', null, { acao: 'convite_ok', rota: '/conta' })
     } catch (err) {
-      if ((err as DOMException)?.name !== 'AbortError') void copiar()
+      if ((err as DOMException)?.name !== 'AbortError') void copiar('compartilhar')
     }
   }
 
@@ -79,11 +85,23 @@ export default function ConvideAmigos() {
         <div className="sc-conv__link">
           <input className="lx-input" readOnly value={link} aria-label="Seu link de convite" onFocus={(e) => e.currentTarget.select()} />
           <div className="sc-btns">
-            <Button variant="primary" size="sm" icon={Share2} onClick={compartilhar}>
-              Compartilhar
+            <Button variant="primary" size="sm" icon={copiado === 'compartilhar' ? Check : Share2} onClick={compartilhar}>
+              {copiado === 'compartilhar' ? 'Link copiado' : 'Compartilhar'}
             </Button>
-            <Button variant="ghost" size="sm" icon={copiado ? Check : Copy} onClick={copiar}>
-              {copiado ? 'Copiado' : 'Copiar'}
+            <Button variant="ghost" size="sm" icon={copiado === 'copiar' ? Check : Copy} onClick={() => void copiar('copiar')}>
+              {copiado === 'copiar' ? 'Copiado' : 'Copiar'}
+            </Button>
+            {/* v3.5: o wa.me abre o WhatsApp de dentro do TikTok e do Instagram, onde o navigator.share não existe */}
+            <Button
+              variant="ghost"
+              size="sm"
+              icon={MessageCircle}
+              href={linkWhatsApp(`${texto} ${link}`)}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => track('compartilhar', null, { acao: 'convite_whatsapp', rota: '/conta' })}
+            >
+              Mandar no WhatsApp
             </Button>
           </div>
         </div>

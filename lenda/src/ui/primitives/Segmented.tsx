@@ -9,7 +9,7 @@ import { useId, useRef, type ComponentType, type CSSProperties, type KeyboardEve
 import { motion } from 'motion/react'
 import type { LucideProps } from 'lucide-react'
 import { cx } from './cx'
-import { useIsTouch, useReducedMotion } from './hooks'
+import { useReducedMotion } from './hooks'
 import { sfx } from '@/ui/shell/sfx'
 
 export interface SegmentOption<T extends string> {
@@ -37,7 +37,6 @@ export interface SegmentedProps<T extends string> {
 export function Segmented<T extends string>({ value, onChange, options, variant = 'track', full, size = 'md', className, style, ...aria }: SegmentedProps<T>) {
   const id = useId()
   const rm = useReducedMotion()
-  const touch = useIsTouch()
   const refs = useRef<(HTMLButtonElement | null)[]>([])
   const idx = Math.max(0, options.findIndex((o) => o.value === value))
 
@@ -59,7 +58,7 @@ export function Segmented<T extends string>({ value, onChange, options, variant 
     <div
       role="radiogroup"
       aria-label={aria['aria-label']}
-      className={cx('lx-seg lx-seg--animated', variant === 'solid' && 'lx-seg--solid', full && 'lx-seg--full', className)}
+      className={cx('lx-seg lx-seg--animated', variant === 'solid' && 'lx-seg--solid', full && 'lx-seg--full', size === 'sm' && 'lx-seg--sm', className)}
       style={style}
       onKeyDown={(e) => {
         if (e.key === 'ArrowRight' || e.key === 'ArrowDown') move(e, 1)
@@ -81,9 +80,8 @@ export function Segmented<T extends string>({ value, onChange, options, variant 
             tabIndex={on ? 0 : -1}
             disabled={o.disabled}
             title={o.hint}
+            // tamanho "sm" pela classe .lx-seg--sm (28 px com mouse; no toque, 44 px pela regra de (pointer: coarse) do tema)
             className={cx('lx-seg__item', on && 'is-on')}
-            // small segments stay 28px with a mouse; a finger needs 36px
-            style={size === 'sm' ? { height: touch ? 36 : 28, padding: '0 11px', fontSize: 12.5 } : undefined}
             onClick={() => {
               if (!on) {
                 sfx.play('tap')

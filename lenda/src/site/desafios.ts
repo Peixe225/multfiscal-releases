@@ -16,8 +16,7 @@
 import { create } from 'zustand'
 import { api, comReintento, ErroApi } from './api'
 import { useConta } from './conta'
-import { limparEmblemas, normalizarDificuldade, normalizarEmblemas, receberMeusEmblemas, type Dificuldade, type Emblema } from './emblemas'
-import { corDoEmblema, iconeDoEmblema } from '@/ui/shared/emblemas/Emblema'
+import { corDoEmblema, iconeDoEmblema, limparEmblemas, normalizarDificuldade, normalizarEmblemas, receberMeusEmblemas, type Dificuldade, type Emblema } from './emblemas'
 import type { HallEntry } from '@/store/career'
 
 export interface Criterio {
@@ -369,7 +368,7 @@ export function textoCriterio(c: Criterio): string {
   if (c.todasConquistas) return 'Desbloquear todas as conquistas do jogo'
   const partes = partesCriterio(c)
   if (!partes.length) return 'Critério a definir'
-  const junta = partes.length === 1 ? partes[0] : `${partes.slice(0, -1).join(', ')} e ${partes.at(-1)}`
+  const junta = partes.length === 1 ? partes[0] : `${partes.slice(0, -1).join(', ')} e ${partes[partes.length - 1]}`
   return `${junta} numa mesma carreira`
 }
 

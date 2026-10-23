@@ -1850,6 +1850,7 @@ require __DIR__ . '/teste-v33.php'; // v3.3: e-mail verificado, Fale conosco, li
 require __DIR__ . '/teste-v33-corr.php'; // v3.3 §E: correções confirmadas (candidato reconferido, contagem, bônus, semente do servidor, conquistas, e-mails, em real)
 require __DIR__ . '/teste-v34.php'; // v3.4: conquistas provadas, desafios de emblema, critérios novos e a prévia de link (CONTRATO-v34 §A)
 require __DIR__ . '/teste-v34-corr.php'; // v3.4 §E: correções confirmadas (apagar sem verificação, versão no prova_verificar, não bateu pela semente, prévia, ícone, emblema que troca de carreira)
+require __DIR__ . '/teste-v35-base.php'; // v3.5 (mobile, base): robô × celular com "bot" no nome, origem pelos pacotes do Android e pelo app
 
 // ══ 9. .htaccess no Apache ═══════════════════════════════════════════════════════════════════════
 

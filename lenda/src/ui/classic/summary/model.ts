@@ -352,3 +352,29 @@ export function humanize(id: string): string {
   const s = id.replace(/[-_.]+/g, ' ').trim()
   return s ? s[0].toUpperCase() + s.slice(1) : id
 }
+
+/**
+ * Anos de um prêmio, curtos: sequências de 3 ou mais anos viram faixa ("2035–2039"), o resto fica solto.
+ * [2035, 2036, 2037, 2038, 2041, 2043, 2044] → "2035–2038 · 2041 · 2043 · 2044". Cabe no celular sem cortar.
+ */
+export function yearRanges(years: readonly number[]): string {
+  const ys = [...new Set(years)].sort((a, b) => a - b)
+  const out: string[] = []
+  for (let i = 0; i < ys.length; ) {
+    let j = i
+    while (j + 1 < ys.length && ys[j + 1] === ys[j] + 1) j++
+    if (j - i >= 2) out.push(`${ys[i]}–${ys[j]}`)
+    else for (let k = i; k <= j; k++) out.push(String(ys[k]))
+    i = j + 1
+  }
+  return out.join(' · ')
+}
+
+/**
+ * Navegador de dentro de um app (TikTok, Instagram, Facebook, WebView do Android — o WhatsApp abre nele): baixar um
+ * blob: costuma não fazer nada lá, e o aviso "Imagem salva." mentiria. Lá o "Baixar" do card mostra a imagem para
+ * salvar tocando e segurando.
+ */
+export function isInAppBrowser(ua = typeof navigator === 'undefined' ? '' : navigator.userAgent): boolean {
+  return /BytedanceWebview|musical_ly|trill_|TikTok|Instagram|FBAN|FBAV|FB_IAB|FBIOS|Line\/|; wv\)/i.test(ua)
+}

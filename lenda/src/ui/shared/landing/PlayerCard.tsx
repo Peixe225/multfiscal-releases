@@ -37,7 +37,8 @@ export const PlayerCard = memo(function PlayerCard({ ovr, pos, nationality, club
   return (
     <article
       className={cx('lx-pcard', `lx-tier-${tier}`, className)}
-      style={{ width: W, ...style }}
+      // --pcw: a largura em px para o desenho de reserva sem unidades de container (iOS 15, theme-noite.css)
+      style={{ width: W, ['--pcw' as string]: `${W}px`, ...style }}
       aria-label={decorative ? undefined : label}
       aria-hidden={decorative || undefined}
     >
@@ -57,7 +58,7 @@ export const PlayerCard = memo(function PlayerCard({ ovr, pos, nationality, club
       <div className="lx-pcard__kit">
         <Jersey name={name} number={number} kit={kit} />
       </div>
-      <div className="lx-pcard__name" style={name.length > 9 ? { fontSize: `${Math.max(5.6, 96 / name.length)}cqw` } : undefined}>
+      <div className="lx-pcard__name" style={name.length > 9 ? { fontSize: `${Math.max(5.6, 96 / name.length)}cqw`, ['--pc-nome' as string]: Math.max(5.6, 96 / name.length) } : undefined}>
         {name.toUpperCase()}
       </div>
       <div className="lx-pcard__stats">

@@ -42,6 +42,8 @@ export const TrophyCelebration = memo(function TrophyCelebration({ items, onClos
   const toggle = useApp((s) => s.toggleSetting)
   const wide = useIsWide()
   const phone = useMediaQuery('(max-width: 575.98px)')
+  // celular estreito (até 360 px): 2 taças lado a lado — com 3 os nomes se sobrepunham ("Copa Intercontinental da FIFA")
+  const narrow = useMediaQuery('(max-width: 360px)')
   const hero = items[0]
   const rel = hero.kind === 'relegation'
   const club = useClub(hero.scope === 'club' ? hero.teamId : null)
@@ -52,7 +54,7 @@ export const TrophyCelebration = memo(function TrophyCelebration({ items, onClos
   // figura por taça (LaLiga ×3), até 4 lado a lado (3 no celular) e o resto numa fileira menor
   const multi = !rel && items.length > 1
   const groups = groupCelebration(items)
-  const MULTI_MAX = phone ? 3 : 4
+  const MULTI_MAX = narrow ? 2 : phone ? 3 : 4
   const shown = multi ? groups.slice(0, MULTI_MAX) : [{ ...hero, count: 1, years: [hero.year] }]
   const extra = multi ? groups.slice(MULTI_MAX) : []
   const multiTitle = multi ? celebrationHeadline(items) : null
@@ -178,7 +180,8 @@ export const TrophyCelebration = memo(function TrophyCelebration({ items, onClos
   const vh = typeof window !== 'undefined' ? window.innerHeight : 900
   const heroH = Math.round(Math.max(150, Math.min(wide ? 320 : 220, vh * (wide ? 0.34 : 0.27))))
   /** Altura de cada taça lado a lado: no celular cabem 3 numa linha, sem empurrar os botões para fora da tela. */
-  const multiH = (n: number) => (phone ? Math.round(Math.max(96, vh * (n === 1 ? 0.24 : n === 2 ? 0.19 : 0.16))) : Math.round(heroH * (n === 1 ? 1 : n === 2 ? 0.86 : n === 3 ? 0.74 : 0.62)))
+  const multiH = (n: number) =>
+    phone ? Math.round(Math.max(narrow ? 88 : 96, vh * (n === 1 ? 0.24 : n === 2 ? (narrow ? 0.16 : 0.19) : 0.16))) : Math.round(heroH * (n === 1 ? 1 : n === 2 ? 0.86 : n === 3 ? 0.74 : 0.62))
   const d = (ms: number) => (rm ? 0 : ms / 1000)
 
   return (
@@ -305,7 +308,7 @@ export const TrophyCelebration = memo(function TrophyCelebration({ items, onClos
           </div>
         )}
         <motion.div
-          className="ck-cel__actions"
+          className={cx('ck-cel__actions', !rel && 'has-share')}
           initial={rm ? false : { opacity: 0, y: 6 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: d(ENTRANCE), duration: d(300) }}

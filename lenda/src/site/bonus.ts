@@ -91,7 +91,7 @@ export function degrausIndicacao(b: Pick<BonusInfo, 'indicacoes'> | null, valore
   const limite = Math.max(0, Math.min(max, b?.indicacoes.limite || max))
   const validas = Math.min(limite, b?.indicacoes.validas ?? 0)
   const pendentes = Math.max(0, Math.min(limite - validas, b?.indicacoes.pendentes ?? 0))
-  return Array.from({ length: limite }, (_, i) => ({ valor: valores[i] ?? valores.at(-1) ?? 0, estado: i < validas ? 'ganho' : i < validas + pendentes ? 'esperando' : 'livre' }))
+  return Array.from({ length: limite }, (_, i) => ({ valor: valores[i] ?? valores[valores.length - 1] ?? 0, estado: i < validas ? 'ganho' : i < validas + pendentes ? 'esperando' : 'livre' }))
 }
 
 /** "faltam 2 partidas" · "falta 1 partida" (para liberar os bônus). */

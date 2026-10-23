@@ -1,6 +1,8 @@
 /**
  * Modal dialog on desktop (≥ 720px), bottom sheet on phones. Focus trap, Esc, backdrop click,
  * scroll lock, focus restore, app root made `inert` while open. Sheet: drag the handle down to close.
+ * Celular (folha, ou qualquer tela de toque): o diálogo ganha uma entrada no histórico — o "voltar" do Android
+ * fecha o de cima (./modalHistorico.ts) — e um link "#/…" dentro dele troca a entrada pela tela nova.
  *
  *   <Modal open={open} onClose={close} title="Conquistas" description="12 de 48 desbloqueadas" size="lg"
  *     footer={<Button variant="primary" onClick={close}>Fechar</Button>}>
@@ -8,12 +10,15 @@
  *   </Modal>
  *   <Sheet …/>   // always a bottom sheet     <Dialog …/>   // always centred
  */
-import { useEffect, useId, useRef, type ReactNode, type RefObject } from 'react'
+import { useEffect, useId, useRef, type MouseEvent as ReactMouseEvent, type ReactNode, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
 import { AnimatePresence, motion, useDragControls } from 'motion/react'
 import { X } from 'lucide-react'
 import { cx } from './cx'
-import { useIsDesktop, useReducedMotion } from './hooks'
+import { useIsDesktop, useMediaQuery, useReducedMotion } from './hooks'
+import { abrirNoHistorico } from './modalHistorico'
+import { navigateHash, useApp } from '@/store/app'
+import { modalDaEntrada } from '@/store/historico'
 import { sfx } from '@/ui/shell/sfx'
 
 export interface ModalProps {
@@ -56,7 +61,36 @@ const stack: object[] = []
 
 export function Modal(props: ModalProps) {
   const { open } = props
+  useNoHistorico(props)
   return typeof document === 'undefined' ? null : createPortal(<AnimatePresence>{open && <ModalInner key="m" {...props} />}</AnimatePresence>, document.body)
+}
+
+/** Aberto no celular (folha) ou numa tela de toque (deitado vira diálogo): uma entrada no histórico (ver o topo). */
+function useNoHistorico({ open, onClose, mode = 'auto', dismissible = true }: ModalProps) {
+  const desktop = useIsDesktop()
+  const toque = useMediaQuery('(pointer: coarse), (max-height: 32.5rem)')
+  const usar = useRef(false)
+  usar.current = mode === 'sheet' || (mode === 'auto' && !desktop) || toque
+  const fechar = useRef(onClose)
+  fechar.current = onClose
+  const dispensavel = useRef(dismissible)
+  dispensavel.current = dismissible
+  useEffect(() => {
+    // decidido na abertura: girar o celular com o diálogo aberto não mexe no histórico
+    if (!open || !usar.current) return
+    return abrirNoHistorico({ fechar: () => fechar.current(), dispensavel: () => dispensavel.current })
+  }, [open])
+}
+
+/** Um link "#/…" dentro do diálogo: navega trocando a entrada do diálogo (o voltar de lá volta à tela de baixo). */
+function linkDeRota(e: ReactMouseEvent) {
+  if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || !modalDaEntrada()) return
+  const a = (e.target as Element | null)?.closest?.('a[href]') as HTMLAnchorElement | null
+  if (!a || (a.target && a.target !== '_self') || a.hasAttribute('download')) return
+  const href = a.getAttribute('href') ?? ''
+  if (!href.startsWith('#/')) return
+  e.preventDefault()
+  navigateHash(href)
 }
 
 export const Dialog = (p: Omit<ModalProps, 'mode'>) => <Modal {...p} mode="dialog" />
@@ -65,6 +99,8 @@ export const Sheet = (p: Omit<ModalProps, 'mode'>) => <Modal {...p} mode="sheet"
 function ModalInner({ onClose, title, description, media, children, footer, size = 'md', mode = 'auto', dismissible = true, hideClose, initialFocusRef, className, bodyClassName, ...rest }: ModalProps) {
   const desktop = useIsDesktop()
   const rm = useReducedMotion()
+  // efeitos leves (celular fraco): uma transição curta no lugar da mola (que recalcula a cada quadro)
+  const lowFx = useApp((s) => s.settings.lowFx)
   const sheet = mode === 'sheet' || (mode === 'auto' && !desktop)
   const panel = useRef<HTMLDivElement>(null)
   const titleId = useId()
@@ -190,6 +226,7 @@ function ModalInner({ onClose, title, description, media, children, footer, size
     'aria-label': title ? undefined : rest['aria-label'],
     tabIndex: -1,
     onKeyDown,
+    onClick: linkDeRota,
   }
 
   return (
@@ -212,7 +249,7 @@ function ModalInner({ onClose, title, description, media, children, footer, size
             initial={rm ? { opacity: 0 } : { y: '100%' }}
             animate={rm ? { opacity: 1 } : { y: 0 }}
             exit={rm ? { opacity: 0 } : { y: '100%', transition: { duration: 0.24, ease: [0.4, 0, 1, 1] } }}
-            transition={rm ? { duration: 0.15 } : { type: 'spring', stiffness: 380, damping: 38, mass: 0.9 }}
+            transition={rm ? { duration: 0.15 } : lowFx ? { duration: 0.22, ease } : { type: 'spring', stiffness: 380, damping: 38, mass: 0.9 }}
             drag={dismissible ? 'y' : false}
             dragListener={false}
             dragControls={drag}

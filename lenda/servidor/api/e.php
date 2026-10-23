@@ -34,8 +34,10 @@ require __DIR__ . '/_desafios.php';
 
 cabecalhos();
 
+// v3.5: "erro" = um diálogo do site caiu por erro de JS no aparelho (d.onde = qual diálogo, d.msg = o começo da mensagem do
+// navegador); conta no teto comum, como o view
 const TIPOS_EVENTO = ['view', 'hb', 'jogo_inicio', 'jogo_fim', 'partida_fim', 'gate_ver', 'gate_fechar', 'cadastro',
-    'login', 'logout', 'compartilhar'];
+    'login', 'logout', 'compartilhar', 'erro'];
 const MODOS = ['classico', 'imersivo', 'live'];
 const MAX_EVENTOS_PEDIDO = 100;
 const MAX_SESSOES_NOVAS_IP = 300;
@@ -49,7 +51,15 @@ const PARTIDA_MIN_S = 20;         // início → fim, e entre duas partidas cont
 const PARTIDA_JANELA_S = 30 * 86400;          // o início de uma carreira do Clássico vale por 30 dias
 const PARTIDA_JANELA_IMERSIVO_S = 180 * 86400; // o de uma carreira do Imersivo (partida a partida), por 180
 const DADOS_MAX_BYTES = 256;
-const ROBO_UA = '/bot|crawl|spider|preview|headless|facebookexternalhit|slurp|curl|wget|python/i';
+/**
+ * Robô pelo user agent. v3.5: lighthouse (PageSpeed Insights), inspectiontool e googleother (os rastreadores novos do Google,
+ * que rodam JavaScript) e o buscador da prévia de link do WhatsApp ("WhatsApp/2.23.20.0 A"; o WhatsApp não tem navegador
+ * próprio: quem toca no link abre o Chrome ou o Safari). O "bot" vale em qualquer lugar do UA, MENOS no nome do aparelho:
+ * ver uaDeRobo.
+ */
+const ROBO_UA = '/bot|crawl|spider|preview|headless|lighthouse|inspectiontool|googleother|facebookexternalhit|^whatsapp\\/|slurp|curl|wget|python/i';
+/** v3.5: marcas de celular com "bot" no nome (CUBOT X30, KingKong…), onde quer que apareçam (o Instagram e o Facebook repetem). */
+const APARELHOS_COM_BOT = '/\\b(?:cubot)\\b/i';
 /** Chaves aceitas em `d`, por tipo: t = texto (até 64), n = nota/temporadas/pico (-999 a 999), q = contagem (0 a 10^7). */
 const CAMPOS_D = [
     'view' => ['rota' => 't'],
@@ -59,7 +69,23 @@ const CAMPOS_D = [
     'gate_ver' => ['partidas' => 'q', 'rota' => 't'],
     'gate_fechar' => ['partidas' => 'q'],
     'compartilhar' => ['acao' => 't', 'rota' => 't'],
+    'erro' => ['onde' => 't', 'msg' => 't'],
 ];
+
+/**
+ * O user agent é de robô? Vazio conta como robô. v3.5: antes do ROBO_UA sai o modelo do aparelho do Android (o que vem
+ * depois de "Android N;" até o ";" ou o ")": "CUBOT X30 Build/QP1A…") e as marcas de APARELHOS_COM_BOT — a visita de quem
+ * tem um celular com "bot" no nome virava bot=1 e sumia do painel (bots=0). Os navegadores de dentro do TikTok
+ * (BytedanceWebview), do Instagram e do WhatsApp (Custom Tab do Chrome) nunca casam.
+ */
+function uaDeRobo(string $ua): bool
+{
+    if (trim($ua) === '') {
+        return true;
+    }
+    $semAparelho = (string) preg_replace(['/(\\bAndroid [0-9.]+;\\s*)[^;)]*/i', APARELHOS_COM_BOT], ['$1', ''], $ua);
+    return preg_match(ROBO_UA, $semAparelho) === 1;
+}
 
 /** Número finito dentro da faixa (decimal é arredondado); fora disso, null. */
 function numeroEmFaixa(mixed $v, int $min, int $max): ?int
@@ -118,7 +144,7 @@ limitar('e', $sid, 240, max(1, count($lista)));
 
 $ua = (string) ($_SERVER['HTTP_USER_AGENT'] ?? '');
 $sim = [1, true, '1'];
-$bot = in_array($j['bot'] ?? 0, $sim, true) || trim($ua) === '' || preg_match(ROBO_UA, $ua) === 1;
+$bot = in_array($j['bot'] ?? 0, $sim, true) || uaDeRobo($ua);
 
 // Eventos válidos (o resto é ignorado em silêncio), separados em essenciais e o resto.
 $t = time();

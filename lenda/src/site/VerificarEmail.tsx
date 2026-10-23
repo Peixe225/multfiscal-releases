@@ -8,7 +8,7 @@ import { CircleCheck, MailCheck, RotateCcw } from 'lucide-react'
 import { Button, Modal, toast } from '@/ui/primitives'
 import { codigoDeErro, mensagemDeErro } from './api'
 import { Campo, Erro, useTecladoVirtual } from './campos'
-import { useConta } from './conta'
+import { codigoDigitado, useConta } from './conta'
 import { useSiteUi } from './ui'
 import './site.css'
 import './v33.css'
@@ -117,15 +117,15 @@ export function FormVerificar({ email, depoisDoCadastro, jaVerificado, onPronto,
           </span>
         </p>
       )}
+      {/* sem maxLength: ele cortava o texto colado (" 688989", "Seu código: 688989") antes de o codigoDigitado tirar o resto */}
       <Campo
         label="Código de 6 dígitos"
         value={codigo}
-        onChange={(v) => setCodigo(v.replace(/\D/g, '').slice(0, 6))}
+        onChange={(v) => setCodigo(codigoDigitado(v))}
         erro={eC}
         inputMode="numeric"
         autoComplete="one-time-code"
         pattern="[0-9]{6}"
-        maxLength={6}
         enterKeyHint="done"
         autoFoco={!compacto}
         style={{ letterSpacing: '.3em', fontWeight: 800 }}

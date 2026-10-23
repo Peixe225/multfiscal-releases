@@ -14,8 +14,10 @@
 @media (min-width: 36rem) { .lv-chips { padding: 4px 28px 8px 2px; scroll-padding-inline: 2px 28px; } }
 .lv-chips::-webkit-scrollbar { display: none; }
 .lv-chip { flex: none; scroll-snap-align: start; height: 38px; padding: 0 12px 0 6px; border-radius: 12px; display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 650; color: var(--text-2); background: var(--surface); border: 1px solid var(--border); cursor: pointer; white-space: nowrap; transition: background-color var(--dur-2) var(--ease-out), color var(--dur-2), border-color var(--dur-2), transform var(--dur-2) var(--ease-out); }
-.lv-chip:hover { background: var(--surface-2); color: var(--text); border-color: var(--border-strong); }
+@media (hover: hover) { .lv-chip:hover { background: var(--surface-2); color: var(--text); border-color: var(--border-strong); } }
 .lv-chip:active { transform: scale(.97); }
+.lv-chip:focus-visible { outline-offset: -2px; }
+@media (pointer: coarse), (max-width: 44.99rem), (max-height: 32.5rem) { .lv-chip { height: 44px; } }
 .lv-chip[aria-pressed="true"] { background: #fff; color: #0a0b10; border-color: #fff; box-shadow: 0 8px 22px -10px rgba(255, 255, 255, .55); }
 .lv-chip__sep { flex: none; align-self: center; width: 1px; height: 20px; background: var(--border-strong); margin: 0 4px; }
 .lv-chips__more { flex: none; padding-top: 4px; display: none; }
@@ -92,7 +94,7 @@
 .lv-all__sec h4 { margin: 0 0 8px; font-size: 10.5px; font-weight: 800; letter-spacing: .12em; color: var(--text-3); text-transform: uppercase; }
 .lv-all__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 6px; }
 .lv-all__item { display: flex; align-items: center; gap: 10px; height: 44px; padding: 0 10px 0 7px; border-radius: 12px; background: var(--surface); border: 1px solid var(--border); font-size: 13px; font-weight: 650; color: var(--text); text-align: left; cursor: pointer; min-width: 0; }
-.lv-all__item:hover { background: var(--surface-2); border-color: var(--border-strong); }
+@media (hover: hover) { .lv-all__item:hover { background: var(--surface-2); border-color: var(--border-strong); } }
 .lv-all__item[aria-current="true"] { border-color: rgba(255, 255, 255, .6); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .4); }
 .lv-all__item small { display: block; font-size: 10.5px; color: var(--text-3); font-weight: 600; }
 }

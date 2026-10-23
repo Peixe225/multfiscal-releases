@@ -1436,7 +1436,8 @@ function rotasPost(array $ADM, string $via): never
             if (!celularConfigurado()) {
                 erro(409, 'sem_aviso', 'Nenhum canal configurado: ponha aviso_ntfy ou aviso_telegram no arquivo de config (LEIAME).');
             }
-            $r = avisarCelular('LENDA · teste', 'Aviso de teste mandado pelo painel. Se chegou, está tudo certo.');
+            // v3.5: com o link do painel, como os avisos de verdade (tocar no aviso abre o painel)
+            $r = avisarCelular('LENDA · teste', 'Aviso de teste mandado pelo painel. Se chegou, está tudo certo.', urlPainel('config'));
             $ok = in_array(true, $r, true);
             registrarAdmin('testar_aviso', 'config', ['canais' => $r]);
             responder(200, ['ok' => true, 'enviado' => $ok, 'canais' => $r]);

@@ -261,13 +261,16 @@ function gravarCodigoRedefinicao(string $email): string
     return $codigo;
 }
 
-/** Texto do e-mail com o código. $pelaEquipe: mandado pelo painel (U14), não pelo "Esqueci a senha". */
+/**
+ * Texto do e-mail com o código. $pelaEquipe: mandado pelo painel (U14), não pelo "Esqueci a senha".
+ * v3.5: o código numa linha só dele, sem recuo (quem selecionava a linha no celular levava os espaços junto e o campo recusava).
+ */
 function corpoEmailRedefinicao(string $apelido, string $codigo, bool $pelaEquipe = false): string
 {
     return "Olá, {$apelido}!\n\n"
         . ($pelaEquipe ? "A equipe do LENDA mandou este código para você criar uma senha nova (você pediu ajuda para entrar).\n\n"
             : "Seu código para criar uma senha nova no LENDA é:\n\n")
-        . "    {$codigo}\n\n"
+        . "{$codigo}\n\n"
         . "Ele vale por 30 minutos. Digite o código no jogo, na tela \"Esqueci a senha\".\n\n"
         . "Se não foi você que pediu, é só ignorar este e-mail: sua senha continua a mesma.\n\n"
         . "— LENDA · https://oprojeto.online/lenda/\n";
@@ -295,11 +298,12 @@ function gravarCodigoVerificacao(int $uid, string $email): string
     return $codigo;
 }
 
+/** O e-mail de confirmar o e-mail (v3.3). v3.5: o código sem recuo, numa linha só dele (como o da redefinição). */
 function corpoEmailVerificacao(string $apelido, string $codigo): string
 {
     return "Olá, {$apelido}!\n\n"
         . "Seu código para confirmar o e-mail da sua conta no LENDA é:\n\n"
-        . "    {$codigo}\n\n"
+        . "{$codigo}\n\n"
         . "Ele vale por 24 horas. Digite o código no jogo, em Minha conta.\n\n"
         . "Se não foi você que criou a conta, é só ignorar este e-mail.\n\n"
         . "— LENDA · https://oprojeto.online/lenda/\n";

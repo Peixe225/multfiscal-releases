@@ -11,10 +11,20 @@
  */
 import { create } from 'zustand'
 import { ArrowRight } from 'lucide-react'
-import { navigate } from '@/store/app'
+import { navigate, useApp } from '@/store/app'
 import { toast } from '@/ui/primitives'
-import { corDoEmblema, iconeDoEmblema, type EmblemaVisual } from '@/ui/shared/emblemas/Emblema'
+import type { EmblemaVisual } from '@/ui/shared/emblemas/Emblema'
 import { armazem, type Armazem } from './medicao'
+
+/**
+ * v3.5: as mesmas regras do corDoEmblema/iconeDoEmblema de @/ui/shared/emblemas/Emblema (o v35.test confere), aqui sem
+ * importar o componente: este arquivo vai na abertura do jogo (Hall público, carreiras) e o Emblema puxa o mapa de ícones
+ * das conquistas e uns 10 pedaços de ícones, que no 4G lento disputavam a rede com a primeira tela.
+ */
+/** Cor do servidor no formato #rrggbb; fora disso, o bronze das conquistas. */
+export const corDoEmblema = (c: unknown) => (typeof c === 'string' && /^#[0-9a-f]{6}$/i.test(c) ? c : '#b98652')
+/** Ícone do servidor no formato do mapa das conquistas ("circle-dot"…); fora disso, a medalha. */
+export const iconeDoEmblema = (i: unknown) => (typeof i === 'string' && /^[a-z0-9-]{1,32}$/.test(i) ? i : 'medal')
 
 export type Dificuldade = 'facil' | 'medio' | 'dificil' | 'lendario'
 export const DIFICULDADES: readonly Dificuldade[] = ['facil', 'medio', 'dificil', 'lendario']
@@ -100,7 +110,8 @@ export function emblemasParaAvisar(lista: readonly Emblema[], uid: number, a: Ar
 }
 
 function avisar(novos: readonly Emblema[]) {
-  if (!novos.length) return
+  // v3.5: já em #/desafios (onde os emblemas aparecem), o aviso só cobriria o título — eles já ficaram marcados como vistos
+  if (!novos.length || useApp.getState().route.path === '/desafios') return
   const ver = { label: 'Ver desafios', icon: ArrowRight, onClick: () => navigate('/desafios') }
   if (novos.length === 1) {
     const e = novos[0]

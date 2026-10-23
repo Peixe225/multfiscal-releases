@@ -10,24 +10,24 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'self'; object-src 'none'">
 <title>LENDA · Painel</title>
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="painel.css?v=3.4.0">
+<link rel="stylesheet" href="painel.css?v=3.5.0">
 <!-- Aparência e modo discreto antes do primeiro desenho (sem defer de propósito; a CSP não deixa script embutido). -->
-<script src="tema.js?v=3.4.0"></script>
+<script src="tema.js?v=3.5.0"></script>
 <!-- Ordem importa: o núcleo primeiro, o painel.js (que liga tudo) por último. -->
-<script src="nucleo.js?v=3.4.0" defer></script>
-<script src="emblemas.js?v=3.4.0" defer></script>
-<script src="visao.js?v=3.4.0" defer></script>
-<script src="area.js?v=3.4.0" defer></script>
-<script src="usuarios.js?v=3.4.0" defer></script>
-<script src="mensagens.js?v=3.4.0" defer></script>
-<script src="moderacao.js?v=3.4.0" defer></script>
-<script src="indicacoes.js?v=3.4.0" defer></script>
-<script src="desafios.js?v=3.4.0" defer></script>
-<script src="relatorios.js?v=3.4.0" defer></script>
-<script src="registro.js?v=3.4.0" defer></script>
-<script src="equipe.js?v=3.4.0" defer></script>
-<script src="sistema.js?v=3.4.0" defer></script>
-<script src="painel.js?v=3.4.0" defer></script>
+<script src="nucleo.js?v=3.5.0" defer></script>
+<script src="emblemas.js?v=3.5.0" defer></script>
+<script src="visao.js?v=3.5.0" defer></script>
+<script src="area.js?v=3.5.0" defer></script>
+<script src="usuarios.js?v=3.5.0" defer></script>
+<script src="mensagens.js?v=3.5.0" defer></script>
+<script src="moderacao.js?v=3.5.0" defer></script>
+<script src="indicacoes.js?v=3.5.0" defer></script>
+<script src="desafios.js?v=3.5.0" defer></script>
+<script src="relatorios.js?v=3.5.0" defer></script>
+<script src="registro.js?v=3.5.0" defer></script>
+<script src="equipe.js?v=3.5.0" defer></script>
+<script src="sistema.js?v=3.5.0" defer></script>
+<script src="painel.js?v=3.5.0" defer></script>
 </head>
 <body>
 
@@ -113,9 +113,9 @@
       <span class="ao-vivo" id="ao-vivo" title="Abas abertas no último minuto · com partida em andamento (atualiza a cada 15 s)">
         <span class="pulso" aria-hidden="true"></span><b id="lat-online">–</b> online · <b id="lat-jogando">–</b> jogando
       </span>
+      <!-- Celular: um "⋯" com Aparência, Discreto, Abrir o jogo, o estado do site e Sair (com confirmação) -->
       <div class="so-celular botoes-topo-celular">
-        <button type="button" class="botao-icone" data-acao="tema" aria-label="Trocar a aparência (T)" title="Aparência (T)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9 7 7 0 0 1-9-9z"/></svg></button>
-        <button type="button" class="botao-icone" data-acao="sair" aria-label="Sair do painel" title="Sair"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg></button>
+        <button type="button" class="botao-icone botao-menu" data-acao="menu" aria-haspopup="dialog" aria-label="Mais opções: aparência, modo discreto, abrir o jogo, estado do site e sair" title="Mais opções"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h.01M12 12h.01M19 12h.01"/></svg></button>
       </div>
     </div>
     <nav class="abas" id="abas" aria-label="Seções do painel"></nav>

@@ -1,22 +1,32 @@
 /**
  * Right column: tab header (Carreira · Temporada · Prêmios · Mundo) + the career table.
- * The other three tabs live in src/ui/classic/tabs (tabs team) and are code-split.
+ * The other three tabs live in src/ui/classic/tabs (tabs team) and are code-split: each one has its own error
+ * boundary, so a chunk that did not arrive (no internet) only shows a notice in that tab — the career goes on.
  */
-import { Suspense, lazy, memo, useRef, useState } from 'react'
-import { ChartLine, Clock, Sparkles } from 'lucide-react'
-import { Skeleton, TabPanel, Tabs, formatSeason, useIsWide, useMediaQuery, useReducedMotion, type TabItem } from '@/ui/primitives'
+import { Component, Suspense, lazy, memo, useEffect, useRef, useState, type ComponentType, type ErrorInfo, type LazyExoticComponent, type ReactNode } from 'react'
+import { ChartLine, Clock, RefreshCw, RotateCcw, Sparkles, WifiOff } from 'lucide-react'
+import { Button, Skeleton, TabPanel, Tabs, formatSeason, useIsWide, useMediaQuery, useReducedMotion, type TabItem } from '@/ui/primitives'
 import { useReveal } from '@/ui/classic/reveal/store'
 import { pinnedSeason, useTabSeason } from '@/ui/classic/tabs/model'
 import { getLeague } from '@/store/data'
 import { CareerTable } from './CareerTable'
 import { PACE_SEASONS, LAST_AGE } from './model'
+import { TAB_LOADERS, ehFalhaDePedaco, importarDeNovo, type TabKey } from './chunks'
 import type { CockpitData } from './view'
 
-const SeasonTab = lazy(() => import('@/ui/classic/tabs/SeasonTab'))
-const AwardsTab = lazy(() => import('@/ui/classic/tabs/AwardsTab'))
-const WorldTab = lazy(() => import('@/ui/classic/tabs/WorldTab'))
+type Tab = 'carreira' | TabKey
 
-type Tab = 'carreira' | 'temporada' | 'premios' | 'mundo'
+/** Um lazy por aba; depois de uma falha, a nova tentativa troca por um lazy novo (o React guarda a rejeição). */
+const tabLazy: Record<TabKey, { atual: LazyExoticComponent<ComponentType>; erro: unknown }> = {
+  temporada: { atual: lazy(TAB_LOADERS.temporada), erro: null },
+  premios: { atual: lazy(TAB_LOADERS.premios), erro: null },
+  mundo: { atual: lazy(TAB_LOADERS.mundo), erro: null },
+}
+function novaTentativa(k: TabKey) {
+  const e = tabLazy[k]
+  const antes = e.erro
+  e.atual = lazy(() => importarDeNovo(TAB_LOADERS[k], antes))
+}
 
 export const RightPanel = memo(function RightPanel({ data, compactFuture }: { data: CockpitData; compactFuture?: boolean }) {
   const [tab, setTab] = useState<Tab>('carreira')
@@ -87,19 +97,100 @@ export const RightPanel = memo(function RightPanel({ data, compactFuture }: { da
       </TabPanel>
       {tab !== 'carreira' && (
         <div className="ck-panel__body">
-          <Suspense fallback={<Skeleton w="100%" h={320} r={16} />}>
-            <TabPanel idPrefix="ck" value="temporada" active={tab === 'temporada'}>
-              <SeasonTab />
-            </TabPanel>
-            <TabPanel idPrefix="ck" value="premios" active={tab === 'premios'}>
-              <AwardsTab />
-            </TabPanel>
-            <TabPanel idPrefix="ck" value="mundo" active={tab === 'mundo'}>
-              <WorldTab />
-            </TabPanel>
-          </Suspense>
+          <TabPanel idPrefix="ck" value={tab} active>
+            <LazyTab key={tab} k={tab} />
+          </TabPanel>
         </div>
       )}
     </section>
   )
 })
+
+/** Uma aba sob demanda, com a sua própria barreira: sem rede, o aviso fica só nela. */
+function LazyTab({ k }: { k: TabKey }) {
+  const [vez, setVez] = useState(0)
+  const C = tabLazy[k].atual
+  return (
+    <TabBarrier
+      key={vez}
+      onRetry={() => {
+        novaTentativa(k)
+        setVez((n) => n + 1)
+      }}
+      onError={(e) => (tabLazy[k].erro = e)}
+      retried={vez > 0}
+    >
+      <Suspense fallback={<Skeleton w="100%" h={320} r={16} />}>
+        <C />
+      </Suspense>
+    </TabBarrier>
+  )
+}
+
+class TabBarrier extends Component<{ children: ReactNode; onRetry: () => void; onError: (e: unknown) => void; retried: boolean }, { erro: unknown }> {
+  state: { erro: unknown } = { erro: null }
+  static getDerivedStateFromError(erro: unknown) {
+    return { erro }
+  }
+  componentDidCatch(e: unknown, info: ErrorInfo) {
+    // falha de rede é esperada (túnel, elevador): aviso, não erro
+    if (ehFalhaDePedaco(e)) console.warn('[LENDA] aba sem conexão', String((e as Error)?.message ?? e))
+    else console.error('[LENDA] erro na aba', e, info.componentStack)
+    this.props.onError(e)
+  }
+  render() {
+    if (this.state.erro == null) return this.props.children
+    return <TabOffline erro={this.state.erro} onRetry={this.props.onRetry} retried={this.props.retried} />
+  }
+}
+
+function TabOffline({ erro, onRetry, retried }: { erro: unknown; onRetry: () => void; retried: boolean }) {
+  const [online, setOnline] = useState(() => (typeof navigator === 'undefined' ? true : navigator.onLine !== false))
+  const rede = ehFalhaDePedaco(erro)
+  // a internet voltou (evento "online" depois da falha): tenta sozinho uma vez
+  const retry = useRef(onRetry)
+  retry.current = onRetry
+  useEffect(() => {
+    let tentou = false
+    const on = () => {
+      setOnline(true)
+      if (rede && !tentou) {
+        tentou = true
+        window.setTimeout(() => retry.current(), 600)
+      }
+    }
+    const off = () => setOnline(false)
+    window.addEventListener('online', on)
+    window.addEventListener('offline', off)
+    return () => {
+      window.removeEventListener('online', on)
+      window.removeEventListener('offline', off)
+    }
+  }, [rede])
+  const semRede = rede && !online
+  return (
+    <div className="ck-taberr" role="alert">
+      <span className="ck-taberr__ic" aria-hidden="true">
+        <WifiOff />
+      </span>
+      <b className="ck-taberr__t">{semRede || rede ? 'Sem conexão: esta aba abre quando a internet voltar' : 'Esta aba não abriu'}</b>
+      <p className="ck-taberr__d">
+        {semRede
+          ? 'A sua carreira continua: dá para seguir escolhendo e ver a tabela na aba Carreira.'
+          : rede && retried
+            ? 'O navegador guardou a falha. Recarregue a página: a sua carreira está salva neste aparelho e volta de onde parou.'
+            : 'A sua carreira continua na aba Carreira. Tente de novo.'}
+      </p>
+      <div className="ck-taberr__act">
+        <Button variant="primary" size="md" icon={RotateCcw} onClick={onRetry}>
+          Tentar de novo
+        </Button>
+        {retried && online && (
+          <Button variant="ghost" size="md" icon={RefreshCw} onClick={() => location.reload()}>
+            Recarregar a página
+          </Button>
+        )}
+      </div>
+    </div>
+  )
+}

@@ -69,6 +69,7 @@ import {
   isGoldTrophy,
   mainClub,
   spellsOf,
+  yearRanges,
   type Honor,
   type SummaryCareer,
 } from './model'
@@ -885,7 +886,9 @@ function AwardsCard({ summary }: { summary: CareerSummary }) {
               </span>
               <span className="sm-aw__t">
                 <b>{AWARD_NAME[a.award]}</b>
-                <small className="num">{a.years.join(' · ')}</small>
+                <small className="num" title={a.years.join(' · ')}>
+                  {yearRanges(a.years)}
+                </small>
               </span>
               <span className="sm-aw__x lx-metal-text--v num">×{a.count}</span>
             </li>

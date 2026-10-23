@@ -151,7 +151,7 @@
           { rotulo: 'Bônus abertos', num: true, celula: (u) => LP.inteiro(u.bonusAbertos) },
         ],
       }),
-      LP.paginacao(d.total || 0, d.pagina || rel.pagina, d.porPagina || 100, (p) => { rel.pagina = p; carregarRel(); window.scrollTo(0, 0); }));
+      LP.paginacao(d.total || 0, d.pagina || rel.pagina, d.porPagina || 100, (p) => { rel.pagina = p; carregarRel(); LP.rolarParaAba(); }));
   }
 
   LP.abas.relatorios = { titulo: 'Relatórios', sub: '', montar: montarRelatorios, recarregar: () => carregarRel() };

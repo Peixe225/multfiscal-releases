@@ -181,7 +181,8 @@
   .ck-grid-opts:is(.is-n3, .is-n4) .ck-grid-opts__cell, .ck-grid-opts.is-n3 .ck-grid-opts__cell.is-center { grid-column: 1 / -1; }
   .ck-opt { padding: 12px 10px 10px; }
   .ck-opt__name { font-size: 16px; }
-  .ck-opt__verb { font-size: 9.5px; }
+  /* "ASSINAR COM": 11 px (piso para rótulo em caixa alta) e cor mais clara — a 9,5 px e text-3 sobre o card ficava em 2,8:1 */
+  .ck-opt__verb { font-size: 11px; color: var(--text-2); letter-spacing: .1em; }
   .ck-opt__crest { height: 74px !important; }
   .ck-opt--club.is-compact .lx-option__crest { height: 52px !important; }
   .ck-opt__meta { font-size: 10.5px; gap: 5px; flex-wrap: wrap; }
@@ -191,7 +192,7 @@
   .ck-opt__media { height: 84px; }
   .ck-pen__scene { height: 260px; }
   .ck-pen__target { width: 34px; height: 34px; }
-  .ck-pen__zlabel { font-size: 10.5px; }
+  .ck-pen__zlabel { font-size: 11px; }
   .ck-end__title { font-size: 25px; }
   .ck-end__stats dd { font-size: 24px; }
 }
@@ -259,4 +260,19 @@
     .ck-opt--club.is-compact .ck-opt__thumb.lx-option__crest { width: 96px; height: 96px; }
     .ck-opt--club.is-compact .ck-opt__thumb .lx-crest-box { transform: scale(2); }
   }
+}
+
+/* ── v3.5 · celular ─────────────────────────────────────────────────── */
+/* pênalti: o rótulo de cada canto fica dentro do gol ("Direita 61%" saía pela borda no iPhone SE). Toque: sem o número
+   do atalho de teclado; no celular, o percentual numa linha própria embaixo do lado */
+.ck-pen__zlabel { max-width: calc(100% - 4px); box-sizing: border-box; }
+@media (pointer: coarse) { .ck-pen__zlabel .lx-kbd { display: none; } }
+@media (max-width: 575.98px) {
+  .ck-pen__zlabel { flex-direction: column; gap: 0; padding: 3px 8px; border-radius: 10px; line-height: 1.15; text-align: center; }
+  .ck-pen__zlabel .lx-kbd { display: none; }
+}
+/* 2 opções em tela de até 340 px: uma por linha, no formato compacto (lado a lado, os efeitos quebravam em 3 linhas e
+   o "25%" ficava por cima do texto) */
+@media (max-width: 340px) {
+  .ck-grid-opts.is-n2 .ck-grid-opts__cell { grid-column: 1 / -1; }
 }

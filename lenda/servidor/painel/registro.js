@@ -201,7 +201,7 @@
         return;
       }
       LP.trocar(reg.corpo, LP.lista({ itens: itens, classeLinha: (x) => (x.grave ? 'linha-grave' : null), colunas: colunasLog() }),
-        LP.paginacao(d.total || 0, d.pagina || reg.pagina, d.porPagina || 50, (p) => { reg.pagina = p; carregarAcoes(false); window.scrollTo(0, 0); }));
+        LP.paginacao(d.total || 0, d.pagina || reg.pagina, d.porPagina || 50, (p) => { reg.pagina = p; carregarAcoes(false); LP.rolarParaAba(); }));
     } catch (e) {
       if (LP.cancelado(e)) return;
       reg.corpo.classList.remove('esmaecido');
@@ -238,7 +238,7 @@
       LP.subAba('Entradas, falhas, bloqueios, saídas e negados no painel · o IP nunca é guardado');
       if (!itens.length) { LP.trocar(reg.corpo, LP.estadoVazio('Nada registrado. É o que se espera.', '')); return; }
       LP.trocar(reg.corpo, LP.lista({ itens: itens, colunas: colunasLog() }),
-        LP.paginacao(d.total || 0, d.pagina || reg.pagina, d.porPagina || 50, (p) => { reg.pagina = p; carregarSeguranca(); window.scrollTo(0, 0); }));
+        LP.paginacao(d.total || 0, d.pagina || reg.pagina, d.porPagina || 50, (p) => { reg.pagina = p; carregarSeguranca(); LP.rolarParaAba(); }));
     } catch (e) {
       if (LP.cancelado(e)) return;
       reg.corpo.classList.remove('esmaecido');
@@ -292,7 +292,7 @@
           { rotulo: 'Como saiu', celula: (x) => (x.via === 'arquivo' ? 'arquivo (teste)' : x.via === 'smtp' ? 'SMTP da caixa' : 'mail()') },
           { rotulo: 'Resultado', classe: 'quebra', celula: (x) => (x.ok ? LP.chip(x.via === 'smtp' ? 'aceito pela caixa' : 'aceito pelo servidor', 'ok') : h('span', { class: 'chips' }, LP.chip('falhou', 'perigo'), x.detalhe ? h('span', { class: 'texto-3' }, x.detalhe) : null)) },
         ],
-      }), LP.paginacao(d.total || 0, d.pagina || reg.pagina, d.porPagina || 50, (p) => { reg.pagina = p; carregarEmails(); window.scrollTo(0, 0); }));
+      }), LP.paginacao(d.total || 0, d.pagina || reg.pagina, d.porPagina || 50, (p) => { reg.pagina = p; carregarEmails(); LP.rolarParaAba(); }));
     } catch (e) {
       if (LP.cancelado(e)) return;
       reg.corpo.classList.remove('esmaecido');
@@ -333,7 +333,7 @@
           { rotulo: 'Modo', celula: (x) => (x.modo ? LP.NOMES_MODO[x.modo] || x.modo : '—') },
           { rotulo: 'Detalhes', classe: 'quebra', celula: (x) => (LP.dadosEvento ? LP.dadosEvento(x) : '') },
         ],
-      }), LP.paginacao(d.total || 0, d.pagina || reg.pagina, d.porPagina || 50, (p) => { reg.pagina = p; carregarJogadores(); window.scrollTo(0, 0); }));
+      }), LP.paginacao(d.total || 0, d.pagina || reg.pagina, d.porPagina || 50, (p) => { reg.pagina = p; carregarJogadores(); LP.rolarParaAba(); }));
     } catch (e) {
       if (LP.cancelado(e)) return;
       reg.corpo.classList.remove('esmaecido');

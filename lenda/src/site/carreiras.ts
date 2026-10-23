@@ -286,6 +286,9 @@ function porRecentes(l: readonly HallEntry[]): HallEntry[] {
 }
 
 /** Os mesmos campos que a lista da conta mostra, montados do HallEntry do aparelho. */
+/** O último da lista (o .at(-1) sem depender do Safari 15.4+). */
+const ultimo = <T,>(l: readonly T[] | undefined): T | undefined => (l && l.length ? l[l.length - 1] : undefined)
+
 export function resumoLocal(h: HallEntry): CarreiraConta {
   const s = h.summary
   return {
@@ -294,7 +297,8 @@ export function resumoLocal(h: HallEntry): CarreiraConta {
     jogador: h.identity?.surname ?? s?.identity?.surname ?? '—',
     numero: h.identity?.number ?? 0,
     pais: h.identity?.nationality ?? '',
-    posicao: h.career?.seasons?.at(-1)?.position ?? h.identity?.position ?? '',
+    // sem .at(): o Safari 15.0–15.3 não tem (v3.5)
+    posicao: ultimo(h.career?.seasons)?.position ?? h.identity?.position ?? '',
     nota: typeof h.legacy?.score === 'number' ? h.legacy.score : typeof s?.legacyScore === 'number' ? Math.round(s.legacyScore) : null,
     notaV: typeof h.legacy?.v === 'number' ? h.legacy.v : null,
     picoOvr: picoDe(h),

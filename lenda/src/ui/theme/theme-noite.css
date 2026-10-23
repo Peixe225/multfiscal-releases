@@ -33,8 +33,10 @@
 
   /* ---- contract: ink --------------------------------------------------- */
   --text: #f4f5f8;                       /* 17.0:1 on card                       */
-  --text-2: #a6abb8;                     /*  8.1:1 on card                       */
-  --text-3: #80869a;                     /*  5.1:1 on card (mockup #6d7384 → AA fix) */
+  --text-2: #b3b8c4;                     /*  9.5:1 on card                       */
+  /* v3.5: era #80869a ("5,1:1 no card"), mas nos cartões em relevo, com gradiente e no pódio caía para 2,6–4,4:1
+     (76% das falhas de contraste medidas nos pixels). #9ea4b5: ≥ 4,8:1 até sobre o relevo claro (#34363e). */
+  --text-3: #9ea4b5;                     /*  7.4:1 on card · 4.8:1 on light relief */
 
   /* ---- contract: accent & semantic ------------------------------------- */
   --accent: #ffffff;                     /* selection / primary CTA = white      */
@@ -149,6 +151,9 @@
     outline: 2px solid var(--accent);
     outline-offset: 2px;
   }
+  /* itens dentro de um contêiner que rola (abas, segmentado, faixas de chips): o overflow cortava o anel de fora */
+  [data-lx-theme="noite"] :is(.lx-tabs, .lx-seg) > :focus-visible,
+  [data-lx-theme="noite"] :is(.lx-tabs, .lx-seg) > * > :focus-visible { outline-offset: -2px; }
   /* elements that are themselves white: push the ring out onto the dark bg */
   [data-lx-theme="noite"] .lx-btn--primary:focus-visible,
   [data-lx-theme="noite"] .lx-seg__item[aria-pressed="true"]:focus-visible { outline-offset: 3px; }
@@ -577,22 +582,29 @@
   }
   :where([data-lx-theme="noite"]) .lx-btn svg { width: 18px; height: 18px; flex: none; }
   :where([data-lx-theme="noite"]) .lx-btn:active { transform: translateY(0) scale(.98); }
+  /* toque: o -webkit-tap-highlight-color é transparente no jogo inteiro, então todo controle responde no :active */
+  :where([data-lx-theme="noite"]) .lx-btn--ghost:active { background: var(--surface-3); }
+  :where([data-lx-theme="noite"]) .lx-icon-btn:active { background: var(--surface-3); color: var(--text); transform: scale(.96); }
+  :where([data-lx-theme]) :is(.lx-tab, .lx-seg__item):active { background: var(--surface-2); color: var(--text); }
+  :where([data-lx-theme]) :is(.lx-mode, .lx-option):active { transform: scale(.985); }
   :where([data-lx-theme="noite"]) .lx-btn:disabled, :where([data-lx-theme="noite"]) .lx-btn[aria-disabled="true"] { opacity: .45; pointer-events: none; }
   :where([data-lx-theme="noite"]) .lx-btn--primary {
     background: linear-gradient(180deg, #ffffff, #e9ebf0); color: var(--accent-ink);
     box-shadow: inset 0 -2px 0 rgba(0, 0, 0, .12), 0 0 0 1px rgba(255, 255, 255, .5), 0 14px 40px -12px rgba(255, 255, 255, .35);
   }
-  :where([data-lx-theme="noite"]) .lx-btn--primary:hover {
-    transform: translateY(-1px);
-    box-shadow: inset 0 -2px 0 rgba(0, 0, 0, .12), 0 0 0 1px #fff, 0 18px 50px -12px rgba(255, 255, 255, .5);
+  @media (hover: hover) {
+    :where([data-lx-theme="noite"]) .lx-btn--primary:hover {
+      transform: translateY(-1px);
+      box-shadow: inset 0 -2px 0 rgba(0, 0, 0, .12), 0 0 0 1px #fff, 0 18px 50px -12px rgba(255, 255, 255, .5);
+    }
   }
   :where([data-lx-theme]) .lx-btn--gold {
     background: linear-gradient(180deg, #ffe7a3, #e7b54a); color: #231600;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, .7), inset 0 -2px 0 rgba(0, 0, 0, .15), 0 14px 40px -12px rgba(255, 200, 87, .55);
   }
-  :where([data-lx-theme]) .lx-btn--gold:hover { transform: translateY(-1px); }
+  @media (hover: hover) { :where([data-lx-theme]) .lx-btn--gold:hover { transform: translateY(-1px); } }
   :where([data-lx-theme="noite"]) .lx-btn--ghost { background: var(--surface); border: 1px solid var(--border-strong); color: var(--text); }
-  :where([data-lx-theme="noite"]) .lx-btn--ghost:hover { background: var(--surface-2); border-color: var(--nx-border-3); }
+  @media (hover: hover) { :where([data-lx-theme="noite"]) .lx-btn--ghost:hover { background: var(--surface-2); border-color: var(--nx-border-3); } }
   :where([data-lx-theme="noite"]) .lx-btn--sm { height: 38px; padding: 0 14px; font-size: 13px; border-radius: 11px; gap: 8px; }
   :where([data-lx-theme="noite"]) .lx-btn--sm svg { width: 16px; height: 16px; }
   :where([data-lx-theme]) .lx-btn--md { height: 44px; font-size: 13.5px; padding: 0 18px; }
@@ -603,21 +615,24 @@
     background: var(--surface); border: 1px solid var(--border); color: var(--text-2);
     transition: background-color var(--dur-2) var(--ease-out), color var(--dur-2) var(--ease-out), border-color var(--dur-2) var(--ease-out);
   }
-  :where([data-lx-theme="noite"]) .lx-icon-btn:hover { background: var(--surface-2); color: var(--text); border-color: var(--border-strong); }
+  @media (hover: hover) { :where([data-lx-theme="noite"]) .lx-icon-btn:hover { background: var(--surface-2); color: var(--text); border-color: var(--border-strong); } }
   :where([data-lx-theme="noite"]) .lx-icon-btn svg { width: 18px; height: 18px; }
   :where([data-lx-theme]) .lx-icon-btn__dot { position: absolute; top: 7px; right: 7px; width: 7px; height: 7px; border-radius: 50%; background: var(--warning); box-shadow: 0 0 0 2px var(--bg-2); }
 
   /* Segmented control: <div class="lx-seg" role="group"><button class="lx-seg__item" aria-pressed="true">Normal</button>… */
-  :where([data-lx-theme="noite"]) .lx-seg { display: inline-flex; padding: 4px; border-radius: 13px; background: rgba(0, 0, 0, .3); border: 1px solid var(--border); }
+  /* max-width + itens que encolhem: com 4 opções num celular de 320 px o segmentado empurrava o cartão para fora */
+  :where([data-lx-theme="noite"]) .lx-seg { display: inline-flex; max-width: 100%; padding: 4px; border-radius: 13px; background: rgba(0, 0, 0, .3); border: 1px solid var(--border); overflow-x: auto; scrollbar-width: none; }
+  :where([data-lx-theme="noite"]) .lx-seg::-webkit-scrollbar { display: none; }
   :where([data-lx-theme]) .lx-seg__item {
-    height: 32px; padding: 0 15px; border-radius: 9px; font-size: 13px; font-weight: 700; color: var(--text-3); cursor: pointer;
+    height: 32px; padding: 0 15px; border-radius: 9px; font-size: 13px; font-weight: 700; color: var(--text-3); cursor: pointer; flex: 0 1 auto; min-width: 0; white-space: nowrap;
     display: inline-flex; align-items: center; justify-content: center; gap: 7px;
     transition: background-color var(--dur-2) var(--ease-out), color var(--dur-2) var(--ease-out), box-shadow var(--dur-2) var(--ease-out);
   }
-  :where([data-lx-theme]) .lx-seg__item:hover { color: var(--text-2); }
+  @media (hover: hover) { :where([data-lx-theme]) .lx-seg__item:hover { color: var(--text-2); } }
   :where([data-lx-theme]) .lx-seg__item[aria-pressed="true"], :where([data-lx-theme]) .lx-seg__item.is-on {
     background: var(--surface-3); color: var(--text); box-shadow: inset 0 0 0 1px var(--border-strong), 0 4px 12px -4px #000;
   }
+  :where([data-lx-theme]) .lx-seg--sm .lx-seg__item { height: 28px; padding: 0 11px; font-size: 12.5px; }
   :where([data-lx-theme]) .lx-seg--solid .lx-seg__item[aria-pressed="true"], :where([data-lx-theme]) .lx-seg--solid .lx-seg__item.is-on {
     background: var(--accent); color: var(--accent-ink); box-shadow: 0 6px 16px -6px rgba(255, 255, 255, .4);
   }
@@ -627,7 +642,7 @@
     height: 32px; padding: 0 13px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 650; color: var(--text-3);
     display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; cursor: pointer; transition: color var(--dur-2), background-color var(--dur-2);
   }
-  :where([data-lx-theme="noite"]) .lx-tab:hover { color: var(--text-2); }
+  @media (hover: hover) { :where([data-lx-theme="noite"]) .lx-tab:hover { color: var(--text-2); } }
   :where([data-lx-theme="noite"]) .lx-tab[aria-selected="true"], :where([data-lx-theme="noite"]) .lx-tab.is-on { color: var(--text); background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--border-strong); }
   :where([data-lx-theme]) .lx-tab__badge { font-size: 10px; font-weight: 800; padding: 1px 6px; border-radius: 5px; background: rgba(255, 200, 87, .14); color: var(--warning); }
 
@@ -643,6 +658,11 @@
     outline: none; border-color: rgba(255, 255, 255, .4); box-shadow: 0 0 0 4px rgba(255, 255, 255, .06);
   }
   :where([data-lx-theme]) .lx-input--name { font-weight: 800; font-size: 16px; letter-spacing: .08em; text-transform: uppercase; }
+  /* toque: o iPhone dá zoom (e a página fica ampliada e deslocada) ao focar um campo com fonte < 16 px.
+     A altura continua 46 px (é fixa); o input de dentro herda (font: inherit). Nada de maximum-scale. */
+  @media (pointer: coarse), (max-width: 44.99rem), (max-height: 32.5rem) {
+    :where([data-lx-theme]) .lx-input { font-size: 16px; }
+  }
   :where([data-lx-theme]) .lx-stepper { height: 46px; border-radius: 13px; background: rgba(0, 0, 0, .35); border: 1px solid var(--border-strong); display: grid; grid-template-columns: 32px 1fr 32px; align-items: center; }
   :where([data-lx-theme]) .lx-stepper button { height: 100%; display: grid; place-items: center; color: var(--text-2); cursor: pointer; }
   :where([data-lx-theme]) .lx-stepper button svg { width: 15px; height: 15px; }
@@ -725,21 +745,28 @@
     border: 1px solid var(--border-strong);
     transition: transform var(--dur-3) var(--ease-out), border-color var(--dur-2), box-shadow var(--dur-3) var(--ease-out);
   }
-  :where([data-lx-theme="noite"]) .lx-option:hover, :where([data-lx-theme="noite"]) .lx-option:focus-visible, :where([data-lx-theme="noite"]) .lx-option.is-focus {
+  :where([data-lx-theme="noite"]) .lx-option:focus-visible, :where([data-lx-theme="noite"]) .lx-option.is-focus {
     transform: translateY(-3px); border-color: rgba(255, 255, 255, .34);
     box-shadow: 0 0 0 4px color-mix(in srgb, var(--oc) 10%, transparent), 0 30px 60px -24px color-mix(in srgb, var(--oc) 45%, transparent), inset 0 1px 0 rgba(255, 255, 255, .14);
   }
   :where([data-lx-theme]) .lx-option__crest { height: 78px; display: grid; place-items: center; margin: 2px 0 4px; position: relative; isolation: isolate; }
   :where([data-lx-theme]) .lx-option__crest::before { content: ''; position: absolute; width: 120px; height: 120px; border-radius: 50%; z-index: -1; filter: blur(6px); background: radial-gradient(circle, color-mix(in srgb, var(--oc) 30%, transparent), transparent 65%); }
   :where([data-lx-theme]) .lx-option__crest img { width: 70px; height: 70px; object-fit: contain; filter: drop-shadow(0 10px 18px rgba(0, 0, 0, .55)); transition: transform var(--dur-3) var(--ease-spring); }
-  :where([data-lx-theme="noite"]) .lx-option:hover .lx-option__crest img, :where([data-lx-theme="noite"]) .lx-option.is-focus .lx-option__crest img { transform: scale(1.05) rotate(-2deg); }
+  :where([data-lx-theme="noite"]) .lx-option.is-focus .lx-option__crest img { transform: scale(1.05) rotate(-2deg); }
+  @media (hover: hover) {
+    :where([data-lx-theme="noite"]) .lx-option:hover {
+      transform: translateY(-3px); border-color: rgba(255, 255, 255, .34);
+      box-shadow: 0 0 0 4px color-mix(in srgb, var(--oc) 10%, transparent), 0 30px 60px -24px color-mix(in srgb, var(--oc) 45%, transparent), inset 0 1px 0 rgba(255, 255, 255, .14);
+    }
+    :where([data-lx-theme="noite"]) .lx-option:hover .lx-option__crest img { transform: scale(1.05) rotate(-2deg); }
+  }
   /* Mode card (landing): selected = gold */
   :where([data-lx-theme]) .lx-mode {
     position: relative; text-align: left; padding: 15px 16px 14px; border-radius: 18px; overflow: hidden; cursor: pointer;
     background: linear-gradient(180deg, rgba(255, 255, 255, .05), rgba(255, 255, 255, .018)); border: 1px solid var(--border-strong);
     transition: transform var(--dur-3) var(--ease-out), border-color var(--dur-3) var(--ease-out), box-shadow var(--dur-3) var(--ease-out);
   }
-  :where([data-lx-theme]) .lx-mode:hover { border-color: var(--nx-border-3); transform: translateY(-2px); }
+  @media (hover: hover) { :where([data-lx-theme]) .lx-mode:hover { border-color: var(--nx-border-3); transform: translateY(-2px); } }
   :where([data-lx-theme]) .lx-mode[aria-checked="true"], :where([data-lx-theme]) .lx-mode.is-on {
     border-color: rgba(255, 220, 150, .55);
     background: radial-gradient(300px 140px at 0% 0%, rgba(255, 200, 90, .16), transparent 70%), linear-gradient(180deg, rgba(255, 255, 255, .07), rgba(255, 255, 255, .025));
@@ -879,7 +906,7 @@
 
 /* Higher contrast on request: solid borders, brighter dim text */
 @media (prefers-contrast: more) {
-  [data-lx-theme="noite"] { --border: rgba(255, 255, 255, .22); --border-strong: rgba(255, 255, 255, .34); --text-3: #a6abb8; --text-2: #d4d7df; }
+  [data-lx-theme="noite"] { --border: rgba(255, 255, 255, .22); --border-strong: rgba(255, 255, 255, .34); --text-3: #b8bdc8; --text-2: #d4d7df; }
   [data-lx-theme="noite"] .lx-glass { -webkit-backdrop-filter: none; backdrop-filter: none; background: #14161c; }
 }
 
@@ -896,10 +923,47 @@
 [data-lx-theme="noite"].lx-lowfx .lx-rays, .lx-lowfx [data-lx-theme="noite"] .lx-rays { animation: none; }
 [data-lx-theme="noite"].lx-lowfx .lx-stage::after, .lx-lowfx [data-lx-theme="noite"] .lx-stage::after { background-image: radial-gradient(ellipse at center, transparent 55%, rgba(0, 0, 0, .55) 100%); }
 
-/* Phones: 44px touch targets */
-@media (max-width: 575.98px) {
+/* Toque (celular e tablet, em pé ou deitado): alvos de 40–44 px. Antes valia só até 575,98 px de largura — deitado,
+   os botões do topo ficavam com 38 px e o Fechar dos diálogos com 32. Também vale para janela estreita (< 720 px) ou baixa
+   (< 520 px, celular deitado): é celular de todo jeito, e o (pointer: coarse) sozinho falha em algumas emulações
+   (o print de página inteira do Playwright desliga o toque emulado). Fora das camadas de propósito (como antes):
+   vence os tamanhos menores dos componentes. Onde o desenho não pode crescer, um ::before invisível aumenta a área. */
+@media (pointer: coarse), (max-width: 44.99rem), (max-height: 32.5rem) {
   [data-lx-theme="noite"] .lx-icon-btn { width: 44px; height: 44px; }
-  [data-lx-theme="noite"] .lx-seg__item { height: 36px; }
+  [data-lx-theme="noite"] .lx-icon-btn--sm { width: 40px; height: 40px; }
+  [data-lx-theme="noite"] .lx-icon-btn--lg { width: 56px; height: 56px; }
+  [data-lx-theme="noite"] .lx-seg__item { height: 44px; }
+  [data-lx-theme="noite"] .lx-tab { height: 44px; }
+  [data-lx-theme="noite"] .lx-btn--sm { height: 40px; }
+  [data-lx-theme="noite"] .lx-stepper { grid-template-columns: 44px 1fr 44px; }
+  [data-lx-theme="noite"] .lx-toast__action { width: 40px; }
+  [data-lx-theme="noite"] .lx-range { font-size: 16px; height: 40px; }
+  [data-lx-theme="noite"] .lx-brand { position: relative; }
+  [data-lx-theme="noite"] .lx-brand::before { content: ''; position: absolute; inset: -6px -4px; }
+  /* texto pequeno: piso de 12 px; 11 px só em siglas em caixa alta com espaçamento */
+  [data-lx-theme="noite"] :is(.lx-eyebrow, .lx-tag, .lx-you, .lx-badge-new, .lx-kbd) { font-size: 11px; }
+  [data-lx-theme="noite"] .lx-icon-btn__count { font-size: 11px; height: 17px; }
+  [data-lx-theme="noite"] .lx-chip { font-size: 12px; }
+}
+
+/* iOS 15 (iPhone 6s/7/SE de 1ª geração ficam nele) e Safari < 16: sem unidades de container (cqw), a carta do jogador
+   desmontava (a camisa cobria a carta, "IDADE GOL TÍT" subia por cima do OVR). Mesmo desenho em px, a partir da
+   largura da carta (--pcw, posta pelo PlayerCard). */
+@supports not (container-type: inline-size) {
+  .lx-pcard { --u: calc(var(--pcw, 250px) / 100); }
+  .lx-pcard .lx-pcard__ovr { left: calc(var(--u) * 12); top: calc(var(--u) * 16); width: calc(var(--u) * 23.2); }
+  .lx-pcard .lx-pcard__ovr b { font-size: calc(var(--u) * 24); }
+  .lx-pcard .lx-pcard__ovr span { font-size: calc(var(--u) * 8); margin-top: calc(var(--u) * 2.4); }
+  .lx-pcard .lx-pcard__ovr i { width: calc(var(--u) * 12); margin: calc(var(--u) * 2) 0; }
+  .lx-pcard .lx-pcard__ovr .lx-crest-box { margin-top: calc(var(--u) * 1.6); }
+  .lx-pcard .lx-pcard__flag { width: calc(var(--u) * 12); height: calc(var(--u) * 8.8); }
+  .lx-pcard .lx-pcard__crest { width: calc(var(--u) * 12.8); height: calc(var(--u) * 12.8); margin-top: calc(var(--u) * 3.2); }
+  .lx-pcard .lx-pcard__kit { left: calc(var(--u) * 34.4); top: calc(var(--u) * 12); width: calc(var(--u) * 60.8); height: calc(var(--u) * 60.8); }
+  .lx-pcard .lx-pcard__name { top: calc(var(--u) * 77); font-size: calc(var(--u) * var(--pc-nome, 10.4)); }
+  .lx-pcard .lx-pcard__stats { left: calc(var(--u) * 13.6); right: calc(var(--u) * 13.6); top: calc(var(--u) * 92.8); padding-top: calc(var(--u) * 4); }
+  .lx-pcard .lx-pcard__stats span { font-size: calc(var(--u) * 3.8); }
+  .lx-pcard .lx-pcard__stats b { font-size: calc(var(--u) * 9.6); }
+  .lx-pcard .lx-pcard__tier { top: calc(var(--u) * 118.4); font-size: calc(var(--u) * 3.8); }
 }
 @media (hover: none) and (pointer: coarse) {
   [data-lx-theme="noite"] .lx-kbd { display: none; }   /* keyboard hints are desktop-only */

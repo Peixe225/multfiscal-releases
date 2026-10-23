@@ -17,7 +17,7 @@
 @keyframes ckc-glow { 0% { opacity: 0; transform: translate(-50%, -50%) scale(.2); } 25% { opacity: .9; transform: translate(-50%, -50%) scale(1); } 100% { opacity: 0; transform: translate(-50%, -50%) scale(1.7); } }
 @keyframes ckc-particle { 0% { opacity: 0; transform: rotate(var(--a)) translateY(-16px) scale(.4); } 20% { opacity: 1; } 100% { opacity: 0; transform: rotate(var(--a)) translateY(calc(-1 * var(--dist))) scale(.9); } }
 
-.ck-cel__col { position: relative; z-index: 3; display: flex; flex-direction: column; align-items: center; text-align: center; padding: 28px 20px 24px; max-width: 980px; width: 100%; max-height: 100dvh; overflow: auto; scrollbar-width: none; cursor: default; }
+.ck-cel__col { position: relative; z-index: 3; display: flex; flex-direction: column; align-items: center; text-align: center; padding: 28px 20px 24px; max-width: 980px; width: 100%; max-height: 100vh; max-height: 100dvh; overflow: auto; scrollbar-width: none; cursor: default; }
 .ck-cel__pill { gap: 8px; }
 .ck-cel__pill svg { width: 14px; height: 14px; }
 .ck-cel__hero { position: relative; display: grid; place-items: end center; margin-top: 10px; }
@@ -93,8 +93,8 @@
 .ck-cel__mitem { margin: 0; display: grid; justify-items: center; gap: 12px; min-width: 0; }
 .ck-cel__mart { display: grid; place-items: end center; line-height: 0; }
 .ck-cel__mitem figcaption { display: grid; gap: 3px; max-width: 200px; }
-.ck-cel__mitem figcaption b { font: 800 17px/1.15 var(--font-display); letter-spacing: -.01em; color: var(--text); text-wrap: balance; }
-.ck-cel__mitem figcaption small { font-size: 11.5px; font-weight: 600; color: var(--text-2); }
+.ck-cel__mitem figcaption b { font: 800 17px/1.15 var(--font-display); letter-spacing: -.01em; color: var(--text); text-wrap: balance; overflow-wrap: anywhere; hyphens: auto; }
+.ck-cel__mitem figcaption small { font-size: 11.5px; font-weight: 600; color: var(--text-2); overflow-wrap: anywhere; }
 .ck-cel__mitem.is-first figcaption b { color: #ffe39a; }
 .ck-cel__multi + .ck-cel__floor { display: none; }
 .ck-cel__mart { position: relative; }
@@ -108,10 +108,36 @@
   .ck-cel__multi { gap: 10px; flex-wrap: nowrap; }
   .ck-cel__mitem { flex: 0 1 auto; }
   .ck-cel__mx { height: 20px; min-width: 26px; font-size: 11.5px; line-height: 18px; right: -4px; }
-  /* Continuar / Compartilhar sempre à vista: rodapé fixo na coluna que rola */
-  .ck-cel__actions { position: sticky; bottom: 0; z-index: 4; padding: 14px 0 calc(8px + env(safe-area-inset-bottom));
-    background: linear-gradient(rgba(10, 9, 14, 0), rgba(10, 9, 14, .9) 30%, rgba(10, 9, 14, .96)); }
+  /* Continuar / Compartilhar sempre à vista: rodapé fixo na coluna que rola. Fundo opaco logo abaixo da borda: o que
+     passa por baixo some limpo (antes o degradê deixava meia linha à mostra, "85 → 95" cortado) */
+  .ck-cel__actions { position: sticky; bottom: 0; z-index: 4; padding: 18px 0 calc(8px + env(safe-area-inset-bottom));
+    background: linear-gradient(rgba(10, 9, 14, 0), rgba(10, 9, 14, .97) 16px, rgba(10, 9, 14, .98)); }
   .ck-cel__mitem figcaption { max-width: 110px; }
   .ck-cel__mitem figcaption b { font-size: 13px; }
   .ck-cel__mitem figcaption small { font-size: 10px; }
+}
+
+/* celular estreito (≤ 360 px): 2 taças por linha (as outras na fileira menor), nomes quebram com hífen, letras um
+   pouco menores; Compartilhar só com o ícone (o aria-label diz o que é) e Continuar com a largura que sobra */
+@media (max-width: 360px) {
+  .ck-cel__col { padding: 56px 12px 16px; }
+  .ck-cel__multi { gap: 14px; }
+  .ck-cel__mitem figcaption { max-width: 132px; gap: 2px; }
+  .ck-cel__mitem figcaption b { font-size: 13.5px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .ck-cel__mitem figcaption small { font-size: 11px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .ck-cel__title { font-size: 30px; }
+  .ck-cel__sub { font-size: 13px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .ck-cel__kicker { letter-spacing: .14em; }
+  .ck-cel__row { gap: 10px; margin-top: 12px; }
+  .ck-cel__facts { margin-top: 14px; }
+  .ck-cel__fact { height: auto; min-height: 36px; padding-top: 4px; padding-bottom: 4px; text-align: left; }
+  .ck-cel__actions { grid-auto-flow: row; grid-template-columns: minmax(0, 1fr); grid-auto-columns: auto; }
+  .ck-cel__actions.has-share { grid-template-columns: minmax(0, 1fr) 48px; }
+  .ck-cel__actions.has-share > :nth-child(2) { padding: 0 !important; width: 48px; }
+  .ck-cel__actions :is(.ck-cel__share-s, .ck-cel__share-l) { display: none !important; }
+}
+/* toque: os botões da celebração com 44 px (Continuar, Compartilhar, som e fechar) */
+@media (pointer: coarse) {
+  .ck-cel__actions > .lx-btn { min-height: 44px; }
+  .ck-cel__corner-r .lx-icon-btn { min-width: 44px; min-height: 44px; }
 }

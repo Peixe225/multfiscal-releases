@@ -279,6 +279,28 @@ async function refreshStoredLegacy(get: () => CareerStore, set: (p: Partial<Care
   await kv.set(KV_KEYS.hall, mergeHall(stored, get().finishedCareers))
 }
 
+/**
+ * Espera a tela pintar duas vezes (rAF → rAF → setTimeout 0): o 1º quadro aplica o estado do toque, o 2º garante
+ * que ele foi pintado antes de a simulação ocupar a thread principal. Aba escondida (rAF parado) ou quadros muito
+ * lentos: segue depois de 250 ms de qualquer jeito.
+ */
+export function ateDoisQuadros(limiteMs = 250): Promise<void> {
+  return new Promise((ok) => {
+    let feito = false
+    const ir = () => {
+      if (feito) return
+      feito = true
+      ok()
+    }
+    if (typeof requestAnimationFrame !== 'function' || (typeof document !== 'undefined' && document.hidden)) {
+      setTimeout(ir, 0)
+      return
+    }
+    requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(ir, 0)))
+    setTimeout(ir, limiteMs)
+  })
+}
+
 async function ensureEngine(get: () => CareerStore, set: (p: Partial<CareerStore>) => void) {
   const s = get()
   const data = s.data ?? (await useData.getState().load())
@@ -449,8 +471,9 @@ export const useCareer = create<CareerStore>()((set, get) => {
       set({ busy: true, error: null })
       try {
         const { engine, data } = await ensureEngine(get, set)
-        // yield a frame so the UI can show the pressed/busy state before a heavy simulation
-        await new Promise((r) => requestAnimationFrame(() => setTimeout(r, 0)))
+        // a simulação trava a thread principal (~1–1,7 s num celular intermediário): antes dela, deixa a tela
+        // pintar a opção escolhida, o "Simulando…" e a faixa animada (que segue rodando no compositor)
+        await ateDoisQuadros()
         const { state, reveal } = engine.choose(data, cur, optionId)
         comEscolha(cur, state, optionId)
         // the unlocks belong to the season just played (the new state), not the one before it
@@ -517,7 +540,7 @@ export const useCareer = create<CareerStore>()((set, get) => {
       if (!fresh.length) return []
       const now = new Date().toISOString()
       const next = { ...cur }
-      for (const id of fresh) next[id] = { id, unlockedAt: now, careerId: s?.id ?? null, context: s ? `${s.identity.surname} · ${s.seasons.at(-1)?.age ?? s.age} anos` : undefined }
+      for (const id of fresh) next[id] = { id, unlockedAt: now, careerId: s?.id ?? null, context: s ? `${s.identity.surname} · ${s.seasons[s.seasons.length - 1]?.age ?? s.age} anos` : undefined }
       const unseen = [...new Set([...get().unseenAchievements, ...fresh])]
       set({ achievements: next, unseenAchievements: unseen })
       if (!get().isFixture) void kv.set(KV_KEYS.achievements, { unlocked: next, unseen })

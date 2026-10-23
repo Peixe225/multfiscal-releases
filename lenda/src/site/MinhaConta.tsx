@@ -10,7 +10,7 @@ import { Copy, Crown, ExternalLink, FolderHeart, LogOut, MailWarning, MessageSqu
 import { buildHash, navigate } from '@/store/app'
 import { Button, Modal, formatInt, toast } from '@/ui/primitives'
 import { mensagemDeErro } from './api'
-import { Campo, CampoSenha, CampoUf, Erro, nomeUf, useTecladoVirtual } from './campos'
+import { Campo, CampoSenha, CampoUf, Erro, nomeUf, rolarNoDialogo, useTecladoVirtual } from './campos'
 import { erroApelido, useConta, type AvisoConta, type Usuario } from './conta'
 import { track } from './medicao'
 import { abrirCarreiras, abrirSuporte, useSiteUi } from './ui'
@@ -88,7 +88,8 @@ function useRolarAte(id: string | null) {
       const el = document.getElementById(id)
       // espera o cartão (não o esqueleto): a altura dele é a que vale para rolar certo
       if (el && (el.nextElementSibling?.matches('.sc-conv') || tentativas > 12)) {
-        el.scrollIntoView({ block: 'start', behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })
+        // só o corpo do diálogo rola (v3.5: o scrollIntoView rolava também o painel do sheet e o cabeçalho sumia)
+        rolarNoDialogo(el, 'start')
         el.focus({ preventScroll: true })
         return
       }
@@ -387,7 +388,7 @@ function Excluir({ aberto }: { aberto: boolean }) {
     if (aberto) setConfirmar(true)
   }, [aberto])
   useEffect(() => {
-    if (confirmar) caixa.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+    if (confirmar && caixa.current) rolarNoDialogo(caixa.current, 'nearest')
   }, [confirmar])
   if (!confirmar) {
     return (

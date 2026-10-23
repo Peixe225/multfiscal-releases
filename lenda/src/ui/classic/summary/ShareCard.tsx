@@ -17,7 +17,7 @@ import { getClub } from '@/store/data'
 import { pontes } from '@/store/compartilhar'
 import { BrandMark, Button, Crest, Flag, Modal, Switch, TIER_EXPORT, clubColors, cx, formatInt, formatMoney, gradeOf, tierOf, toast } from '@/ui/primitives'
 import { Prize } from '@/ui/classic/tabs/parts'
-import { slug } from './model'
+import { isInAppBrowser, slug } from './model'
 
 export interface ShareModel {
   surname: string
@@ -157,28 +157,42 @@ async function renderBlob(node: HTMLElement): Promise<Blob> {
     }
   }
   const opts = { pixelRatio: 4, width: W, height: H, canvasWidth: W, canvasHeight: H, fontEmbedCSS: fontCss || undefined, backgroundColor: '#07080c', cacheBust: false }
-  // first pass warms image decoding in WebKit; the second one is the keeper
-  await h2i.toBlob(node, opts).catch(() => null)
+  // first pass warms image decoding in WebKit (Safari, e todo navegador do iPhone); o Chrome/Android acerta de primeira —
+  // lá a passada extra só dobrava o tempo (4–6 s num celular intermediário)
+  if (isWebKit()) await h2i.toBlob(node, opts).catch(() => null)
   const blob = await h2i.toBlob(node, opts)
   if (!blob) throw new Error('toBlob falhou')
   return blob
 }
 
+/** Safari e os navegadores do iPhone/iPad (todos WebKit). */
+function isWebKit(): boolean {
+  if (typeof navigator === 'undefined') return false
+  const ua = navigator.userAgent
+  return /AppleWebKit/.test(ua) && !/Chrome|Chromium|CriOS|Android|Edg\//.test(ua) ? true : /iPhone|iPad|iPod/.test(ua)
+}
+
 export function useShareImage(key: string) {
   const node = useRef<HTMLDivElement>(null)
-  const cache = useRef<{ key: string; blob: Promise<Blob> } | null>(null)
+  const cache = useRef<{ key: string; blob: Promise<Blob>; done: boolean } | null>(null)
   const get = useCallback(() => {
     if (!node.current) return Promise.reject(new Error('sem card'))
     if (cache.current?.key !== key) {
       const p = renderBlob(node.current)
-      p.catch(() => {
-        if (cache.current?.blob === p) cache.current = null
-      })
-      cache.current = { key, blob: p }
+      const entry = { key, blob: p, done: false }
+      p.then(
+        () => (entry.done = true),
+        () => {
+          if (cache.current?.blob === p) cache.current = null
+        },
+      )
+      cache.current = entry
     }
     return cache.current.blob
   }, [key])
-  return { node, get }
+  /** A imagem desta versão do card já está pronta (o toque em "Compartilhar" pode chamar o navigator.share na hora). */
+  const isReady = useCallback(() => cache.current?.key === key && cache.current.done, [key])
+  return { node, get, isReady }
 }
 
 type Busy = 'share' | 'copy' | 'save' | 'view' | null
@@ -250,9 +264,13 @@ export function ShareActions({
   viewRef,
   careerId,
   previaId,
+  isReady,
 }: {
   m: ShareModel
   get: () => Promise<Blob>
+  /** A imagem já está pronta? Senão, "Compartilhar" abre "Sua imagem" em vez de chamar o navigator.share depois de esperar
+   * (fora da ativação do toque o Safari recusa). Sem a função: espera e compartilha, como antes. */
+  isReady?: () => boolean
   fileBase: string
   size?: 'sm' | 'md'
   layout?: 'row' | 'stack'
@@ -306,6 +324,8 @@ export function ShareActions({
     run('save', async () => {
       // an iframe sandbox drops a.download silently: show the image instead
       if (embedded) return openView('Aqui o download direto pode estar bloqueado.')
+      // navegador de app (TikTok, Instagram, WhatsApp no Android): o download de blob: não acontece — a imagem para salvar
+      if (isInAppBrowser()) return openView('No navegador do app o download direto não funciona.')
       const blob = await get()
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
@@ -320,6 +340,9 @@ export function ShareActions({
   const texto = `${m.surname}: ${m.headline}. Esta foi a minha carreira no LENDA. Como seria a sua?`
   const share = () =>
     run('share', async () => {
+      // a imagem ainda não ficou pronta: compartilhar depois de esperar sairia da ativação do toque (o Safari recusa
+      // com NotAllowedError) — mostra "Sua imagem", que espera e deixa salvar/compartilhar à mão
+      if (isReady && !isReady() && typeof navigator.share === 'function') return openView('A imagem ficou pronta agora.')
       const blob = await get()
       const f = new File([blob], file, { type: 'image/png' })
       // o link vai no texto: com arquivo junto, vários apps ignoram o campo `url`
@@ -381,26 +404,43 @@ export function ShareActions({
 export function SharePanel({ m, compact, careerId, previaId }: { m: ShareModel; compact?: boolean; careerId?: string; previaId?: string }) {
   const [showName, setShowName] = useState(true)
   const key = `${m.surname}:${m.peakOvr}:${m.seasons}:${m.titles}:${m.goals}:${m.bonusOvr ?? 0}:${showName}`
-  const { node, get } = useShareImage(key)
+  const { node, get, isReady } = useShareImage(key)
   const view = useRef<(() => void) | null>(null)
   const preview = useRef<HTMLButtonElement>(null)
-  const scale = compact ? 1.12 : 1.3
-  // render the PNG as soon as the panel shows up: "Compartilhar" then runs inside the click's
-  // user activation (Safari/Chrome drop navigator.share after a slow await)
+  const box = useRef<HTMLDivElement>(null)
+  // a prévia cabe na largura que sobra (no celular de 320 px a escala fixa de 1,12 passava da borda do cartão)
+  const [fit, setFit] = useState<number | null>(null)
   useEffect(() => {
-    const el = preview.current
-    if (!el || typeof IntersectionObserver === 'undefined') return
-    let t = 0
-    const io = new IntersectionObserver((es) => {
-      if (!es.some((e) => e.isIntersecting)) return
-      io.disconnect()
-      t = window.setTimeout(() => void get().catch(() => {}), 400)
-    })
-    io.observe(el)
-    return () => (io.disconnect(), window.clearTimeout(t))
+    const el = box.current
+    if (!el || typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver(([e]) => setFit(Math.floor(e.contentRect.width)))
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+  const wanted = compact ? 1.12 : 1.3
+  const scale = compact && fit ? Math.max(0.8, Math.min(wanted, fit / W)) : wanted
+  // gera a imagem logo que o resumo abre, num momento ocioso (e não só quando o card aparece na tela): no toque em
+  // "Compartilhar" ela já está pronta e o navigator.share sai dentro da ativação do toque (num celular intermediário a
+  // geração leva 3–6 s)
+  useEffect(() => {
+    let feito = false
+    const ir = () => {
+      if (feito) return
+      feito = true
+      void get().catch(() => {})
+    }
+    const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void }
+    const ric = typeof w.requestIdleCallback === 'function'
+    const id = ric ? w.requestIdleCallback!(ir, { timeout: 2500 }) : 0
+    const t = window.setTimeout(ir, ric ? 3000 : 900)
+    return () => {
+      feito = true
+      if (id) w.cancelIdleCallback?.(id)
+      window.clearTimeout(t)
+    }
   }, [get])
   return (
-    <div className="sm-share">
+    <div className="sm-share" ref={box}>
       <button ref={preview} type="button" className="sm-share__preview" style={{ width: W * scale, height: H * scale }} onClick={() => view.current?.()} aria-label="Ver a imagem do card em tamanho grande" title="Ver imagem">
         <ShareCardView m={m} showName={showName} style={{ transform: `scale(${scale})`, transformOrigin: '0 0' }} />
         <span className="sm-share__zoom" aria-hidden="true">
@@ -414,7 +454,7 @@ export function SharePanel({ m, compact, careerId, previaId }: { m: ShareModel; 
           <p className="sm-share__d">Um card no formato do feed com seu pico de OVR, números, clubes e taças. Mande no grupo e desafie os amigos a fazer melhor.</p>
         </div>
         <Switch checked={showName} onChange={setShowName} label="Mostrar sobrenome" description={showName ? `Aparece “${m.surname}” no card` : 'O card mostra “JOGADOR”'} />
-        <ShareActions m={m} get={get} fileBase={showName ? m.surname : 'jogador'} layout={compact ? 'stack' : 'row'} viewRef={view} careerId={careerId} previaId={previaId} />
+        <ShareActions m={m} get={get} isReady={isReady} fileBase={showName ? m.surname : 'jogador'} layout={compact ? 'stack' : 'row'} viewRef={view} careerId={careerId} previaId={previaId} />
       </div>
       <div className="sm-share__offscreen" aria-hidden="true">
         <ShareCardView ref={node} m={m} showName={showName} />

@@ -25,7 +25,11 @@
 .sm-ident__eyebrow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .sm-ident__eyebrow i { width: 3px; height: 3px; border-radius: 50%; background: var(--text-3); }
 /* nunca quebra no meio da palavra: a letra encolhe até a maior palavra (--len letras) caber na coluna */
-.sm-ident__name { margin: 10px 0 0; font: 900 clamp(46px, 5.4vw, 72px)/.92 var(--font-display); font-size: min(clamp(46px, 5.4vw, 72px), calc(100cqw / (var(--len, 8) * .72)));
+/* iOS 15 (sem unidades de container): a declaração com cqw cai e vale a de antes, medida pela janela (no celular a
+   coluna é a largura toda menos 32 px; no computador, ~1/3 da janela) */
+.sm-ident__name { margin: 10px 0 0; font: 900 clamp(46px, 5.4vw, 72px)/.92 var(--font-display);
+  font-size: min(clamp(46px, 5.4vw, 72px), calc(min(100vw - 32px, 30vw + 40px) / (var(--len, 8) * .72)));
+  font-size: min(clamp(46px, 5.4vw, 72px), calc(100cqw / (var(--len, 8) * .72)));
   letter-spacing: -.045em; text-transform: uppercase; overflow-wrap: normal; word-break: keep-all;
   background: linear-gradient(180deg, #ffffff 35%, #d9dde6); -webkit-background-clip: text; background-clip: text; color: transparent; -webkit-text-fill-color: transparent;
   filter: drop-shadow(0 8px 30px rgba(0, 0, 0, .55)); }
@@ -152,7 +156,7 @@
 .sm-cab__tile.is-gold { border-color: rgba(255, 214, 130, .28); background: radial-gradient(120px 90px at 50% 34%, rgba(255, 205, 90, .15), transparent 70%), linear-gradient(180deg, rgba(255, 255, 255, .05), rgba(255, 255, 255, .014)); }
 .sm-cab__art { height: 92px; width: 100%; display: grid; place-items: end center; --spot: 74px; }
 .sm-cab__n { margin-top: 8px; font-size: 11px; line-height: 1.2; font-weight: 650; color: var(--text-2); max-width: 100%; text-align: center; min-height: 2.4em;
-  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; hyphens: auto; }
 .sm-cab.is-dense { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; }
 .sm-cab.is-dense .sm-cab__tile { padding: 10px 4px 8px; }
 .sm-cab.is-dense .sm-cab__art { height: 76px; --spot: 62px; }
@@ -160,6 +164,8 @@
 @media (max-width: 34rem) {
   .sm-cab, .sm-cab.is-dense { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .sm-cab.is-dense .sm-cab__art { height: 84px; }
+  /* 3 por linha no celular: nomes longos ("Copa Intercontinental da FIFA") em até 3 linhas, com hífen */
+  .sm-cab__n, .sm-cab.is-dense .sm-cab__n { -webkit-line-clamp: 3; font-size: 11px; }
 }
 .sm-cab__c { position: absolute; top: 7px; right: 7px; }
 .sm-records { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
@@ -204,14 +210,25 @@
 .sm-nat__stats dt { font-size: 10px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--text-3); display: flex; align-items: center; justify-content: center; gap: 4px; }
 .sm-nat__stats dt svg { width: 12px; height: 12px; }
 .sm-nat__stats dd { margin: 5px 0 0; font: 800 28px/1 var(--font-num); }
-.sm-nat__list { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 4px; }
-.sm-nat__list li { display: flex; align-items: center; gap: 9px; min-height: 32px; padding: 0 10px 0 7px; border-radius: 9px; background: rgba(255, 255, 255, .024); font-size: 12.5px; }
+/* minmax(0, 1fr): sem ele a coluna da grade crescia até o nome do torneio inteiro (nowrap) e a linha vazava do
+   cartão — os gols sumiam cortados pela borda */
+.sm-nat__list { list-style: none; margin: 10px 0 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px; }
+.sm-nat__list li { display: flex; align-items: center; gap: 9px; min-height: 32px; min-width: 0; padding: 0 10px 0 7px; border-radius: 9px; background: rgba(255, 255, 255, .024); font-size: 12.5px; }
+.sm-nat__list li > :first-child { flex: none; }
 .sm-nat__list .tb-logo--tile { box-shadow: none; }
 .sm-nat__list li.is-gold { background: linear-gradient(90deg, rgba(255, 200, 87, .14), rgba(255, 200, 87, .02)); box-shadow: inset 0 0 0 1px rgba(255, 200, 87, .22); }
 .sm-nat__c { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-2); font-weight: 600; }
 .sm-nat__r { font-weight: 750; white-space: nowrap; }
 .sm-nat__list li.is-gold .sm-nat__r { color: #ffe39a; }
-.sm-nat__g { color: var(--text-3); font-weight: 700; width: 34px; text-align: right; }
+.sm-nat__g { color: var(--text-3); font-weight: 700; width: 34px; text-align: right; flex: none; }
+/* celular estreito: o resultado desce para uma linha própria, embaixo do torneio; os gols ficam à direita */
+@media (max-width: 359.98px) {
+  .sm-nat__list li { display: grid; grid-template-columns: 20px minmax(0, 1fr) auto; grid-template-areas: 'logo comp gols' 'logo res res'; column-gap: 9px; row-gap: 1px; padding-top: 5px; padding-bottom: 5px; }
+  .sm-nat__list li > :first-child { grid-area: logo; align-self: center; }
+  .sm-nat__c { grid-area: comp; }
+  .sm-nat__r { grid-area: res; font-size: 12px; }
+  .sm-nat__g { grid-area: gols; width: auto; }
+}
 .sm-nat__tro { display: flex; gap: 16px; justify-content: center; margin-top: 12px; padding-top: 12px; border-top: 1px dashed rgba(255, 255, 255, .08); flex-wrap: wrap; }
 .sm-nat__trophy { position: relative; height: 62px; display: grid; place-items: end center; }
 .sm-nat__trophy i { position: absolute; top: 0; right: -12px; font-style: normal; }
@@ -221,7 +238,8 @@
 .sm-aw__art { width: 48px; height: 44px; display: grid; place-items: end center; flex: none; }
 .sm-aw__t { flex: 1; min-width: 0; display: grid; gap: 2px; }
 .sm-aw__t b { font-size: 13.5px; font-weight: 750; }
-.sm-aw__t small { font-size: 11px; color: var(--text-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+/* os anos quebram linha (em faixas: "2035–2039 · 2041"); antes ficavam cortados sem como ver o resto pelo toque */
+.sm-aw__t small { font-size: 11.5px; color: var(--text-3); font-weight: 600; line-height: 1.35; overflow-wrap: anywhere; }
 .sm-aw__x { font: 800 26px/.9 var(--font-num); flex: none; }
 .sm-aw__pods { margin-top: 12px; display: grid; gap: 6px; }
 .sm-aw__pods > div { display: flex; gap: 5px; flex-wrap: wrap; }
@@ -258,7 +276,7 @@
 .sm-share__actions.is-stack { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; }
 .sm-share__actions.is-stack .sm-share__primary, .sm-share__actions.is-stack .sm-share__copy { grid-column: 1 / -1; }
 .sm-share__offscreen { position: fixed; left: 0; top: 0; transform: translateX(calc(-100vw - 600px)); pointer-events: none; contain: layout paint; opacity: 1; }
-.sm-saved { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border-radius: 9px; cursor: pointer; font: 700 12px/1 var(--font-ui);
+.sm-saved { position: relative; display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border-radius: 9px; cursor: pointer; font: 700 12px/1 var(--font-ui);
   background: var(--positive-bg); color: var(--positive); border: 1px solid rgba(62, 230, 164, .25); }
 .sm-saved svg { width: 14px; height: 14px; }
 .sm-saved:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -315,3 +333,25 @@
 .sm-admin__l--dim { font-size: 12px; color: var(--text-3); }
 .sm-admin__sinais { margin: 0; padding-left: 18px; display: grid; gap: 2px; font-size: 12.5px; color: #ffb3bf; }
 @media (max-width: 40rem) { .sm-admin__go { margin-left: 0; } }
+
+/* ── v3.5 · celular ─────────────────────────────────────────────────── */
+/* card de compartilhar: o rodapé ("Jogue sua carreira em LENDA") nunca sai do card — quem cede é a área das taças */
+.sc__trophies { min-height: 0; overflow: hidden; }
+.sc__foot { flex: none; }
+/* toque: "Salvo no Hall das Lendas" com área de toque de 40 px (sem mudar o desenho) */
+@media (pointer: coarse) {
+  .sm-saved::after { content: ''; position: absolute; inset: -6px -2px; }
+}
+/* iOS 15 (sem consultas de container): os números do topo seguem a largura da janela — a coluna do nome fica com
+   ≤ 420 px entre 1280 e ~1415 px (3 colunas) */
+@supports not (container-type: inline-size) {
+  @media (min-width: 1280px) and (max-width: 1415px) {
+    .sm-kpis { gap: 18px; }
+    .sm-kpis dd { font-size: 38px; }
+    .sm-kpis dt { font-size: 9px; letter-spacing: .1em; }
+  }
+}
+/* celular estreito (≤ 360 px): as ações do card uma embaixo da outra ("Ver imagem" virava "Ver im…" em 2 colunas) */
+@media (max-width: 360px) {
+  .sm-share__actions.is-stack { grid-template-columns: minmax(0, 1fr); }
+}

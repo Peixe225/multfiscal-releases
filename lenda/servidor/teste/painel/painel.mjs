@@ -479,8 +479,14 @@ await ctx.close()
   await p3.waitForSelector('#form-pin:not([hidden])')
   await digitarPin(p3, '#pin-caixas', '729153')
   await p3.waitForSelector('#tela-painel:not([hidden])', { timeout: 10000 })
-  const colunas = await p3.evaluate(() => getComputedStyle(document.getElementById('numeros-acao')).gridTemplateColumns.split(' ').length)
-  ok(colunas === 4, 'celular: números de ação em grade de 4 colunas (8 números em 2 linhas, rótulo curto)')
+  // v3.5 (revisão mobile): no celular os 8 números viram uma faixa de uma linha que rola de lado, com o rótulo curto
+  const faixa = await p3.evaluate(() => {
+    const n = document.getElementById('numeros-acao')
+    const tops = new Set(Array.from(n.children).map((c) => Math.round(c.getBoundingClientRect().top)))
+    const curto = n.querySelector('.na-curto')
+    return { display: getComputedStyle(n).display, linhas: tops.size, rola: n.scrollWidth > n.clientWidth, curto: !!curto && getComputedStyle(curto).display !== 'none' }
+  })
+  ok(faixa.display === 'flex' && faixa.linhas === 1 && faixa.rola && faixa.curto, 'celular: os 8 números de ação numa faixa de uma linha que rola de lado, com o rótulo curto (' + JSON.stringify(faixa) + ')')
   for (const a of ABAS) {
     await ir(p3, '#/' + a, 1200)
     await semRolagemLateral(p3, a)

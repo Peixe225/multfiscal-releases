@@ -40,7 +40,7 @@
 @media (min-width: 36rem) { .ac-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
 @media (min-width: 45rem) { .ac-grid { grid-template-columns: repeat(8, minmax(0, 1fr)); } }
 .ac-cell { position: relative; width: 100%; aspect-ratio: 1; display: grid; place-items: center; border-radius: 16px; background: var(--surface); border: 1px solid var(--border); cursor: default; transition: transform var(--dur-2) var(--ease-out), border-color var(--dur-2); }
-.ac-cell:hover { transform: translateY(-2px); border-color: var(--border-strong); }
+@media (hover: hover) { .ac-cell:hover { transform: translateY(-2px); border-color: var(--border-strong); } }
 .ac-cell.is-on { background: linear-gradient(180deg, rgba(255, 255, 255, .06), rgba(255, 255, 255, .02)); }
 .ac-cell:not(.is-on) .ac-tile { opacity: .7; }
 .ac-empty { margin: 16px 0; padding: 28px 16px; text-align: center; border: 1px dashed var(--border-strong); border-radius: 16px; color: var(--text-3); font-size: 13.5px; }
@@ -56,6 +56,12 @@
 .ac-prova__i.is-ok svg { color: #8fe3b0; }
 .ac-prova__q { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 999px; color: var(--text-3); background: transparent; border: 1px solid var(--border); cursor: help; }
 .ac-prova__q:hover, .ac-prova__q:focus-visible { color: var(--text); border-color: var(--border-strong); }
+@media (pointer: coarse), (max-width: 44.99rem), (max-height: 32.5rem) {
+  .ac-prova__q { position: relative; }
+  .ac-prova__q::before { content: ''; position: absolute; inset: -8px; }
+  .ac-rpill, .ac-new { font-size: 11px; height: 20px; }
+  .ac-date, .ac-pct, .ac-ppill { font-size: 11.5px; height: 21px; }
+}
 .ac-ppill { display: inline-flex; align-items: center; gap: 4px; height: 18px; padding: 0 7px; border-radius: 6px; font-size: 10.5px; font-weight: 700; color: var(--text-3); border: 1px dashed var(--border-strong); white-space: nowrap; flex: none; }
 .ac-ppill.is-ok { color: #b9f1cf; border: 1px solid rgba(120, 220, 160, .35); background: rgba(120, 220, 160, .1); }
 .ac-cell__prova { position: absolute; left: 5px; bottom: 5px; color: #8fe3b0; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, .6)); }

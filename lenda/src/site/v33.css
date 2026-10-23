@@ -101,6 +101,7 @@
 .sv-tipo.is-on { color: var(--text); border-color: var(--accent, #8a80ff); background: rgba(138, 128, 255, .14); }
 .sv-tipo:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
 .sv-isca { position: absolute; left: -10000px; top: auto; width: 1px; height: 1px; overflow: hidden; }
+.sv-isca input { font-size: 16px; } /* fora da tela; mesmo assim, nada de zoom do iPhone se algo o focar */
 .sv-contato { margin: 2px 0 0; display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-radius: var(--radius-md, 12px); font-size: 12.5px; line-height: 1.4; color: var(--text-2); background: var(--surface); border: 1px solid var(--border); }
 .sv-contato > svg { width: 16px; height: 16px; flex: none; color: var(--text-3); }
 .sv-contato > span { min-width: 0; flex: 1; overflow-wrap: anywhere; }
@@ -185,3 +186,20 @@
 .sv-estado.is-verificada, .sv-estado.is-vencedora { color: var(--nx-positive-soft, #b4f7da); background: var(--positive-bg); border-color: var(--nx-positive-line, rgba(62, 230, 164, .3)); }
 .sv-estado.is-recusada { color: #ffd59a; background: rgba(255, 170, 60, .12); border-color: rgba(255, 170, 60, .3); }
 .sv-envio { display: grid; gap: 8px; justify-items: start; }
+
+/* ── v3.5: celular ── */
+@media (pointer: coarse) {
+  /* alvos de toque de 44 px: o assunto do Fale conosco, o copiar e o link do e-mail */
+  .sv-tipo { height: 44px; padding: 0 15px; }
+  .sv-tipos { gap: 8px; }
+  .sv-contato__copiar { width: 44px; height: 44px; margin: -6px -4px -6px 0; }
+  .sv-contato__a { display: inline-block; padding: 12px 0; margin: -12px 0; }
+  .sv-rodape .sc-link { min-height: 44px; display: inline-flex; align-items: center; }
+  /* o campo do link do perfil: 16 px, senão o Safari do iPhone dá zoom ao tocar para selecionar */
+  .sv-perfil-link .lx-input { font-size: 16px; height: 46px; }
+}
+/* letras: piso de 12 px no celular (11 px só nas siglas e rótulos em caixa alta) */
+@media (max-width: 44.99rem), (pointer: coarse) {
+  .sv-head__k, .sv-crit__i small, .sv-premio b, .sv-tr--h { font-size: 11px; }
+  .sv-selo, .sv-estado, .sv-item__t small, .sv-cand small, .sv-cumpre small, .sv-cand-meu, .sv-prazo { font-size: 12px; }
+}

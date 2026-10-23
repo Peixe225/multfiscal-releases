@@ -180,6 +180,16 @@ export function erroSenha(s: string): string | null {
   return null
 }
 
+/**
+ * v3.5: o que fica no campo do código de 6 dígitos depois de digitar ou colar. Colado com texto ("Seu código: 688989", " 688989",
+ * "688 989"): um grupo de exatamente 6 dígitos seguidos vale inteiro; senão, só os dígitos, até 6. (Antes o maxLength=6 do
+ * campo cortava o texto colado antes desta limpeza, e " 688989" virava "68898".)
+ */
+export function codigoDigitado(v: string): string {
+  const seis = /(?:^|\D)(\d{6})(?!\d)/.exec(v)
+  return seis ? seis[1] : v.replace(/\D/g, '').slice(0, 6)
+}
+
 // ───────────────────────────── store ─────────────────────────────
 
 export interface DadosCadastro {

@@ -737,9 +737,25 @@ function exigirUsuario(): array
 // ── origem da visita ─────────────────────────────────────────────────────────────────────────────
 
 /**
+ * v3.5: o app do Android que abriu o link (referrer android-app://<pacote>/, a Custom Tab do Chrome): o pacote vira a rede.
+ * A mesma lista do PACOTES_APP de src/site/medicao.ts.
+ */
+const PACOTES_APP = [
+    'com.whatsapp' => 'whatsapp', 'com.whatsapp.w4b' => 'whatsapp',
+    'com.zhiliaoapp.musically' => 'tiktok', 'com.zhiliaoapp.musically.go' => 'tiktok', 'com.ss.android.ugc.trill' => 'tiktok',
+    'com.ss.android.ugc.aweme' => 'tiktok',
+    'com.instagram.android' => 'instagram', 'com.instagram.lite' => 'instagram',
+    'com.facebook.katana' => 'facebook', 'com.facebook.lite' => 'facebook', 'com.facebook.orca' => 'facebook', 'com.facebook.mlite' => 'facebook',
+    'com.google.android.gm' => 'gmail', 'com.google.android.googlequicksearchbox' => 'google', 'com.google.android.youtube' => 'youtube',
+    'com.twitter.android' => 'x', 'com.reddit.frontpage' => 'reddit', 'org.telegram.messenger' => 'telegram', 'com.discord' => 'discord',
+    'com.kwai.video' => 'kwai', 'com.kwai.bulldog' => 'kwai',
+];
+
+/**
  * Domínio (ou utm) → tiktok, youtube, instagram, reddit, facebook, x, whatsapp, google, direto, ou o próprio
  * domínio. Apelidos de utm (ig, insta, yt, tt, fb, twitter, zap) caem no mesmo nome. A mesma regra está em
- * src/site/medicao.ts (origemResumida).
+ * src/site/medicao.ts (origemResumida). v3.5: o pacote de um app do Android (com.whatsapp, com.zhiliaoapp.musically…,
+ * venha cru ou como android-app://com.whatsapp/) vira o nome da rede (PACOTES_APP), em vez de "com.whatsapp".
  */
 function normalizarOrigem(?string $utmSource, ?string $ref): string
 {
@@ -748,6 +764,9 @@ function normalizarOrigem(?string $utmSource, ?string $ref): string
         $h = (string) preg_replace('/^www\d*\./', '', $h);
         if ($h === '') {
             return '';
+        }
+        if (isset(PACOTES_APP[$h])) {
+            return PACOTES_APP[$h];
         }
         $de = static fn(array $nomes, array $dominios): bool => in_array($h, $nomes, true)
             || array_filter($dominios, static fn(string $d): bool => $h === $d || str_ends_with($h, '.' . $d)) !== [];

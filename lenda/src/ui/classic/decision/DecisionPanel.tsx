@@ -9,7 +9,7 @@ import { AnimatePresence, motion } from 'motion/react'
 import { SkipForward } from 'lucide-react'
 import type { Decision, DecisionOption } from '@/engine/types'
 import { decisionProgress, useCareer } from '@/store/career'
-import { Button, Kbd, cx, useIsTouch, useReducedMotion } from '@/ui/primitives'
+import { Button, Kbd, cx, useIsTouch, useMediaQuery, useReducedMotion } from '@/ui/primitives'
 import { DECISION_KIND_LABEL } from '@/ui/classic/cockpit/model'
 import { director } from '@/ui/classic/reveal/director'
 import { useReveal } from '@/ui/classic/reveal/store'
@@ -161,7 +161,10 @@ const OptionGrid = memo(function OptionGrid({ decision, chosenId, locked }: { de
   const rm = useReducedMotion()
   const options = decision.options.slice(0, 4)
   const n = options.length
-  const compact = n >= 3
+  // celular de 320 px, e o painel ao lado da tabela com o celular deitado: 2 opções vão uma por linha, no formato
+  // compacto (ver decision.css e cockpit.css)
+  const narrow = useMediaQuery('(max-width: 340px), (max-width: 1103.98px) and (orientation: landscape) and (max-height: 520px)')
+  const compact = n >= 3 || (n === 2 && narrow)
   const onPick = (o: DecisionOption) => void director.pick(o.id)
   const items = useMemo(() => options.map((o) => ({ o, Card: cardFor(decision, o) })), [decision, options])
   return (

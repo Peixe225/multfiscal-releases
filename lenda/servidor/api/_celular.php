@@ -65,23 +65,48 @@ function postCurto(string $url, string $corpo, array $cab): bool
 }
 
 /**
- * Manda o aviso pelos canais configurados. {ntfy: bool|null, telegram: bool|null} (null = canal não configurado).
- * Os textos são do servidor (nada escrito por jogador vai para o celular).
+ * v3.5: o endereço do painel (a primeira origem da config + /lenda/painel/), já na aba pedida ("denuncias" → #/denuncias).
+ * Montado só da config do site, nunca de dado de jogador; uma origem fora do formato (quebra de linha, aspas) cai no padrão.
  */
-function avisarCelular(string $titulo, string $texto): array
+function urlPainel(string $aba = ''): string
+{
+    $o = '';
+    foreach ((array) (config()['origens'] ?? []) as $x) {
+        if (is_string($x) && preg_match('#^https?://[A-Za-z0-9.\-]+(:\d{1,5})?/?$#', $x) === 1) {
+            $o = rtrim($x, '/');
+            break;
+        }
+    }
+    $aba = preg_match('/^[a-z]{1,20}$/', $aba) === 1 ? $aba : '';
+    return ($o !== '' ? $o : 'https://oprojeto.online') . LENDA_CAMINHO_COOKIE . 'painel/' . ($aba !== '' ? '#/' . $aba : '');
+}
+
+/**
+ * Manda o aviso pelos canais configurados. {ntfy: bool|null, telegram: bool|null} (null = canal não configurado).
+ * Os textos são do servidor (nada escrito por jogador vai para o celular). v3.5: `$link` (de urlPainel): no ntfy, tocar no
+ * aviso abre o link (cabeçalho Click) e ele ganha o botão "Abrir o painel" (Actions); no Telegram, vai no fim do texto.
+ */
+function avisarCelular(string $titulo, string $texto, ?string $link = null): array
 {
     $c = canaisCelular();
     $r = ['ntfy' => null, 'telegram' => null];
+    // só um http(s) sem espaço, aspa nem vírgula (vai num cabeçalho e na lista de ações do ntfy)
+    $link = is_string($link) && preg_match('#^https?://[^\s"\'<>,;]{3,300}$#', $link) === 1 ? $link : null;
     if ($c['ntfy'] !== null) {
-        $r['ntfy'] = postCurto($c['ntfy'], $texto, [
+        $cab = [
             'Content-Type: text/plain; charset=utf-8',
             'Title: =?UTF-8?B?' . base64_encode($titulo) . '?=',
             'Tags: soccer',
-        ]);
+        ];
+        if ($link !== null) {
+            $cab[] = 'Click: ' . $link;
+            $cab[] = 'Actions: view, Abrir o painel, ' . $link . ', clear=true';
+        }
+        $r['ntfy'] = postCurto($c['ntfy'], $texto, $cab);
     }
     if ($c['telegram'] !== null) {
         $r['telegram'] = postCurto('https://api.telegram.org/bot' . $c['telegram']['token'] . '/sendMessage',
-            json(['chat_id' => $c['telegram']['chat'], 'text' => $titulo . "\n" . $texto, 'disable_web_page_preview' => true]),
+            json(['chat_id' => $c['telegram']['chat'], 'text' => $titulo . "\n" . $texto . ($link !== null ? "\n" . $link : ''), 'disable_web_page_preview' => true]),
             ['Content-Type: application/json']);
     }
     return $r;
@@ -106,7 +131,8 @@ function avisarDenunciaNova(bool $ocultou): void
     $abertas = (int) umValor("SELECT COUNT(*) FROM denuncias WHERE status = 'aberta'");
     avisarCelular('LENDA · denúncia no Hall', $ocultou
         ? 'Uma carreira saiu do Hall público depois de 5 denúncias e espera a sua decisão no painel.'
-        : 'Chegou denúncia nova no Hall público (' . $abertas . ' aberta' . ($abertas === 1 ? '' : 's') . '). Abra o painel para decidir.');
+        : 'Chegou denúncia nova no Hall público (' . $abertas . ' aberta' . ($abertas === 1 ? '' : 's') . '). Abra o painel para decidir.',
+        urlPainel('denuncias'));
 }
 
 /** e.php: pico de gente online (aviso_celular.picoOnline): confere no máximo a cada 10 min e avisa no máximo 1 vez por hora. */
@@ -122,7 +148,7 @@ function avisarPicoTalvez(): void
         }
         $online = (int) umValor('SELECT COUNT(*) FROM visitas WHERE ultimo >= ? AND bot = 0', [dt(time() - 60)]);
         if ($online >= $pico && marcaJanela('aviso-pico', 3600)) {
-            avisarCelular('LENDA · pico de gente online', $online . ' pessoas com o jogo aberto agora (o aviso está em ' . $pico . ').');
+            avisarCelular('LENDA · pico de gente online', $online . ' pessoas com o jogo aberto agora (o aviso está em ' . $pico . ').', urlPainel('area'));
         }
     } catch (Throwable $e) {
         error_log('LENDA aviso de pico: ' . $e->getMessage());

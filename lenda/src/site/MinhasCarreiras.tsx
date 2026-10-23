@@ -122,6 +122,16 @@ function NaConta() {
   return <ListaDaConta lista={lista} modo={usuario.hallPublico} apelido={usuario.apelido} />
 }
 
+/** v3.5: o rótulo do seletor do Hall público, curto na tela estreita (site.css: "As 3 melhores" quebrava em 2 linhas na pílula). */
+function RotuloHp({ longo, curto }: { longo: string; curto: string }) {
+  return (
+    <>
+      <span className="sc-hp__longo">{longo}</span>
+      <span className="sc-hp__curto">{curto}</span>
+    </>
+  )
+}
+
 /** Hall público: as 3 melhores sozinhas, as que o jogador escolhe, ou nenhuma — e o aviso do que fica público. */
 function ListaDaConta({ lista, modo, apelido }: { lista: CarreiraConta[]; modo: ModoHallPublico; apelido: string }) {
   const noHall = useMemo(() => idsNoHallPublico(lista, modo), [lista, modo])
@@ -184,7 +194,7 @@ function ListaDaConta({ lista, modo, apelido }: { lista: CarreiraConta[]; modo: 
           onChange={(m) => void mudarModo(m)}
           aria-label="Quais carreiras vão para o Hall público"
           options={[
-            { value: 'auto', label: 'As 3 melhores' },
+            { value: 'auto', label: <RotuloHp longo="As 3 melhores" curto="Top 3" /> },
             { value: 'manual', label: 'Eu escolho' },
             { value: 'nao', label: 'Nenhuma' },
           ]}

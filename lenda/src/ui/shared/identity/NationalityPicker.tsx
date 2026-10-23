@@ -118,7 +118,7 @@ export const NationalityPicker = memo(function NationalityPicker({ countries, va
             aria-describedby="id-nation-help"
           />
           {q ? (
-            <button type="button" className="grid place-items-center w-7 h-7 -mr-1.5 rounded-[8px] text-text-3 hover:text-text hover:bg-surface-2" aria-label="Limpar busca" onClick={() => { setQ(''); inputRef.current?.focus() }}>
+            <button type="button" className="grid place-items-center w-[40px] h-[40px] -mr-[12px] flex-none rounded-[10px] text-text-3 hover:text-text hover:bg-surface-2" aria-label="Limpar busca" onClick={() => { setQ(''); inputRef.current?.focus() }}>
               <X size={15} aria-hidden />
             </button>
           ) : (

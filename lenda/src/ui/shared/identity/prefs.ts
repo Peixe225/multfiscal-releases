@@ -35,6 +35,17 @@ export const cleanSurname = (v: string) =>
     .replace(/\s{2,}/g, ' ')
     .slice(0, 15)
 
+/**
+ * Assistente do celular: o passo pedido (o do histórico, ao recarregar ou voltar), se o rascunho deixa chegar nele —
+ * o passo 2 precisa do país; o 3, também de sobrenome e número válido. Senão, o último passo possível.
+ */
+export function passoValido(p: number | null | undefined, d: Pick<IdentityDraft, 'nationality' | 'surname' | 'number'>): 0 | 1 | 2 {
+  const quer = p === 1 || p === 2 ? p : 0
+  if (quer >= 1 && !d.nationality) return 0
+  if (quer === 2 && !(d.surname.trim().length > 0 && isValidNumber(d.number))) return 1
+  return quer
+}
+
 export function draftToIdentity(d: IdentityDraft): PlayerIdentity | null {
   if (!d.nationality || !d.position || !isValidNumber(d.number)) return null
   const surname = d.surname.trim().toUpperCase() || 'SILVA'

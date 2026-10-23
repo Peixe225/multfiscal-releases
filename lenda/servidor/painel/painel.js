@@ -52,6 +52,7 @@
   const estado = {
     logado: false, atual: null, baseAtual: '', hashAtual: '', timerAgora: 0, timerResumo: 0, timerAtencao: 0, resumoNoAr: false,
     resumoDeNovo: false, titulo: 'Visão geral', falhas: 0, ultimoAgora: null, alertasChave: '', recadosN: -1, atencaoNoAr: false, atencaoChave: '',
+    atencaoAberta: false,
   };
   LP.resumo = null;
   LP.agora = null;
@@ -68,25 +69,64 @@
     } catch (e) { /* sem armazenamento: vale só nesta página */ }
   }
   const TEMAS = [['original', 'Original'], ['claro', 'Claro'], ['alto', 'Alto contraste']];
-  function trocarTema() {
-    const atual = document.documentElement.getAttribute('data-tema') || 'original';
-    const i = TEMAS.findIndex((t) => t[0] === atual);
-    const [novo, nome] = TEMAS[(i + 1) % TEMAS.length];
-    if (novo === 'original') document.documentElement.removeAttribute('data-tema');
-    else document.documentElement.setAttribute('data-tema', novo);
-    gravarPref({ tema: novo });
+  const temaAtual = () => document.documentElement.getAttribute('data-tema') || 'original';
+  function aplicarTema(novo, avisar) {
+    const t = TEMAS.find((x) => x[0] === novo) || TEMAS[0];
+    if (t[0] === 'original') document.documentElement.removeAttribute('data-tema');
+    else document.documentElement.setAttribute('data-tema', t[0]);
+    gravarPref({ tema: t[0] });
     const meta = document.querySelector('meta[name="theme-color"]');
     if (meta) meta.setAttribute('content', getComputedStyle(document.body).backgroundColor);
-    LP.avisar('Aparência: ' + nome + '. Fica salva neste navegador (T troca).', 'info', 3500);
+    if (avisar) LP.avisar('Aparência: ' + t[1] + '. Fica salva neste navegador (T troca).', 'info', 3500);
     if (LP.redesenharGraficos) LP.redesenharGraficos();
   }
+  function trocarTema() {
+    const i = TEMAS.findIndex((t) => t[0] === temaAtual());
+    aplicarTema(TEMAS[(i + 1) % TEMAS.length][0], true);
+  }
   function discretoLigado() { return document.documentElement.getAttribute('data-discreto') !== '0'; }
-  function trocarDiscreto() {
-    const ligar = !discretoLigado();
+  function trocarDiscreto(querLigar) {
+    const ligar = typeof querLigar === 'boolean' ? querLigar : !discretoLigado();
     document.documentElement.setAttribute('data-discreto', ligar ? '1' : '0');
     gravarPref({ discreto: ligar });
     marcarDiscreto();
     LP.avisar(ligar ? 'Modo discreto ligado: os e-mails aparecem mascarados (M desliga).' : 'Modo discreto desligado: os e-mails aparecem inteiros (M liga).', 'info', 3500);
+  }
+
+  // ── menu "⋯" do celular (v3.5): no topo do celular, no lugar de Aparência e Sair soltos; junta o que no computador fica
+  // no pé da lateral (estado do site, Abrir o jogo, Discreto) e pergunta antes de sair (entrar de novo pede senha e PIN) ──
+  function abrirMenuCelular() {
+    if (LP.dialogoAberto()) return;
+    const chips = Array.from($('estado-site').children).map((c) => c.cloneNode(true));
+    const estadoSite = h('div', { class: 'estado-site menu-estado', role: 'group', 'aria-label': 'Estado do site' },
+      chips.length ? chips : h('span', { class: 'texto-3' }, 'carregando…'));
+    const tema = LP.segmentos('Aparência', TEMAS.map(([v, n]) => ({ valor: v, rotulo: n })), temaAtual(), (v) => {
+      aplicarTema(v, false);
+      tema.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.valor === v)));
+    });
+    const discreto = h('input', { type: 'checkbox', role: 'switch', checked: discretoLigado(), 'aria-label': 'Modo discreto: e-mails mascarados' });
+    const txtDiscreto = h('span', { class: 'estado-txt' }, discreto.checked ? 'Ligado' : 'Desligado');
+    discreto.addEventListener('change', () => { trocarDiscreto(discreto.checked); txtDiscreto.textContent = discreto.checked ? 'Ligado' : 'Desligado'; });
+    const sairBotao = LP.botao('Sair do painel', async () => {
+      const ok = await LP.dialogo({
+        titulo: 'Sair do painel?',
+        texto: 'Para entrar de novo, você vai precisar digitar a senha e o PIN.',
+        botao: 'Sair',
+        perigo: true,
+      });
+      if (!ok) return;
+      LP.fecharDialogo(true);
+      sair();
+    }, { tipo: 'perigo', classe: 'botao-bloco', icone: 'sair' });
+    const corpo = h('div', { class: 'menu-celular' },
+      h('section', { class: 'menu-parte' }, h('h3', null, 'Estado do site'), estadoSite),
+      h('section', { class: 'menu-parte' }, h('h3', null, 'Aparência'), tema),
+      h('section', { class: 'menu-parte' }, h('h3', null, 'Modo discreto'),
+        h('label', { class: 'interruptor' }, discreto, h('span', { class: 'trilho', 'aria-hidden': 'true' }), txtDiscreto),
+        h('p', { class: 'ajuda' }, 'Ligado, os e-mails aparecem mascarados (bom para mostrar a tela a alguém).')),
+      h('a', { href: '../', target: '_blank', rel: 'noopener', class: 'botao-fantasma botao-bloco' }, 'Abrir o jogo ↗'),
+      sairBotao);
+    LP.dialogo({ titulo: 'Painel', soFechar: true, corpo: corpo });
   }
   function marcarDiscreto() {
     const b = $('botao-discreto');
@@ -305,13 +345,19 @@
     // o mesmo conteúdo do minuto anterior: só a hora muda (o "N dispensados" aberto e o foco ficam como estão)
     const chave = JSON.stringify([alertas.map((a) => [a.chave, a.nivel, a.texto, a.desde, a.dispensavel]), disp.map((x) => [x.chave, x.texto, x.em, x.por])]);
     const subNo = caixa.querySelector('.atencao-sub');
-    if (chave === estado.atencaoChave && subNo && !caixa.hidden) { subNo.textContent = sub; return; }
+    if (chave === estado.atencaoChave && subNo && !caixa.hidden) { subNo.textContent = sub; aplicarAtencaoAberta(); return; }
     estado.atencaoChave = chave;
     const dispAberto = !!caixa.querySelector('details.atencao-dispensados[open]');
     const foco = LP.guardarFoco(caixa);
     const linhas = alertas.map((a) => {
       const marca = a.nivel === 'leve' ? '·' : '⚠';
       const link = h('a', { href: linkAlerta(a.link), class: 'atencao-texto' }, a.texto);
+      // no celular: tocar no alerta recolhe a caixa e mostra a aba (mesmo endereço de agora: só rola até ela)
+      link.addEventListener('click', () => {
+        estado.atencaoAberta = false;
+        aplicarAtencaoAberta();
+        if (link.getAttribute('href') === location.hash) LP.rolarParaAba();
+      });
       const extra = a.desde && a.nivel !== 'leve' ? h('span', { class: 'texto-3 atencao-desde', title: LP.dataHoraAno(a.desde) }, LP.relativo(a.desde)) : null;
       const dispensar = a.dispensavel && LP.pode('ver') ? LP.botao('Está tudo certo', async (ev, b) => {
         if (!LP.confirmar('Some até aparecer um caso novo. Confirmar?')) return;
@@ -335,11 +381,32 @@
             carregarAtencao(true);
           } catch (e) { LP.avisarErro(e); }
         }, { tipo: 'fantasma', pequeno: true, gerundio: 'Reabrindo…' }))))) : null;
+    // no celular a caixa fica recolhida numa linha ("⚠ 9 alertas · 3 graves ▸"): com tudo aberto, a aba começava 1 a 2
+    // telas abaixo. No computador o botão some e a lista fica sempre à vista.
+    const acao = alertas.filter((a) => a.nivel === 'acao').length;
+    const dobrar = h('button', { type: 'button', class: 'atencao-dobrar' + (graves ? ' tem-grave' : ''), 'aria-controls': 'atencao-corpo', 'aria-expanded': 'false' },
+      h('span', { class: 'atencao-marca', 'aria-hidden': 'true' }, graves || acao ? '⚠' : '·'),
+      h('span', { class: 'atencao-resumo' }, LP.plural(alertas.length, 'alerta', 'alertas'),
+        graves ? h('b', { class: 'atencao-graves' }, ' · ' + LP.plural(graves, 'grave', 'graves')) : null,
+        h('span', { class: 'fora-da-tela' }, ' · Precisa de atenção')),
+      h('span', { class: 'atencao-seta', 'aria-hidden': 'true' }));
+    dobrar.addEventListener('click', () => {
+      estado.atencaoAberta = !estado.atencaoAberta;
+      aplicarAtencaoAberta();
+    });
     LP.trocar(caixa,
-      h('div', { class: 'atencao-cabeca' }, h('h2', { id: 'atencao-titulo' }, 'Precisa de atenção'), h('span', { class: 'texto-3 atencao-sub' }, sub)),
-      h('ul', { class: 'atencao-lista' }, linhas), detalhes);
+      h('div', { class: 'atencao-cabeca' }, h('h2', { id: 'atencao-titulo' }, 'Precisa de atenção'), h('span', { class: 'texto-3 atencao-sub' }, sub), dobrar),
+      h('div', { class: 'atencao-corpo', id: 'atencao-corpo' }, h('ul', { class: 'atencao-lista' }, linhas), detalhes));
     caixa.hidden = false;
+    aplicarAtencaoAberta();
     foco();
+  }
+  function aplicarAtencaoAberta() {
+    const caixa = $('atencao');
+    const b = caixa && caixa.querySelector('.atencao-dobrar');
+    if (!b) return;
+    caixa.classList.toggle('aberta', !!estado.atencaoAberta);
+    b.setAttribute('aria-expanded', String(!!estado.atencaoAberta));
   }
 
   // ── recados internos (S14): os não lidos no topo, com × por pessoa; os fixos ficam (sem ×) ────
@@ -411,6 +478,9 @@
     chips.push(s.livePublica ? LP.chip('Live pública', 'alerta') : LP.chip('Live: só a equipe', 'ok', { title: 'O público não vê a Live interativa' }));
     chips.push(s.imersivoPublico ? LP.chip('Imersivo público', 'alerta') : LP.chip('Imersivo: só a equipe', 'ok', { title: 'O público vê "Em desenvolvimento"' }));
     LP.trocar($('estado-site'), chips);
+    // no celular o estado do site fica no menu "⋯": um ponto vermelho nele com a manutenção ligada ou o cadastro fechado
+    const menu = document.querySelector('.botoes-topo-celular [data-acao="menu"]');
+    if (menu) menu.classList.toggle('com-alerta', !!s.manutencao || s.cadastroAberto === false);
     const m = estado.atual && LP.abas[estado.atual];
     if (m && m.aoResumo) m.aoResumo(r);
     tituloDocumento();
@@ -529,7 +599,11 @@
       erroEtapa('erro-pin', '');
       $('pin-quem').textContent = r.quem && r.quem.nome ? 'Entrando como ' + r.quem.nome + '.' : 'A senha conferiu. Falta o PIN de 6 dígitos.';
       $('pin-restam').textContent = typeof r.restam === 'number' ? 'Restam ' + LP.plural(r.restam, 'tentativa', 'tentativas') + '.' : '';
-      pinEntrada = caixasPin($('pin-caixas'), () => $('form-pin').requestSubmit(), true);
+      // requestSubmit() só existe a partir do Safari 16 (iOS 15 não tem): sem ele, o clique no "Entrar" faz o mesmo
+      pinEntrada = caixasPin($('pin-caixas'), () => {
+        const f = $('form-pin');
+        if (typeof f.requestSubmit === 'function') f.requestSubmit(); else $('botao-pin').click();
+      }, true);
       pinEntrada.focar();
       return;
     }
@@ -708,18 +782,26 @@
   }
 
   // ── abas e painel lateral ───────────────────────────────────────────────────────────────────
-  function sincronizarGaveta(rota) {
+  /**
+   * A ficha do hash (conta= / carreira= / mensagem=). `anterior`: o hash de antes deste hashchange. Se a ficha abriu vindo
+   * da lista da mesma aba (sem ficha), a entrada nova é marcada com essa origem: fechar pelo botão vira history.back().
+   * A ficha que fecha (ou troca) pelo voltar leva junto o diálogo que estiver aberto por cima dela (LP.gaveta).
+   */
+  function sincronizarGaveta(rota, anterior) {
     const q = rota.query;
     const aberta = LP.gaveta.aberta();
+    const daLista = !!anterior && !LP.PARAMS_GAVETA.some((k) => LP.rotaDe(anterior).query[k]) && LP.hashBase(anterior) === LP.hashBase(location.hash);
+    let abriu = false;
     if (q.conta && LP.abrirFichaConta) {
-      if (!aberta || aberta.tipo !== 'conta' || aberta.id !== String(q.conta)) LP.abrirFichaConta(q.conta);
+      if (!aberta || aberta.tipo !== 'conta' || aberta.id !== String(q.conta)) { LP.abrirFichaConta(q.conta); abriu = true; }
     } else if (q.carreira && LP.abrirFichaCarreira) {
-      if (!aberta || aberta.tipo !== 'carreira' || aberta.id !== String(q.carreira)) LP.abrirFichaCarreira(q.carreira);
+      if (!aberta || aberta.tipo !== 'carreira' || aberta.id !== String(q.carreira)) { LP.abrirFichaCarreira(q.carreira); abriu = true; }
     } else if (q.mensagem && LP.abrirFichaMensagem) {
-      if (!aberta || aberta.tipo !== 'mensagem' || aberta.id !== String(q.mensagem)) LP.abrirFichaMensagem(q.mensagem);
+      if (!aberta || aberta.tipo !== 'mensagem' || aberta.id !== String(q.mensagem)) { LP.abrirFichaMensagem(q.mensagem); abriu = true; }
     } else if (aberta) {
       LP.gaveta.esconder();
     }
+    if (abriu && daLista) LP.gaveta.marcarOrigem(anterior);
   }
   function renderizar(forcar) {
     let rota = LP.rota();
@@ -731,8 +813,9 @@
     const aba = LP.abas[rota.aba] && ABAS.some((a) => a.id === rota.aba) ? rota.aba : 'visao';
     const base = LP.hashBase(location.hash || '#/visao');
     if (!forcar && aba === estado.atual && base === estado.baseAtual) {
+      const anterior = estado.hashAtual;
       estado.hashAtual = location.hash;
-      sincronizarGaveta(rota);
+      sincronizarGaveta(rota, anterior);
       return;
     }
     const mod = LP.abas[aba];
@@ -748,8 +831,8 @@
     document.querySelectorAll('.abas a[data-aba]').forEach((a) => {
       if (a.dataset.aba === aba) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
     });
-    const ativo = document.querySelector('.abas a[aria-current="page"]');
-    if (ativo && ativo.scrollIntoView && window.matchMedia('(max-width: 960px)').matches) ativo.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    // trocou de aba: o "Precisa de atenção" do celular volta a ficar recolhido
+    if (!forcar) { estado.atencaoAberta = false; aplicarAtencaoAberta(); }
     LP.acoesAba();
     const def = ABAS.find((a) => a.id === aba);
     LP.subAba(mod.sub || '');
@@ -758,13 +841,29 @@
     estado.atual = aba;
     estado.baseAtual = base;
     estado.hashAtual = location.hash || '#/visao';
-    if (!forcar) window.scrollTo(0, 0);
     if (def && def.poder && !LP.pode(def.poder)) {
       LP.trocar(sec, LP.estadoVazio('O seu papel não abre esta parte', 'Peça para quem cuida da equipe (papel Dono) se precisar dela. O servidor barra mesmo que o endereço seja digitado.'));
     } else {
       mod.montar(sec, rota);
     }
+    // no computador, o topo; no celular, o título da aba logo abaixo do topo fixo (LP.rolarParaAba)
+    if (!forcar) LP.rolarParaAba();
+    centralizarAbaAtiva();
     sincronizarGaveta(rota);
+  }
+  /**
+   * A barra de abas do celular rola de lado: a aba ativa fica no meio dela (chegando pelos números, por um alerta, pelo
+   * voltar ou por um link, ela ficava cortada na borda). Depois de desenhar (a pílula do contador muda a largura).
+   */
+  function centralizarAbaAtiva() {
+    requestAnimationFrame(() => {
+      const nav = $('abas');
+      const a = nav && nav.querySelector('a[aria-current="page"]');
+      if (!a || nav.scrollWidth <= nav.clientWidth + 1) return;
+      const rn = nav.getBoundingClientRect();
+      const ra = a.getBoundingClientRect();
+      nav.scrollLeft = Math.max(0, nav.scrollLeft + (ra.left - rn.left) - (rn.width - ra.width) / 2);
+    });
   }
   async function podeSairDaAba() {
     const atual = estado.atual && LP.abas[estado.atual];
@@ -784,10 +883,13 @@
     estado.baseAtual = LP.hashBase(location.hash);
     estado.hashAtual = location.hash;
   };
-  window.addEventListener('hashchange', async () => {
+  window.addEventListener('hashchange', async (ev) => {
     if (!estado.logado) return;
+    // a volta do "fechar a ficha" chegou depois de outra navegação: refaz a navegação (LP.gaveta.conferirVolta)
+    if (LP.gaveta.conferirVolta(ev)) return;
     const atual = estado.atual && LP.abas[estado.atual];
     const rota = LP.rota();
+    const anterior = estado.hashAtual;
     const mudaAba = LP.hashBase(location.hash) !== estado.baseAtual;
     if (mudaAba && atual && atual.podeSair && !atual.podeSair()) {
       const destino = location.hash;
@@ -798,7 +900,7 @@
       }
       return;
     }
-    if (!mudaAba) { estado.hashAtual = location.hash; sincronizarGaveta(rota); return; }
+    if (!mudaAba) { estado.hashAtual = location.hash; sincronizarGaveta(rota, anterior); return; }
     renderizar();
   });
   window.addEventListener('beforeunload', (e) => {
@@ -871,7 +973,16 @@
       else if (acao === 'discreto') trocarDiscreto();
       else if (acao === 'atalhos') mostrarAtalhos();
       else if (acao === 'sair') sair();
+      else if (acao === 'menu') abrirMenuCelular();
     });
+    // campo de texto em foco (teclado do celular aberto): body.digitando solta a barra "N alterações não salvas" e esconde
+    // a barra de lote e a pílula de novidade, que ficariam por cima do campo na janela encolhida (painel.css)
+    const digitando = (t) => t instanceof HTMLElement && (t.isContentEditable || t.tagName === 'TEXTAREA'
+      || (t.tagName === 'INPUT' && !/^(checkbox|radio|range|color|button|submit|reset|file|hidden|image)$/i.test(t.type || '')));
+    // girar o celular (ou o teclado encolher a janela) muda a barra de abas: a ativa volta para o meio
+    window.addEventListener('resize', LP.debounce(() => { if (estado.logado) centralizarAbaAtiva(); }, 200));
+    document.addEventListener('focusin', (ev) => document.body.classList.toggle('digitando', digitando(ev.target)));
+    document.addEventListener('focusout', () => setTimeout(() => document.body.classList.toggle('digitando', digitando(document.activeElement)), 0));
     document.addEventListener('visibilitychange', () => {
       if (!document.hidden && estado.logado) { carregarAgora(); LP.atualizarResumo(); }
     });

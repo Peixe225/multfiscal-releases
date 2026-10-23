@@ -593,8 +593,11 @@ html[data-discreto="1"] .email.revelado .email-mascara { display: none; }
 .estado-carregando .esqueleto:nth-child(2n) { width: 70%; }
 
 /* ── avisos (toasts): no rodapé, ao centro ── */
-.avisos { position: fixed; left: 50%; transform: translateX(-50%); bottom: 18px; z-index: 80; display: grid; gap: 8px; width: min(460px, calc(100vw - 32px)); pointer-events: none; }
-body.com-barra .avisos, body.com-lote .avisos { bottom: 92px; }
+/* --chao: a altura onde os flutuantes (avisos e a pílula de novidade) começam: acima da barra de salvar, da barra de lote
+   (no celular, a altura medida dela: --altura-lote) e da barra do home do iPhone (safe-area) */
+body { --chao: calc(18px + env(safe-area-inset-bottom, 0px)); }
+body.com-barra, body.com-lote { --chao: 92px; }
+.avisos { position: fixed; left: 50%; transform: translateX(-50%); bottom: var(--chao); z-index: 80; display: grid; gap: 8px; width: min(460px, calc(100vw - 32px)); pointer-events: none; }
 .aviso-flutuante {
   pointer-events: auto; display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: start;
   background: var(--fundo-flutuante); border: 1px solid var(--borda-2); border-left: 4px solid var(--ouro); border-radius: 12px;
@@ -613,21 +616,26 @@ body.com-barra .avisos, body.com-lote .avisos { bottom: 92px; }
 @keyframes entrar { from { transform: translateY(8px); opacity: 0; } to { transform: none; opacity: 1; } }
 /* aviso de novidade (P1-13): "3 denúncias novas — clique para ver" */
 /* um aviso por origem (a fila da aba, os recados da equipe), empilhados */
-.novidade { position: fixed; left: 50%; transform: translateX(-50%); bottom: 18px; z-index: 75; display: flex; flex-direction: column; align-items: center; gap: 8px; max-width: calc(100vw - 2 * var(--gutter, 16px)); }
-.novidade-item { display: flex; align-items: stretch; max-width: 100%; background: var(--ouro); color: var(--sobre-ouro); border-radius: 999px; box-shadow: var(--sombra); font-weight: 700; font-size: 14px; }
-body:has(.avisos:not(:empty)) .novidade { bottom: 86px; }
-.novidade-botao { display: inline-flex; align-items: center; gap: 8px; border: 0; background: none; color: inherit; padding: 9px 6px 9px 16px; font-weight: 700; min-height: 40px; }
+.novidade { position: fixed; left: 50%; transform: translateX(-50%); bottom: var(--chao); z-index: 75; display: flex; flex-direction: column; align-items: center; gap: 8px; max-width: calc(100vw - 2 * var(--gutter, 16px)); }
+/* uma linha só, com reticências (quebrando em 5 linhas a pílula virava um círculo) */
+.novidade-item { display: flex; align-items: stretch; max-width: 100%; background: var(--ouro); color: var(--sobre-ouro); border-radius: 999px; box-shadow: var(--sombra); font-weight: 700; font-size: 14px; white-space: nowrap; }
+body:has(.avisos:not(:empty)) .novidade { bottom: calc(var(--chao) + 68px); }
+.novidade-botao { display: inline-flex; align-items: center; gap: 8px; border: 0; background: none; color: inherit; padding: 9px 6px 9px 16px; font-weight: 700; min-height: 40px; min-width: 0; flex: 1 1 auto; text-align: left; }
+.novidade-texto { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .novidade-botao svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; }
 .novidade-fechar { border: 0; background: none; color: inherit; font-size: 20px; padding: 0 14px 0 8px; min-height: 40px; }
 
 /* ── diálogo ── */
 .dialogo {
   border: 1px solid var(--borda-2); border-radius: 16px; background: var(--cartao); color: var(--texto-1);
-  padding: 0; width: min(460px, calc(100vw - 32px)); max-height: 90dvh; box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
+  padding: 0; width: min(460px, calc(100vw - 32px)); max-height: 90vh; max-height: 90dvh; box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
 }
 .dialogo.largo { width: min(980px, calc(100vw - 32px)); }
 .dialogo::backdrop { background: var(--veu); }
-.dialogo form { display: flex; flex-direction: column; max-height: calc(90dvh - 2px); }
+.dialogo form { display: flex; flex-direction: column; max-height: calc(90vh - 2px); max-height: calc(90dvh - 2px); }
+/* Safari antes do 15.4 (sem <dialog>/showModal): o LP.dialogo abre com [open] por cima de um véu próprio */
+.dialogo-sem-modal { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 101; display: block; margin: 0; }
+.dialogo-veu { position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 100; background: var(--veu); }
 .dialogo-cabeca { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 18px 20px 6px; }
 .dialogo-cabeca h2 { font-size: 18px; overflow-wrap: anywhere; }
 .dialogo-corpo { padding: 8px 20px 4px; overflow-y: auto; display: grid; gap: 14px; }
@@ -884,38 +892,35 @@ dl { margin: 0; }
 
 /* ── telas médias: lateral vira barra no topo ── */
 @media (max-width: 960px) {
+  /* as laterais com a área segura do iPhone deitado (o recorte da câmera): o viewport-fit=cover do index.html */
+  :root { --lado-esq: max(var(--gutter), env(safe-area-inset-left, 0px)); --lado-dir: max(var(--gutter), env(safe-area-inset-right, 0px)); }
   .app { grid-template-columns: minmax(0, 1fr); }
   .lateral {
     position: sticky; top: 0; z-index: 30; height: auto; overflow: visible; flex-direction: column; gap: 6px;
-    padding: 10px var(--gutter) 0; border-right: 0; border-bottom: 1px solid var(--borda); background: var(--fundo-2);
+    padding: 10px var(--lado-dir) 0 var(--lado-esq); border-right: 0; border-bottom: 1px solid var(--borda); background: var(--fundo-2);
   }
   .lateral-topo { grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; padding: 0; gap: 10px; }
   /* o "ao vivo" encolhe dentro da própria coluna (cortado à esquerda), sem passar por cima da marca */
   .ao-vivo { justify-self: stretch; justify-content: flex-end; }
   .so-celular { display: inline-flex !important; }
   .botoes-topo-celular { gap: 6px; }
-  .abas { display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; margin: 0 calc(-1 * var(--gutter)); padding: 0 var(--gutter) 6px; scroll-padding: 0 var(--gutter); scroll-snap-type: x proximity; }
+  /* sem scroll-snap: ele brigava com a rolagem que põe a aba ativa no meio (painel.js, centralizarAbaAtiva) */
+  .abas { display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; margin: 0 calc(-1 * var(--lado-dir)) 0 calc(-1 * var(--lado-esq)); padding: 0 var(--lado-dir) 6px var(--lado-esq); scroll-padding: 0 var(--gutter); overscroll-behavior-x: contain; }
   .abas::-webkit-scrollbar { display: none; }
-  .abas a { flex: none; padding: 8px 11px; font-size: 13.5px; gap: 7px; scroll-snap-align: start; min-height: 40px; }
+  .abas a { flex: none; padding: 8px 11px; font-size: 13.5px; gap: 7px; min-height: 40px; }
   .abas a svg { width: 15px; height: 15px; }
   .abas a[aria-current="page"]::before { left: 10px; right: 10px; top: auto; bottom: -6px; width: auto; height: 3px; border-radius: 3px 3px 0 0; }
   .abas kbd { display: none; }
   .abas .selo-admin { display: none; }
   .lateral-pe { display: none; }
-  .principal { padding: 0 var(--gutter) 40px; }
+  .principal { padding: 0 var(--lado-dir) 40px var(--lado-esq); }
   .cabeca { padding-top: 12px; }
   .numeros-acao { position: static; grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 
-/* ── celular ── */
+/* ── celular ── (alvos de toque, campos de 16 px e barras fixas: no bloco v3.5 do fim, que vale também deitado) */
 @media (max-width: 760px) {
-  :root { --alvo: 40px; }
   body { font-size: 15px; }
-  .botao-pequeno { min-height: 40px; padding: 6px 11px; }
-  .segmentos button, .chip-filtro, .chip-motivo, .pagina, .gaveta-voltar { min-height: 40px; }
-  .pagina { min-width: 40px; }
-  /* "mostrar" do e-mail mascarado: 40 px de alvo sem empurrar a linha (o enchimento sai pela margem negativa) */
-  html[data-discreto="1"] .email .email-mostrar { display: inline-block; line-height: 18px; padding: 11px 8px; margin: -11px -2px; }
   .numero-grande { font-size: 44px; }
   .cartao-grande { padding: 14px 16px; }
   .ladrilhos { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -932,26 +937,17 @@ dl { margin: 0; }
   .barra-nome { grid-area: nome; white-space: normal; }
   .barra-valor { grid-area: valor; }
   .barra-trilho { grid-area: trilho; height: 10px; }
-  .avisos { bottom: 12px; }
-  body.com-barra .avisos, body.com-lote .avisos { bottom: 150px; }
   .ferramentas .busca { max-width: none; flex-basis: 100%; }
   .ferramentas select { flex: 1 1 140px; min-width: 0; }
-  .ferramentas .rotulo-inline { flex: 1 1 140px; }
-  .ferramentas .rotulo-inline select { min-width: 0; flex: 1; }
+  /* o rótulo com o select ("Ação", "Quem"…) encolhe com a linha: o select largo não passa da borda */
+  .ferramentas .rotulo-inline { flex: 1 1 140px; min-width: 0; max-width: 100%; }
+  .ferramentas .rotulo-inline select, .ferramentas .rotulo-inline input { min-width: 0; flex: 1; width: auto; }
   .dialogo-cabeca, .dialogo-corpo, .dialogo-pe { padding-left: 16px; padding-right: 16px; }
   .trio { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .config-item { grid-template-columns: minmax(0, 1fr); }
   .gaveta { width: 100vw; border-left: 0; }
-  .barra-lote.com-marcados { position: fixed; left: 0; right: 0; bottom: 0; margin: 0; border-radius: 14px 14px 0 0; padding: 10px var(--gutter) calc(10px + env(safe-area-inset-bottom)); }
-  .barra-lote-acoes { margin-left: 0; }
-  body.com-lote .principal { padding-bottom: 170px; }
-  .atencao { padding: 10px 12px; }
   .atencao-linha { grid-template-columns: 18px minmax(0, 1fr); align-items: start; gap: 2px 8px; }
   .atencao-linha > :nth-child(n+4) { grid-column: 2; justify-self: start; }
-  .barra-lote:not(.com-marcados) .barra-lote-acoes, .barra-lote:not(.com-marcados) .so-com-marcados { display: none; }
-  /* com algo marcado, a barra fixa no rodapé fica só com "Desmarcar" e as ações (os "Marcar…" voltam ao desmarcar) */
-  .barra-lote.com-marcados .marcar-varios { display: none; }
-  .barra-lote .botoes { gap: 6px; }
   .recados-topo { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 420px) {
@@ -1011,7 +1007,7 @@ dl { margin: 0; }
 .msg-resposta { border-color: var(--ok-borda); }
 .msg-resposta .msg-texto { border-color: var(--ok-borda); }
 .previa-email {
-  white-space: pre-wrap; overflow-wrap: anywhere; margin: 6px 0 0; padding: 10px 12px; max-height: 42dvh; overflow: auto;
+  white-space: pre-wrap; overflow-wrap: anywhere; margin: 6px 0 0; padding: 10px 12px; max-height: 42vh; max-height: 42dvh; overflow: auto;
   font: 13px/1.5 ui-monospace, Menlo, Consolas, monospace; color: var(--texto-2); background: var(--fundo-2); border: 1px solid var(--borda); border-radius: 10px;
 }
 .gaveta-corpo .motivos-rapidos { margin: 6px 0 8px; }
@@ -1194,3 +1190,239 @@ html[data-tema="alto"] { --dif-facil: #ffc58f; --dif-medio: #ffffff; --dif-dific
 /* o tipo do desafio (rótulos longos): quebra a linha dentro do botão em vez de alargar a tela */
 .editor-desafio .segmentos { max-width: 100%; }
 .editor-desafio .segmentos button { white-space: normal; text-align: left; overflow-wrap: anywhere; }
+
+/* ═══ v3.5: o painel no celular (revisão mobile) ═══════════════════════════════════════════════════════════════════ */
+/* Duas consultas (a segunda é a LP.Q_CELULAR do nucleo.js):
+   · toque   = (max-width: 760px), (pointer: coarse), ou deitado: alvos de 40 px e campos de 16 px (com menos, o Safari
+     do iPhone dá zoom na página ao tocar no campo), também com o celular deitado e no tablet;
+   · celular = (max-width: 760px), ou até 960 px com toque ou com pouca altura (deitado): barra de lote fixa no rodapé,
+     "Precisa de atenção" recolhido, números numa faixa que rola de lado, barra de salvar solta com o teclado aberto. */
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+/* o campo encolhe com a coluna (o select largo, como "Seleção do jogador", não alarga o cartão) */
+.campo { grid-template-columns: minmax(0, 1fr); }
+/* "Precisa de atenção": o botão que recolhe a caixa só aparece no celular */
+.atencao-dobrar { display: none; }
+.botao-menu { position: relative; }
+.botao-menu svg { stroke-width: 3.4; }
+.botao-menu.com-alerta::after { content: ""; position: absolute; top: 5px; right: 5px; width: 8px; height: 8px; border-radius: 50%; background: var(--perigo); box-shadow: 0 0 0 2px var(--fundo-2); }
+/* menu "⋯" do celular */
+.menu-celular { display: grid; gap: 14px; }
+.menu-parte { margin: 0; display: grid; gap: 8px; }
+.menu-parte h3 { margin: 0; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--texto-3); }
+.menu-parte .segmentos { justify-self: start; }
+/* área segura (viewport-fit=cover): a barra de salvar e a ficha longe da barra do home e do recorte da câmera */
+.barra-salvar { bottom: calc(12px + env(safe-area-inset-bottom, 0px)); }
+.gaveta-cabeca { padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.gaveta-corpo { padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-bottom: max(16px, env(safe-area-inset-bottom, 0px)); }
+.gaveta { overscroll-behavior: contain; }
+.entrar { padding: max(var(--gutter), env(safe-area-inset-top, 0px)) max(var(--gutter), env(safe-area-inset-right, 0px)) max(var(--gutter), env(safe-area-inset-bottom, 0px)) max(var(--gutter), env(safe-area-inset-left, 0px)); }
+
+/* tabela que rola de lado (Melhores carreiras, Últimos cadastros, Ver tabela…): sombra na borda que ainda tem conteúdo.
+   O fundo "local" (da cor de baixo) rola junto e cobre a sombra quando a ponta já está à vista. */
+.rolagem {
+  --rolagem-fundo: var(--fundo);
+  --rolagem-sombra: rgba(244, 201, 93, 0.28); /* no escuro, sombra preta não aparece: um brilho dourado */
+  background:
+    linear-gradient(to right, var(--rolagem-fundo) 40%, transparent) left center / 34px 100% no-repeat local,
+    linear-gradient(to left, var(--rolagem-fundo) 40%, transparent) right center / 34px 100% no-repeat local,
+    radial-gradient(farthest-side at 0 50%, var(--rolagem-sombra), transparent) left center / 16px 100% no-repeat scroll,
+    radial-gradient(farthest-side at 100% 50%, var(--rolagem-sombra), transparent) right center / 16px 100% no-repeat scroll;
+}
+.cartao .rolagem, .cartao-grupo .rolagem { --rolagem-fundo: var(--cartao); }
+html[data-tema="claro"] .rolagem { --rolagem-sombra: rgba(60, 50, 20, 0.3); }
+html[data-tema="alto"] .rolagem { --rolagem-sombra: rgba(255, 210, 63, 0.55); }
+
+/* cartões das listas: rótulo à esquerda e valor à direita; sem espaço, o valor desce para a linha de baixo (antes
+   "há 14 min" virava "há 14" e a % das Conquistas sumia) */
+@container (max-width: 720px) {
+  .lista.cartoes td { flex-wrap: wrap; justify-content: flex-end; row-gap: 0; }
+  .lista.cartoes td::before { margin-right: auto; }
+  .lista.cartoes .quando { white-space: normal; }
+  .lista.cartoes .mini-barra { width: 56px; }
+  .lista.cartoes .celula-nota { min-width: 0; }
+  /* no cartão o texto quebra a linha: nada a esconder (o "mostrar" do e-mail tem 40 px de toque e não pode ser cortado) */
+  .lista.cartoes .celula-dupla > * { overflow: visible; overflow-wrap: anywhere; }
+}
+
+/* a dica "/" do atalho de busca: no celular não há teclado físico (e ela cortava o texto do campo) */
+@media (max-width: 960px), (pointer: coarse) {
+  .busca kbd { display: none; }
+  .busca input { padding-right: 11px; }
+}
+
+/* ── toque: alvos de 40 px e campos de 16 px ── */
+@media (max-width: 760px), (pointer: coarse), (max-width: 960px) and (max-height: 500px) {
+  :root { --alvo: 40px; }
+  .botao-pequeno { min-height: 40px; padding: 6px 11px; }
+  .segmentos button, .chip-filtro, .chip-motivo, .pagina, .gaveta-voltar, .interruptor, .caixa, .link-voltar-aba, .voltar { min-height: 40px; }
+  .pagina { min-width: 40px; }
+  /* "mostrar" do e-mail mascarado: 40 px de alvo sem empurrar a linha (o enchimento sai pela margem negativa) */
+  html[data-discreto="1"] .email .email-mostrar { display: inline-block; line-height: 18px; padding: 11px 8px; margin: -11px -2px; }
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not(.pin-caixa), select, textarea,
+  .rotulo-inline select, .rotulo-inline input, .dialogo input:not([type="checkbox"]), .dialogo select, .dialogo textarea { font-size: 16px; }
+  input[type="password"], input[type="text"], input[type="search"], input[type="number"], input[type="email"], input[type="date"], select { min-height: 40px; }
+  .alvo-caixa, .denuncia-topo .alvo-caixa { min-width: 40px; min-height: 40px; }
+  .recado-fechar { width: 40px; height: 40px; }
+  .aviso-fechar { min-width: 40px; min-height: 40px; }
+  summary, .tabela-detalhe summary, .atencao-dispensados summary, .sinais-leves summary, .verificacao > summary,
+  .detalhes-conquistas > summary, .detalhes-provas > summary { min-height: 40px; padding-top: 10px; padding-bottom: 10px; }
+  .cartao-secundario > summary, .cartao-prova-carreira > details > summary { min-height: 40px; }
+  /* links dos alertas e apelidos: 40 px de altura de toque sem mudar a altura da linha */
+  .atencao-texto { display: inline-block; padding: 10px 0; border-bottom: 0; text-decoration: underline dashed var(--borda-2); text-underline-offset: 3px; }
+  .atencao-texto:hover { text-decoration-color: var(--ouro-texto); }
+  .link-discreto { display: inline-block; min-width: 40px; padding: 11px 0; margin: -11px 0; }
+  /* na linha que já abre a ficha inteira (o cartão é o alvo) o link fica como era: o enchimento vazava da célula */
+  tr.clicavel .link-discreto { min-width: 0; padding: 0; margin: 0; }
+  input[type="range"] { min-height: 40px; }
+  .lateral .marca { min-height: 40px; align-items: center; }
+  .link-bloco { display: inline-flex; align-items: center; min-height: 40px; }
+  /* cabeçalho que ordena a tabela (no modo tabela: celular deitado, tablet): 40 px de toque sem mudar a altura */
+  .lista th button.ordenar { display: inline-block; padding: 14px 0; margin: -14px 0; }
+  /* modo tabela (celular deitado, tablet): a coluna da caixa de marcar com os 40 px da caixa e a linha clicável com 40 px */
+  @container (min-width: 721px) {
+    .rolagem > .lista.com-selecao th.selecao, .rolagem > .lista.com-selecao td.selecao { width: 46px; min-width: 46px; max-width: 46px; }
+    .rolagem > .lista.com-selecao td.principal-celula, .rolagem > .lista.com-selecao th.principal-th { left: 46px; }
+    .lista tbody tr.clicavel > td { height: 40px; }
+  }
+  .sub-nav a { display: inline-flex; align-items: center; min-height: 40px; }
+}
+
+/* ── celular (em pé, e deitado com toque) ── */
+@media (max-width: 760px), (max-width: 960px) and (pointer: coarse), (max-width: 960px) and (max-height: 500px) {
+  body { --chao: calc(12px + env(safe-area-inset-bottom, 0px)); }
+  body.com-barra { --chao: calc(150px + env(safe-area-inset-bottom, 0px)); }
+  /* acima da barra de lote fixa (altura medida pelo LP.barraLote; ela quebra em 2 ou 3 linhas) */
+  body.com-lote { --chao: calc(var(--altura-lote, 140px) + 10px); }
+  .barra-lote.com-marcados {
+    position: fixed; left: 0; right: 0; bottom: 0; margin: 0; border-radius: 14px 14px 0 0; max-height: 60vh; overflow-y: auto;
+    padding: 10px var(--lado-dir, var(--gutter)) calc(10px + env(safe-area-inset-bottom, 0px)) var(--lado-esq, var(--gutter));
+  }
+  .barra-lote-acoes { margin-left: 0; }
+  body.com-lote .principal { padding-bottom: calc(var(--altura-lote, 150px) + 24px); }
+  .barra-lote:not(.com-marcados) .barra-lote-acoes, .barra-lote:not(.com-marcados) .so-com-marcados { display: none; }
+  /* com algo marcado, a barra fixa no rodapé fica só com "Desmarcar" e as ações (os "Marcar…" voltam ao desmarcar) */
+  .barra-lote.com-marcados .marcar-varios { display: none; }
+  .barra-lote .botoes { gap: 6px; }
+  /* botões e chips compridos quebram a linha dentro deles em vez de passar da borda do cartão */
+  .botao, .botao-fantasma, .botao-perigo, .botao-ouro, .botao-ok { white-space: normal; max-width: 100%; text-align: center; }
+  .chip { white-space: normal; max-width: 100%; text-align: left; }
+  select { max-width: 100%; }
+  /* pílula de novidade: só "3 denúncias novas" (o "— clique para ver" fica no title) */
+  .novidade-dica { display: none; }
+  /* números de ação: uma faixa de uma linha que rola de lado (eram 2 linhas de 4, com 123–134 px) */
+  .numeros-acao {
+    display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; overscroll-behavior-x: contain;
+    margin: 0 calc(-1 * var(--lado-dir, var(--gutter))) 0 calc(-1 * var(--lado-esq, var(--gutter)));
+    padding: 8px var(--lado-dir, var(--gutter)) 6px var(--lado-esq, var(--gutter));
+    -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 26px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 26px), transparent);
+  }
+  .numeros-acao::-webkit-scrollbar { display: none; }
+  .numeros-acao::after { content: ""; flex: none; width: 14px; }
+  .numero-acao { flex: none; min-width: 80px; min-height: 48px; padding: 6px 10px; align-content: center; }
+  .numero-acao .na-longo { display: none; }
+  .numero-acao .na-curto { display: block; white-space: nowrap; font-size: 11.5px; }
+  /* "Precisa de atenção" recolhido numa linha ("⚠ 9 alertas · 3 graves ▸"); toca para abrir */
+  .atencao { padding: 0; }
+  .atencao-cabeca { display: block; margin: 0; }
+  .atencao-cabeca h2, .atencao-sub { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .atencao-dobrar {
+    display: flex; align-items: center; gap: 8px; width: 100%; min-height: 44px; padding: 8px 12px; border: 0; background: none;
+    color: var(--texto-1); font-weight: 650; font-size: 14.5px; text-align: left; border-radius: var(--raio);
+  }
+  .atencao-dobrar .atencao-marca { color: var(--ouro-texto); }
+  .atencao-dobrar.tem-grave .atencao-marca, .atencao-graves { color: var(--perigo); }
+  .atencao-resumo { flex: 1 1 auto; min-width: 0; }
+  .atencao-seta::before { content: "▸"; color: var(--texto-3); }
+  .atencao.aberta .atencao-seta::before { content: "▾"; }
+  .atencao:not(.aberta) .atencao-corpo { display: none; }
+  .atencao-corpo { padding: 0 12px 10px; }
+  /* teclado aberto (body.digitando): a barra de salvar volta para o fim do formulário e a de lote e a pílula de novidade
+     somem, para não ficarem por cima do campo na janela encolhida */
+  body.digitando .barra-salvar { position: static; box-shadow: none; }
+  body.digitando .barra-lote.com-marcados, body.digitando .novidade { display: none !important; }
+}
+
+/* ficha em tela cheia (até 760 px): a página de trás não rola, nem arrastando o dedo no cabeçalho da ficha */
+@media (max-width: 760px) {
+  body.com-gaveta { overflow: hidden; }
+  .gaveta-cabeca { touch-action: none; padding-left: max(12px, env(safe-area-inset-left, 0px)); padding-right: max(12px, env(safe-area-inset-right, 0px)); }
+  .gaveta-corpo { padding-left: max(16px, env(safe-area-inset-left, 0px)); }
+}
+/* até 420 px o "Voltar para Usuários" fica só com a seta (o texto vai no aria-label) e o nome da ficha ganha o espaço */
+@media (max-width: 420px) {
+  .gaveta-voltar { width: 40px; max-width: none; padding: 0; justify-content: center; flex: none; }
+  .gaveta-voltar-texto { display: none; }
+}
+/* 320 px: as 6 caixas do PIN cabem no cartão */
+@media (max-width: 340px) {
+  .pin { gap: 4px; }
+  .pin-caixa { width: 36px !important; height: 48px; font-size: 20px; }
+}
+/* deitado (pouca altura): marca, abas e "⋯" numa linha só (o topo fixo ocupava 25% da tela) */
+@media (max-width: 960px) and (max-height: 500px) {
+  .lateral { flex-direction: row; align-items: center; gap: 10px; padding-top: 4px; }
+  .lateral-topo { display: contents; }
+  .lateral .marca { order: 0; flex: none; }
+  .lateral .marca-sub, .ao-vivo { display: none; }
+  .abas { order: 1; flex: 1 1 auto; min-width: 0; margin: 0; padding: 4px 12px 6px; scroll-padding: 0 12px;
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 12px, #000 calc(100% - 12px), transparent); mask-image: linear-gradient(90deg, transparent, #000 12px, #000 calc(100% - 12px), transparent); }
+  .botoes-topo-celular { order: 2; flex: none; }
+}
+
+/* Safari antes do 16.2 não tem color-mix(): sem isto, a declaração com var() cai para o valor inicial (a moeda do
+   emblema ficava sem fundo, a barra "provada pelo aparelho" sem cor) */
+@supports not (color: color-mix(in srgb, red 50%, blue)) {
+  .emblema { background: var(--emb); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.38), 0 2px 6px -2px rgba(0, 0, 0, 0.5); }
+  .emblema-xg { box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.42), 0 6px 18px -6px rgba(0, 0, 0, 0.6); }
+  .chip-dif-facil, .chip-dif-medio, .chip-dif-dificil, .chip-dif-lendario, .lista-conquistas .chip-provada { border-color: currentColor; }
+  .barra-provas .bp-prov, .lp-marca.bp-prov { background: var(--prova); opacity: 0.45; }
+  .lista-conquistas .chip-provada-v { background: transparent; }
+}
+
+/* Safari do iOS 15 não tem container query: as listas viram cartões (e as grades uma coluna) pela largura da tela */
+@supports not (container-type: inline-size) {
+  @media (max-width: 760px) {
+    .rolagem { --fundo-fixa: var(--fundo); }
+    .lista.cartoes thead { display: none; }
+    .lista.cartoes, .lista.cartoes tbody { display: block; width: 100%; }
+    .lista.cartoes tr { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 16px; background: var(--cartao); border: 1px solid var(--borda); border-radius: 12px; padding: 8px 12px; margin-bottom: 8px; position: relative; }
+    .cartao .lista.cartoes tr, .gaveta-corpo .lista.cartoes tr { background: var(--cartao-2); }
+    .lista.cartoes tr.marcada { background: var(--ouro-escuro); border-color: var(--ouro); }
+    .lista.cartoes td { border: 0; padding: 3px 0; white-space: normal; display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: baseline; gap: 0 8px; text-align: right; min-width: 0; }
+    .lista.cartoes td::before { content: attr(data-rotulo); color: var(--texto-3); font-size: 12px; text-align: left; flex: none; margin-right: auto; }
+    .lista.cartoes td.principal-celula { grid-column: 1 / -1; order: -1; display: block; text-align: left; padding: 2px 0 6px; border-bottom: 1px solid var(--borda); margin-bottom: 4px; min-width: 0; }
+    .lista.cartoes.com-selecao td.principal-celula { padding-right: 40px; }
+    .lista.cartoes td.principal-celula::before, .lista.cartoes td.selecao::before, .lista.cartoes td.acoes::before { display: none; }
+    .lista.cartoes td.selecao { position: absolute; top: 4px; right: 6px; padding: 0; width: auto; }
+    .lista.cartoes td.selecao .alvo-caixa { min-width: 40px; min-height: 40px; }
+    .lista.cartoes td.quebra, .lista.cartoes td.sinais-celula, .lista.cartoes td.situacao, .lista.cartoes td.de-celula { grid-column: 1 / -1; min-width: 0; max-width: none; }
+    .lista.cartoes td.acoes { grid-column: 1 / -1; justify-content: flex-start; padding-top: 8px; }
+    .lista.cartoes td.acoes .botoes { flex-wrap: wrap; }
+    .lista.cartoes td:empty { display: none; }
+    .lista.cartoes .celula-larga, .lista.cartoes .celula-msg { max-width: none; }
+    .lista.cartoes .celula-dupla > * { white-space: normal; overflow: visible; overflow-wrap: anywhere; }
+    .lista.cartoes .chips { justify-content: flex-end; flex-wrap: wrap; }
+    .lista.cartoes .quando { white-space: normal; }
+    .lista.cartoes .mini-barra { width: 56px; }
+    .lista.cartoes .celula-nota { min-width: 0; }
+    .lista.cartoes .botao-compacto { padding: 4px 9px; }
+    .lista.cartoes .botao-compacto .rotulo-btn { position: static; width: auto; height: auto; overflow: visible; clip: auto; }
+    .lista.cartoes .msg-trecho { white-space: normal; }
+    .perfil-dados { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 12px; }
+    .grade-detalhe, .duas-colunas, .tres-colunas, .config-grade, .desafio-dados { grid-template-columns: minmax(0, 1fr); }
+  }
+}
+
+/* Campanhas (3 colunas no computador e com o celular deitado): na coluna estreita a barra vai para a linha de baixo do
+   nome e do valor ("5616 contas · 34 partidas" passava da coluna) */
+.tres-colunas > * { container-type: inline-size; min-width: 0; }
+@container (max-width: 320px) {
+  .barra-linha { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "nome valor" "trilho trilho"; gap: 4px 10px; }
+  .barra-nome { grid-area: nome; white-space: normal; }
+  .barra-valor { grid-area: valor; }
+  .barra-trilho { grid-area: trilho; }
+}
+/* e-mail numa coluna estreita da tabela (celular deitado, 1024 px): reticências no endereço e o "mostrar" sempre à vista
+   (o endereço passava da célula e era cortado no meio, levando o "mostrar" junto) */
+.email-real, .email-mascara { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.email-mostrar { flex: none; }

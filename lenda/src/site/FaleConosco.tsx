@@ -9,7 +9,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { CircleCheck, Copy, Mail, MessageSquareText, Send } from 'lucide-react'
 import { Button, Modal, toast } from '@/ui/primitives'
 import { codigoDeErro, mensagemDeErro } from './api'
-import { Campo, Erro, useTecladoVirtual } from './campos'
+import { Campo, Erro, aoFocarRolar, useAutoFoco, useTecladoVirtual } from './campos'
 import { useConta } from './conta'
 import { EMAIL_CONTATO, MENSAGEM_MAX, TIPOS_SUPORTE, enviarSuporte, erroPedido, type TipoSuporte } from './suporte'
 import { useSiteUi } from './ui'
@@ -40,11 +40,22 @@ export default function FaleConosco() {
   )
 }
 
+/**
+ * v3.5: o rascunho da mensagem fica guardado enquanto a página está aberta (o voltar do Android, um toque fora ou a troca de
+ * rota fecham o diálogo; reabrindo, o texto continua lá). Sai quando a mensagem é enviada.
+ */
+let rascunho = ''
+
 function Corpo({ assunto, fechar }: { assunto?: TipoSuporte; fechar: () => void }) {
+  const autoFoco = useAutoFoco()
   const usuario = useConta((s) => s.usuario)
   const logado = !!usuario
   const [tipo, setTipo] = useState<TipoSuporte>(assunto ?? 'duvida')
-  const [mensagem, setMensagem] = useState('')
+  const [mensagem, setMensagemAgora] = useState(() => rascunho)
+  const setMensagem = (v: string) => {
+    rascunho = v
+    setMensagemAgora(v)
+  }
   const [email, setEmail] = useState('')
   const [isca, setIsca] = useState('')
   const [tentou, setTentou] = useState(false)
@@ -73,6 +84,7 @@ function Corpo({ assunto, fechar }: { assunto?: TipoSuporte; fechar: () => void 
     setErro(null)
     try {
       const r = await enviarSuporte(pedido, logado)
+      rascunho = ''
       setProtocolo(r.protocolo)
     } catch (err) {
       if (codigoDeErro(err) === 'nao_logado') useConta.getState().sessaoExpirou()
@@ -146,7 +158,9 @@ function Corpo({ assunto, fechar }: { assunto?: TipoSuporte; fechar: () => void 
           onChange={(e) => setMensagem(e.target.value)}
           placeholder={tipo === 'problema' ? 'O que aconteceu? Em que tela? Se der, diga o aparelho e o navegador.' : 'Escreva aqui'}
           aria-invalid={tentou && !!problema && /mensagem|letras/i.test(problema) ? true : undefined}
-          data-autofocus
+          onFocus={aoFocarRolar}
+          /* só no computador (v3.5): no celular o teclado subia sozinho e escondia o "Assunto" antes da escolha */
+          {...(autoFoco ? { 'data-autofocus': true } : {})}
         />
       </label>
       {!logado && (

@@ -17,6 +17,7 @@ import { Button, Crest, LivePill, MedalIcon, Modal, OvrPill, Segmented, cx, useR
 import { useAchievementCatalog } from '@/ui/shell/achievementsRegistry'
 import { useShellSlots } from '@/ui/shell/slots'
 import { lazySite } from '@/ui/shell/lazySite'
+import { prefetchRoute } from '@/ui/shell/routes'
 import { sfx } from '@/ui/shell/sfx'
 import { PACE_INFO, PACES, usePrefs } from '@/ui/shared/identity/prefs'
 import { shortDate } from '@/ui/shared/live/leagues'
@@ -114,9 +115,28 @@ export default function LandingScreen() {
         : null
   const day = shortDate(data?.generatedAt)
   const trophyCount = data?.trophies.length ?? 0
-  const trophyLabel = trophyCount >= 20 ? `${Math.floor(trophyCount / 10) * 10}+ taças` : 'Taças reais'
+  const trophyLabel = !data ? null : trophyCount >= 20 ? `${Math.floor(trophyCount / 10) * 10}+ taças` : 'Taças reais'
   const paceOptions = useMemo(() => PACES.map((p) => ({ value: p, label: PACE_INFO[p].label })), [])
   const info = PACE_INFO[pace]
+
+  // a Home pinta antes do pacote de dados (celular, 4G): o toque em "Começar" espera os dados e a carreira salva
+  // (Continuar × nova) com um indicador no próprio botão, e segue sozinho quando chegam
+  const dadosProntos = useData((s) => s.status === 'ready')
+  const carreiraPronta = careerStatus === 'ready'
+  const [esperando, setEsperando] = useState(false)
+  const startRef = useRef<() => void>(() => {})
+  useEffect(() => {
+    if (esperando && dadosProntos && carreiraPronta) {
+      setEsperando(false)
+      startRef.current()
+    }
+  }, [esperando, dadosProntos, carreiraPronta])
+  const aquecer = () => prefetchRoute('/identidade')
+  const tocarComecar = () => {
+    aquecer()
+    if (!dadosProntos || !carreiraPronta) return setEsperando(true)
+    start()
+  }
 
   const start = () => {
     if (mode === 'imersivo') {
@@ -129,23 +149,24 @@ export default function LandingScreen() {
     }
     navigate('/identidade', { query: { ritmo: pace } })
   }
+  startRef.current = start
 
   return (
     <main id="conteudo" tabIndex={-1} className="relative z-[1] flex-1 w-full outline-none">
       <div className="ld-page">
         <div className="ld-hero">
           <div className="ld-copy">
-            <motion.div {...rise(rm, 0)}>
+            <motion.div className="ld-o-pill" {...rise(rm, 0)}>
               <LivePill>
                 Temporada 2026 ao vivo
                 <span className="hidden sm:inline-block w-px h-3 bg-[rgba(189,245,220,.25)]" aria-hidden />
                 <span className="hidden sm:inline text-[rgba(189,245,220,.72)] font-semibold">{day ? `Tabelas reais de ${day}` : 'Tabelas reais'}</span>
               </LivePill>
             </motion.div>
-            <motion.h1 className="ld-h1" {...rise(rm, 1)}>
+            <motion.h1 className="ld-h1 ld-o-h1" {...rise(rm, 1)}>
               Construa sua carreira no <span className="lx-metal-text">futebol.</span>
             </motion.h1>
-            <motion.p className="ld-lead" {...rise(rm, 2)}>
+            <motion.p className="ld-lead ld-o-lead" {...rise(rm, 2)}>
               <span className="ld-lead__long">
                 Escolha sua origem, tome decisões importantes e deixe o destino te levar a uma trajetória única de <b>títulos, Bolas de Ouro e noites de Copa do Mundo</b>.
               </span>
@@ -154,7 +175,7 @@ export default function LandingScreen() {
               </span>
             </motion.p>
 
-            <motion.div className="ld-modes" role="group" aria-label="Modo de jogo" {...rise(rm, 3)}>
+            <motion.div className="ld-modes ld-o-modes" role="group" aria-label="Modo de jogo" {...rise(rm, 3)}>
               <button type="button" className={cx('lx-mode ld-mode', mode === 'classico' && 'is-on')} aria-pressed={mode === 'classico'} onClick={() => { sfx.play('tap'); setMode('classico') }}>
                 {mode === 'classico' && (
                   <span className="ld-mode__chk" aria-hidden="true">
@@ -176,7 +197,7 @@ export default function LandingScreen() {
                     <Clock3 size={12} aria-hidden /> ~10 min
                   </span>
                   <span className="ld-meta">
-                    <Trophy size={12} aria-hidden /> {trophyLabel}
+                    <Trophy size={12} aria-hidden /> {trophyLabel ?? <span className="ld-meta__sk" aria-label="Carregando" />}
                   </span>
                 </span>
               </button>
@@ -228,14 +249,14 @@ export default function LandingScreen() {
 
             {/* o ritmo (decisões a cada N temporadas) é só do Clássico; no Imersivo, o que esperar */}
             {mode === 'imersivo' ? (
-              <motion.div className="ld-rhythm ld-rhythm--imm" {...rise(rm, 4)}>
+              <motion.div className="ld-rhythm ld-rhythm--imm ld-o-rhythm" {...rise(rm, 4)}>
                 <span className="lx-eyebrow max-sm:hidden">Ritmo</span>
                 <span className="ld-rhythm__hint" aria-live="polite">
                   <b>Semana a semana, partida a partida</b> · treino, imprensa, mercado e os lances decisivos de cada jogo
                 </span>
               </motion.div>
             ) : (
-              <motion.div className="ld-rhythm" {...rise(rm, 4)}>
+              <motion.div className="ld-rhythm ld-o-rhythm" {...rise(rm, 4)}>
                 <span className="lx-eyebrow max-sm:hidden" id="ld-ritmo">
                   Ritmo
                 </span>
@@ -246,8 +267,19 @@ export default function LandingScreen() {
               </motion.div>
             )}
 
-            <motion.div className="ld-ctas" {...rise(rm, 5)}>
-              <Button variant="primary" size="xl" iconRight={ArrowRight} className="ld-ctas__start" onClick={start} onMouseEnter={() => void import('@/ui/shared/identity/IdentityScreen')}>
+            <motion.div className="ld-ctas ld-o-ctas" {...rise(rm, 5)}>
+              <Button
+                variant="primary"
+                size="xl"
+                iconRight={ArrowRight}
+                className="ld-ctas__start"
+                loading={esperando}
+                aria-label={esperando ? 'Começar carreira (carregando)' : undefined}
+                onClick={tocarComecar}
+                onPointerDown={aquecer}
+                onTouchStart={aquecer}
+                onMouseEnter={aquecer}
+              >
                 Começar carreira
               </Button>
               {mode === 'imersivo' && imm && !imm.retired && (
@@ -309,7 +341,7 @@ export default function LandingScreen() {
             </motion.div>
             {/* a carreira do outro modo em andamento também aparece, numa linha discreta (as duas podem existir) */}
             {other && (
-              <motion.button type="button" className="ld-also" onClick={() => navigate(other.to)} {...rise(rm, 6)}>
+              <motion.button type="button" className="ld-also ld-o-also" onClick={() => navigate(other.to)} {...rise(rm, 6)}>
                 {other.to === '/carreira' ? <Layers size={15} aria-hidden /> : <Tv2 size={15} aria-hidden />}
                 <span className="min-w-0">
                   Também em andamento: carreira {other.to === '/carreira' ? 'clássica' : 'imersiva'} de <b>{other.surname}</b> · {other.age} anos · OVR {other.ovr}

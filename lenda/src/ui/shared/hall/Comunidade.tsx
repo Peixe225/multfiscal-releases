@@ -11,7 +11,7 @@
  * no servidor sem misturar com o Hall deste aparelho.
  */
 import { FilaEmblemas } from '@/ui/shared/emblemas/Emblema'
-import { memo, useEffect, useId, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent } from 'react'
+import { memo, useCallback, useEffect, useId, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent } from 'react'
 import { ArrowRight, CloudOff, Crown, Globe, RefreshCw, Search, Shield, Star, Users, X } from 'lucide-react'
 import { REAL_LEGENDS } from '@/engine/legacy'
 import { navigate } from '@/store/app'
@@ -66,12 +66,49 @@ function ClubeBusca({ value, onChange }: { value: string | undefined; onChange: 
   const [aberto, setAberto] = useState(false)
   const [ativo, setAtivo] = useState(0)
   const input = useRef<HTMLInputElement>(null)
+  const caixa = useRef<HTMLDivElement>(null)
   const listId = useId()
+  // celular: com o teclado aberto a janela visível encolhe; a lista cabe no que sobra (ou abre para cima)
+  const [lugar, setLugar] = useState<{ max: number; acima: boolean } | null>(null)
+  const medir = useCallback(() => {
+    const el = caixa.current
+    if (!el || typeof window === 'undefined') return
+    setLugar(lugarDaLista(el.getBoundingClientRect(), window.visualViewport ?? null, window.innerHeight))
+  }, [])
   // clubes das lendas primeiro no empate (quem busca "real" quer o Real Madrid)
   const prioridade = useMemo(() => new Set(REAL_LEGENDS.flatMap((l) => l.clubs.map((c) => c.clubId).filter((x): x is string => !!x))), [])
   const achados = useMemo(() => (clubs ? buscarClubes(clubs, q, 8, prioridade) : []), [clubs, q, prioridade])
   useEffect(() => setAtivo(0), [q])
 
+  // os hooks ficam antes do retorno do chip (com o clube escolhido, a busca não aparece)
+  const mostra = !club && aberto && q.trim().length > 0
+  useEffect(() => {
+    if (!mostra || typeof window === 'undefined') return
+    medir()
+    const vv = window.visualViewport
+    vv?.addEventListener('resize', medir)
+    vv?.addEventListener('scroll', medir)
+    window.addEventListener('scroll', medir, { passive: true })
+    return () => {
+      vv?.removeEventListener('resize', medir)
+      vv?.removeEventListener('scroll', medir)
+      window.removeEventListener('scroll', medir)
+    }
+  }, [mostra, medir])
+  /** No toque: quando o teclado abre (a janela visível encolhe), o campo sobe para o topo — a lista abre à vista. */
+  const subirCampo = () => {
+    if (typeof window === 'undefined' || !window.matchMedia?.('(pointer: coarse), (max-width: 44.99rem)').matches) return
+    const vv = window.visualViewport
+    // o teclado pode abrir antes ou depois dos 450 ms: sobe nas duas vezes (cada resize da janela visível conta)
+    const ir = () => {
+      if (document.activeElement !== input.current) return
+      caixa.current?.scrollIntoView({ block: 'start', behavior: 'auto' })
+      window.setTimeout(medir, 60)
+    }
+    vv?.addEventListener('resize', ir)
+    window.setTimeout(ir, 450)
+    window.setTimeout(() => vv?.removeEventListener('resize', ir), 1500)
+  }
   if (club) {
     return (
       <span className="hl-fchip">
@@ -102,9 +139,8 @@ function ClubeBusca({ value, onChange }: { value: string | undefined; onChange: 
       escolher(achados[ativo].id)
     } else if (e.key === 'Escape') setAberto(false)
   }
-  const mostra = aberto && q.trim().length > 0
   return (
-    <div className="hl-fsearch">
+    <div className="hl-fsearch" ref={caixa}>
       <span className="hl-fsel__ic" aria-hidden="true">
         <Search size={15} />
       </span>
@@ -122,12 +158,15 @@ function ClubeBusca({ value, onChange }: { value: string | undefined; onChange: 
         autoComplete="off"
         spellCheck={false}
         onChange={(e) => (setQ(e.target.value), setAberto(true))}
-        onFocus={() => setAberto(true)}
+        onFocus={() => {
+          setAberto(true)
+          subirCampo()
+        }}
         onBlur={() => window.setTimeout(() => setAberto(false), 150)}
         onKeyDown={teclas}
       />
       {mostra && (
-        <ul id={listId} role="listbox" className="hl-fsearch__list" aria-label="Clubes">
+        <ul id={listId} role="listbox" className={cx('hl-fsearch__list', lugar?.acima && 'is-acima')} style={lugar ? ({ ['--hl-lista-max' as string]: `${lugar.max}px` } as CSSProperties) : undefined} aria-label="Clubes">
           {achados.length ? (
             achados.map((c, i) => (
               <li key={c.id} id={`${listId}-${c.id}`} role="option" aria-selected={i === ativo} className={cx(i === ativo && 'is-on')} onMouseDown={(e) => (e.preventDefault(), escolher(c.id))} onMouseEnter={() => setAtivo(i)}>
@@ -149,6 +188,21 @@ function ClubeBusca({ value, onChange }: { value: string | undefined; onChange: 
       )}
     </div>
   )
+}
+
+/**
+ * Onde a lista de clubes cabe: embaixo do campo, até o fim da janela visível (o teclado encolhe a janela no celular);
+ * se embaixo sobrar menos de 140 px e em cima couber mais, abre para cima. Altura entre 48 e 320 px.
+ */
+export function lugarDaLista(campo: { top: number; bottom: number }, vv: { height: number; offsetTop: number } | null, janela: number): { max: number; acima: boolean } {
+  const altura = vv?.height ?? janela
+  const topo = vv?.offsetTop ?? 0
+  const abaixo = topo + altura - campo.bottom - 14
+  const acima = campo.top - topo - 14
+  // no mínimo uma opção (48 px), mesmo com pouco espaço (deitado, com o teclado: ~226 px de janela)
+  const lim = (n: number) => Math.round(Math.max(48, Math.min(320, n)))
+  if (abaixo >= 140 || abaixo >= acima) return { max: lim(abaixo), acima: false }
+  return { max: lim(acima), acima: true }
 }
 
 export function FiltroBar({ filtro, onChange }: { filtro: FiltroHall; onChange: (f: FiltroHall) => void }) {
@@ -195,8 +249,8 @@ export function StatusComunidade({ pg, onRetry }: { pg: PaginasComunidade | unde
   const vencida = proximaVencida(pg.proximaEm)
   return (
     <p className="hl-cstatus">
-      <span className="hl-cstatus__dot" aria-hidden="true" />
       <span>
+        <span className="hl-cstatus__dot" aria-hidden="true" />
         Comunidade: <b className="num">{formatInt(pg.total)}</b> {pg.total === 1 ? 'carreira' : 'carreiras'}
         {a ? ` · Atualizado às ${a}` : ''}
         {vencida ? ' · atualizando agora' : p ? ` · próxima atualização às ${p}` : ''}
@@ -312,19 +366,10 @@ export function LinhaComunidade({ c, rank, style }: { c: CarreiraComunidade; ran
             <SeloComunidade c={c} />
           </b>
           <small>
-            <span
-              className={c.perfil ? 'hl-com__dono is-link' : 'hl-com__dono'}
-              title={c.perfil ? `Ver o perfil de ${c.apelido}` : undefined}
-              onClick={
-                c.perfil
-                  ? (e) => {
-                      // o apelido leva ao perfil público (v3.3); o resto da linha abre o resumo
-                      e.stopPropagation()
-                      abrirPerfilPublico(c.perfil!)
-                    }
-                  : undefined
-              }
-            >
+            {/* v3.5: o apelido não é mais um alvo dentro da linha (no celular ele quebrava bem no meio dela, onde o dedo
+                cai, e o toque ia para o perfil em vez do resumo). A linha inteira abre o resumo, que leva ao perfil
+                em "Carreira de <apelido>". */}
+            <span className="hl-com__dono">
               <Users size={11} aria-hidden /> {c.apelido}
               {/* v3.4: os emblemas de desafio do dono, pequenos (até 3 e "+N") */}
               {c.emblemas?.length ? <FilaEmblemas lista={c.emblemas} total={c.emblemasTotal} size={13} /> : null}

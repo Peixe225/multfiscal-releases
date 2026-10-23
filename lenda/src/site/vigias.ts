@@ -345,6 +345,19 @@ async function reenviarPendentes() {
   }
 }
 
+/** v3.5: a rota mudou: fecha o diálogo do site que estiver aberto (o convite obrigatório fica; o outro conta como "Agora não"). */
+export function fecharAoMudarDeRota() {
+  const d = useSiteUi.getState().dialogo
+  if (!d) return
+  if (d.tipo === 'conta' && d.modo === 'convite') {
+    const c = useConta.getState()
+    if (c.regras.obrigatorio) return
+    c.adiarConvite()
+    track('gate_fechar', null, { partidas: c.partidas })
+  }
+  useSiteUi.getState().fechar()
+}
+
 function outroDialogoAberto(): boolean {
   if (typeof document === 'undefined') return false
   for (const el of document.querySelectorAll<HTMLElement>('[role="dialog"], [role="alertdialog"]')) {
@@ -396,6 +409,13 @@ export function iniciarSite() {
     .getState()
     .carregar()
     .then(() => reenviarPendentes())
+
+  // ── v3.5: a rota mudou com um diálogo do site aberto (um link dentro dele, um navigate de outra parte): ele fecha, em
+  // vez de ficar por cima da tela nova. O convite das 5 partidas fecha como no "Agora não" (volta depois de mais
+  // partidas); o obrigatório fica. Antes da medição das telas: a "view" da rota nova já sai sem o diálogo ──
+  useApp.subscribe((s, p) => {
+    if (s.route.path !== p.route.path) fecharAoMudarDeRota()
+  })
 
   // ── telas (a rota e os diálogos de tela cheia: Minha conta, Minhas carreiras, Conquistas) ──
   let rota = ''

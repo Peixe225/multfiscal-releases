@@ -294,6 +294,8 @@ export type RowKind = 'filled' | 'pending' | 'future'
 
 export interface TournamentMarker {
   label: string
+  /** Rótulo curto para a coluna estreita do celular ("Copa 2030" no lugar de "Copa do Mundo 2030"). */
+  short: string
   title: string
   kind: 'world_cup' | 'national_continental' | 'club_world_cup'
 }
@@ -326,7 +328,7 @@ export function tournamentMarkers(season: number, competitions: Competition[], c
     const { firstYear, every } = c.schedule
     if (year < firstYear || (year - firstYear) % every !== 0) continue
     const name = c.kind === 'world_cup' ? 'Copa do Mundo' : c.name
-    out.push({ label: `${name} ${year}`, title: `${c.name} ${year}`, kind: c.kind })
+    out.push({ label: `${name} ${year}`, short: c.kind === 'world_cup' ? `Copa ${year}` : `${name} ${year}`, title: `${c.name} ${year}`, kind: c.kind })
   }
   return out.sort((a, b) => (a.kind === 'world_cup' ? -1 : 1) - (b.kind === 'world_cup' ? -1 : 1))
 }

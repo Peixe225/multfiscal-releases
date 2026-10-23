@@ -6,15 +6,16 @@
  *        (collapses while the reveal plays so the table stays visible)
  * Keys   1–4 focus an option · Enter confirms · ←/→ move · Space skips the reveal / celebration
  */
-import { useEffect, useRef, type CSSProperties } from 'react'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { motion } from 'motion/react'
-import { ArrowRight, ChevronDown, Gauge, SkipForward } from 'lucide-react'
+import { ArrowRight, ChevronDown, Crown, Gauge, SkipForward } from 'lucide-react'
 import { navigate, useApp } from '@/store/app'
 import { decisionProgress, useCareer } from '@/store/career'
 import { getLeague, useClub } from '@/store/data'
 import { Button, clubVars, cx, formatSeason, useIsWide, useMediaQuery, useReducedMotion } from '@/ui/primitives'
 import { PlaceholderScreen } from '@/ui/shell/Placeholder'
 import { useShellSlots } from '@/ui/shell/slots'
+import { prefetchRoute } from '@/ui/shell/routes'
 import { DecisionPanel } from '@/ui/classic/decision/DecisionPanel'
 import { TrophyCelebrationHost } from '@/ui/classic/celebration/TrophyCelebration'
 import { director, useRevealDirector } from '@/ui/classic/reveal/director'
@@ -23,9 +24,10 @@ import { PlayerHeaderCard } from './PlayerHeaderCard'
 import { StatRow } from './StatRow'
 import { TrophyShowcase } from './TrophyShowcase'
 import { RightPanel } from './RightPanel'
-import { EndCard } from './EndCard'
+import { EndCard, abrirResumo } from './EndCard'
 import { DECISION_KIND_LABEL } from './model'
 import { useCockpitData } from './view'
+import { preCarregarPedacosDaCarreira } from './chunks'
 import '@/ui/shared/achievements/unlockToasts'
 import './cockpit.css'
 import '@/ui/classic/decision/decision.css'
@@ -52,6 +54,27 @@ export default function CareerScreen() {
   useCockpitKeys()
   useMobileRevealScroll(!wide)
   useShortDesktopScroll(wide)
+  // enquanto há rede: as abas sob demanda, o resumo e a identidade ("Jogar novamente") já ficam baixados —
+  // sem internet no meio da carreira eles abrem do mesmo jeito (o motor é local)
+  useEffect(() => {
+    preCarregarPedacosDaCarreira(() => {
+      prefetchRoute('/resumo')
+      prefetchRoute('/identidade')
+    })
+  }, [])
+  const finished = !!data && (data.state.phase === 'finished' || data.state.retired)
+  const showEnd = finished && !!data && !data.gates.revealing
+  useMobileEndScroll(!wide && showEnd, rm)
+  // celular sem carreira (voltar depois de "Jogar novamente", link antigo): a Home, sem empilhar no histórico.
+  // A rota entra nas dependências: voltando rápido, a mesma instância da tela (ainda saindo na animação) volta a valer
+  const path = useApp((s) => s.route.path)
+  useEffect(() => {
+    if (data || status !== 'ready' || wide || path !== '/carreira') return
+    const t = window.setTimeout(() => {
+      if (!useCareer.getState().state && useApp.getState().route.path === '/carreira') navigate('/', { replace: true })
+    }, 0)
+    return () => window.clearTimeout(t)
+  }, [data, status, wide, path])
 
   if (!data) {
     if (status !== 'ready') return null
@@ -70,8 +93,6 @@ export default function CareerScreen() {
     )
   }
 
-  const finished = data.state.phase === 'finished' || data.state.retired
-  const showEnd = finished && !data.gates.revealing
   const vars = clubVars(club ?? BRAND) as CSSProperties
   const stagger = (i: number) => (rm ? {} : { initial: { opacity: 0, y: 8 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.42, delay: 0.04 * i, ease: [0.16, 1, 0.3, 1] as const } })
 
@@ -101,8 +122,70 @@ export default function CareerScreen() {
         </motion.div>
       </div>
       {!wide && !showEnd && <MobileSheet />}
+      {!wide && showEnd && <MobileEndBar />}
       <TrophyCelebrationHost />
     </main>
+  )
+}
+
+/**
+ * Celular: a carreira acabou — o cartão "Sua carreira chegou ao fim" (com Ver resumo · Jogar novamente) fica no alto
+ * da coluna, e a página estava parada no fim da tabela (a revelação segue a linha nova). Rola até ele quando o fim
+ * chega (não ao abrir uma carreira já encerrada: aí a barra de baixo avisa).
+ */
+function useMobileEndScroll(on: boolean, rm: boolean) {
+  const was = useRef(on)
+  useEffect(() => {
+    const prev = was.current
+    was.current = on
+    if (!on || prev) return
+    let raf = 0
+    const t = window.setTimeout(() => {
+      raf = requestAnimationFrame(() => {
+        const el = document.querySelector<HTMLElement>('.ck-end')
+        if (!el) return
+        // a barra do topo só conta se ficar presa na tela (sticky/fixed); senão ela sobe junto com a página
+        const bar = document.querySelector<HTMLElement>('.lx-topbar')
+        const pos = bar ? getComputedStyle(bar).position : ''
+        const off = bar && (pos === 'sticky' || pos === 'fixed') ? bar.getBoundingClientRect().height : 0
+        const top = Math.max(0, scrollY + el.getBoundingClientRect().top - off - 10)
+        window.scrollTo({ top, behavior: rm ? 'auto' : 'smooth' })
+      })
+    }, 60)
+    return () => {
+      window.clearTimeout(t)
+      cancelAnimationFrame(raf)
+    }
+  }, [on, rm])
+}
+
+/** Celular, carreira encerrada: enquanto o cartão do fim não está na tela, uma barra fixa embaixo leva ao resumo. */
+function MobileEndBar() {
+  const [cardVisible, setCardVisible] = useState(true)
+  useEffect(() => {
+    const el = document.querySelector('.ck-end')
+    if (!el || typeof IntersectionObserver === 'undefined') {
+      setCardVisible(false)
+      return
+    }
+    const io = new IntersectionObserver(([e]) => setCardVisible(e.isIntersecting), { threshold: 0.2 })
+    io.observe(el)
+    return () => io.disconnect()
+  }, [])
+  const goCard = () => {
+    const el = document.querySelector<HTMLElement>('.ck-end')
+    if (el) window.scrollTo({ top: Math.max(0, scrollY + el.getBoundingClientRect().top - 10), behavior: 'smooth' })
+  }
+  return (
+    <div className={cx('ck-endbar', cardVisible && 'is-hidden')} aria-hidden={cardVisible || undefined} inert={cardVisible || undefined}>
+      <button type="button" className="ck-endbar__t" onClick={goCard}>
+        <Crown aria-hidden="true" />
+        <span>Fim de carreira</span>
+      </button>
+      <Button variant="primary" size="md" iconRight={ArrowRight} onClick={() => void abrirResumo().then((foi) => !foi && goCard())} className="ck-endbar__go">
+        Ver resumo
+      </Button>
+    </div>
   )
 }
 
@@ -118,10 +201,13 @@ function SessionCenter() {
   const pct = Math.min(100, (seasons.length / 24) * 100)
   return (
     <>
-      <div className="lx-session max-sm:hidden">
+      {/* celular deitado (640–760 px): só a temporada; o ritmo passava por baixo de "Salvar carreira" */}
+      <div className="lx-session ck-session max-sm:hidden">
         <b className="tabular-nums">Temporada {formatSeason(last?.season ?? data.state.season, lg?.calendar)}</b>
-        <span className="lx-session__dot" aria-hidden="true" />
-        {PACE_LABEL[data.state.pace]}
+        <span className="ck-session__pace">
+          <span className="lx-session__dot" aria-hidden="true" />
+          {PACE_LABEL[data.state.pace]}
+        </span>
       </div>
       <div className="lx-session max-lg:hidden" role="group" aria-label={`Carreira: ${seasons.length} de 24 temporadas`}>
         Carreira
@@ -141,11 +227,15 @@ function MobileSheet() {
   const set = useReveal((s) => s.set)
   const revealing = phase !== 'idle'
   const d = revealing ? frozen : state?.pendingDecision
+  useFoldOnFocusBehind(!!d && !collapsed && !revealing)
   if (!state || !d) return null
   const prog = decisionProgress(state)
   const idx = revealing ? Math.max(1, prog.index - 1) : prog.index
   return (
-    <aside className={cx('ck-sheet', collapsed && 'is-collapsed')} aria-label="Decisão">
+    // is-busy: o motor está simulando (a tela pode travar ~1 s num celular lento) — a faixa animada é só CSS
+    // (transform), roda no compositor mesmo com a página ocupada
+    <aside className={cx('ck-sheet', collapsed && 'is-collapsed', phase === 'choosing' && 'is-busy')} aria-label="Decisão">
+      {phase === 'choosing' && <span className="ck-sheet__busy" aria-hidden="true" />}
       <button type="button" className="ck-sheet__peek" aria-expanded={!collapsed} aria-controls="ck-sheet-body" onClick={() => set({ sheetCollapsed: !collapsed })}>
         <span className="ck-sheet__handle" aria-hidden="true" />
         <span className="ck-sheet__peekrow">
@@ -174,6 +264,39 @@ function MobileSheet() {
       </div>
     </aside>
   )
+}
+
+/**
+ * Teclado (Tab) com o sheet da decisão aberto: o foco que vai para o que está atrás dele (abas, vitrine, tabela)
+ * ficaria invisível. O sheet se recolhe e o elemento aparece; o cabeçalho do sheet (Tab de novo) o abre outra vez.
+ * Só com foco de teclado (:focus-visible): um toque nas abas já é tratado no RightPanel.
+ */
+function useFoldOnFocusBehind(open: boolean) {
+  useEffect(() => {
+    if (!open) return
+    const onFocus = (e: FocusEvent) => {
+      const t = e.target as HTMLElement | null
+      if (!t || !t.closest?.('.ck-layout')) return
+      let kb = false
+      try {
+        kb = t.matches(':focus-visible')
+      } catch {
+        kb = false
+      }
+      if (!kb) return
+      const sheet = document.querySelector('.ck-sheet')
+      if (!sheet) return
+      // só se o sheet cobre o elemento (deitado, com o sheet ao lado, nada a fazer)
+      const r = t.getBoundingClientRect()
+      const s = sheet.getBoundingClientRect()
+      const cobre = r.bottom > s.top && r.top < s.bottom && r.right > s.left && r.left < s.right
+      if (!cobre) return
+      useReveal.getState().set({ sheetCollapsed: true })
+      requestAnimationFrame(() => t.scrollIntoView({ block: 'nearest' }))
+    }
+    document.addEventListener('focusin', onFocus)
+    return () => document.removeEventListener('focusin', onFocus)
+  }, [open])
 }
 
 /** 1–4 focus · ←/→ move · Enter confirm (native) · Space skip. */

@@ -12,6 +12,7 @@
 import { create } from 'zustand'
 import { createJSONStorage, persist } from 'zustand/middleware'
 import type { Pace } from '@/engine/types'
+import { localSeguro, sessaoSegura } from '@/store/armazem'
 import { DEFAULT_BINDINGS, sameGift } from './gifts'
 import type { LiveSource } from './types'
 import type { VoteRules } from './votes'
@@ -227,9 +228,10 @@ export const useLiveConfig = create<ConfigStore>()(
     }),
     {
       name: CONFIG_KEY,
-      // sem storage (navegador bloqueando): o próprio zustand cai para memória — um wrapper que engole o
-      // erro faria o persist chamar setItem em undefined e a página ficar em branco
-      storage: createJSONStorage(() => localStorage),
+      // armazém seguro (store/armazem.ts): com window.localStorage null (WebView sem DOM storage) ou a cota cheia,
+      // o createJSONStorage puro deixava o setItem lançar e a página ficava preta. O seguro nunca lança: o que não
+      // coube fica na memória desta janela (e a ponte continua levando a configuração para as outras)
+      storage: createJSONStorage(() => localSeguro),
       // v2: o padrão da sala vazia subiu de 10 para 15 s (atraso do TikTok): quem estava com o padrão antigo sobe junto
       version: 2,
       migrate: (persisted, version) => migrateConfig(persisted, version) as ConfigStore,
@@ -303,7 +305,7 @@ export const useLiveSession = create<SessionStore>()(
       stop: () => set({ on: false, paused: false }),
       setPaused: (paused) => set({ paused }),
     }),
-    { name: 'lenda:live:session', version: 1, storage: createJSONStorage(() => sessionStorage) },
+    { name: 'lenda:live:session', version: 1, storage: createJSONStorage(() => sessaoSegura) },
   ),
 )
 

@@ -461,7 +461,7 @@
         { rotulo: 'Ações', acoes: true, celula: (c) => LP.botoesCarreira(c, recarregar) },
       ],
     });
-    LP.trocarNoLugar(hall.corpo, lote ? lote.no : null, hall.tabela, LP.paginacao(d.total || 0, d.pagina || hall.pagina, d.porPagina || 50, (p) => { hall.pagina = p; hall.marcados.clear(); carregarHall(); window.scrollTo(0, 0); }));
+    LP.trocarNoLugar(hall.corpo, lote ? lote.no : null, hall.tabela, LP.paginacao(d.total || 0, d.pagina || hall.pagina, d.porPagina || 50, (p) => { hall.pagina = p; hall.marcados.clear(); carregarHall(); LP.rolarParaAba(); }));
     if (lote) lote.atualizar();
   }
 
@@ -557,7 +557,7 @@
         { rotulo: 'Cópia', celula: (x) => (x.temCopia ? 'some ' + LP.relativo(x.expiraEm) : LP.chip('venceu: só a marca', '', { semPonto: true })) },
         { rotulo: 'Ações', acoes: true, celula: (x) => LP.botoesLixeira(x, recarregar) },
       ],
-    }), LP.paginacao(d.total || 0, d.pagina || hall.pagina, d.porPagina || 50, (p) => { hall.pagina = p; carregarHall(); window.scrollTo(0, 0); }));
+    }), LP.paginacao(d.total || 0, d.pagina || hall.pagina, d.porPagina || 50, (p) => { hall.pagina = p; carregarHall(); LP.rolarParaAba(); }));
   }
 
   async function atualizarHall() {
@@ -741,7 +741,7 @@
         acoes ? h('div', { class: 'denuncia-pe' }, h('span', { class: 'texto-3' }, aberta ? 'Decidir aqui fecha todas as abertas desta carreira.' : ''), acoes) : null);
       return art;
     });
-    LP.trocarNoLugar(den.corpo, lote ? lote.no : null, h('div', null, cartoes), LP.paginacao(d.total || 0, d.pagina || den.pagina, d.porPagina || 50, (p) => { den.pagina = p; den.marcados.clear(); carregarDen(); window.scrollTo(0, 0); }));
+    LP.trocarNoLugar(den.corpo, lote ? lote.no : null, h('div', null, cartoes), LP.paginacao(d.total || 0, d.pagina || den.pagina, d.porPagina || 50, (p) => { den.pagina = p; den.marcados.clear(); carregarDen(); LP.rolarParaAba(); }));
     if (lote) lote.atualizar();
   }
 

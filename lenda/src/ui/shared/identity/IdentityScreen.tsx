@@ -24,7 +24,7 @@ import { Jersey } from './Jersey'
 import { BLANK_KIT, nationKit } from './kit'
 import { NationalityPicker } from './NationalityPicker'
 import { Pitch, PositionCard } from './PositionPitch'
-import { cleanSurname, draftToIdentity, isValidNumber, PACE_INFO, PACES, usePrefs } from './prefs'
+import { cleanSurname, draftToIdentity, isValidNumber, PACE_INFO, PACES, passoValido, usePrefs } from './prefs'
 import './identity.css'
 
 /** Engine constant (career/constants.ts START_OVR): every career starts at 50. */
@@ -114,7 +114,40 @@ export default function IdentityScreen() {
   const prefPace = usePrefs((s) => s.pace)
   const setPace = usePrefs((s) => s.setPace)
   const wide = useMediaQuery('(min-width: 45rem)')
-  const [step, setStep] = useState<0 | 1 | 2>(0)
+  // o passo do assistente (celular) também vive no histórico: o "voltar" do Android volta um passo, não sai da tela
+  const [step, setStep] = useState<0 | 1 | 2>(() => passoValido(passoNoHistorico(), draft))
+  const leaving = useRef(false)
+  useEffect(() => {
+    // a entrada atual do histórico ganha o passo (recarregar no passo 2 volta ao passo 2)
+    marcarPasso(step, 'replace')
+    const onPop = () => {
+      if (leaving.current || !location.hash.startsWith('#/identidade')) return
+      const d = usePrefs.getState().draft
+      setStep(passoValido(passoNoHistorico(), d))
+    }
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  const avancar = () => {
+    const next = Math.min(2, step + 1) as 0 | 1 | 2
+    marcarPasso(next, 'push')
+    setStep(next)
+  }
+  const voltarPasso = () => {
+    if (step === 0) return navigate('/')
+    // a entrada do histórico é deste passo: o voltar do navegador faz o resto (popstate → passo anterior)
+    if (passoNoHistorico() === step) return history.back()
+    const prev = (step - 1) as 0 | 1 | 2
+    marcarPasso(prev, 'replace')
+    setStep(prev)
+  }
+  /** Antes de sair para a carreira: desfaz as entradas dos passos (o voltar de lá não reabre o formulário). */
+  const sairDoAssistente = () => {
+    leaving.current = true
+    return desempilharPassos()
+  }
+  const teclado = useTecladoAberto()
   const [confirmReplace, setConfirmReplace] = useState(false)
   const [numberText, setNumberText] = useState(draft.number)
   const searchRef = useRef<HTMLInputElement>(null)
@@ -176,6 +209,7 @@ export default function IdentityScreen() {
         const surname = identity.surname.toLowerCase().replace(/(^|[\s'-])(\p{L})/gu, (_m, a: string, b: string) => a + b.toUpperCase())
         await useImmersive.getState().start({ ...identity, surname })
         // replace: o "voltar" do navegador não reabre o formulário preenchido da carreira que já começou
+        await sairDoAssistente()
         navigate('/imersivo', { replace: true })
         return
       }
@@ -206,6 +240,7 @@ export default function IdentityScreen() {
     if (!identity) return
     await useCareer.getState().start(identity, pace, { seed, bonusOvr })
     if (bonusOvr) toast.gold(`+${bonusOvr} de OVR nesta carreira!`, `Você começa com OVR ${START_OVR + bonusOvr} e fica ${bonusOvr} acima do normal até a aposentadoria.`)
+    await sairDoAssistente()
     navigate('/carreira', { replace: true })
   }
   /**
@@ -551,7 +586,7 @@ export default function IdentityScreen() {
     const cur = steps[step]
     const last = step === 2
     return (
-      <main id="conteudo" tabIndex={-1} className="id-wrap outline-none" style={vars}>
+      <main id="conteudo" tabIndex={-1} className={cx('id-wrap outline-none', teclado && 'is-kb')} style={vars}>
         <div className="id-wiz">
           <div className="id-wiz__head">
             <div className="min-w-0 flex-1">
@@ -584,7 +619,7 @@ export default function IdentityScreen() {
             </AnimatePresence>
           </Glass>
           <div className="id-wiz__foot">
-            <Button variant="ghost" size="lg" pill icon={ArrowLeft} onClick={() => (step === 0 ? navigate('/') : setStep((s) => (s - 1) as 0 | 1 | 2))}>
+            <Button variant="ghost" size="lg" pill icon={ArrowLeft} onClick={voltarPasso}>
               Voltar
             </Button>
             {last ? (
@@ -604,7 +639,7 @@ export default function IdentityScreen() {
                     toast.info(step === 0 ? 'Escolha sua nacionalidade' : 'Complete nome e número')
                     return
                   }
-                  setStep((s) => (s + 1) as 0 | 1 | 2)
+                  avancar()
                   window.scrollTo({ top: 0 })
                 }}
               >
@@ -621,7 +656,7 @@ export default function IdentityScreen() {
 
   // ───────────────────────── tablet / desktop ─────────────────────────
   return (
-    <main id="conteudo" tabIndex={-1} className="id-wrap outline-none">
+    <main id="conteudo" tabIndex={-1} className={cx('id-wrap outline-none', teclado && 'is-kb')}>
       {title}
       <motion.div initial={rm ? false : { opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}>
         <Glass className="id-panel" padding="none" radius="xl" style={vars}>
@@ -630,7 +665,8 @@ export default function IdentityScreen() {
           {colPosition}
         </Glass>
       </motion.div>
-      <Glass className="id-actions" padding="none" style={{ position: 'sticky' }}>
+      {/* teclado aberto (janela baixa): a barra deixa de ser fixa e não cobre o campo (o CSS faz o mesmo deitado) */}
+      <Glass className="id-actions" padding="none" style={{ position: teclado ? 'static' : 'sticky' }}>
         <Button variant="ghost" size="lg" icon={ArrowLeft} onClick={() => navigate('/')}>
           Voltar
         </Button>
@@ -643,6 +679,86 @@ export default function IdentityScreen() {
       {bonusModal}
     </main>
   )
+}
+
+// ───────────────────────── assistente no histórico ─────────────────────────
+
+const PASSO = 'lendaIdPasso'
+type Passo = 0 | 1 | 2
+
+function passoNoHistorico(): number | null {
+  const v = (history.state as Record<string, unknown> | null)?.[PASSO]
+  return typeof v === 'number' ? v : null
+}
+function marcarPasso(p: Passo, como: 'push' | 'replace') {
+  // só na entrada da identidade (voltando rápido, a tela ainda montando já pode estar em outra rota)
+  if (!location.hash.startsWith('#/identidade')) return
+  const st = { ...((history.state as Record<string, unknown> | null) ?? {}), [PASSO]: p }
+  if (como === 'push') history.pushState(st, '', location.href)
+  else history.replaceState(st, '', location.href)
+}
+/** Volta as entradas dos passos (history.go(-n)) e espera o popstate (no máximo 500 ms). */
+function desempilharPassos(): Promise<void> {
+  const n = passoNoHistorico() ?? 0
+  if (n <= 0) return Promise.resolve()
+  return new Promise((ok) => {
+    let feito = false
+    const fim = () => {
+      if (feito) return
+      feito = true
+      window.removeEventListener('popstate', fim)
+      ok()
+    }
+    window.addEventListener('popstate', fim)
+    window.setTimeout(fim, 500)
+    history.go(-n)
+  })
+}
+
+/**
+ * Teclado virtual aberto: um campo de texto da tela focado e a janela visual baixa (< 480 px). É o que acontece no
+ * WebView do TikTok, do Instagram e do WhatsApp (a janela encolhe) e no Chrome do Android. Enquanto isso, o rodapé
+ * "Voltar · Continuar" sai de cima do campo, e o campo sobe para o alto da janela (depois que ela encolheu).
+ */
+function useTecladoAberto(): boolean {
+  const [aberto, setAberto] = useState(false)
+  useEffect(() => {
+    const vv = window.visualViewport
+    let t = 0
+    let alturaAntes = vv ? vv.height : innerHeight
+    const campo = (el: Element | null): el is HTMLElement =>
+      !!el && el.matches('input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="button"]), textarea') && !!el.closest('.id-wrap')
+    const medir = (rolar: boolean) => {
+      const el = document.activeElement
+      const h = vv ? vv.height : innerHeight
+      const on = campo(el) && h < 480
+      setAberto(on)
+      const encolheu = h < alturaAntes - 40
+      alturaAntes = h
+      if (on && (rolar || encolheu)) {
+        window.clearTimeout(t)
+        // depois do resize (a janela já encolheu e o rodapé já saiu de cima): o campo no alto da janela
+        t = window.setTimeout(() => {
+          if (document.activeElement === el) (el as HTMLElement).scrollIntoView({ block: 'start', inline: 'nearest' })
+        }, 80)
+      }
+    }
+    const onResize = () => medir(false)
+    const onFocus = () => window.setTimeout(() => medir(true), 0)
+    const onBlur = () => window.setTimeout(() => medir(false), 0)
+    vv?.addEventListener('resize', onResize)
+    window.addEventListener('resize', onResize)
+    document.addEventListener('focusin', onFocus)
+    document.addEventListener('focusout', onBlur)
+    return () => {
+      window.clearTimeout(t)
+      vv?.removeEventListener('resize', onResize)
+      window.removeEventListener('resize', onResize)
+      document.removeEventListener('focusin', onFocus)
+      document.removeEventListener('focusout', onBlur)
+    }
+  }, [])
+  return aberto
 }
 
 function MirroredFoot(props: LucideProps) {

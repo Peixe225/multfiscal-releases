@@ -63,7 +63,8 @@ export function showUnlockToast(ids: string[]) {
     title: one ? 'Conquista desbloqueada!' : `Você desbloqueou ${sorted.length} conquistas`,
     description: (
       <>
-        {one ? <span className="block truncate">{sorted[0].title}</span> : <span className="block truncate">{sorted.map((a) => a.title).join(' · ')}</span>}
+        {/* até 2 linhas (no celular cortava em "Você desbloqueou 4 conqui…" e no meio do nome da conquista) */}
+        <span className="block line-clamp-2">{one ? sorted[0].title : sorted.map((a) => a.title).join(' · ')}</span>
         {!one && stack(sorted.map((a) => a.id))}
       </>
     ),

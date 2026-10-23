@@ -23,7 +23,7 @@ function NavRow({ icon: Ico, label, sub, to, query, onGo }: { icon: typeof House
   return (
     <button
       type="button"
-      className="group w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-left transition-colors hover:bg-surface-2 focus-visible:bg-surface-2"
+      className="group w-full flex items-center gap-3 px-3 py-2.5 min-h-[52px] rounded-md text-left transition-colors hover:bg-surface-2 focus-visible:bg-surface-2 active:bg-surface-3"
       onClick={() => {
         sfx.play('click')
         onGo()

@@ -60,6 +60,18 @@
 }
 /* §E: o desafio que desceu para a 2ª linha (escondida): também fora do Tab e do leitor de tela (medirFaixa) */
 .s4-faixa__d.is-fora { visibility: hidden; }
+/* v3.5: com o dedo, cada desafio da faixa é um alvo de 40 px com 8 px de vão (antes 24×28 com 2 px: o toque no vão abria o
+   vizinho) e o "Ver todos" tem 40 px de altura; os que não cabem descem para a 2ª linha, escondida (medirFaixa) */
+@media (pointer: coarse) {
+  .s4-faixa { padding-top: 3px; padding-bottom: 3px; }
+  .s4-faixa__l { height: 40px; gap: 0 8px; }
+  .s4-faixa__d { height: 40px; min-width: 40px; justify-content: center; }
+  .s4-faixa__todos { height: 40px; padding: 0 12px; }
+}
+@media (pointer: coarse) and (max-width: 34rem) {
+  .s4-faixa__l { flex: 0 1 auto; min-width: 40px; }
+  .s4-faixa__d { width: 40px; padding: 0; }
+}
 
 /* ── #/desafios: os de emblema ── */
 .s4-emb-head { display: flex; align-items: center; justify-content: space-between; gap: 8px 12px; flex-wrap: wrap; }
@@ -93,3 +105,9 @@
 .s4-meus li { display: inline-flex; align-items: center; gap: 7px; height: 32px; padding: 0 11px 0 5px; border-radius: 999px; font-size: 12.5px; font-weight: 700; color: var(--text); background: var(--surface); border: 1px solid var(--border); max-width: 100%; }
 .s4-meus li span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .s4-emb.is-alvo { box-shadow: 0 0 0 2px rgba(255, 214, 110, .7), 0 18px 40px -24px rgba(255, 200, 87, .6); transition: box-shadow .3s; }
+
+/* v3.5: letras: piso de 12 px no celular (11 px só nas siglas em caixa alta: a dificuldade "FÁCIL", "MÉDIO") */
+@media (max-width: 44.99rem), (pointer: coarse) {
+  .s4-dif { font-size: 11px; height: 21px; letter-spacing: .06em; }
+  .s4-tem, .s4-emb__m, .s4-emb__x, .s4-emb__q, .s4-lote__t small { font-size: 12px; }
+}

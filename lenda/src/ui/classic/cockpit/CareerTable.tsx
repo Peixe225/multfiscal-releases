@@ -256,7 +256,7 @@ function PendingRow({ row }: { row: TableRow }) {
             {row.markers.map((m) => (
               <span key={m.label} className={cx('ck-marker', m.kind === 'world_cup' && 'ck-marker--wc')} title={m.title}>
                 <Trophy aria-hidden="true" />
-                {m.label}
+                <MarkerLabel m={m} />
               </span>
             ))}
           </>
@@ -269,6 +269,17 @@ function PendingRow({ row }: { row: TableRow }) {
       <span role="cell" />
       <span role="cell" />
     </div>
+  )
+}
+
+/** "Copa do Mundo 2030" · no celular "Copa 2030" (a coluna do clube é estreita e cortava em "COPA DO M"). */
+function MarkerLabel({ m }: { m: TableRow['markers'][number] }) {
+  if (m.short === m.label) return <span className="ck-marker__l">{m.label}</span>
+  return (
+    <>
+      <span className="ck-marker__l">{m.label}</span>
+      <span className="ck-marker__s">{m.short}</span>
+    </>
   )
 }
 
@@ -286,7 +297,7 @@ function FutureRow({ row }: { row: TableRow }) {
         {row.markers.map((m) => (
           <span key={m.label} className={cx('ck-marker', m.kind === 'world_cup' && 'ck-marker--wc')} title={m.title}>
             <Trophy aria-hidden="true" />
-            {m.label}
+            <MarkerLabel m={m} />
           </span>
         ))}
       </span>
